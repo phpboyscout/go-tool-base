@@ -95,5 +95,5 @@ Each child is wrapped exactly once with **its own** feature key. The parent's fe
 
 - [Command Constructor Pattern](../explanation/concepts/functional-options.md): rationale for `NewCmd*` and `*setup.Command`.
 - [Command Middleware System](../explanation/components/setup/middleware.md): how `Register` wires global and feature middleware.
-- [`gtb generate command`](../explanation/components/internal/commands/generate.md): the generator emits exactly this shape, so adding commands via the generator is the same as writing them by hand.
+- [`gtb generate command`](../explanation/components/cli/commands/generate.md): the generator emits exactly this shape, so adding commands via the generator is the same as writing them by hand.
 - [Migration from v0.4 to v0.5](../reference/migration/v0.4-to-v0.5.md): diff vs. the old `*cobra.Command` + `AddCommandWithMiddleware` pattern.

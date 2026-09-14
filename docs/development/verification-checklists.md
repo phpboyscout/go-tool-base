@@ -23,7 +23,7 @@ Since GTB is used by many other projects, verification must be extremely thoroug
 - [ ] `golangci-lint run --fix` passes with no warnings.
 
 ### 2. Generator Verification
-If you modified `internal/generator`:
+If you modified `cli/pkg/generator`:
 - [ ] Run `task build` to create a fresh generator binary.
 - [ ] Test the generator against a dummy project to ensure it correctly scaffolds commands and manifests.
 - [ ] Verify that `regenerate project` correctly handles existing files without data loss.

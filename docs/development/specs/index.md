@@ -80,7 +80,7 @@ conventions stay in `docs/`, because those change with the code.
 | [0068](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0068-server-options) | Functional Options for HTTP and gRPC Server Construction | `IMPLEMENTED` |
 | [0069](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command) | `gtb keys wkd`: generate the Web Key Directory tree from one or more public keys | `IMPLEMENTED` |
 | [0070](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command) | `gtb sign`: detached OpenPGP signing via a pluggable backend | `IMPLEMENTED` |
-| [0071](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature) | Generator signing support: `gtb enable signing`, scaffold `internal/trustkeys`, wire `props.Signing` | `IMPLEMENTED` |
+| [0071](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature) | Generator signing support: `gtb enable signing`, scaffold `cli/pkg/trustkeys`, wire `props.Signing` | `IMPLEMENTED` |
 | [0072](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0072-signing-release-pipeline) | Generator release-signing pipeline: `gtb enable signing` writes the GoReleaser `signs:` block | `IMPLEMENTED` |
 | [0073](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0073-bootstrap-prerun-traversal) | Framework bootstrap vs child PersistentPreRunE: stop downstream hooks silently disabling setup | `IMPLEMENTED` |
 | [0074](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0074-config-hot-reload-rework) | Config hot-reload rework: a container-owned watcher that actually reloads merged config | `IMPLEMENTED` |

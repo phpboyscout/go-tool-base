@@ -75,7 +75,7 @@ fi
 # `go run` rather than an installed binary so this script works
 # unmodified inside the goreleaser CI image (which ships Go but not
 # gtb). Local invocations can also `go run` from the repo root.
-go run ./cmd/gtb --ci sign \
+go run ./cli/cmd/gtb --ci sign \
 	--backend aws-kms \
 	--kms-region "${region}" \
 	--key-id "${key_id}" \
@@ -104,7 +104,7 @@ if [[ -n "${GTB_SIGNING_KEY_ID_2:-}" ]]; then
 	fi
 
 	AWS_ROLE_ARN="${AWS_ROLE_ARN_2:-${AWS_ROLE_ARN:-}}" \
-	go run ./cmd/gtb --ci sign \
+	go run ./cli/cmd/gtb --ci sign \
 		--backend aws-kms \
 		--kms-region "${region}" \
 		--key-id "${GTB_SIGNING_KEY_ID_2}" \

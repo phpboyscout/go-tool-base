@@ -42,7 +42,7 @@ The layout is recorded as `docs_layout: diataxis` in `.gtb/manifest.yaml`. Proje
 
 ### Portable Doc Generation 🚀
 
-Documentation builds are handled by a portable Go generator. When called from a nested package (like `internal/cmd/root`), use the following pattern:
+Documentation builds are handled by a portable Go generator. When called from a nested package (like `cli/pkg/cmd/root`), use the following pattern:
 
 ```go
 //go:generate go tool docs --project-root ../../.. --target-dir pkg/cmd/root/assets

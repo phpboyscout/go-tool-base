@@ -43,10 +43,10 @@ irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 ### From source
 
 ```bash
-go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest
+go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest
 ```
 
-The `cmd/gtb` suffix matters. The module root is a library and has no `main`
+The `cli/cmd/gtb` suffix matters. The module root is a library and has no `main`
 package, so `go install gitlab.com/phpboyscout/go-tool-base@latest` fails.
 Ensure `$GOPATH/bin` is on your `$PATH`.
 
@@ -196,7 +196,7 @@ That is expected: the tool will not guess at configuration it does not have. See
 **`module gitlab.com/phpboyscout/go-tool-base@latest found (v0.35.0), but does
 not contain package gitlab.com/phpboyscout/go-tool-base`.** The module root has
 no `main` package. Install
-`gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest` instead.
+`gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest` instead.
 
 **`go.mod requires go >= 1.26.5`.** Your toolchain is older than the module
 requires. Upgrade Go, or pin an older GTB release.

@@ -263,7 +263,7 @@ and will **never** write an ignored path, even though they run the generator
 with an "allow" overwrite mode. When `.goreleaser.yaml` is ignored (or otherwise
 unsafe to edit), enable signing leaves it byte-for-byte untouched and instead
 prints the exact top-level `signs:` block for you to paste, while still
-scaffolding `internal/trustkeys`, wiring the root command, and updating the
+scaffolding `cli/pkg/trustkeys`, wiring the root command, and updating the
 manifest. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
 
 ## The Generated Commands Index
@@ -320,5 +320,5 @@ handled specially so hand-added prose is never silently discarded:
 
 ## Related Documentation
 
-- [Generator Package](../explanation/components/internal/generator.md): full generator architecture and ignore file format
+- [Generator Package](../explanation/components/cli/generator.md): full generator architecture and ignore file format
 - [Generator Ignore File Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0048-generator-ignore-file): design specification

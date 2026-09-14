@@ -189,7 +189,7 @@ See [spec 0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-c
 
 ## Activating the keychain backend
 
-GTB itself blank-imports the module's keychain subpackage in `cmd/gtb/keychain.go`:
+GTB itself blank-imports the module's keychain subpackage in `cli/cmd/gtb/keychain.go`:
 
 ```go
 import _ "gitlab.com/phpboyscout/go/credentials/keychain"

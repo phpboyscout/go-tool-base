@@ -77,7 +77,7 @@ installs.
   you've already had a bad day.
 
 Both public halves are embedded in your tool's binary
-(`internal/trustkeys/keys/`) and published via WKD at a domain you
+(`cli/pkg/trustkeys/keys/`) and published via WKD at a domain you
 control. The verifier on the end-user side requires both keys in its
 trust set to accept a signature, but in normal operation it only
 ever sees signatures from the signing key.
@@ -89,7 +89,7 @@ When `mytool update` runs, it does this (sketch):
 1. **Download the release artefacts**: the binary plus
    `checksums.txt` plus `checksums.txt.sig`.
 2. **Load the embedded trust set**: parse the OpenPGP keys baked
-   into the running binary at `internal/trustkeys/keys/`. Both the
+   into the running binary at `cli/pkg/trustkeys/keys/`. Both the
    signing key and the rotation-authority key are present.
 3. **Fetch the WKD-served copy** of the signing key from your
    domain. Verify it matches the embedded copy by fingerprint.
@@ -159,7 +159,7 @@ gtb keys mint \
 ```
 
 The end state: `rotation.asc` + `release.asc` are ready to drop into
-`internal/trustkeys/keys/` and publish via WKD. Nothing else is
+`cli/pkg/trustkeys/keys/` and publish via WKD. Nothing else is
 needed for verification to work.
 
 For production, step 2 swaps out: instead of generating a local PEM,

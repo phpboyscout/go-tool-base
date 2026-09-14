@@ -10,7 +10,7 @@
   ],
   // The pre-commit manager is OFF by default in Renovate, so without this the
   // hook `rev:` pins in this repo's own .pre-commit-config.yaml AND in the
-  // generator's skeleton template (internal/generator/assets/skeleton/
+  // generator's skeleton template (cli/pkg/generator/assets/skeleton/
   // .pre-commit-config.yaml) never move. Enabling it keeps both current so a
   // freshly generated project is never born with stale golangci-lint /
   // pre-commit-hooks pins.
@@ -18,7 +18,7 @@
     enabled: true,
   },
   // The generator bakes version pins into places no built-in manager reads —
-  // Go source constants and Go-templated CI files under internal/generator/.
+  // Go source constants and Go-templated CI files under cli/pkg/generator/.
   // Without these customManagers those pins freeze (the cicd pin sat at
   // v0.10.5 while the framework itself ran v0.33.0), so every scaffold is born
   // stale until its own Renovate first runs. These trackers keep the template
@@ -59,7 +59,7 @@
       customType: 'regex',
       description: 'Track the phpboyscout/cicd component version the project generator bakes into every scaffolded .gitlab-ci.yml (CICDComponentVersion constant).',
       managerFilePatterns: [
-        '/^internal/generator/generator\\.go$/',
+        '/^cli/pkg/generator/generator\\.go$/',
       ],
       matchStrings: [
         'CICDComponentVersion\\s*=\\s*"(?<currentValue>v[\\d.]+)"',
@@ -73,7 +73,7 @@
       customType: 'regex',
       description: 'Track the Python version pinned in the generator GitHub-workflow skeleton (setup-python input; a plain value the github-actions manager does not follow, unlike the uses: pins it already bumps).',
       managerFilePatterns: [
-        '/^internal/generator/assets/skeleton-github/\\.github/workflows/.*\\.ya?ml$/',
+        '/^cli/pkg/generator/assets/skeleton-github/\\.github/workflows/.*\\.ya?ml$/',
       ],
       matchStrings: [
         'python-version:\\s*["\']?(?<currentValue>\\d+\\.\\d+\\.\\d+)',

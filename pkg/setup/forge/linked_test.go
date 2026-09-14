@@ -81,9 +81,9 @@ func TestUnlinked_DisabledFeaturesAreNotChecked(t *testing.T) {
 }
 
 // TestUnlinked_RealRegistry runs the exported query against the real registry
-// with every forge feature enabled. Every forge adapter is linked into this
-// test binary through pkg/setup/providers.go, so the result must be empty; the
-// day that file goes, this test is what says which imports the binary lost.
+// with every forge feature enabled. The framework links no adapter (spec 0194
+// D3), so every profile is reported, each with the module the hint will name.
+// cli/cmd/gtb carries the mirror test asserting the empty result.
 func TestUnlinked_RealRegistry(t *testing.T) {
 	t.Parallel()
 
@@ -92,7 +92,12 @@ func TestUnlinked_RealRegistry(t *testing.T) {
 		tool.Features = append(tool.Features, props.Feature{ID: feature, Enabled: true})
 	}
 
-	assert.Empty(t, Unlinked(tool))
+	missing := Unlinked(tool)
+	require.Len(t, missing, len(profilesByFeature))
+
+	for _, m := range missing {
+		assert.NotEmpty(t, m.Module, "%s has no module for the hint", m.Label)
+	}
 }
 
 func TestUnlinkedError(t *testing.T) {

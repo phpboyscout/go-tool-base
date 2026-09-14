@@ -8,7 +8,7 @@ before:
 
 builds:
   - id: gtb-darwin
-    main: ./cmd/gtb
+    main: ./cli/cmd/gtb
     env:
       - CGO_ENABLED=0
       - GOLANG_FIPS=1
@@ -21,10 +21,10 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X gitlab.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
-      - -X gitlab.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+      - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.date={{.Date}}
+      - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
   - id: gtb
-    main: ./cmd/gtb
+    main: ./cli/cmd/gtb
     env:
       - CGO_ENABLED=0
       - GOLANG_FIPS=1
@@ -38,8 +38,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X gitlab.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
-      - -X gitlab.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+      - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.date={{.Date}}
+      - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
 
 notarize:
   macos:

@@ -11,7 +11,7 @@ Feature: Custom template-overlay source lifecycle
   the group's --help listing. These scenarios cover the hermetic happy-path
   lifecycle with a local-folder source (no network). The git pin-advancing
   `template update` path needs a real clone and is exercised by the @vcs
-  integration suite (internal/generator/templatesource_integration_test.go).
+  integration suite (cli/pkg/generator/templatesource_integration_test.go).
 
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 

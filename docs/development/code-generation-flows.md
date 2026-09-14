@@ -114,10 +114,10 @@ flowchart TD
 
 | Command | Package | Cobra handler | Generator method |
 |---|---|---|---|
-| `generate project` | `internal/cmd/generate/project.go` | `SkeletonOptions.Run()` | `GenerateSkeleton()` |
-| `generate command` | `internal/cmd/generate/command.go` | `CommandOptions.Run()` | `Generate()` |
-| `regenerate project` | `internal/cmd/regenerate/project.go` | `ProjectOptions.Run()` | `RegenerateProject()` |
-| `regenerate manifest` | `internal/cmd/regenerate/manifest.go` | `ManifestOptions.Run()` | `RegenerateManifest()` |
+| `generate project` | `cli/pkg/cmd/generate/project.go` | `SkeletonOptions.Run()` | `GenerateSkeleton()` |
+| `generate command` | `cli/pkg/cmd/generate/command.go` | `CommandOptions.Run()` | `Generate()` |
+| `regenerate project` | `cli/pkg/cmd/regenerate/project.go` | `ProjectOptions.Run()` | `RegenerateProject()` |
+| `regenerate manifest` | `cli/pkg/cmd/regenerate/manifest.go` | `ManifestOptions.Run()` | `RegenerateManifest()` |
 
 ### Dry run
 
@@ -222,7 +222,7 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 
 | Function | File | Purpose |
 |---|---|---|
-| `runWizard()` | `internal/cmd/generate/project.go` | Multi-stage huh form: project basics, git config, help config |
+| `runWizard()` | `cli/pkg/cmd/generate/project.go` | Multi-stage huh form: project basics, git config, help config |
 | `GenerateSkeleton()` | `skeleton.go` | Top-level orchestrator: loads stored hashes, writes Go files + template files, persists manifest with hashes |
 | `generateSkeletonGoFiles()` | `skeleton.go` | Renders `main.go`, `version.go`, `root/cmd.go` via Jennifer |
 | `loadProjectFileHashes()` | `skeleton.go` | Reads existing manifest and returns its top-level `Hashes` map (empty map on first run) |
@@ -235,7 +235,7 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 
 | Function | File | Purpose |
 |---|---|---|
-| `runInteractivePrompt()` | `internal/cmd/generate/command.go` | Multi-stage huh wizard: main config, flag definitions, AI prompt |
+| `runInteractivePrompt()` | `cli/pkg/cmd/generate/command.go` | Multi-stage huh wizard: main config, flag definitions, AI prompt |
 | `checkProtection()` | `commands.go` | Rejects regeneration of protected commands |
 | `processAIGeneration()` / `handleAIGeneration()` | `commands.go` | Calls AI API to generate RunX implementation |
 | `startAIGeneration()` / `resolveInput()` | `commands.go` | Resolves prompt source and executes AI request |
@@ -332,7 +332,7 @@ The manifest is the single source of truth for `regenerate project`. It reads no
 
 ## Package Structure
 
-The `internal/generator` package is split into focused files:
+The `cli/pkg/generator` package is split into focused files:
 
 | File | Responsibility |
 |---|---|

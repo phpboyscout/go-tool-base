@@ -335,13 +335,29 @@ func TestDefaultUploadConfirmFormCreator(t *testing.T) {
 
 // --- defaultKeyManager ---
 
+// TestDefaultKeyManager resolves the key manager through the registry for a
+// type this test registers itself: the framework links no forge adapter, so a
+// real type would be a miss here (that miss is TestDefaultKeyManager_Unlinked).
 func TestDefaultKeyManager(t *testing.T) {
 	t.Parallel()
 
+	registerTestForge(t, "km-test", capturingProvider{})
+
 	cfg := testutil.ViewFromYAML(t, "")
-	km, err := defaultKeyManager(gitHubProfile)(t.Context(), cfg)
+	km, err := defaultKeyManager(Profile{Provider: "km-test", Label: "KM Test"})(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, km)
+}
+
+// TestDefaultKeyManager_Unlinked is the registry miss a hand-wired tool sees
+// when it enables a forge whose adapter it did not import.
+func TestDefaultKeyManager_Unlinked(t *testing.T) {
+	t.Parallel()
+
+	cfg := testutil.ViewFromYAML(t, "")
+	_, err := defaultKeyManager(gitHubProfile)(t.Context(), cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no release provider registered")
 }
 
 // --- validateSSHKey ---
@@ -519,6 +535,7 @@ func TestHandleSSHKeySelection_Generate(t *testing.T) {
 
 				return nil
 			}),
+			WithKeyManager(keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))),
 		},
 	}
 	keyType, keyPath, err := handleSSHKeySelection(gitHubProfile, p, cfg, "generate", opts)

@@ -130,7 +130,7 @@ The `go/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and 
 - Config writes: `{provider}.api.keychain: <tool>/<account>` lands in config, no literal value on disk.
 - Resolver: `pkg/chat.New`, `pkg/vcs.ResolveToken`, and `bitbucket.NewReleaseProvider` all resolve through the backend.
 - Bitbucket JSON-blob corrupt/incomplete abort.
-- Regulated-build stripping via `rm cmd/e2e/keychain.go`.
+- Regulated-build stripping via `rm cli/cmd/e2e/keychain.go`.
 
 **What this does NOT cover:**
 
@@ -138,7 +138,7 @@ The `go/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and 
 
 ### Swap in the memory backend
 
-Replace `cmd/e2e/keychain.go` with:
+Replace `cli/cmd/e2e/keychain.go` with:
 
 ```go
 package main
@@ -147,7 +147,7 @@ package main
 // can be tested on a host that lacks a real Secret Service provider.
 // See docs/development/testing/headless-keychain-testing.md.
 //
-// Do NOT commit this form — cmd/e2e ships with the real backend so
+// Do NOT commit this form — cli/cmd/e2e ships with the real backend so
 // CI exercises the full go-keyring path.
 
 import (
@@ -178,11 +178,11 @@ go build -o bin/e2e ./cmd/e2e
 ### Restore before committing
 
 ```bash
-git checkout -- cmd/e2e/keychain.go
-git diff cmd/e2e/keychain.go   # should be empty
+git checkout -- cli/cmd/e2e/keychain.go
+git diff cli/cmd/e2e/keychain.go   # should be empty
 ```
 
-Never commit the swapped version: `cmd/e2e` must ship with the real backend so the Gherkin suite in CI exercises the full go-keyring path.
+Never commit the swapped version: `cli/cmd/e2e` must ship with the real backend so the Gherkin suite in CI exercises the full go-keyring path.
 
 ## Related
 

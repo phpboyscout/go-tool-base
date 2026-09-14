@@ -12,19 +12,19 @@ The generator renders scaffolded project files from `text/template` using inputs
 
 Two complementary layers of defence apply to every user-influenced field:
 
-1. **Input validation (`internal/generator/validate.go`)**: a constrained character class per field rejects structurally dangerous values at the entry point. Most injection vectors collapse if the input never matches a template-active character.
-2. **Output escaping (`internal/generator/template_escape.go`)**: context-aware escape functions pipe values through at non-code template sites, so even if validation ever widens or a new input field is added, the rendering layer remains safe.
+1. **Input validation (`cli/pkg/generator/validate.go`)**: a constrained character class per field rejects structurally dangerous values at the entry point. Most injection vectors collapse if the input never matches a template-active character.
+2. **Output escaping (`cli/pkg/generator/template_escape.go`)**: context-aware escape functions pipe values through at non-code template sites, so even if validation ever widens or a new input field is added, the rendering layer remains safe.
 
 ## Scope
 
-This page covers the defence layers inside `internal/generator/`. Other generator inputs (command flags, manifest commands) follow their own conventions:
+This page covers the defence layers inside `cli/pkg/generator/`. Other generator inputs (command flags, manifest commands) follow their own conventions:
 
 - Jennifer-generated Go (`skeleton_root.go` and friends) handles escaping via `jen.Lit()`, which produces correctly-escaped Go literals automatically. No additional template-escape helpers apply there.
 - Shell and OS commands run by the generator use `exec.Command` (no shell) so argument quoting is not a concern.
 
 ## Input Validation
 
-Every user-influenced field has a dedicated validator in `internal/generator/validate.go`. Each validator:
+Every user-influenced field has a dedicated validator in `cli/pkg/generator/validate.go`. Each validator:
 
 - Normalises the input to Unicode NFC form before checking. Homoglyph attacks (`ρaypal`, hidden ZWJ) fail fast this way.
 - Applies a strict, anchored regex or structural check (e.g. `url.Parse` + scheme allowlist for endpoints).
@@ -59,7 +59,7 @@ Every user-influenced field has a dedicated validator in `internal/generator/val
 | `Signing.Backend` (`ValidateSigningBackend`) | `^[a-z][a-z0-9-]{0,31}$` (or empty) | Registered `gtb sign` backend names (`aws-kms`, `local`); rendered into the CI-executed `.goreleaser.yaml` signs block. |
 | `Signing.KMSRegion` (`ValidateSigningKMSRegion`) | `^[a-z][a-z0-9-]{0,31}$` (or empty) | AWS region identifiers; same render site. |
 | `Signing.KeyID` (`ValidateSigningKeyID`) | `^[a-zA-Z0-9:/_.=+,@-]{1,256}$` (or empty), and must not contain a literal `..` substring | KMS ids/ARNs/aliases plus the local backend's PEM paths; quotes, whitespace, and control characters are outside the class so the value cannot break out of its quoted YAML scalar. The `..` rejection is defence-in-depth: legitimate KMS ids/ARNs/aliases (`alias/my-key`) and local relative PEM paths (`./release.pem`) never contain it. |
-| `Signing.PublicKey` (`ValidateSigningPublicKey`) | Clean `/`-separated path relative to the project root; a single leading `./` is normalised away (`./key.asc` is accepted as `key.asc`); no absolute paths, `..` segments, or backslashes; segments `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$` | The field is a path to the armored public-key file (default `internal/trustkeys/keys/signing-key-v1.asc`), not inline armor. The leading-`./` normalisation is a friendliness affordance; the path must still resolve cleanly inside the project root after it. |
+| `Signing.PublicKey` (`ValidateSigningPublicKey`) | Clean `/`-separated path relative to the project root; a single leading `./` is normalised away (`./key.asc` is accepted as `key.asc`); no absolute paths, `..` segments, or backslashes; segments `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$` | The field is a path to the armored public-key file (default `cli/pkg/trustkeys/keys/signing-key-v1.asc`), not inline armor. The leading-`./` normalisation is a friendliness affordance; the path must still resolve cleanly inside the project root after it. |
 | `Signing.ExternalKeyEmail` (`ValidateSigningExternalKeyEmail`) | Email-shaped: `local@domain` with a single `@`, no whitespace or control characters; ≤ 254 bytes (or empty) | Written raw into the `// gtb:signing` annotation of the generated `pkg/cmd/root/provenance.go`; the class excludes newlines (comment breakout) and spaces (the annotation's space-separated KV encoding). |
 | `Signing.KeySource` (`ValidateSigningKeySource`) | One of `embedded`, `external`, `both` (or empty) | Enum for the trust-anchor source recorded in the manifest and the provenance annotation; an unknown value is rejected rather than silently recorded. |
 | `ReleaseSource.Type` (`ValidateReleaseSourceType`) | One of `github`, `gitlab` (or empty for the host-derived default) | Selects the skeleton asset set; `gitea`/`bitbucket` are reserved for the forge adapters but rejected until skeleton assets exist for them. |
@@ -113,7 +113,7 @@ pipe keeps the output safe if a validator is ever widened. The
 `TestEscape_HelpersWiredAtDocumentedSites` test asserts the pipes stay in place.
 
 Not every render site is a `text/template`: the boilerplate docs builder
-(`internal/generator/docs.go`) assembles Markdown with `fmt.Fprintf` on a
+(`cli/pkg/generator/docs.go`) assembles Markdown with `fmt.Fprintf` on a
 `strings.Builder`, so the FuncMap pipes never apply there. Its sites call the
 helpers directly: `escapeMarkdown` for the description/long-description prose
 and `escapeMarkdownTableCell` (composed with `escapeMarkdown`) for every flags-
@@ -137,7 +137,7 @@ Every escape function is:
 | `escapeYAML` | Double-quoted YAML scalar with `\`/`"`/control bytes escaped. Unconditional quoting avoids YAML 1.1/1.2 implicit-typing edge cases (`yes`, `null`, `1.0`). |
 | `escapeMarkdown` | CommonMark prose context. Escapes `\`, backtick, `*`, `[`, `]`, `<`, `>`, `|`, `{`, `}`, `!`, `#`. Leaves `_`, `.`, `-`, `+` alone so ordinary prose (`v1.0.0`, `foo_bar`) survives unchanged. |
 | `escapeMarkdownCodeBlock` | Fenced code block content. Runs of 3+ backticks are broken with a zero-width space between the 2nd and 3rd so the enclosing fence cannot close early. Idempotent by construction. |
-| `escapeMarkdownTableCell` | GFM table cell content. Newlines collapse to spaces (a newline terminates the row), any `\|` not already backslash-escaped becomes `\\\|` (honoured by GFM even inside code spans), remaining control bytes are stripped. Composes with `escapeMarkdown` and is idempotent. Used by the boilerplate docs builder (`internal/generator/docs.go`) for the flags and subcommands tables. |
+| `escapeMarkdownTableCell` | GFM table cell content. Newlines collapse to spaces (a newline terminates the row), any `\|` not already backslash-escaped becomes `\\\|` (honoured by GFM even inside code spans), remaining control bytes are stripped. Composes with `escapeMarkdown` and is idempotent. Used by the boilerplate docs builder (`cli/pkg/generator/docs.go`) for the flags and subcommands tables. |
 | `escapeTOML` | TOML basic-string interior (without enclosing quotes). |
 | `escapeComment` | Single-line comment contexts (`#` in YAML / justfile / CODEOWNERS). Newlines and NUL bytes become spaces so comment scope cannot escape. |
 | `escapeShellArg` | POSIX single-quoted shell argument; interior single quotes become `'\''`. Used in justfile recipe bodies when user input reaches a shell. |
@@ -165,7 +165,7 @@ GTB's guarantees for custom overlays are therefore confined to **where** output 
 | Control | What it stops | Where |
 |---------|---------------|-------|
 | **Write-path containment** | A source file rendering to `../escape` or an absolute path leaving the project tree | `containedOutputPath`: `filepath.Abs` + `filepath.Rel` confine every output strictly under the project root |
-| **Protected-path denylist** | An overlay shadowing `.gtb/**` (manifest/ignore), `internal/trustkeys/**` (signing anchors), or `go.mod`/`go.sum` (supply-chain injection | `isProtectedOverlayPath`) denied unconditionally, even for a `replaces:` source |
+| **Protected-path denylist** | An overlay shadowing `.gtb/**` (manifest/ignore), `cli/pkg/trustkeys/**` (signing anchors), or `go.mod`/`go.sum` (supply-chain injection | `isProtectedOverlayPath`) denied unconditionally, even for a `replaces:` source |
 | **Restricted FuncMap** | A template reaching a file/exec/env/network helper | `overlayFuncMap`: only the pure escape helpers + pure string/format funcs; nothing that reads files, runs commands, opens sockets, or reads env |
 | **Metadata-only data contract** | Exfiltration of secrets via the data context | `TemplateContractData`: a versioned, secret-free projection of `skeletonTemplateData`; no resolved token, env var, absolute path, or forge credential is reachable |
 | **Inert fetch** | Clone-time code execution (hooks, filters, submodules) | go-git `PlainClone` runs no hooks/filters; submodules are not recursed; a per-file 1 MiB bound caps a pathological source |

@@ -73,7 +73,7 @@ The restricted template FuncMap exposes the escape helpers (`escapeYAML`, `escap
 Custom overlays execute `text/template` content GTB did not author. The posture is **trusted-source with bounded blast radius**, not a sandbox. GTB enforces:
 
 - **Write-path containment** under the project root: a source rendering to `../escape` or an absolute path is refused.
-- A **protected-path denylist**: an overlay may never write `.gtb/**`, `internal/trustkeys/**`, or `go.mod`/`go.sum`, even when it otherwise overwrites freely.
+- A **protected-path denylist**: an overlay may never write `.gtb/**`, `cli/pkg/trustkeys/**`, or `go.mod`/`go.sum`, even when it otherwise overwrites freely.
 - A **restricted FuncMap** and a **metadata-only data contract** (no secrets reachable).
 - **Inert fetch** (no hooks, filters, or submodule recursion) and a per-file size bound.
 

@@ -18,7 +18,7 @@ not_counted:
   - cmd/
   - internal/exectest
   - internal/version
-  - test/e2e/support
+  - cli/test/e2e/support
   - test/integration/controls
 
 # Packages permitted below the threshold, each with a rationale. Keep in sync
@@ -28,20 +28,20 @@ excluded:
   # --- Bucket A: exclude by design ---
   - { pkg: pkg/docs, reason: "Bubble Tea markdown-browser TUI (E2E/manual)" }
   - { pkg: pkg/cmd/docs, reason: "Wrapper around the docs TUI; residual lines are tea.NewProgram().Run() + live HTTP serve (covered to the TTY ceiling)" }
-  - { pkg: internal/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }
+  - { pkg: cli/pkg/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }
   # --- Bucket B: generator CLI, covered by @generator BDD E2E + generator_build ---
-  - { pkg: internal/cmd, reason: "Generator CLI shared wiring — covered by @generator BDD E2E" }
-  - { pkg: internal/cmd/enable, reason: "Generator CLI — features/generator/feature-toggle + signing-lifecycle BDD" }
-  - { pkg: internal/cmd/disable, reason: "Generator CLI — @generator BDD" }
-  - { pkg: internal/cmd/attach, reason: "Generator CLI — features/generator/external-command-attachment BDD" }
-  - { pkg: internal/cmd/detach, reason: "Generator CLI — features/generator/external-command-attachment BDD" }
-  - { pkg: internal/cmd/generate, reason: "Generator CLI — features/generator/* + generator_build" }
-  - { pkg: internal/cmd/regenerate, reason: "Generator CLI — @generator BDD" }
-  - { pkg: internal/cmd/remove, reason: "Generator CLI — @generator BDD" }
-  - { pkg: internal/cmd/root, reason: "Generator CLI root wiring — @generator BDD" }
-  - { pkg: internal/cmd/template, reason: "Generator CLI — features/generator/custom-templates + template-lifecycle BDD" }
-  - { pkg: internal/cmd/sign, reason: "Sign CLI — features/cli/sign.feature" }
-  - { pkg: internal/cmd/keys, reason: "Keys CLI — features/cli/keys.feature" }
-  - { pkg: internal/generator/verifier, reason: "Post-generation verifier — verifier_integration_test.go (generator_build)" }
+  - { pkg: cli/pkg/cmd, reason: "Generator CLI shared wiring — covered by @generator BDD E2E" }
+  - { pkg: cli/pkg/cmd/enable, reason: "Generator CLI — features/generator/feature-toggle + signing-lifecycle BDD" }
+  - { pkg: cli/pkg/cmd/disable, reason: "Generator CLI — @generator BDD" }
+  - { pkg: cli/pkg/cmd/attach, reason: "Generator CLI — features/generator/external-command-attachment BDD" }
+  - { pkg: cli/pkg/cmd/detach, reason: "Generator CLI — features/generator/external-command-attachment BDD" }
+  - { pkg: cli/pkg/cmd/generate, reason: "Generator CLI — features/generator/* + generator_build" }
+  - { pkg: cli/pkg/cmd/regenerate, reason: "Generator CLI — @generator BDD" }
+  - { pkg: cli/pkg/cmd/remove, reason: "Generator CLI — @generator BDD" }
+  - { pkg: cli/pkg/cmd/root, reason: "Generator CLI root wiring — @generator BDD" }
+  - { pkg: cli/pkg/cmd/template, reason: "Generator CLI — features/generator/custom-templates + template-lifecycle BDD" }
+  - { pkg: cli/pkg/cmd/sign, reason: "Sign CLI — features/cli/sign.feature" }
+  - { pkg: cli/pkg/cmd/keys, reason: "Keys CLI — features/cli/keys.feature" }
+  - { pkg: cli/pkg/generator/verifier, reason: "Post-generation verifier — verifier_integration_test.go (generator_build)" }
   # --- OQ3 -> A: internal/generator pure helpers covered; emission excluded ---
-  - { pkg: internal/generator, reason: "Pure manifest/merge/validation/template-source helpers unit-tested (~79% ceiling); file-emission/diff-pager/AI/git-clone covered by generator_build/E2E" }
+  - { pkg: cli/pkg/generator, reason: "Pure manifest/merge/validation/template-source helpers unit-tested (~79% ceiling); file-emission/diff-pager/AI/git-clone covered by generator_build/E2E" }

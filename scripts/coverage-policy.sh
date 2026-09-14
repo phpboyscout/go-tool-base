@@ -104,7 +104,7 @@ if [ ! -f "$COVER" ]; then
 	echo "coverage-policy: $COVER not found, generating it (this can take a few minutes)"
 	test_err=$(mktemp)
 	trap 'rm -f "$test_err"' EXIT
-	if ! go test -race -coverprofile="$COVER" ./... >/dev/null 2>"$test_err"; then
+	if ! go test -race -coverprofile="$COVER" ./... ./cli/... >/dev/null 2>"$test_err"; then
 		echo "coverage-policy: the coverage run failed." >&2
 		echo "coverage-policy: ---- go test stderr ----" >&2
 		cat "$test_err" >&2

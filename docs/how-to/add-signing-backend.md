@@ -97,7 +97,7 @@ Backends register by side effect, so a blank import is all it takes:
 ```go
 // cmd/your-cli/main.go
 import (
-    "gitlab.com/phpboyscout/go-tool-base/internal/cmd/root"
+    "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/root"
 
     // Activate the backends you want. Standard gtb ships aws-kms +
     // local; your tool can ship anything.

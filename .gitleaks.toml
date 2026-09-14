@@ -25,11 +25,11 @@ paths = [
     '''docs/explanation/components/telemetry\.md''',
     '''docs/explanation/components/telemetry/.*\.md''',
     '''docs/explanation/concepts/telemetry\.md''',
-    '''internal/cmd/keys/keys_test\.go''',
+    '''cli/pkg/cmd/keys/keys_test\.go''',
     '''docs/development/specs/2026-06-08-keys-mint-command\.md''',
     '''features/cli/keys\.feature''',
     '''features/cli/doctor-report\.feature''',
-    '''internal/agent/tools_security_test\.go''',
+    '''cli/pkg/agent/tools_security_test\.go''',
     '''docs/development/specs/2026-07-28-ed25519-kms-signing\.md''',
 ]
 

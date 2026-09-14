@@ -96,7 +96,7 @@ The agent drafts the implementation and tests, then iterates, building, running
 tests, resolving dependencies, and linting, analysing each failure and applying
 targeted fixes until the project is stable or it hits its step budget. For the full
 mechanism (the tool set and the ReAct loop), see the
-[autonomous agent explanation](../../explanation/components/internal/agent.md).
+[autonomous agent explanation](../../explanation/components/cli/agent.md).
 
 !!! important "Autonomous Reliability"
     The agent operates in a **secure, restricted environment**. It cannot execute arbitrary shell commands, but it has everything it needs to ensure your Go code is production-ready.

@@ -174,5 +174,5 @@ If you mix generated and hand-written commands in the same project:
 - [Adding Custom Commands](custom-commands.md): full how-to for the basic single-command pattern.
 - [Command Constructor Pattern](../explanation/concepts/functional-options.md): rationale for `NewCmd*` returning `*setup.Command`.
 - [Command Middleware System](../explanation/components/setup/middleware.md): how `Register` wraps `RunE` with middleware.
-- [`gtb generate command`](../explanation/components/internal/commands/generate.md): flag reference for the generator.
+- [`gtb generate command`](../explanation/components/cli/commands/generate.md): flag reference for the generator.
 - [Migration v0.4 to v0.5](../reference/migration/v0.4-to-v0.5.md): diff against the previous `AddCommandWithMiddleware` pattern.

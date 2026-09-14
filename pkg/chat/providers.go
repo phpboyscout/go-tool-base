@@ -1,12 +1,6 @@
 package chat
 
-// go-tool-base ships every chat provider, so this adapter blank-imports each
-// provider module to register it with the core registry (via its init()).
-// Importing a provider module links exactly that provider's vendor SDK; a
-// regulated downstream that wants a lighter binary can build its own adapter and
-// import only the providers it needs.
-import (
-	_ "gitlab.com/phpboyscout/go/chat-anthropic" // registers "claude"
-	_ "gitlab.com/phpboyscout/go/chat-gemini"    // registers "gemini"
-	_ "gitlab.com/phpboyscout/go/chat-openai"    // registers "openai", "openai-compatible"
-)
+// No chat provider is registered here. Registration is a blank import in the
+// binary that ships the provider (spec 0194 D3): gtb's own main links every
+// module, and a generated tool links the ones its manifest selects. See
+// ProviderModule for which module registers which provider.

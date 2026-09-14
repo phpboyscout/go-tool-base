@@ -180,7 +180,7 @@ This shows you:
 Dry-run mode runs the full generation pipeline (including `go mod tidy` and `golangci-lint run --fix`) in a temporary directory to ensure the preview is accurate. The only step skipped is AI-powered documentation generation, since that requires an API call.
 
 !!! tip "Use with regenerate too"
-    The `--dry-run` flag is also available on `regenerate project` and `generate skeleton`. See the [Regeneration](../../explanation/components/internal/commands/regenerate.md) and [Skeleton](scaffold-project.md) docs for details.
+    The `--dry-run` flag is also available on `regenerate project` and `generate skeleton`. See the [Regeneration](../../explanation/components/cli/commands/regenerate.md) and [Skeleton](scaffold-project.md) docs for details.
 
 ### 7. Command Safety & Manual Edits 🛡️
 

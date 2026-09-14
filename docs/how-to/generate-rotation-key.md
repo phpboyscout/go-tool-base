@@ -42,7 +42,7 @@ Two files appear in the current directory:
 
 - `rotation-authority.asc`: the **armored OpenPGP public** half. Safe to
   commit. You'll embed this in your tool's
-  `internal/trustkeys/keys/` and publish it alongside your signing
+  `cli/pkg/trustkeys/keys/` and publish it alongside your signing
   key via WKD.
 - `rotation-authority.priv.asc`: the **armored OpenPGP secret** half.
   Compatible with `gpg --import` for inspection. **This file is
@@ -171,7 +171,7 @@ backup good.
 
 ## Embed the public half
 
-Drop `rotation-authority.asc` into your tool's `internal/trustkeys/keys/`
+Drop `rotation-authority.asc` into your tool's `cli/pkg/trustkeys/keys/`
 directory alongside the signing key. Go's `//go:embed all:keys`
 directive picks it up; it ships baked into every binary.
 

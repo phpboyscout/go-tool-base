@@ -146,7 +146,7 @@ Phase 1 defends against accidental corruption and single-asset tampering, but a 
 
 > **Status**: the rollout is complete for `gtb` itself. Every release carries a
 > detached `checksums.txt.sig` alongside the manifest, produced by the GoReleaser
-> `signs` block in `.goreleaser.yaml`, and `internal/cmd/root/signing.go` sets
+> `signs` block in `.goreleaser.yaml`, and `cli/pkg/cmd/root/signing.go` sets
 > `verify.DefaultRequireSignature = true`, so `gtb update` refuses an unsigned
 > release rather than warning about one.
 >
@@ -181,7 +181,7 @@ the runner can export it. Three variables select the key, all with defaults:
 | Variable | Default | What it is |
 | :--- | :--- | :--- |
 | `GTB_SIGNING_KEY_ID` | `alias/gtb-release-signing-v1` | the KMS key alias to sign with |
-| `GTB_SIGNING_KEY_PUBLIC` | `internal/trustkeys/keys/signing-key-v1.asc` | the public half, which must be present in the working tree |
+| `GTB_SIGNING_KEY_PUBLIC` | `cli/pkg/trustkeys/keys/signing-key-v1.asc` | the public half, which must be present in the working tree |
 | `AWS_REGION` | `eu-west-2` | where the key lives |
 
 **There is no signing gate, and the script fails closed.** If neither
@@ -203,7 +203,7 @@ ARN still only lets this project's **tag** pipelines sign anything.
 
 The **sign→verify contract**. That a signature `gtb sign` produces is accepted by
 the same trust set self-update enforces, is covered by
-`TestSignVerifyContract_*` in `internal/cmd/sign`. Those tests sign a manifest
+`TestSignVerifyContract_*` in `cli/pkg/cmd/sign`. Those tests sign a manifest
 through the real `runSign` path, verify it via `verify.LoadTrustSet`, and assert
 that both a tampered manifest and an untrusted signing key are rejected with
 `ErrSignatureInvalid`. They need no credentials and run in the normal unit suite.
@@ -240,7 +240,7 @@ The precedence is:
    this.` marker); an author-written `signs:` block is never touched.
 3. **A `signs:` block already exists, the file is unparseable, or absent-then-
    customised** → the file is not modified; the command prints the block to
-   paste (advisory) and still scaffolds `internal/trustkeys`, wires the root
+   paste (advisory) and still scaffolds `cli/pkg/trustkeys`, wires the root
    command, and updates the manifest.
 
 Because the release-config edit can degrade to an advisory, always check the
@@ -281,7 +281,7 @@ Three ship with GTB:
 
 | Resolver | Source | Offline? | Primary use |
 |----------|--------|----------|-------------|
-| `setup.NewEmbeddedResolver(...)` | `//go:embed` of `*.asc` files in `internal/trustkeys/keys/` | ✅ Yes | Always available; the fallback that keeps air-gapped updates working. |
+| `setup.NewEmbeddedResolver(...)` | `//go:embed` of `*.asc` files in `cli/pkg/trustkeys/keys/` | ✅ Yes | Always available; the fallback that keeps air-gapped updates working. |
 | `setup.NewWKDResolver(cfg)` | `https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<z-base-32>?l=<email>` | ❌ No | The project's public key published via the GPG WKD standard; cross-checks the embedded copy. |
 | `setup.CompositeResolver{Resolvers: []KeyResolver{embedded, wkd}}` | Both, with fingerprint-equality enforcement | ⚠️ Partial | The production default. Offline builds still work via `update.key_source=embedded`. |
 
@@ -309,7 +309,7 @@ verify.DefaultRequireExternalCrosscheck = true
 ### Publishing a public key
 
 1. **Generate** an Ed25519 signing keypair (RSA-4096 is acceptable if your KMS doesn't support Ed25519). DSA, 1024-bit RSA, and weak curves are refused at load time.
-2. **Embed** the public half. Drop the ASCII-armored file at `internal/trustkeys/keys/signing-key-v1.asc` in your repo: `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
+2. **Embed** the public half. Drop the ASCII-armored file at `cli/pkg/trustkeys/keys/signing-key-v1.asc` in your repo: `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
 3. **Publish** the same key via your chosen external source:
    - **WKD**: serve the ASCII-armored key at the WKD path under `openpgpkey.<yourdomain>`. DNS and TLS cert are your trust anchors, administered independently from your VCS.
    - **Custom HTTPS**: implement `KeyResolver` with your own endpoint (Vault, static S3, internal CA-served HTTPS). Register it via `setup.WithKeyResolver` on `SelfUpdater`.

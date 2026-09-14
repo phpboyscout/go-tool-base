@@ -39,6 +39,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [`props.FeatureCmd` renamed to `props.FeatureID`](v0.x-featurecmd-to-featureid.md) |
 | v0.x | v0.x | [Forge credential precedence moved into GTB](v0.x-forge-credential-precedence.md) |
 | v0.x | v0.x | [`ReleaseSource.Params` removed; provider settings move to configuration](v0.x-release-source-params-removed.md) |
+| v0.x | v0.x | [Chat providers and forge adapters registered by the tool's `main`; gtb CLI moves to `cli/`](v0.x-adapters-registered-by-main.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

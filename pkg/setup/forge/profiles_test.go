@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	forgeapi "gitlab.com/phpboyscout/go/forge"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -51,18 +49,18 @@ func TestCodebergProfile_IsGiteaShapedWithItsOwnSection(t *testing.T) {
 		"unlike a self-hosted Gitea, there is exactly one Codeberg")
 }
 
-// TestEveryProfileProviderIsRegistered guards the seam a profile cannot declare
+// TestEveryProfileProviderHasAModule guards the seam a profile cannot declare
 // its way out of: Provider is a registry key, and both defaultForgeProvider and
-// the SSH stage resolve it through forgeapi.Lookup at runtime. A key naming no
-// registered factory builds and passes every other guard in this package, then
-// fails the first time a user runs the wizard.
-func TestEveryProfileProviderIsRegistered(t *testing.T) {
+// the SSH stage resolve it through forgeapi.Lookup at runtime. The framework
+// links no adapter (spec 0194 D3), so registration is asserted where the
+// adapters are, in cli/cmd/gtb; here the guard is that every provider has a
+// module for the hint to name.
+func TestEveryProfileProviderHasAModule(t *testing.T) {
 	t.Parallel()
 
 	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, codebergProfile, bitbucketProfile} {
-		_, err := forgeapi.Lookup(p.Provider)
-		assert.NoErrorf(t, err,
-			"%s names provider %q, which no linked adapter registers", p.Label, p.Provider)
+		_, ok := ModuleFor(p.Provider)
+		assert.Truef(t, ok, "%s names provider %q, which no module entry covers", p.Label, p.Provider)
 	}
 }
 

@@ -165,9 +165,9 @@ Spec: [`0063-telemetry-redaction`](https://gitlab.com/phpboyscout/go-tool-base/-
 
 **Severity:** Medium | **Status:** Remediated
 
-`internal/generator/skeleton.go` rendered scaffolded project files from `text/template` with user-supplied data (`Name`, `Description`, `Repo`, `Host`, `Org`, Slack/Teams identifiers, telemetry endpoints) and no automatic escaping. An adversarial or accidentally-malformed value could produce corrupted YAML, Markdown injection, path traversal via `..`, Unicode homoglyph spoofing, or broken Go compilation. The rendered output lands on the contributor's disk and typically gets committed verbatim.
+`cli/pkg/generator/skeleton.go` rendered scaffolded project files from `text/template` with user-supplied data (`Name`, `Description`, `Repo`, `Host`, `Org`, Slack/Teams identifiers, telemetry endpoints) and no automatic escaping. An adversarial or accidentally-malformed value could produce corrupted YAML, Markdown injection, path traversal via `..`, Unicode homoglyph spoofing, or broken Go compilation. The rendered output lands on the contributor's disk and typically gets committed verbatim.
 
-**Mitigation.** Two-layer defence in `internal/generator/`:
+**Mitigation.** Two-layer defence in `cli/pkg/generator/`:
 
 1. **Input validation** (`validate.go`). Every user-influenced field is NFC-normalised and checked against a tight character-class rule: `Name ^[a-z][a-z0-9-]{0,63}$`, `Description ≤ 500 bytes + no control chars + no `{{`/`}}``, `Repo` Go-module-path shape, RFC 1123 `Host` (punycode-only), GitHub- or GitLab-specific `Org` rules, `EnvPrefix ^[A-Z][A-Z0-9_]{0,31}$`, Slack/Teams naming rules, and HTTP/HTTPS `URL.Parse` for telemetry endpoints. Rejections wrap `ErrInvalidInput`. Runs at wizard, flag, and manifest-load entry points.
 2. **Output escaping** (`template_escape.go`): context-aware helpers (`escapeYAML`, `escapeMarkdown`, `escapeMarkdownCodeBlock`, `escapeTOML`, `escapeComment`, `escapeShellArg`) registered via `templateFuncMap` on every `text/template`. Non-code template sites in skeleton templates pipe values through the appropriate helper. Every helper is pure, infallible, idempotent-where-applicable, and identity on the safe character class `[a-zA-Z0-9 _.,/-]`.

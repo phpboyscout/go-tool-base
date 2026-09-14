@@ -1,13 +1,13 @@
 ---
 title: Manual credential testing
-description: Exercise the OS-keychain credential storage mode end-to-end against a real workstation using the cmd/e2e test binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
+description: Exercise the OS-keychain credential storage mode end-to-end against a real workstation using the cli/cmd/e2e test binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
 tags: [testing, development, credentials, keychain]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Manual credential testing
 
-This guide walks through every observable behaviour of the OS-keychain storage mode using the `cmd/e2e` binary, which exposes all feature-flagged setup flows that the shipped `gtb` binary gates behind release-time decisions. Use it to verify keychain behaviour during spec work, pre-release smoke checks, or when investigating a report from a real deployment.
+This guide walks through every observable behaviour of the OS-keychain storage mode using the `cli/cmd/e2e` binary, which exposes all feature-flagged setup flows that the shipped `gtb` binary gates behind release-time decisions. Use it to verify keychain behaviour during spec work, pre-release smoke checks, or when investigating a report from a real deployment.
 
 Each scenario maps to a requirement in [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening). Automated coverage is in the Gherkin suite under `features/`; this guide is for the cases where a live OS keychain is easier than a mock.
 
@@ -281,7 +281,7 @@ Re-run the ad-hoc program above. It must print an error containing `"not valid J
 Confirm that deleting the opt-in import really removes every keychain code path:
 
 ```bash
-rm cmd/e2e/keychain.go
+rm cli/cmd/e2e/keychain.go
 go build -o bin/e2e-regulated ./cmd/e2e
 go tool nm bin/e2e-regulated | grep -cE "zalando|godbus"
 # → 0
@@ -298,7 +298,7 @@ Run a wizard against that binary:
 Restore the file before committing:
 
 ```bash
-git checkout -- cmd/e2e/keychain.go
+git checkout -- cli/cmd/e2e/keychain.go
 ```
 
 ## Cleanup

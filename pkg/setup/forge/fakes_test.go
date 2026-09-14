@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 )
 
@@ -84,6 +85,20 @@ type capturingProvider struct {
 }
 
 func (capturingProvider) UploadKey(context.Context, string, []byte) error { return nil }
+
+// registerTestForge registers provider under sourceType once per test binary.
+// The registry is process-global and refuses a second registration, so a
+// repeat from another test is not an error here.
+func registerTestForge(t *testing.T, sourceType string, provider forgeapi.Provider) {
+	t.Helper()
+
+	err := forgeapi.Register(sourceType, func(context.Context, forgeapi.Endpoint, forgeapi.Config, ...forgeapi.Option) (forgeapi.Provider, error) {
+		return provider, nil
+	})
+	if err != nil && !errors.Is(err, forgeapi.ErrAlreadyRegistered) {
+		t.Fatalf("register test forge %q: %v", sourceType, err)
+	}
+}
 
 // keyManagerFactory builds a WithKeyManager input yielding km.
 func keyManagerFactory(km forgeapi.KeyManager, err error) func(context.Context, config.Reader) (forgeapi.KeyManager, error) {

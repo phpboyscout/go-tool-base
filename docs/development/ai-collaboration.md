@@ -13,7 +13,7 @@ GTB is a foundational library. Maintaining its stability and quality is critical
 The **`gtb-dev`** skill (from the `phpboyscout-gtb-dev` marketplace segment) defines the standard for library and CLI contributions. It mandates:
 
 - **Library-First Design**: New features must be implemented in `pkg/` as reusable components first.
-- **Generator Maintenance**: Ensuring that internal generator templates (`internal/generator/`) stay up to date.
+- **Generator Maintenance**: Ensuring that internal generator templates (`cli/pkg/generator/`) stay up to date.
 - **Strict Quality**: 90% test coverage and no `//nolint` decorators.
 
 ## Antigravity Workflows

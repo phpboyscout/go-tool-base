@@ -26,9 +26,16 @@ include:
   # cicd dev-tools image baked into the components (Go 1.26.4, govulncheck,
   # golangci-lint) — no per-component image overrides needed since cicd
   # v0.14.0.
+  # The CLI is a nested module at cli/ (spec 0194 D1). In workspace mode a
+  # bare ./... reaches only the root module, so every path expression names
+  # both; the e2e suite lives with the CLI because it builds the gtb binary.
   - component: gitlab.com/phpboyscout/cicd/go-lint@main
+    inputs:
+      paths: "./... ./cli/..."
   - component: gitlab.com/phpboyscout/cicd/go-test@main
     inputs:
+      paths: "./... ./cli/..."
+      e2e_paths: "./cli/test/e2e/..."
       enable_e2e: true
       # The e2e generator scenarios scaffold projects and compile them against
       # go-tool-base's full dependency graph. After the 2026-06 dependency bump
@@ -140,7 +147,7 @@ default:
 # from the cicd component above.
 #
 # Goreleaser's `signs:` block invokes `scripts/sign-release.sh`, which
-# shells out to `go run ./cmd/gtb sign --backend aws-kms`. The aws-kms
+# shells out to `go run ./cli/cmd/gtb sign --backend aws-kms`. The aws-kms
 # backend uses the AWS SDK Go v2 default credential chain, which
 # auto-resolves a role via web-identity OIDC when
 # `AWS_WEB_IDENTITY_TOKEN_FILE` + `AWS_ROLE_ARN` are set — no aws-cli
@@ -239,6 +246,54 @@ goreleaser:
 osv-scanner:
   script:
     - /osv-scanner --no-call-analysis=go -L go.mod
+
+# cli-release-build — the CLI module compiled against the framework RELEASE it
+# requires, not the working tree. The committed go.work lets every other job
+# build the CLI against the checkout, which is what makes a framework change
+# and the CLI change that uses it land together locally; go install builds the
+# CLI against cli/go.mod's require line instead. This job is the only thing
+# that observes that requirement (spec 0194 D2), and it fails the MR that
+# starts relying on framework API the last release does not have. The fix is
+# always the same: release the framework, then bump the require.
+#
+# Build only, no vet: vet type-checks test files, and the CLI's tests run
+# through the workspace against the working tree on purpose. What go install
+# needs is the non-test build, and that is what this checks. The first run
+# proved the distinction: the binary built, and a test that used a framework
+# helper merged an hour earlier did not.
+cli-release-build:
+  stage: test
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.0
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GOTOOLCHAIN: auto
+    GOWORK: "off"
+  script:
+    - cd cli && go build ./...
+
+# go-work-sync — go.work.sum must be committed as the workspace wants it.
+# Renovate tidies each go.mod in its own directory and looks for go.work.sum
+# beside that go.mod, so a root go.work.sum change caused by tidying cli/ is
+# never staged (renovatebot/renovate discussion 37653). Failing here keeps the
+# miss on the MR that caused it.
+go-work-sync:
+  stage: lint
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.0
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GOTOOLCHAIN: auto
+  script:
+    # sync lifts each module's pins to the workspace's resolution; the tidy
+    # that follows restores the go.sum lines GOWORK=off needs, which sync
+    # trims because the workspace reads them from the root module. The pair is
+    # a fixed point, and `just tidy` runs the same pair.
+    - go work sync
+    - cd cli && GOWORK=off go mod tidy && cd ..
+    - git diff --exit-code -- go.work go.work.sum go.mod go.sum cli/go.mod cli/go.sum
 
 apidiff:
   stage: test

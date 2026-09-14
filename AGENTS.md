@@ -41,12 +41,12 @@ The skills and commands below ship from the [phpboyscout marketplace](https://gi
 
 ### Library-First
 
-New features must be implemented in `pkg/` as a reusable component before being exposed via the CLI. When modifying library APIs that affect scaffolded output, also update templates in `internal/generator/`.
+New features must be implemented in `pkg/` as a reusable component before being exposed via the CLI. When modifying library APIs that affect scaffolded output, also update templates in `cli/pkg/generator/`.
 
 ### After Implementation
 
 1. Run `/gtb-verify` (tests, race detector, lint, mocks).
-2. If generator output was affected: `just build && go run ./cmd/gtb generate <command> -p tmp`, verify `tmp/`, delete it.
+2. If generator output was affected: `just build && go run ./cli/cmd/gtb generate <command> -p tmp`, verify `tmp/`, delete it.
 3. Update `docs/explanation/components/` and `docs/explanation/concepts/` — any functional change **must** include a doc update, cross-referenced with the code for accuracy.
 4. Run `/simplify` on changed files before raising a PR.
 
@@ -148,7 +148,7 @@ What this means in practice today:
 
 For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/reference/api-stability.md` applies.
 
-The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
+The gtb CLI is a nested module at `cli/` (`gitlab.com/phpboyscout/go-tool-base/cli`), with a committed `go.work` so in-repo builds use the framework working tree while `cli/go.mod` requires the framework's latest release. `./...` at the root does not reach it in workspace mode: use `./... ./cli/...`. The binary entry point is `cli/cmd/gtb/main.go`. The `cli/pkg/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
 
 ### Configuration
 
@@ -159,9 +159,11 @@ Configuration is the extracted `gitlab.com/phpboyscout/go/config` Store: layered
 The multi-provider chat client was **extracted** to the standalone module
 `gitlab.com/phpboyscout/go/chat` (+ per-provider modules `chat-anthropic`,
 `chat-openai`, `chat-gemini`). `pkg/chat/` is now a **thin adapter** that
-re-exports the module's API (so GTB call sites are unchanged), owns the GTB
-config-key schema + `SettingsFromProps`/`NewFromProps` adapters, and
-blank-imports the three provider modules so every provider is registered.
+re-exports the module's API (so GTB call sites are unchanged) and owns the GTB
+config-key schema + `SettingsFromProps`/`NewFromProps` adapters. **It registers
+no provider.** A provider is a blank import in the binary that ships it (spec
+0194): `cli/cmd/gtb/providers.go` links every one, and a generated tool links
+what its manifest selects. `chat.ProviderModule` names the module for each.
 - Providers: Anthropic Claude, Claude Local (CLI binary, ships in the core module), OpenAI, OpenAI-compatible, Google Gemini
 - Core interface: `ChatClient` (Add, Chat, Ask, SetTools) — defined in the module
 - ReAct loop orchestration with automatic tool calling and JSON Schema parameter definitions
@@ -191,9 +193,9 @@ The GitHub/GitLab (and Enterprise, Bitbucket, Gitea) abstraction for auth, PR ma
 
 ### Code Generation
 
-`internal/generator/` uses `dave/dst` and `dave/jennifer` for AST-level Go code generation. The `generate`/`regenerate`/`remove` commands scaffold new CLI tools that extend this framework.
+`cli/pkg/generator/` uses `dave/dst` and `dave/jennifer` for AST-level Go code generation. The `generate`/`regenerate`/`remove` commands scaffold new CLI tools that extend this framework.
 
-Every user-influenced field flowing into a skeleton template is validated by `internal/generator/validate.go` (NFC-normalised, field-specific character-class rules) and piped through one of the helpers in `template_escape.go` at non-code render sites (`escapeYAML`, `escapeMarkdown`, `escapeTOML`, `escapeComment`, `escapeMarkdownCodeBlock`, `escapeShellArg`). See `docs/development/template-security.md` when adding a new user-facing field.
+Every user-influenced field flowing into a skeleton template is validated by `cli/pkg/generator/validate.go` (NFC-normalised, field-specific character-class rules) and piped through one of the helpers in `template_escape.go` at non-code render sites (`escapeYAML`, `escapeMarkdown`, `escapeTOML`, `escapeComment`, `escapeMarkdownCodeBlock`, `escapeShellArg`). See `docs/development/template-security.md` when adding a new user-facing field.
 
 ### Testing
 
@@ -207,8 +209,8 @@ Every user-influenced field flowing into a skeleton template is validated by `in
   - Integration tests live in dedicated `*_integration_test.go` files.
   - See `docs/development/integration-testing.md` for the full test inventory and writing guidelines.
 - **E2E BDD tests** use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) for behaviour-driven scenarios:
-  - Feature files in `features/`, step definitions in `test/e2e/steps/`.
-  - CLI scenarios use a dedicated test binary (`cmd/e2e/`) with all feature flags enabled.
+  - Feature files in `features/`, step definitions in `cli/test/e2e/steps/`.
+  - CLI scenarios use a dedicated test binary (`cli/cmd/e2e/`) with all feature flags enabled.
   - Gated by `INT_TEST_E2E=1`; subsystem filters: `INT_TEST_E2E_SMOKE=1`, `INT_TEST_E2E_CONTROLS=1`, `INT_TEST_E2E_CLI=1`.
   - Run via `just test-e2e` (all) or `just test-e2e-smoke` (fast).
   - **New CLI commands or service lifecycle changes must include Gherkin scenarios.** Evaluate BDD fit using the suitability assessment in the strategy spec.
@@ -232,7 +234,7 @@ Use the extracted `gitlab.com/phpboyscout/go/redact` module for any free-form st
 
 ### Credential Storage
 
-Credential storage is the extracted `gitlab.com/phpboyscout/go/credentials` module (with the opt-in `go/credentials/keychain` backend). User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `go/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See the `go/credentials` and `go/credentials/keychain` modules, and [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening).
+Credential storage is the extracted `gitlab.com/phpboyscout/go/credentials` module (with the opt-in `go/credentials/keychain` backend). User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `go/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go/credentials/keychain` in the tool's `main` (see `cli/cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See the `go/credentials` and `go/credentials/keychain` modules, and [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening).
 
 **Forge credential precedence is GTB's, not the forge module's.** `go/forge` v0.8.0 moved ordering out of the module and into the consumer, so `pkg/vcs/credential.go` composes the chain — `ForgeCredential` — and it is the single place the order is stated. Rungs 1 and 2 are *pointers*: `auth.env` names an environment variable and `auth.keychain` names a `service/account` entry, and the source dereferences it. That indirection is why GTB keeps `auth.env` rather than letting a prefixed env layer supply the value directly — a layer can carry a credential, but it cannot express "read whichever variable this deployment names", which is what lets a CI job redirect a token without rewriting config.
 
@@ -245,7 +247,7 @@ Two constraints on that code:
 
 ### Release Signing (sign / keys commands)
 
-The signing *logic* is the extracted `gitlab.com/phpboyscout/go/signing` module (backend registry) plus `go/signing/openpgpkey` and backends like `go/signing-aws-kms`. The `sign` and `keys` (`mint`/`generate`/`wkd`) **Cobra command builders** are the extracted `gitlab.com/phpboyscout/go/signing-cli` module — props-decoupled behind a narrow `Logger` interface (a `*slog.Logger` and GTB's `logger.Logger` both satisfy it), with constructors returning plain `*cobra.Command`. GTB re-attaches them in `internal/cmd/root` via `setup.Wrap("", signingcli.NewCmdSign(p.GetLogger()))` (the `gtb sign`/`gtb keys` CLI is unchanged); the standalone `sigillum` CLI (`gitlab.com/phpboyscout/sigillum`) attaches the same builders as top-level commands. Because `go/signing-cli` depends only on `go/signing` + cobra — never on GTB — there is no module cycle. Signing backends are registered by the host binary via blank import (`cmd/gtb/signing.go`); a build that omits a backend drops that SDK through dead-code elimination. See [`0176-ed25519-kms-signing`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0176-ed25519-kms-signing) and [signing-cli.go.phpboyscout.uk](https://signing-cli.go.phpboyscout.uk).
+The signing *logic* is the extracted `gitlab.com/phpboyscout/go/signing` module (backend registry) plus `go/signing/openpgpkey` and backends like `go/signing-aws-kms`. The `sign` and `keys` (`mint`/`generate`/`wkd`) **Cobra command builders** are the extracted `gitlab.com/phpboyscout/go/signing-cli` module — props-decoupled behind a narrow `Logger` interface (a `*slog.Logger` and GTB's `logger.Logger` both satisfy it), with constructors returning plain `*cobra.Command`. GTB re-attaches them in `cli/pkg/cmd/root` via `setup.Wrap("", signingcli.NewCmdSign(p.GetLogger()))` (the `gtb sign`/`gtb keys` CLI is unchanged); the standalone `sigillum` CLI (`gitlab.com/phpboyscout/sigillum`) attaches the same builders as top-level commands. Because `go/signing-cli` depends only on `go/signing` + cobra — never on GTB — there is no module cycle. Signing backends are registered by the host binary via blank import (`cli/cmd/gtb/signing.go`); a build that omits a backend drops that SDK through dead-code elimination. See [`0176-ed25519-kms-signing`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0176-ed25519-kms-signing) and [signing-cli.go.phpboyscout.uk](https://signing-cli.go.phpboyscout.uk).
 
 ## Linting
 

@@ -16,7 +16,6 @@
 # vendor/
 
 # Go workspace file
-go.work
 
 # VS Code
 .vscode
@@ -36,7 +35,7 @@ site/*
 /gtb
 /e2e
 /mcp-tools.json
-internal/cmd/root/assets/docs
+cli/pkg/cmd/root/assets/docs
 tmp*
  .env*
  site*
@@ -59,4 +58,4 @@ CHANGELOG.md
 
 # Cloudflare wrangler local cache
 .wrangler/
-!cmd/e2e/assets/CHANGELOG.md
+!cli/cmd/e2e/assets/CHANGELOG.md

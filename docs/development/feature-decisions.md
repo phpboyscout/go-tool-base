@@ -172,7 +172,7 @@ These are opinionated positions enforced across the project. They are documented
 
 ### Library-First Principle
 
-All new features must be implemented in `pkg/` as reusable components before being exposed via the CLI. The CLI is just a consumer of the library. When modifying library APIs that affect scaffolded output, also update templates in `internal/generator/`.
+All new features must be implemented in `pkg/` as reusable components before being exposed via the CLI. The CLI is just a consumer of the library. When modifying library APIs that affect scaffolded output, also update templates in `cli/pkg/generator/`.
 
 ### Spec-Driven Development
 

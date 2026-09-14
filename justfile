@@ -1,21 +1,26 @@
 set dotenv-load
 
-# Run go mod tidy
+# Tidy both modules and keep the workspace in step: sync lifts cli/'s pins to
+# the workspace's resolution, and the GOWORK=off tidy restores the go.sum
+# lines a `go install` of the CLI needs. CI's go-work-sync job runs the same
+# pair and fails on a diff.
 tidy:
     go mod tidy
+    go work sync
+    cd cli && GOWORK=off go mod tidy
 
 # Apply go fix to update deprecated API usage
 fix:
-    go fix ./...
+    go fix ./... ./cli/...
 
 # Run go generate
 generate:
-    go generate ./...
+    go generate ./... ./cli/...
 
 # Build the gtb binary
 [default]
 build: tidy generate
-    go build -o bin/gtb ./cmd/gtb
+    go build -o bin/gtb ./cli/cmd/gtb
 
 # Generate roff man pages for gtb's command tree into ./man/man1
 man: build
@@ -27,47 +32,47 @@ snapshot:
 
 # Run golangci-lint
 lint:
-    golangci-lint run
+    golangci-lint run ./... ./cli/...
 
 # Run golangci-lint with auto-fix
 lint-fix:
-    golangci-lint run --fix
+    golangci-lint run --fix ./... ./cli/...
 
 # Run Go tests with coverage
 test:
-    go test ./... -v -cover
+    go test ./... ./cli/... -v -cover
 
 # Run Go tests with race detector
 test-race:
-    go test -race ./...
+    go test -race ./... ./cli/...
 
 # Run integration tests
 test-integration:
-    INT_TEST=1 go test ./... -v
+    INT_TEST=1 go test ./... ./cli/... -v
 
 # Run E2E (Godog BDD) tests
 test-e2e:
-    INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 15m
+    INT_TEST_E2E=1 go test ./cli/test/e2e/... -v -timeout 15m
 
 # Run E2E smoke tests only (fast, no external deps)
 test-e2e-smoke:
-    INT_TEST_E2E=1 INT_TEST_E2E_SMOKE=1 go test ./test/e2e/... -v -timeout 2m
+    INT_TEST_E2E=1 INT_TEST_E2E_SMOKE=1 go test ./cli/test/e2e/... -v -timeout 2m
 
 # Generate HTML coverage report and open it
 coverage:
-    go test ./... -coverprofile=coverage.out
+    go test ./... ./cli/... -coverprofile=coverage.out
     go tool cover -html=coverage.out -o coverage.html
     open coverage.html
 
 # Generate coverage report including integration tests
 coverage-full:
-    INT_TEST=1 go test ./... -coverprofile=coverage.out
+    INT_TEST=1 go test ./... ./cli/... -coverprofile=coverage.out
     go tool cover -html=coverage.out -o coverage.html
     open coverage.html
 
 # Run benchmarks
 bench:
-    go test -bench=. -benchmem ./...
+    go test -bench=. -benchmem ./... ./cli/...
 
 # Run pre-commit checks and documentation linting
 check:
@@ -80,7 +85,7 @@ mocks:
 
 # Check for vulnerabilities in dependencies
 vuln:
-    govulncheck ./...
+    govulncheck ./... ./cli/...
 
 # Run Trivy filesystem scan
 trivy:
@@ -108,11 +113,11 @@ coverage-policy *args:
 
 # Find unreachable exported symbols
 deadcode:
-    deadcode ./...
+    deadcode ./... ./cli/...
 
 # Install the gtb binary to $GOPATH/bin
 install:
-    go install ./cmd/gtb
+    go install ./cli/cmd/gtb
 
 # Serve documentation locally (pass ARGS, e.g. `just docs-serve "-a 0.0.0.0:8000"`)
 docs-serve ARGS="":

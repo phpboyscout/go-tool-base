@@ -93,7 +93,7 @@ go run main.go regenerate manifest
 
 ### How it works
 
-It parses your project's AST to find `cobra.Command` definitions and reconstructs the manifest: command names/descriptions/aliases/args, flag definitions, parent/child relationships, per-command options (`withAssets`, `preRun` hooks, `withInitializer`), and project-level properties. For the full extraction rules, see the [regenerate command explanation](../../explanation/components/internal/commands/regenerate.md).
+It parses your project's AST to find `cobra.Command` definitions and reconstructs the manifest: command names/descriptions/aliases/args, flag definitions, parent/child relationships, per-command options (`withAssets`, `preRun` hooks, `withInitializer`), and project-level properties. For the full extraction rules, see the [regenerate command explanation](../../explanation/components/cli/commands/regenerate.md).
 
 !!! tip "Source of Truth"
     While `regenerate manifest` is a powerful recovery tool, we recommend treating the **Manifest** as your source of truth and driving changes through it (or `generate` commands) rather than the other way around.

@@ -1,0 +1,9 @@
+# Release manifest read by colophon. Reference:
+# https://colophon.phpboyscout.uk/reference/release-manifest/
+#
+# cli/ is a nested Go module (spec 0194 D1). Go resolves it only at a tag
+# carrying the directory prefix, so every root release vX.Y.Z is also tagged
+# cli/vX.Y.Z at the same commit (D2). colophon reads nothing inside the
+# directory; it only cuts the tag.
+tag_also:
+  - cli

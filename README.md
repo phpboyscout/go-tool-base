@@ -50,7 +50,7 @@ Upgrade later with `brew upgrade --cask gtb`.
 > If you tapped the pre-migration GitHub tap before it was withdrawn, remove it with `brew untap phpboyscout/homebrew`, or `brew update` will fail against it.
 
 > [!NOTE]
-> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest`. Note the `/cmd/gtb` suffix: the `main` package is not at the module root. A source build carries no pre-built documentation assets, so the `docs` command falls back to a limited source-build mode.
+> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest`. Note the `/cli/cmd/gtb` suffix: the CLI is a nested module and its `main` package is not at the repository root. A source build carries no pre-built documentation assets, so the `docs` command falls back to a limited source-build mode.
 
 ## 🚀 Key Advantages & Features
 

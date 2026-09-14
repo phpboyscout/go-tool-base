@@ -76,7 +76,7 @@ scenario ever asserted the result**. Those 38 runs were cost without signal.
 That generated output lints clean is still a property worth holding. It is just
 one nobody currently holds. Do not read this switch as having dropped it.
 
-`test/e2e/steps` sets `GTB_SKIP_LINT` for itself unless it is already set, so
+`cli/test/e2e/steps` sets `GTB_SKIP_LINT` for itself unless it is already set, so
 running the suite by hand needs no extra setup. Unset it deliberately (with
 `GTB_SKIP_LINT=` explicitly empty) if you want the pass back for a run.
 
@@ -153,7 +153,7 @@ These tests require **no external credentials**, only local network access.
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `keychain_footprint_integration_test.go` | No framework package reaches `go-keyring`, so a downstream that declines the keychain blank-import genuinely links none of it (and `cmd/gtb`, which does import it, genuinely does | **Go toolchain** (`go list -deps`)) tagged `"deps"` |
+| `keychain_footprint_integration_test.go` | No framework package reaches `go-keyring`, so a downstream that declines the keychain blank-import genuinely links none of it (and `cli/cmd/gtb`, which does import it, genuinely does | **Go toolchain** (`go list -deps`)) tagged `"deps"` |
 
 ### `pkg/setup/`: Init Flow
 
@@ -216,7 +216,7 @@ These tests require **no external credentials**, only local network access.
     `INT_TEST_SIGNING` gates no longer exist in this repository, setting them
     here has no effect.
 
-### `internal/generator/`: Code Generation Pipeline
+### `cli/pkg/generator/`: Code Generation Pipeline
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
@@ -228,9 +228,9 @@ These tests require **no external credentials**, only local network access.
 
 The `"generator_build"` tag marks the project's strongest real-dependency coverage: it actually compiles and lints the generated output. These tests also run under `INT_TEST_GENERATOR=1`; use `INT_TEST_GENERATOR_BUILD=1` to run only them.
 
-### `test/e2e/`: E2E BDD Tests (Godog)
+### `cli/test/e2e/`: E2E BDD Tests (Godog)
 
-E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to express multi-step behavioural scenarios in Gherkin feature files. Feature files live in `features/`, step definitions in `test/e2e/steps/`.
+E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to express multi-step behavioural scenarios in Gherkin feature files. Feature files live in `features/`, step definitions in `cli/test/e2e/steps/`.
 
 | Feature File | Scenarios | Dependencies |
 | :--- | :--- | :--- |

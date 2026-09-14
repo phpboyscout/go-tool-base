@@ -262,11 +262,11 @@ without notice:
 
 | Package | Errors |
 |---------|--------|
-| `internal/generator` | `ErrNotGoToolBaseProject`, `ErrCommandProtected`, `ErrInvalidPackageName`, `ErrParentCommandFileNotFound` |
-| `internal/cmd/generate` | `ErrRepositoryInvalidFormat`, `ErrEmptyCommandPath`, `ErrCommandNotFound`, `ErrUpdateManifestFailed` |
-| `internal/cmd/regenerate` | `ErrInvalidOverwriteValue` |
-| `internal/generator/verifier` | `ErrVerificationFailed` |
-| `internal/agent` | `ErrInvalidPackageName` |
+| `cli/pkg/generator` | `ErrNotGoToolBaseProject`, `ErrCommandProtected`, `ErrInvalidPackageName`, `ErrParentCommandFileNotFound` |
+| `cli/pkg/cmd/generate` | `ErrRepositoryInvalidFormat`, `ErrEmptyCommandPath`, `ErrCommandNotFound`, `ErrUpdateManifestFailed` |
+| `cli/pkg/cmd/regenerate` | `ErrInvalidOverwriteValue` |
+| `cli/pkg/generator/verifier` | `ErrVerificationFailed` |
+| `cli/pkg/agent` | `ErrInvalidPackageName` |
 
 ### Adding new errors
 

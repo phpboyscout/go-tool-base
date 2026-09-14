@@ -1,6 +1,6 @@
 version: "2"
 run:
-  modules-download-mode: mod
+  modules-download-mode: readonly
   issues-exit-code: 1
   tests: true
 linters:
