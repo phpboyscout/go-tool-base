@@ -117,3 +117,31 @@ func TestUnlinkedError_NilForNone(t *testing.T) {
 
 	assert.NoError(t, UnlinkedError(nil))
 }
+
+func TestModuleForFeature(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		feature props.FeatureID
+		module  string
+		ok      bool
+	}{
+		{GithubFeature, "gitlab.com/phpboyscout/go/forge-github", true},
+		{GitlabFeature, "gitlab.com/phpboyscout/go/forge-gitlab", true},
+		{GiteaFeature, "gitlab.com/phpboyscout/go/forge-gitea", true},
+		{CodebergFeature, "gitlab.com/phpboyscout/go/forge-gitea", true},
+		{BitbucketFeature, "gitlab.com/phpboyscout/go/forge-bitbucket", true},
+		{props.AiCmd, "", false},
+		{props.FeatureID(""), "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.feature), func(t *testing.T) {
+			t.Parallel()
+
+			module, ok := ModuleForFeature(tt.feature)
+			assert.Equal(t, tt.ok, ok)
+			assert.Equal(t, tt.module, module)
+		})
+	}
+}

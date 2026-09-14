@@ -341,6 +341,11 @@ type ManifestCI struct {
 	ComponentSource string `yaml:"component_source,omitempty"`
 }
 
+// ManifestChat is the manifest's chat block: which providers the tool links.
+type ManifestChat struct {
+	Providers []string `yaml:"providers,omitempty"`
+}
+
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`
 	Description MultilineString   `yaml:"description"`
@@ -356,8 +361,14 @@ type ManifestProperties struct {
 	Help                ManifestHelp      `yaml:"help,omitempty"`
 	Telemetry           ManifestTelemetry `yaml:"telemetry,omitempty"`
 	Signing             ManifestSigning   `yaml:"signing,omitempty"`
-	Bootstrap           ManifestBootstrap `yaml:"bootstrap,omitempty"`
-	CI                  ManifestCI        `yaml:"ci,omitempty"`
+	// Chat records the chat providers the tool ships, each a blank import of
+	// the module that registers it in cmd/<name>/chat.go. A project generated
+	// before this field existed has no block; regenerate reads that as every
+	// provider the framework could configure at the time and writes the list
+	// out explicitly (spec 0194 D5, D7).
+	Chat      ManifestChat      `yaml:"chat,omitempty"`
+	Bootstrap ManifestBootstrap `yaml:"bootstrap,omitempty"`
+	CI        ManifestCI        `yaml:"ci,omitempty"`
 	// Templates records the custom template-overlay sources applied to the
 	// project, in render (layer) order: embedded base → templates[0] →
 	// templates[1] → … (last writer wins for a shared path). Each entry is

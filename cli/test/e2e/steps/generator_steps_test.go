@@ -163,6 +163,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 		aGTBProjectWithACommandWithMetadata)
 	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)"$`, iGenerateAGTBProjectWithFeatures)
+	ctx.Step(`^I generate a gtb project with features "([^"]*)" and chat providers "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesAndChatProviders)
 	ctx.Step(`^a gtb project with a "([^"]*)" command$`, aGTBProjectWithACommand)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
@@ -381,6 +382,10 @@ func aFreshlyGeneratedGTBProject(ctx context.Context) (context.Context, error) {
 // the exit-code assertion instead of aborting the scenario.
 func iGenerateAGTBProjectWithFeatures(ctx context.Context, features string) (context.Context, error) {
 	return ctx, scaffoldProject(ctx, "gtb-e2e-featsel-*", "--features", features)
+}
+
+func iGenerateAGTBProjectWithFeaturesAndChatProviders(ctx context.Context, features, providers string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-adapters-*", "--features", features, "--chat-providers="+providers)
 }
 
 // scaffoldProject runs `generate project` into a fresh temp directory and

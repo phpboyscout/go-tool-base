@@ -104,3 +104,50 @@ func TestUnsupportedProviderWording(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), unsupportedProviderWording)
 }
+
+func TestConfigurableProviders(t *testing.T) {
+	t.Parallel()
+
+	got := ConfigurableProviders()
+
+	assert.Equal(t, []gochat.Provider{
+		gochat.ProviderClaude,
+		gochat.ProviderClaudeLocal,
+		gochat.ProviderOpenAI,
+		gochat.ProviderOpenAICompatible,
+		gochat.ProviderGemini,
+	}, got)
+
+	for _, p := range got {
+		_, ok := ProviderModule(p)
+		assert.True(t, ok, "%s is configurable but has no module", p)
+	}
+}
+
+func TestModulesForProviders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("dedupes and sorts", func(t *testing.T) {
+		t.Parallel()
+
+		modules, unknown := ModulesForProviders([]gochat.Provider{
+			gochat.ProviderGemini, gochat.ProviderClaude, gochat.ProviderClaudeLocal, gochat.ProviderOpenAI,
+		})
+
+		assert.Empty(t, unknown)
+		assert.Equal(t, []string{
+			"gitlab.com/phpboyscout/go/chat-anthropic",
+			"gitlab.com/phpboyscout/go/chat-gemini",
+			"gitlab.com/phpboyscout/go/chat-openai",
+		}, modules)
+	})
+
+	t.Run("reports unknown names", func(t *testing.T) {
+		t.Parallel()
+
+		modules, unknown := ModulesForProviders([]gochat.Provider{"nope", gochat.ProviderClaude})
+
+		assert.Equal(t, []gochat.Provider{"nope"}, unknown)
+		assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, modules)
+	})
+}

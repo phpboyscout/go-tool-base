@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"sort"
 	"strings"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -51,6 +52,50 @@ func ProviderModules() []ProviderModuleEntry {
 	copy(out, providerModules)
 
 	return out
+}
+
+// ConfigurableProviders returns the providers this adapter can resolve into a
+// working client from configuration: the three with a credential root, the
+// openai-compatible name that shares openai's, and claude-local, which needs
+// none. It is the set the generator offers (spec 0194 D5); widening it is the
+// provider-mapping spec's work.
+func ConfigurableProviders() []gochat.Provider {
+	return []gochat.Provider{
+		gochat.ProviderClaude,
+		gochat.ProviderClaudeLocal,
+		gochat.ProviderOpenAI,
+		gochat.ProviderOpenAICompatible,
+		gochat.ProviderGemini,
+	}
+}
+
+// ModulesForProviders returns the distinct modules, sorted, whose blank imports
+// register the given providers, and the names it does not know.
+func ModulesForProviders(providers []gochat.Provider) ([]string, []gochat.Provider) {
+	seen := map[string]bool{}
+
+	var (
+		modules []string
+		unknown []gochat.Provider
+	)
+
+	for _, p := range providers {
+		module, ok := ProviderModule(p)
+		if !ok {
+			unknown = append(unknown, p)
+
+			continue
+		}
+
+		if !seen[module] {
+			seen[module] = true
+			modules = append(modules, module)
+		}
+	}
+
+	sort.Strings(modules)
+
+	return modules, unknown
 }
 
 // unsupportedProviderWording is go/chat's registry-miss message. Matched as text

@@ -80,6 +80,11 @@ type SkeletonOptions struct {
 	SigningKMSRegion string
 	SigningPublicKey string
 
+	// ChatProviders is what cmd/<name>/chat.go links, as chat.Provider names.
+	// Defaults to every provider the framework can configure; an empty list
+	// with the ai feature selected is refused (spec 0194 D5, OQ4, OQ5).
+	ChatProviders []string
+
 	// Templates carries the custom template-overlay specs (<src>@<ref>)
 	// supplied via --template (repeatable). Each is parsed into a manifest
 	// TemplateSource and layered over the embedded skeleton.
@@ -131,6 +136,8 @@ otherwise supply the flags directly.`,
 	// var's.
 	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", slices.Clone(generator.DefaultSelectedFeatures),
 		"Features to enable ("+strings.Join(generator.SelectableFeatures, ", ")+")")
+	cmd.Flags().StringSliceVar(&opts.ChatProviders, "chat-providers", generator.DefaultChatProviders(),
+		"Chat providers the tool links when the ai feature is enabled ("+strings.Join(generator.DefaultChatProviders(), ", ")+")")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
@@ -194,7 +201,11 @@ func (o *SkeletonOptions) validateFields() error {
 		return err
 	}
 
-	return o.validateSigningFields()
+	if err := o.validateSigningFields(); err != nil {
+		return err
+	}
+
+	return generator.ValidateChatProviders(o.ChatProviders, resolveFeatures(o.Features))
 }
 
 // validateSigningFields checks the signing key-source value when signing
@@ -597,12 +608,41 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.envPrefixGroup(),
 		o.updatePolicyGroup(),
 		o.updateCheckIntervalGroup(),
+		o.chatProvidersGroup(),
 		o.gitGroup(),
 		o.slackGroup(),
 		o.teamsGroup(),
 		o.signingEnableGroup(),
 		o.signingDetailGroup(),
 	)
+}
+
+// chatProvidersGroup picks the chat providers the tool links. Shown only when
+// the ai feature is selected; every configurable provider is pre-selected,
+// because a generated tool is configured by its consumers the way gtb itself
+// is (spec 0194 OQ4).
+func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Title("Chat providers").
+			Description("Each provider is a module linked into the binary. Untick what this tool will never use.").
+			Options(chatProviderOptions()...).
+			Value(&o.ChatProviders),
+	).
+		Title("AI Chat").
+		Description("The ai feature needs at least one provider.\n").
+		WithHideFunc(func() bool { return !slices.Contains(o.Features, string(props.AiCmd)) })
+}
+
+func chatProviderOptions() []huh.Option[string] {
+	defaults := generator.DefaultChatProviders()
+	opts := make([]huh.Option[string], 0, len(defaults))
+
+	for _, name := range defaults {
+		opts = append(opts, huh.NewOption(name, name).Selected(true))
+	}
+
+	return opts
 }
 
 // envPrefixGroup collects the config env-var prefix. Its value is pre-seeded
@@ -872,6 +912,14 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 
 	features := resolveFeatures(o.Features)
 
+	// The chat list only means something with the ai feature; without it the
+	// manifest carries no chat block, and enabling ai later records the
+	// default set (spec 0194 D4, D7).
+	chatProviders := o.ChatProviders
+	if !slices.Contains(o.Features, string(props.AiCmd)) {
+		chatProviders = nil
+	}
+
 	host := o.Host
 	if host == "" {
 		host = hostForBackend(o.GitBackend)
@@ -891,6 +939,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		Path:                o.Path,
 		GoVersion:           o.GoVersion,
 		Features:            features,
+		Chat:                generator.ManifestChat{Providers: chatProviders},
 		HelpType:            helpType,
 		SlackChannel:        o.SlackChannel,
 		SlackTeam:           o.SlackTeam,

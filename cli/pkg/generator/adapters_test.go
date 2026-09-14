@@ -1,0 +1,184 @@
+package generator
+
+import (
+	"testing"
+
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+)
+
+func TestDefaultChatProviders(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, []string{"claude", "claude-local", "openai", "openai-compatible", "gemini"}, DefaultChatProviders())
+}
+
+func TestValidateChatProviders(t *testing.T) {
+	t.Parallel()
+
+	ai := []ManifestFeature{{Name: string(props.AiCmd), Enabled: true}}
+	noAI := []ManifestFeature{{Name: string(props.AiCmd), Enabled: false}}
+
+	tests := []struct {
+		name      string
+		providers []string
+		features  []ManifestFeature
+		wantErr   error
+	}{
+		{"configurable set passes", DefaultChatProviders(), ai, nil},
+		{"one provider passes", []string{"claude-local"}, ai, nil},
+		{"unknown name is refused", []string{"bedrock"}, ai, ErrUnknownChatProvider},
+		{"empty with ai is refused", nil, ai, ErrChatProvidersRequired},
+		{"empty without ai passes", nil, noAI, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateChatProviders(tt.providers, tt.features)
+			if tt.wantErr == nil {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestChatModules(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t,
+		[]string{"gitlab.com/phpboyscout/go/chat-anthropic", "gitlab.com/phpboyscout/go/chat-gemini"},
+		chatModules([]string{"gemini", "claude", "claude-local", "not-a-provider"}))
+	assert.Empty(t, chatModules(nil))
+}
+
+func TestForgeModules(t *testing.T) {
+	t.Parallel()
+
+	features := []ManifestFeature{
+		{Name: string(forge.GithubFeature), Enabled: true},
+		{Name: string(forge.GiteaFeature), Enabled: true},
+		{Name: string(forge.CodebergFeature), Enabled: true},
+		{Name: string(forge.BitbucketFeature), Enabled: false},
+		{Name: string(props.AiCmd), Enabled: true},
+	}
+
+	assert.Equal(t,
+		[]string{"gitlab.com/phpboyscout/go/forge-gitea", "gitlab.com/phpboyscout/go/forge-github"},
+		forgeModules(features))
+	assert.Empty(t, forgeModules(nil))
+}
+
+func TestSyncAdapterFiles(t *testing.T) {
+	t.Parallel()
+
+	t.Run("writes both files from the manifest", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		m := &Manifest{Properties: ManifestProperties{
+			Name: "tool",
+			Features: []ManifestFeature{
+				{Name: string(forge.GitlabFeature), Enabled: true},
+				{Name: string(props.AiCmd), Enabled: true},
+			},
+			Chat: ManifestChat{Providers: []string{"openai"}},
+		}}
+
+		require.NoError(t, g.syncAdapterFiles(m))
+
+		chatGo, err := afero.ReadFile(fs, "/proj/cmd/tool/chat.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(chatGo), `_ "gitlab.com/phpboyscout/go/chat-openai"`)
+		assert.NotContains(t, string(chatGo), "chat-anthropic")
+
+		forgeGo, err := afero.ReadFile(fs, "/proj/cmd/tool/forge.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(forgeGo), `_ "gitlab.com/phpboyscout/go/forge-gitlab"`)
+	})
+
+	t.Run("no chat block with ai enabled records the default set", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		m := &Manifest{Properties: ManifestProperties{
+			Name:     "tool",
+			Features: []ManifestFeature{{Name: string(props.AiCmd), Enabled: true}},
+		}}
+		require.NoError(t, fs.MkdirAll("/proj/.gtb", 0o755))
+		require.NoError(t, g.marshalManifestFile(ManifestPathFor("/proj"), m))
+
+		require.NoError(t, g.syncAdapterFiles(m))
+
+		assert.Equal(t, DefaultChatProviders(), m.Properties.Chat.Providers)
+
+		written, err := g.decodeManifestFile(ManifestPathFor("/proj"))
+		require.NoError(t, err)
+		assert.Equal(t, DefaultChatProviders(), written.Properties.Chat.Providers)
+
+		chatGo, err := afero.ReadFile(fs, "/proj/cmd/tool/chat.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(chatGo), "chat-anthropic")
+		assert.Contains(t, string(chatGo), "chat-openai")
+		assert.Contains(t, string(chatGo), "chat-gemini")
+	})
+
+	t.Run("no chat block with ai disabled stays empty", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		m := &Manifest{Properties: ManifestProperties{
+			Name:     "tool",
+			Features: []ManifestFeature{{Name: string(props.AiCmd), Enabled: false}},
+		}}
+
+		require.NoError(t, g.syncAdapterFiles(m))
+
+		assert.Nil(t, m.Properties.Chat.Providers)
+
+		chatGo, err := afero.ReadFile(fs, "/proj/cmd/tool/chat.go")
+		require.NoError(t, err)
+		assert.NotContains(t, string(chatGo), "import")
+	})
+}
+
+func TestRecoverChatProviders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("absent file recovers nil", func(t *testing.T) {
+		t.Parallel()
+
+		g, _ := newPureGenerator(t, &Config{Path: "/proj"})
+		assert.Nil(t, g.recoverChatProviders())
+	})
+
+	t.Run("recovers every provider the linked modules register", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		require.NoError(t, fs.MkdirAll("/proj/cmd/tool", 0o755))
+		require.NoError(t, afero.WriteFile(fs, "/proj/cmd/tool/chat.go",
+			[]byte("package main\n\nimport _ \"gitlab.com/phpboyscout/go/chat-gemini\"\n"), 0o644))
+
+		assert.Equal(t, []string{"gemini", "gemini-vertex", "agy-local"}, g.recoverChatProviders())
+	})
+}
+
+func TestChatModulesFor_GatedOnAI(t *testing.T) {
+	t.Parallel()
+
+	off := []ManifestFeature{{Name: string(props.AiCmd), Enabled: false}}
+	on := []ManifestFeature{{Name: string(props.AiCmd), Enabled: true}}
+
+	assert.Empty(t, chatModulesFor([]string{"claude"}, off))
+	assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, chatModulesFor([]string{"claude"}, on))
+}

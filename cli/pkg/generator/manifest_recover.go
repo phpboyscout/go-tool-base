@@ -67,6 +67,10 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 
 	props.DocsLayout = g.recoverDocsLayout()
 
+	if providers := g.recoverChatProviders(); providers != nil {
+		props.Chat.Providers = providers
+	}
+
 	if src := g.recoverCIComponentSource(); src != "" {
 		props.CI.ComponentSource = src
 	}

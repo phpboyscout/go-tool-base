@@ -49,6 +49,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
 | `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. |
+| `--chat-providers` | `claude,claude-local,openai,openai-compatible,gemini` | Chat providers the tool links when `ai` is among its features: see [adapters](#adapters). Ignored without `ai`; empty with `ai` is refused. |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
@@ -78,6 +79,24 @@ rejected before anything is written.
 
 Everything except `keychain` can also be toggled after generation with
 [`gtb enable`/`gtb disable`](enable-disable.md).
+
+**Adapters.** A chat provider or a forge is a module the tool blank-imports
+from its own `main` package, and the generator writes those imports from the
+manifest into two `DO NOT EDIT` files beside `keychain.go`:
+
+| File | Derived from | Modules |
+|------|--------------|---------|
+| `cmd/<name>/chat.go` | `chat.providers` in the manifest, only when `ai` is enabled | `claude`, `claude-local` → `go/chat-anthropic`; `openai`, `openai-compatible` → `go/chat-openai`; `gemini` → `go/chat-gemini` |
+| `cmd/<name>/forge.go` | the enabled forge features | `github` → `go/forge-github`; `gitlab` → `go/forge-gitlab`; `gitea`, `codeberg` → `go/forge-gitea`; `bitbucket` → `go/forge-bitbucket` |
+
+Every configurable provider is pre-selected: a generated tool is configured by
+its consumers the way `gtb` itself is, so it ships every provider and the
+operator narrows with `--chat-providers` or the wizard. A name the framework
+cannot configure yet (`codex-local`, `agy-local`, `gemini-vertex`, `bedrock`,
+`azure-openai`) is refused. Both files are rewritten by `regenerate project`
+from the manifest; a project generated before the `chat:` block existed gets
+the full list written into its manifest the first time it is regenerated with
+`ai` enabled. Delete a file to ship none of that family.
 
 **Git lifecycle** (the new project is git-initialised with an initial commit by default):
 

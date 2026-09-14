@@ -354,6 +354,19 @@ and is a build-time blank-import decision (the scaffolded
 recovered from the artefact rather than from a `SetFeatures` call. This is why
 `ToggleableFeatures` (derived from the catalogue) excludes it.
 
+The same pattern carries the chat providers and forge adapters
+(`adapters.go`, spec 0194): `cmd/<name>/chat.go` blank-imports the modules for
+the manifest's `chat.providers`, gated on the `ai` feature, and
+`cmd/<name>/forge.go` the adapters for the enabled forge features. Both are
+derived, never authored: `chatModulesFor` and `forgeModules` read the framework's
+own tables (`chat.ModulesForProviders`, `forge.ModuleForFeature`), and
+`syncAdapterFiles` rewrites both on every regenerate. A manifest with no
+`chat:` block and `ai` enabled is a project older than the block; the sync
+records `DefaultChatProviders()` into it first, so the tool keeps every
+provider it had. On a from-scratch manifest rebuild `recoverChatProviders`
+reads `chat.go` and lists every provider the imported modules register, which
+is the widest reading of what the binary links.
+
 ### 8. Custom Template Overlays (`templatesource*.go`)
 
 Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files (`README.md` and `gtb-template.yaml`) are excluded from rendering.

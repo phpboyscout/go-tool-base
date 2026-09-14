@@ -56,6 +56,7 @@ type SkeletonConfig struct {
 	// before this field existed does.
 	ConfigLayers []string
 	Signing      ManifestSigning   // self-update signature-verification posture (disabled by default)
+	Chat         ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
 	Bootstrap    ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
@@ -343,6 +344,8 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		GoVersion:             resolveGoVersion(config.GoVersion),
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
+		ChatModules:           chatModulesFor(config.Chat.Providers, config.Features),
+		ForgeModules:          forgeModules(config.Features),
 		Private:               config.Private,
 		HelpType:              config.HelpType,
 		SlackChannel:          config.SlackChannel,
@@ -638,6 +641,12 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	if !slices.Contains(data.DisabledFeatures, KeychainFeature) {
 		goFiles[filepath.Join("cmd", data.Name, "keychain.go")] = templates.SkeletonKeychain()
 	}
+
+	// The adapter files are always written, empty when nothing is selected, so
+	// their presence is a fact about the layout rather than about the choice;
+	// deleting one is the operator's way to ship none (spec 0194 D6).
+	goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatModules)
+	goFiles[filepath.Join("cmd", data.Name, "forge.go")] = templates.SkeletonForgeAdapters(data.ForgeModules)
 
 	for path, f := range goFiles {
 		fullPath := filepath.Join(destPath, path)

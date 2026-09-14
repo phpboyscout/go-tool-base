@@ -169,7 +169,11 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	// the trustkeys package, keys/.gitkeep and signing.go are emitted
 	// when signing is enabled, and signing.go is dropped when disabled.
 	// (cmd.go's Signing: field was handled by regenerateRootCommand.)
-	return g.syncSigningFiles(*m)
+	if err := g.syncSigningFiles(*m); err != nil {
+		return err
+	}
+
+	return g.syncAdapterFiles(m)
 }
 
 // sanitiseManifest removes manifest entries that fail validation so the
@@ -486,18 +490,23 @@ func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]temp
 // reconstructed from a manifest. Shared by the full regenerate and the
 // targeted .goreleaser.yaml re-render that enable/disable signing performs.
 type skeletonTemplateData struct {
-	Name                  string
-	Repo                  string
-	Host                  string
-	ModulePath            string
-	Description           string
-	Org                   string
-	RepoName              string
-	ReleaseProvider       string
-	GoToolBaseVersion     string
-	GoVersion             string
-	DisabledFeatures      []string
-	EnabledFeatures       []string
+	Name              string
+	Repo              string
+	Host              string
+	ModulePath        string
+	Description       string
+	Org               string
+	RepoName          string
+	ReleaseProvider   string
+	GoToolBaseVersion string
+	GoVersion         string
+	DisabledFeatures  []string
+	EnabledFeatures   []string
+	// ChatModules and ForgeModules are the blank imports cmd/<name>/chat.go and
+	// forge.go carry, derived from the manifest's chat.providers and enabled
+	// forge features (spec 0194 D4, D6).
+	ChatModules           []string
+	ForgeModules          []string
 	Private               bool
 	HelpType              string
 	SlackChannel          string
@@ -549,6 +558,8 @@ func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 		GoVersion:             resolveGoVersion(""),
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
+		ChatModules:           chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
+		ForgeModules:          forgeModules(m.Properties.Features),
 		Private:               m.ReleaseSource.Private,
 		HelpType:              m.Properties.Help.Type,
 		SlackChannel:          m.Properties.Help.SlackChannel,
