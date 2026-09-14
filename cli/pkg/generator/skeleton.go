@@ -991,6 +991,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 				TeamsTeam:    config.TeamsTeam,
 			},
 			Signing:   config.Signing,
+			Chat:      config.Chat,
 			Bootstrap: config.Bootstrap,
 			CI: ManifestCI{
 				// Persist only an explicit non-default source so the manifest

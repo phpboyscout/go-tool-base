@@ -101,7 +101,7 @@ func UnlinkedError(missing []UnlinkedForge) error {
 
 	for _, m := range missing {
 		labels = append(labels, m.Label)
-		imports = append(imports, fmt.Sprintf("\t_ %q", m.Module))
+		imports = append(imports, fmt.Sprintf("    _ %q", m.Module))
 	}
 
 	return errors.WithHintf(

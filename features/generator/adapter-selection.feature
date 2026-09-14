@@ -24,6 +24,7 @@ Feature: A generated tool links only the adapters it selects
     And the generated "cmd/feattool/chat.go" file does not contain "chat-openai"
     And the generated "cmd/feattool/chat.go" file does not contain "chat-gemini"
     And the project manifest contains "- claude-local"
+    And the project manifest does not contain "- gemini"
 
   Scenario: An enabled forge feature links its adapter, and codeberg shares gitea's
     Given I generate a gtb project with features "init,update,github,codeberg" and chat providers ""
