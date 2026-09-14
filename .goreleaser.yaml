@@ -172,6 +172,15 @@ homebrew_casks:
     # commit called this a formula.
     homepage: "https://gitlab.com/phpboyscout/go-tool-base"
     description: "A helper utility for interacting and managing gtb repos and resources"
+    # With release.disable the cask cannot derive its download URL from a
+    # release GoReleaser did not create, so it names the generic package
+    # registry the uploads: block writes to. Same shape as that target, and
+    # as the colophon component's asset_base, on purpose: a mismatch is a
+    # cask full of 404s. The v0.41.0 tag was the first to run this config and
+    # failed on exactly this ("release is disabled, cannot use default
+    # url_template").
+    url:
+      template: "{{ .Env.CI_API_V4_URL }}/projects/{{ .Env.CI_PROJECT_ID }}/packages/generic/{{ .ProjectName }}/{{ .Version }}/{{ .ArtifactName }}"
     dependencies:
       - formula: go
       - formula: golangci-lint
