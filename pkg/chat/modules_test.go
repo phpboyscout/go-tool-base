@@ -115,7 +115,9 @@ func TestConfigurableProviders(t *testing.T) {
 		gochat.ProviderClaudeLocal,
 		gochat.ProviderOpenAI,
 		gochat.ProviderOpenAICompatible,
+		gochat.ProviderCodexLocal,
 		gochat.ProviderGemini,
+		gochat.ProviderAgyLocal,
 	}, got)
 
 	for _, p := range got {
@@ -150,4 +152,16 @@ func TestModulesForProviders(t *testing.T) {
 		assert.Equal(t, []gochat.Provider{"nope"}, unknown)
 		assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, modules)
 	})
+}
+
+func TestIsLocalCLI(t *testing.T) {
+	t.Parallel()
+
+	for _, p := range []gochat.Provider{gochat.ProviderClaudeLocal, gochat.ProviderCodexLocal, gochat.ProviderAgyLocal} {
+		assert.True(t, IsLocalCLI(p), p)
+	}
+
+	for _, p := range []gochat.Provider{gochat.ProviderClaude, gochat.ProviderOpenAI, gochat.ProviderBedrock} {
+		assert.False(t, IsLocalCLI(p), p)
+	}
 }

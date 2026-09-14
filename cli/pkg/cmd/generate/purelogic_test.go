@@ -565,3 +565,25 @@ func TestSkeletonValidateOrPrompt_InvalidOverwrite(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidOverwriteValue)
 }
+
+// TestEveryFeatureHasAGloss pins the wizard's second column: a feature added
+// to the catalogue without an explanation would render as a bare name beside
+// fourteen explained ones.
+func TestEveryFeatureHasAGloss(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range generator.SelectableFeatures {
+		assert.NotEmptyf(t, featureGloss(name), "feature %q has no gloss for the wizard", name)
+	}
+
+	for _, name := range generator.DefaultChatProviders() {
+		assert.NotEmptyf(t, providerGlosses[name], "provider %q has no gloss for the wizard", name)
+	}
+}
+
+func TestOptionLabel(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "Doctor      health checks", optionLabel("Doctor", "health checks", 10))
+	assert.Equal(t, "Doctor", optionLabel("Doctor", "", 10))
+}

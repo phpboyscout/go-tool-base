@@ -54,18 +54,32 @@ func ProviderModules() []ProviderModuleEntry {
 	return out
 }
 
+// IsLocalCLI reports whether a provider drives a locally installed CLI, which
+// authenticates on its own and so carries no credential in GTB's config.
+func IsLocalCLI(provider gochat.Provider) bool {
+	switch provider {
+	case gochat.ProviderClaudeLocal, gochat.ProviderCodexLocal, gochat.ProviderAgyLocal:
+		return true
+	default:
+		return false
+	}
+}
+
 // ConfigurableProviders returns the providers this adapter can resolve into a
 // working client from configuration: the three with a credential root, the
-// openai-compatible name that shares openai's, and claude-local, which needs
-// none. It is the set the generator offers (spec 0194 D5); widening it is the
-// provider-mapping spec's work.
+// openai-compatible name that shares openai's, and the three local CLIs, which
+// need none. It is the set the generator offers (spec 0194 D5); the providers
+// that authenticate through a credential chain or a deployment endpoint
+// (gemini-vertex, bedrock, azure-openai) are the provider-mapping spec's work.
 func ConfigurableProviders() []gochat.Provider {
 	return []gochat.Provider{
 		gochat.ProviderClaude,
 		gochat.ProviderClaudeLocal,
 		gochat.ProviderOpenAI,
 		gochat.ProviderOpenAICompatible,
+		gochat.ProviderCodexLocal,
 		gochat.ProviderGemini,
+		gochat.ProviderAgyLocal,
 	}
 }
 

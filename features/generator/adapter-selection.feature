@@ -38,10 +38,10 @@ Feature: A generated tool links only the adapters it selects
     Then the project exit code is not zero
     And the project output contains "at least one chat provider"
 
-  Scenario: A provider the framework cannot configure is refused at generation
-    Given I generate a gtb project with features "init,update,ai" and chat providers "bedrock"
+  Scenario: A provider no module registers is refused at generation
+    Given I generate a gtb project with features "init,update,ai" and chat providers "chatgpt"
     Then the project exit code is not zero
-    And the project output contains "not one the framework can configure"
+    And the project output contains "not one a known module registers"
 
   Scenario: Enabling ai on a project with no chat block records the default providers
     Given a freshly generated gtb project

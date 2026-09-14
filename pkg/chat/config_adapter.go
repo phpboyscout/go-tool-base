@@ -161,7 +161,7 @@ func applyRuntimeConfig(cfg config.Reader, target *gochat.Config) error {
 }
 
 func applyCredentialConfig(cfg config.Reader, target *gochat.Config) error {
-	if cfg == nil || target == nil || target.Provider == gochat.ProviderClaudeLocal {
+	if cfg == nil || target == nil || IsLocalCLI(target.Provider) {
 		return nil
 	}
 

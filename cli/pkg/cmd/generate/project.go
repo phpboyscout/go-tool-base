@@ -449,7 +449,77 @@ var featureLabels = map[string]string{ //nolint:gochecknoglobals // static prese
 	"telemetry": "Telemetry",
 	"man":       "Man Pages",
 
-	generator.KeychainFeature: "OS Keychain (credentials via go-keyring)",
+	generator.KeychainFeature: "OS Keychain",
+}
+
+// featureGlosses are the one-line explanations shown beside each feature in
+// the wizard. huh has no per-option description, so the gloss rides in the
+// option label as a second column (optionLabel). Forges get a generated gloss.
+var featureGlosses = map[string]string{ //nolint:gochecknoglobals // static presentation table
+	"init":      "first-run setup wizard: config file, credentials, SSH keys",
+	"update":    "self-update from the release source, with signature checks",
+	"mcp":       "serve the tool's commands to AI agents over MCP",
+	"docs":      "built-in documentation browser and `docs ask`",
+	"doctor":    "environment and configuration health checks",
+	"changelog": "changelog from conventional commits",
+	"ai":        "AI chat client; the providers to link are chosen next",
+	"config":    "config get/set/list commands",
+	"telemetry": "opt-in usage telemetry and OpenTelemetry export",
+	"man":       "man page generation",
+
+	generator.KeychainFeature: "store credentials in the OS keychain (go-keyring)",
+}
+
+// providerGlosses explain each chat provider the wizard offers, in the same
+// second-column form as the features.
+var providerGlosses = map[string]string{ //nolint:gochecknoglobals // static presentation table
+	"claude":            "Anthropic API; needs an API key",
+	"claude-local":      "the claude CLI on this machine; no API key",
+	"openai":            "OpenAI API; needs an API key",
+	"openai-compatible": "any OpenAI-shaped endpoint (Ollama, xAI); needs a base URL",
+	"codex-local":       "the codex CLI on this machine; no API key",
+	"gemini":            "Google Gemini API; needs an API key",
+	"gemini-vertex":     "Gemini through Vertex AI; Google application default credentials",
+	"agy-local":         "the agy CLI on this machine; no API key, no tools",
+	"bedrock":           "AWS Bedrock; the AWS credential chain, links the AWS SDK",
+	"azure-openai":      "Azure OpenAI; a deployment endpoint and api-key or Entra token",
+}
+
+// multiSelectHeaderLines is what a one-line title and a one-line description
+// take off a multi-select's auto height in huh v2.
+const multiSelectHeaderLines = 2
+
+// optionLabel lays a label and its gloss out as two columns, padding the label
+// to width so the glosses line up down the list.
+func optionLabel(label, gloss string, width int) string {
+	if gloss == "" {
+		return label
+	}
+
+	return fmt.Sprintf("%-*s  %s", width, label, gloss)
+}
+
+// featureGloss resolves a feature's explanation: the static table for the
+// built-ins, a generated line for a forge.
+func featureGloss(name string) string {
+	if gloss, ok := featureGlosses[name]; ok {
+		return gloss
+	}
+
+	if d, ok := forge.DisplayFor(props.FeatureID(name)); ok {
+		return d.Label + " credential wizard, release source and config section"
+	}
+
+	return ""
+}
+
+func labelWidth(names []string, label func(string) string) int {
+	width := 0
+	for _, n := range names {
+		width = max(width, len(label(n)))
+	}
+
+	return width
 }
 
 // featureOptions builds the wizard's feature checklist from the same set the
@@ -458,10 +528,11 @@ var featureLabels = map[string]string{ //nolint:gochecknoglobals // static prese
 // already fallen behind: it offered neither man pages nor any forge.
 func featureOptions() []huh.Option[string] {
 	opts := make([]huh.Option[string], 0, len(generator.SelectableFeatures))
+	width := labelWidth(generator.SelectableFeatures, featureLabel)
 
 	for _, name := range generator.SelectableFeatures {
 		opts = append(opts,
-			huh.NewOption(featureLabel(name), name).
+			huh.NewOption(optionLabel(featureLabel(name), featureGloss(name), width), name).
 				Selected(slices.Contains(generator.DefaultSelectedFeatures, name)))
 	}
 
@@ -625,8 +696,11 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Chat providers").
-			Description("Each provider is a module linked into the binary. Untick what this tool will never use.").
+			Description("Each one is a module linked into the binary; untick what this tool will never use.").
 			Options(chatProviderOptions()...).
+			// huh sizes an auto-height multi-select as the options minus its
+			// title and description lines, which hid two of five providers.
+			Height(len(generator.DefaultChatProviders()) + multiSelectHeaderLines).
 			Value(&o.ChatProviders),
 	).
 		Title("AI Chat").
@@ -637,9 +711,10 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 func chatProviderOptions() []huh.Option[string] {
 	defaults := generator.DefaultChatProviders()
 	opts := make([]huh.Option[string], 0, len(defaults))
+	width := labelWidth(defaults, func(s string) string { return s })
 
 	for _, name := range defaults {
-		opts = append(opts, huh.NewOption(name, name).Selected(true))
+		opts = append(opts, huh.NewOption(optionLabel(name, providerGlosses[name], width), name).Selected(true))
 	}
 
 	return opts

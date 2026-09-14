@@ -16,54 +16,52 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
-// ErrUnknownChatProvider names a chat provider the framework cannot configure.
-var ErrUnknownChatProvider = errors.NewSentinel("gtb.generator.unknown_chat_provider", "chat provider is not one the framework can configure")
+// ErrUnknownChatProvider names a chat provider no known module registers.
+var ErrUnknownChatProvider = errors.NewSentinel("gtb.generator.unknown_chat_provider", "chat provider is not one a known module registers")
 
 // ErrChatProvidersRequired is the ai feature selected with no provider to
 // serve it (spec 0194 OQ5).
 var ErrChatProvidersRequired = errors.NewSentinel("gtb.generator.chat_providers_required", "the ai feature needs at least one chat provider")
 
-// DefaultChatProviders is what a new project ships when the operator does not
-// narrow the list: every provider the framework can configure, because a
-// generated tool is configured by its consumers the way gtb itself is (spec
-// 0194 OQ4).
-func DefaultChatProviders() []string {
-	providers := chat.ConfigurableProviders()
+// KnownChatProviders is every provider a known module registers, in the
+// framework's table order. The generator emits an import; whether the running
+// tool can be configured for the provider through GTB's wizard is that tool's
+// concern, not a precondition for linking it (spec 0194 D5, revised).
+func KnownChatProviders() []string {
+	entries := chat.ProviderModules()
 
-	out := make([]string, len(providers))
-	for i, p := range providers {
-		out[i] = string(p)
+	out := make([]string, len(entries))
+	for i, e := range entries {
+		out[i] = string(e.Provider)
 	}
 
 	return out
 }
 
-// ValidateChatProviders rejects names the framework cannot configure, and an
-// empty list when the ai feature is enabled.
+// DefaultChatProviders is what a new project ships when the operator does not
+// narrow the list: every known provider, because a generated tool is
+// configured by its consumers the way gtb itself is (spec 0194 OQ4).
+func DefaultChatProviders() []string {
+	return KnownChatProviders()
+}
+
+// ValidateChatProviders rejects names no module registers, and an empty list
+// when the ai feature is enabled.
 func ValidateChatProviders(providers []string, features []ManifestFeature) error {
-	configurable := chat.ConfigurableProviders()
+	known := KnownChatProviders()
 
 	for _, p := range providers {
-		if !slices.Contains(configurable, gochat.Provider(p)) {
-			return errors.Wrapf(ErrUnknownChatProvider, "%q (configurable: %s)", p, joinProviders(configurable))
+		if !slices.Contains(known, p) {
+			return errors.Wrapf(ErrUnknownChatProvider, "%q (known: %s)", p, strings.Join(known, ", "))
 		}
 	}
 
 	if len(providers) == 0 && featureEnabledIn(features, string(props.AiCmd)) {
 		return errors.WithHint(ErrChatProvidersRequired,
-			"Pass --chat-providers with at least one of "+joinProviders(configurable)+", or drop ai from --features.")
+			"Pass --chat-providers with at least one of "+strings.Join(known, ", ")+", or drop ai from --features.")
 	}
 
 	return nil
-}
-
-func joinProviders(providers []gochat.Provider) string {
-	names := make([]string, len(providers))
-	for i, p := range providers {
-		names[i] = string(p)
-	}
-
-	return strings.Join(names, ", ")
 }
 
 // chatModulesFor is chatModules gated on the ai feature: a tool without ai

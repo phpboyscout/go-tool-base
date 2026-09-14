@@ -14,7 +14,10 @@ import (
 func TestDefaultChatProviders(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, []string{"claude", "claude-local", "openai", "openai-compatible", "gemini"}, DefaultChatProviders())
+	assert.Equal(t, []string{
+		"claude", "claude-local", "openai", "openai-compatible", "codex-local",
+		"gemini", "gemini-vertex", "agy-local", "bedrock", "azure-openai",
+	}, DefaultChatProviders())
 }
 
 func TestValidateChatProviders(t *testing.T) {
@@ -31,7 +34,9 @@ func TestValidateChatProviders(t *testing.T) {
 	}{
 		{"configurable set passes", DefaultChatProviders(), ai, nil},
 		{"one provider passes", []string{"claude-local"}, ai, nil},
-		{"unknown name is refused", []string{"bedrock"}, ai, ErrUnknownChatProvider},
+		{"unknown name is refused", []string{"chatgpt"}, ai, ErrUnknownChatProvider},
+		{"local CLIs pass", []string{"codex-local", "agy-local"}, ai, nil},
+		{"a provider the wizard cannot configure still links", []string{"bedrock"}, ai, nil},
 		{"empty with ai is refused", nil, ai, ErrChatProvidersRequired},
 		{"empty without ai passes", nil, noAI, nil},
 	}
