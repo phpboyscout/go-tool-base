@@ -61,6 +61,9 @@ func (g *Generator) resolveModel(provider gochat.Provider) string {
 			model = gochat.DefaultModelClaude
 		case gochat.ProviderClaudeLocal:
 			// no default model; the claude binary selects its own default
+		default:
+			// GTB's config schema maps no other provider yet, so none gets a
+			// model chosen here.
 		}
 	}
 

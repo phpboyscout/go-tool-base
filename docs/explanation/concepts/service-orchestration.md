@@ -54,12 +54,22 @@ The `Controller` manages a service's state through a clean lifecycle flow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Unknown
-    Unknown --> Running: Start()
+    [*] --> NeverStarted
+    NeverStarted --> Running: Start()
     Running --> Stopping: Stop() / SIGINT
+    Running --> UnableToStart: a service exhausts its restart policy without ever starting cleanly
+    UnableToStart --> Stopping: Stop() / SIGINT
     Stopping --> Stopped: All Services Cleaned Up
     Stopped --> [*]
 ```
+
+The controller reports **ready only while `Running`**. Before `Start()`, during
+shutdown, and in `UnableToStart`, `Readiness()` is not overall healthy even when
+every registered check passes, so an orchestrator routes no traffic to a process
+that cannot yet, or can no longer, do its job. `Unknown` is not part of the
+sequence: it is what a zero-valued controller (one built without
+`NewController`) reports. Registration of services and health checks is only
+honoured in `NeverStarted`.
 
 ### Run outcomes and restart semantics
 
@@ -82,7 +92,7 @@ Handling shutdowns correctly is critical, especially when services hold file loc
 
 When a stop is triggered, the controller stops services in **reverse registration order**, one at a time, so the last-started service stops first (respecting startup dependencies). Each `StopFunc` runs under the shutdown deadline: a context-ignoring stop is **abandoned** when the deadline elapses rather than hanging `Wait()` forever. The controller then waits for all goroutines to finish via a `sync.WaitGroup`.
 
-`Start` is **idempotent**: it transitions `Unknown → Running` under a compare-and-set, so a second `Start()` is a safe no-op that does not double-start services or double-count the wait group. Services registered without a `Start` or `Stop` function default to no-ops, so they never panic at start or shutdown.
+`Start` is **idempotent**: it transitions `NeverStarted → Running` under a compare-and-set, so a second `Start()` is a safe no-op that does not double-start services or double-count the wait group. Services registered without a `Start` or `Stop` function default to no-ops, so they never panic at start or shutdown.
 
 The controller's internal goroutines (error/context handler, signal handler, message processor) all terminate when shutdown completes: none busy-spins on a cancelled context or leaks past `Wait()`.
 

@@ -8,19 +8,28 @@ Feature: Health Monitoring
     Given a controller with no OS signal handling
 
   @smoke
+  Scenario: Readiness is not overall healthy before the controller starts
+    Given a health check "db" of type "readiness" that returns healthy
+    Then the readiness report is not overall healthy
+    And the readiness report includes "db" with status "OK"
+
+  @smoke
   Scenario: Healthy readiness check reports OK
     Given a health check "db" of type "readiness" that returns healthy
+    When the controller starts
     Then the readiness report is overall healthy
     And the readiness report includes "db" with status "OK"
 
   @smoke
   Scenario: Unhealthy readiness check makes report unhealthy
     Given a health check "db" of type "readiness" that returns unhealthy with "connection refused"
+    When the controller starts
     Then the readiness report is not overall healthy
     And the readiness report includes "db" with status "ERROR"
 
   Scenario: Degraded check keeps report healthy
     Given a health check "cache" of type "readiness" that returns degraded with "high latency"
+    When the controller starts
     Then the readiness report is overall healthy
     And the readiness report includes "cache" with status "DEGRADED"
 

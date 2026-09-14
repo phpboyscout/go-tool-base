@@ -1,14 +1,17 @@
 @controls @integration
 Feature: Service Lifecycle Management
-  The controller manages services through a 4-state FSM:
-  Unknown -> Running -> Stopping -> Stopped
+  The controller manages services through a one-way FSM:
+  NeverStarted -> Running -> Stopping -> Stopped, with UnableToStart as a
+  branch off Running when a service exhausts its restart policy without ever
+  starting cleanly. Unknown is not part of the sequence: it is what a
+  zero-valued controller reports.
 
   Background:
     Given a controller with no OS signal handling
 
   @smoke
-  Scenario: Initial state is Unknown
-    Then the controller state is "unknown"
+  Scenario: Initial state is NeverStarted
+    Then the controller state is "never_started"
 
   @smoke
   Scenario: Start and stop a single service
