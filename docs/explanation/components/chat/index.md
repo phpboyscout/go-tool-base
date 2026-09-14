@@ -48,10 +48,18 @@ framework integration on top:
 - **Hardened HTTP + keychain seams.** The adapter injects `pkg/http`'s hardened
   transport and wires `pkg/credentials.Retrieve` as the keychain lookup, so GTB
   tools get the framework's security posture; the module core carries neither.
-- **Every provider registered.** The adapter blank-imports all three provider
-  modules, so GTB tools can use any provider with no import changes. A regulated
-  downstream that wants a lighter binary can build its own adapter importing only
-  the providers it needs.
+- **Every provider registered, for now.** The adapter blank-imports the
+  anthropic, openai and gemini provider modules (`pkg/chat/providers.go`), so
+  every GTB tool links all three whether it uses them or not. There is no way
+  for a downstream to opt out while that file exists, because the imports reach
+  it through `pkg/cmd/root`. Spec 0194 moves registration into each tool's
+  `main`, chosen by the generator; until then the cost is the binary size the
+  spike measured, not a configuration choice.
+- **Provider to module table.** `chat.ProviderModule(p)` and
+  `chat.ProviderModules()` name the module whose blank import registers each
+  `chat.Provider`. The generator, `doctor` and error hints read this one table.
+  When `chat.New` fails because a provider is not registered, the adapter adds
+  a hint naming the import to add.
 
 ## Related how-to guides
 

@@ -130,9 +130,12 @@ func TestGenerateAndDiscoverKey(t *testing.T) {
 		return nil
 	}
 
+	// The key manager is injected so the test does not depend on a forge
+	// adapter being linked; this test is about generation and discovery.
 	keyPath, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
 		WithPassphraseForm(mockPassphraseForm),
 		WithUploadConfirmForm(mockUploadForm),
+		WithKeyManager(keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))),
 	)
 	require.NoError(t, err)
 	assert.Contains(t, keyPath, ".ssh/id_testtool_")

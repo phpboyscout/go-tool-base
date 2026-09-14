@@ -71,7 +71,9 @@ func NewFromProps(ctx context.Context, p *props.Props, cfg gochat.Config) (gocha
 		return nil, err
 	}
 
-	return gochat.New(ctx, settings)
+	client, err := gochat.New(ctx, settings)
+
+	return client, hintUnsupportedProvider(err, settings.Config.Provider)
 }
 
 // NewWithFallbackFromProps adapts GTB props into package-owned chat settings,
@@ -88,7 +90,9 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Co
 	}
 
 	if !fallback.Enabled || len(fallback.Providers) == 0 {
-		return gochat.New(ctx, settings)
+		client, err := gochat.New(ctx, settings)
+
+		return client, hintUnsupportedProvider(err, settings.Config.Provider)
 	}
 
 	log := settings.Logger

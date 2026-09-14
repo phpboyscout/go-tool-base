@@ -33,6 +33,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -956,6 +957,13 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 			applyDebugFlag(props, cmd, mcpLogLevel)
 
 			return nil
+		}
+
+		// A forge feature enabled without its adapter linked is a build
+		// mistake, not a configuration one, so it is reported before any
+		// configuration is read (spec 0194 D9).
+		if err := forge.UnlinkedError(forge.Unlinked(props.Tool)); err != nil {
+			return err
 		}
 
 		// Extract and validate flags

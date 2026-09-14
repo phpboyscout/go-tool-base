@@ -39,6 +39,7 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | **Git** | `git` binary is available and the current directory is a repository |
 | **API keys** | At least one AI provider API key is configured |
 | **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config: warns and lists the offending key *names* (never values), pointing to env-var migration |
+| **Forge adapters** | Every enabled forge feature has its adapter module linked into the binary. Fixed at build time, so a failure names the blank import to add rather than a config key to set. Skipped when no forge feature is enabled |
 | **`<Forge>` credential** | Whether that forge's credential actually **resolves**, and from which rung: `auth.env`, `auth.keychain`, `auth.value`, or the well-known fallback variable. One per enabled single-token forge. Reports the key name only, never the value |
 | **Permissions** | Config directory exists with correct owner permissions (rwx) |
 

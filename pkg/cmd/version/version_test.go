@@ -2,13 +2,8 @@ package version
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/google/go-github/v90/github"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,39 +19,16 @@ import (
 const (
 	testConfig = `
 github:
-  url:
-    api: %s
-    upload: %s
   auth:
     env: GITHUB_TOKEN
 `
 )
 
 func TestNewCmdVersion(t *testing.T) {
-	// Setup Mock GitHub API
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v3/repos/owner/repo/releases/latest" {
-			resp := github.RepositoryRelease{
-				TagName: "v1.0.0",
-			}
-			if err := json.NewEncoder(w).Encode(resp); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-			return
-		}
-		http.NotFound(w, r)
-	}
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	// Setup Config pointing to mock server
-	cfgContent := fmt.Sprintf(testConfig, server.URL, server.URL)
 	memFS := afero.NewMemMapFs()
 
 	l := logger.NewNoop()
-	cfgContainer := testutil.StoreFromYAML(t, cfgContent)
-
-	t.Setenv("GITHUB_TOKEN", "dummy")
+	cfgContainer := testutil.StoreFromYAML(t, testConfig)
 
 	// Setup Props
 	props := &p.Props{
@@ -67,6 +39,7 @@ func TestNewCmdVersion(t *testing.T) {
 				Owner: "owner",
 				Repo:  "repo",
 			},
+			ReleaseProvider: releaseProvider("v1.0.0"),
 		},
 		Logger:       l,
 		FS:           memFS,

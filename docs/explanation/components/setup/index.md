@@ -355,7 +355,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
 
 ## Release Provider Registry
 
-`NewUpdater` resolves the `forge.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry in the external `gitlab.com/phpboyscout/go/forge` module. All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go`. No manual wiring is needed.
+`NewUpdater` resolves the `forge.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry in the external `gitlab.com/phpboyscout/go/forge` module. All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go`, so every tool links every forge adapter; spec 0194 moves those imports into each tool's `main`. Two guards make a tool that enables a forge without linking its adapter fail before it is used: the root command's pre-run checks every enabled forge feature against the registry (`forge.Unlinked`) and fails with a hint naming the import, and `doctor` reports the same as its **Forge adapters** check. `forge.ModuleFor(type)` is the table both read.
 
 ### Supported source types
 

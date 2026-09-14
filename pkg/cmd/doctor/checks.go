@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
 // ownerRWX is the Unix file mode mask for owner read/write/execute permissions.
@@ -42,6 +43,44 @@ func checkConfig(_ context.Context, props *p.Props) CheckResult {
 	}
 
 	return CheckResult{Name: "Configuration", Status: CheckPass, Message: "loaded successfully"}
+}
+
+// checkForgeAdapters reports whether every enabled forge feature has its
+// adapter linked into the binary. Fixed at build time, so a failure names the
+// blank imports to add rather than a config key to set (spec 0194 D9).
+func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
+	const name = "Forge adapters"
+
+	if props == nil {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no tool metadata"}
+	}
+
+	enabled := make([]string, 0, len(forge.Displays()))
+	for _, d := range forge.Displays() {
+		if props.Tool.IsEnabled(d.ID) {
+			enabled = append(enabled, d.Label)
+		}
+	}
+
+	if len(enabled) == 0 {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no forge feature enabled"}
+	}
+
+	missing := forge.Unlinked(props.Tool)
+	if len(missing) == 0 {
+		return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(enabled, ", ") + " linked"}
+	}
+
+	imports := make([]string, 0, len(missing))
+	for _, m := range missing {
+		imports = append(imports, fmt.Sprintf("%s (import %s)", m.Label, m.Module))
+	}
+
+	return CheckResult{
+		Name:    name,
+		Status:  CheckFail,
+		Message: "enabled but not linked: " + strings.Join(imports, "; "),
+	}
 }
 
 func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
