@@ -16,8 +16,9 @@ threshold: 90
 not_counted:
   - mocks/
   - cmd/
+  - cli/cmd/
   - internal/exectest
-  - internal/version
+  - cli/pkg/version
   - cli/test/e2e/support
   - test/integration/controls
 
