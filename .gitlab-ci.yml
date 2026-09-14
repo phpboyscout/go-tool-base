@@ -70,9 +70,10 @@ include:
       image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4"
   - component: gitlab.com/phpboyscout/cicd/zensical-pages@main
 
-  # Release MR machinery — our wrapper over apricote/releaser-pleaser
-  # (carries the schedule-never guard, so it no longer fires on the
-  # Renovate schedule).
+  # Release MR machinery — colophon, the estate's own orchestrator. It
+  # tags the commit confirmed on main (never an MR's recorded head) and,
+  # with assets: true, creates the release on the tag pipeline only after
+  # every uploaded asset link resolves.
   - component: gitlab.com/phpboyscout/cicd/colophon@main
     inputs:
       branch: main

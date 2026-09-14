@@ -85,7 +85,7 @@ go test ./pkg/props/... -run TestSpecificName -v
 
 ## Commit Conventions
 
-All commits must follow [Conventional Commits](https://www.conventionalcommits.org/). releaser-pleaser uses these to compute the next version and the changelog on the Release MR.
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/). colophon uses these to compute the next version and the changelog on the Release MR.
 
 **Do not commit without explicit user approval.** Present a summary of changes and a proposed message, then wait for confirmation.
 
@@ -96,11 +96,11 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 | Type | Release |
 |------|---------|
 | `feat(scope):` | Minor |
-| `fix(scope):` | Patch |
-| `BREAKING CHANGE:` footer / `feat!:` | Major |
-| `perf:` / `refactor:` / `ci:` / `chore:` / `style:` / `docs:` / `test:` | None |
+| `fix(scope):` / `perf(scope):` / `refactor(scope):` | Patch |
+| `BREAKING CHANGE:` footer / `feat!:` | Major at 1.0 and above; **held to a minor below 1.0** |
+| `ci:` / `chore:` / `style:` / `docs:` / `test:` | None |
 
-Only `feat`, `fix`, and breaking changes cut a release. A batch containing only non-releasing types will not produce a Release MR; force a release with an `rp-next-version::*` label on the Release MR if needed.
+Only `feat`, `fix`, `perf`, `refactor` and breaking changes cut a release. A batch containing only non-releasing types will not produce a Release MR; to force one, or to set a specific version, put a `Release-As: x.y.z` trailer on a commit (an empty `chore:` commit is the tidiest carrier). Release-notes prose goes in a `Release-Note:` trailer or a fenced `release-note` block **in a commit message, before the change merges**. Nothing written in the Release MR's description survives: colophon regenerates it on every run and never reads it back.
 
 Always include a scope identifying the functional area (package name, subsystem, feature). Each commit represents one coherent change.
 
@@ -255,8 +255,8 @@ Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `gitla
 
 ## Release
 
-Releases use the **Release-MR** pattern via [releaser-pleaser](https://releaser-pleaser.dev/) (a GitLab CI/CD component) — **do not manually tag**. On merges to `main`, releaser-pleaser opens/updates a "Release" MR containing the pending version bump and `CHANGELOG.md` entries. Merging that Release MR (the human gate) creates the `vX.Y.Z` tag and the GitLab Release with notes. The tag triggers the `goreleaser` job, which builds for darwin/linux/windows × amd64/arm64 (CGO disabled, FIPS) and **attaches binaries** to the existing Release (`release.mode: keep-existing`) — releaser-pleaser owns the changelog/notes, GoReleaser owns the artefacts. macOS binaries are notarized; a Homebrew **cask** (`homebrew_casks:` in `.goreleaser.yaml`, not a formula) is auto-updated on the GitLab-hosted tap at `gitlab.com/phpboyscout/homebrew`, pushed over SSH with a deploy key because GoReleaser's `token:` field is GitHub-only. Users install it with `brew install --cask gtb` after tapping that URL.
+Releases use the **Release-MR** pattern via [colophon](https://gitlab.com/phpboyscout/colophon), the estate's own release orchestrator, included as the `gitlab.com/phpboyscout/cicd/colophon` CI component — **do not manually tag**. On merges to `main`, colophon opens/updates a Release MR from the `colophon/release/main` branch containing the pending version bump and `CHANGELOG.md` entries. Merging that Release MR (the human gate) resolves the commit that actually landed on `main`, tags it `vX.Y.Z`, and the tag pipeline runs `goreleaser` — darwin/linux/windows × amd64/arm64, CGO disabled, FIPS — which uploads the binaries to the GitLab package registry; colophon then creates the GitLab Release on that tag, linking every uploaded asset **after verifying each link resolves**, so a release never exists with nothing on it. colophon owns the changelog/notes, GoReleaser owns the artefacts. macOS binaries are notarized; a Homebrew **cask** (`homebrew_casks:` in `.goreleaser.yaml`, not a formula) is auto-updated on the GitLab-hosted tap at `gitlab.com/phpboyscout/homebrew`, pushed over SSH with a deploy key because GoReleaser's `token:` field is GitHub-only. Users install it with `brew install --cask gtb` after tapping that URL.
 
-To cut a release: merge the open Release MR. To force a release from non-releasing commits, or to set a pre-release, add an `rp-next-version::*` label to the Release MR.
+To cut a release: merge the open Release MR. To force a release from non-releasing commits, or to set a specific version, put a `Release-As: x.y.z` trailer on a commit. To hold a release, commit `.colophon.yaml` with `hold: true` and a `reason:`. Nothing written in the Release MR's description survives a regeneration, so overrides live in commit trailers and repo files, never in the MR. The old `rp-next-version::*` label does nothing here.
 
 Pre-release check: run `just ci`, then `goreleaser check`, then `just snapshot` to verify `dist/` output.

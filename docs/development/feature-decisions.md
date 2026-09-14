@@ -216,7 +216,7 @@ Any functional change must include a doc update in `docs/components/` or `docs/c
 
 ### Automated Releases
 
-Releases use the Release-MR pattern via releaser-pleaser. Never manually tag. Merges to `main` update a "Release" MR; merging it creates the tag + GitLab Release and triggers GoReleaser to attach binaries. Conventional Commits determine version bumps (feat/fix/breaking; other types do not release). No AI attribution in commits. Each commit represents one coherent change with a scope identifying the functional area.
+Releases use the Release-MR pattern via colophon. Never manually tag. Merges to `main` update a Release MR; merging it tags the landed commit, GoReleaser uploads the binaries on the tag pipeline, and colophon creates the GitLab Release once every asset link resolves. Conventional Commits determine version bumps (feat minor; fix/perf/refactor patch; breaking major, held to a minor below 1.0; other types do not release). Release-notes prose and version overrides are commit trailers (`Release-Note:`, `Release-As:`), never text in the Release MR. No AI attribution in commits. Each commit represents one coherent change with a scope identifying the functional area.
 
 ### Three-Layer Project Structure
 

@@ -137,8 +137,8 @@ uploads:
       JOB-TOKEN: '{{ .Env.CI_JOB_TOKEN }}'
 
 changelog:
-  # releaser-pleaser owns the changelog (CHANGELOG.md and the Release
-  # notes), so GoReleaser does not generate its own.
+  # colophon owns the changelog (CHANGELOG.md and the Release notes), so
+  # GoReleaser does not generate its own.
   disable: true
 gitlab_urls:
   api: https://gitlab.com/api/v4/
