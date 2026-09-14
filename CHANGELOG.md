@@ -1,5 +1,35 @@
 # Changelog
 
+## [v0.41.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.40.0...v0.41.0)
+
+### Notes
+
+- The framework no longer registers chat providers or forge adapters. A tool that builds its own main must blank-import the modules it uses (chat-anthropic, forge-github, and so on); gtb-generated tools get them from the manifest. The gtb CLI is a nested module: install with go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest. See docs/reference/migration/v0.x-adapters-registered-by-main.md.
+
+### Features
+
+- **cli**: move the gtb CLI to a nested module and stop registering adapters in pkg ([369844e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/369844e98b0e6553369b70ba5b95be4a72fb6ebb))
+- **setup**: report a forge feature whose adapter is not linked ([29ede15](https://gitlab.com/phpboyscout/go-tool-base/-/commit/29ede15c57845b0dc9b23b921f435e8f6aff05f8))
+- **setup**: say which refusal a forge returned ([87a7e68](https://gitlab.com/phpboyscout/go-tool-base/-/commit/87a7e68e38b802449a8deb5f7c112e7259563c16))
+
+### Bug Fixes
+
+- **release**: sign with the public key at its moved path, and keep generated-tool paths in the docs ([c4adc5a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c4adc5a0d943f813d6fcd135a300b7b5ca716a88))
+- **deps**: follow the controls and chat contracts the toolkit round brought ([b2fc134](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b2fc134f904f78d98fcc63b0518b5aec470f2726))
+- **deps**: update go modules ([bc11031](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bc11031847e8fcefcc0520c32b03567b975b86e9))
+- **deps**: update module google.golang.org/grpc to v1.83.2 [security] ([73678a9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/73678a93b112b3bac281527d5da5c2b1c21388bc))
+- **deps**: update module golang.org/x/crypto to v0.56.0 [security] ([8928b22](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8928b2249abca4893b761b0a8ddc4f859f5388bf))
+- **deps**: update module go.opentelemetry.io/contrib/bridges/otelslog to v0.20.1 ([c8bd5bd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c8bd5bd38f420cfffdddead2b9c3c12897838fd2))
+- **deps**: update opentelemetry-go monorepo ([eeeb5e5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/eeeb5e51915b99f3addfa7bb80c6daa955a26f28))
+- **deps**: take the forge family to the current round ([29f61ac](https://gitlab.com/phpboyscout/go-tool-base/-/commit/29f61ac2eddb30a556d7fe6e38afe6da9a07d10d))
+
+### Performance Improvements
+
+- **ci**: read the coverage profile go-test already produced ([551488c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/551488cfa5b1ab07d72913fd7ff381f0298c583f))
+- **generator**: let a generation skip the golangci-lint pass ([15734d1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/15734d14ef1883ed6e831df878b0fe3712b1621a))
+
 ## [v0.40.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.40.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.39.1...v0.40.0)
