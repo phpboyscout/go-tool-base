@@ -1227,7 +1227,7 @@ func (s *SelfUpdater) GetCurrentVersion() string {
 // errDecompressedSizeExceeded is returned when the extracted binary grows past
 // the decompressed-size bound — the guard against a gzip bomb whose compressed
 // form fits under the download cap.
-var errDecompressedSizeExceeded = errors.New("extracted binary exceeded the decompressed-size bound")
+var errDecompressedSizeExceeded = errors.NewSentinel("gtb.setup.decompressed_size_exceeded", "extracted binary exceeded the decompressed-size bound")
 
 func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath string) error {
 	tempFilePath := fmt.Sprintf("%s_", targetPath)

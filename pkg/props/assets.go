@@ -5,7 +5,6 @@ import (
 	"embed"
 	"encoding/csv"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"io/fs"
@@ -149,7 +148,7 @@ func (a *embeddedAssets) Open(name string) (fs.File, error) {
 
 	ext := strings.ToLower(path.Ext(name))
 	switch ext {
-	case ".yaml", ".yml", ".json", ".toml", ".xml", ".properties", ".env":
+	case ".yaml", ".yml", ".json", ".toml", ".properties", ".env":
 		return a.openMergedStructured(name, ext)
 	case ".csv":
 		return a.openMergedCSV(name)
@@ -226,9 +225,6 @@ func marshalStructuredData(merged map[string]any, ext string) ([]byte, error) {
 		output, err = json.Marshal(merged)
 	case ".toml":
 		output, err = toml.Marshal(merged)
-	case ".xml":
-		//nolint:staticcheck // SA1026: xml.Marshal doesn't support map[string]interface{}, but we handle basics or users should provide structs
-		output, err = xml.Marshal(merged)
 	case ".properties", ".env":
 		output = []byte(formatFlatKV(merged))
 	default: // yaml
@@ -271,9 +267,6 @@ func unmarshalStructuredData(data []byte, ext string) (map[string]any, error) {
 		err = yaml.Unmarshal(data, &current)
 	case ".toml":
 		err = toml.Unmarshal(data, &current)
-	case ".xml":
-		// Simple XML to Map - might be limited but handles basics
-		err = xml.Unmarshal(data, &current)
 	case ".properties", ".env":
 		current = parseFlatKV(string(data))
 	default:
