@@ -964,12 +964,29 @@ func isUserOwnedSeedFile(relPath string) bool {
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {
 	g.props.Logger.Debug("writing skeleton manifest", "hashes", len(fileHashes))
 
-	org, repoName, err := splitRepoPath(config.Repo)
-	if err != nil {
+	if _, _, err := splitRepoPath(config.Repo); err != nil {
 		return err
 	}
 
-	manifest := Manifest{
+	manifest := manifestFromSkeletonConfig(config, fileHashes, g.props.Version.GetVersion())
+
+	manifestDir := filepath.Join(config.Path, ".gtb")
+	if err := g.props.FS.MkdirAll(manifestDir, os.ModePerm); err != nil {
+		return errors.Newf("failed to create manifest directory: %w", err)
+	}
+
+	return g.marshalManifestFile(filepath.Join(manifestDir, "manifest.yaml"), &manifest)
+}
+
+// manifestFromSkeletonConfig is the one place a generation writes author
+// settings into the manifest. Regenerate reads the same manifest back, so a
+// field rendered here but not persisted is deleted by the first regenerate;
+// TestSkeletonConfig_RoundTripsThroughTheManifest holds the table.
+func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]string, gtbVersion string) Manifest {
+	// Validated by the caller; a malformed repo cannot reach here.
+	org, repoName, _ := splitRepoPath(config.Repo)
+
+	return Manifest{
 		Properties: ManifestProperties{
 			Name:                config.Name,
 			Description:         MultilineString(config.Description),
@@ -985,6 +1002,10 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 				SlackTeam:    config.SlackTeam,
 				TeamsChannel: config.TeamsChannel,
 				TeamsTeam:    config.TeamsTeam,
+			},
+			Telemetry: ManifestTelemetry{
+				Endpoint:     config.TelemetryEndpoint,
+				OTelEndpoint: config.TelemetryOTelEndpoint,
 			},
 			Signing:   config.Signing,
 			Chat:      config.Chat,
@@ -1004,17 +1025,10 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 			Private: config.Private,
 		},
 		Version: ManifestVersion{
-			GoToolBase: g.props.Version.GetVersion(),
+			GoToolBase: gtbVersion,
 		},
 		Hashes: fileHashes,
 	}
-
-	manifestDir := filepath.Join(config.Path, ".gtb")
-	if err := g.props.FS.MkdirAll(manifestDir, os.ModePerm); err != nil {
-		return errors.Newf("failed to create manifest directory: %w", err)
-	}
-
-	return g.marshalManifestFile(filepath.Join(manifestDir, "manifest.yaml"), &manifest)
 }
 
 func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, args ...string) error {
