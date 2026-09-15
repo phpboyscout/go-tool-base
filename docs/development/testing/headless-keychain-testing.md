@@ -1,6 +1,6 @@
 ---
-title: Testing the keychain on a headless host
-description: Three ways to exercise the OS-keychain credential storage mode on a server, container, or CI runner: where no desktop session or registered Secret Service provider is available.
+title: "Testing the keychain on a headless host"
+description: "Three ways to exercise the OS-keychain credential storage mode on a server, container, or CI runner: where no desktop session or registered Secret Service provider is available."
 tags: [testing, development, credentials, keychain, headless]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---

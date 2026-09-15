@@ -1,6 +1,6 @@
 ---
-title: Version Control
-description: Redirect: VCS documentation has moved to the vcs/ subsection.
+title: "Version Control"
+description: "Redirect: VCS documentation has moved to the vcs/ subsection."
 date: 2026-03-25
 tags: [components, vcs]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

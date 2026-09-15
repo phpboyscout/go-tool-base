@@ -1,6 +1,6 @@
 ---
-title: Components
-description: Overview of the reusable library components a gtb application is built from: those in this repository's pkg directory, and the standalone modules GTB wires in.
+title: "Components"
+description: "Overview of the reusable library components a gtb application is built from: those in this repository's pkg directory, and the standalone modules GTB wires in."
 date: 2026-02-16
 tags: [components, overview, libraries]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

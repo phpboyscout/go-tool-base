@@ -1,6 +1,6 @@
 ---
-title: Implement a custom credential backend
-description: Plug a remote or bespoke secret store (Hashicorp Vault, AWS SSM, 1Password Connect) into a GTB-based tool by implementing the credentials.Backend interface: now documented on the go/credentials microsite.
+title: "Implement a custom credential backend"
+description: "Plug a remote or bespoke secret store (Hashicorp Vault, AWS SSM, 1Password Connect) into a GTB-based tool by implementing the credentials.Backend interface: now documented on the go/credentials microsite."
 tags: [how-to, credentials, backend, vault, integration]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---

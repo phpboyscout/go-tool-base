@@ -1,6 +1,6 @@
 ---
-title: Error Handling
-description: go-tool-base's integration of the standalone go/errorhandling module: the Execute wrapper, signal-aware exits, help-channel implementations, and the generated command patterns.
+title: "Error Handling"
+description: "go-tool-base's integration of the standalone go/errorhandling module: the Execute wrapper, signal-aware exits, help-channel implementations, and the generated command patterns."
 date: 2026-07-18
 tags: [components, error-handling, errors, logging]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

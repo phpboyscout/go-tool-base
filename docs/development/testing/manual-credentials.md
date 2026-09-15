@@ -1,6 +1,6 @@
 ---
-title: Manual credential testing
-description: Exercise the OS-keychain credential storage mode end-to-end against a real workstation using the cli/cmd/e2e test binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
+title: "Manual credential testing"
+description: "Exercise the OS-keychain credential storage mode end-to-end against a real workstation using the cli/cmd/e2e test binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping."
 tags: [testing, development, credentials, keychain]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---

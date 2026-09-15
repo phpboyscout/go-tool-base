@@ -1,6 +1,6 @@
 ---
-title: Repo
-description: How GTB wires the standalone go/repo module: config-derived settings, forge auth resolution, and the props adapters.
+title: "Repo"
+description: "How GTB wires the standalone go/repo module: config-derived settings, forge auth resolution, and the props adapters."
 date: 2026-07-19
 tags: [components, vcs, git, repo, memfs, afero]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

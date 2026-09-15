@@ -1,6 +1,6 @@
 ---
-title: Testing
-description: Guides for testing GTB: automated suites (unit, race, integration, E2E) and hands-on walkthroughs for exercising features end-to-end against a real host.
+title: "Testing"
+description: "Guides for testing GTB: automated suites (unit, race, integration, E2E) and hands-on walkthroughs for exercising features end-to-end against a real host."
 tags: [testing, development]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---

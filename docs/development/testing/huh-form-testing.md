@@ -1,6 +1,6 @@
 ---
-title: Testing huh / charm interactive forms
-description: How to unit-test code that drives charm.land/huh forms without a TTY: using huh's built-in accessible mode with scripted stdin, injecting the form creator, or driving the form as a Bubble Tea model. Includes copy-paste helpers and a decision guide.
+title: "Testing huh / charm interactive forms"
+description: "How to unit-test code that drives charm.land/huh forms without a TTY: using huh's built-in accessible mode with scripted stdin, injecting the form creator, or driving the form as a Bubble Tea model. Includes copy-paste helpers and a decision guide."
 tags: [testing, development, huh, charm, tui]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---

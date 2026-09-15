@@ -1,6 +1,6 @@
 ---
-title: Getting Started
-description: The two ways into GTB: scaffold a project with the generator, or wire the library into an existing tool by hand.
+title: "Getting Started"
+description: "The two ways into GTB: scaffold a project with the generator, or wire the library into an existing tool by hand."
 date: 2026-08-02
 tags: [getting-started, guide, setup]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

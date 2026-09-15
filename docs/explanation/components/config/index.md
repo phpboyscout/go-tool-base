@@ -1,6 +1,6 @@
 ---
-title: Configuration
-description: go-tool-base's integration of the standalone go/config store: embedded-asset defaults, the project-local config layer, env-prefix propagation, flag binding, initialisers, and sensitive-value masking.
+title: "Configuration"
+description: "go-tool-base's integration of the standalone go/config store: embedded-asset defaults, the project-local config layer, env-prefix propagation, flag binding, initialisers, and sensitive-value masking."
 date: 2026-07-18
 tags: [components, config, configuration, store]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

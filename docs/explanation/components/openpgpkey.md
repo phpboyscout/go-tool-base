@@ -1,6 +1,6 @@
 ---
-title: openpgpkey
-description: OpenPGP packet assembly from a `crypto.Signer`: the primitive that wraps an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. Now a standalone module.
+title: "openpgpkey"
+description: "OpenPGP packet assembly from a `crypto.Signer`: the primitive that wraps an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. Now a standalone module."
 date: 2026-06-08
 tags: [components, openpgp, signing, kms, rsa]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

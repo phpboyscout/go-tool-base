@@ -1,6 +1,6 @@
 ---
-title: VCS
-description: How GTB wires the extracted forge and repo modules: release-source config, provider registration, and the config adapters that stay.
+title: "VCS"
+description: "How GTB wires the extracted forge and repo modules: release-source config, provider registration, and the config adapters that stay."
 date: 2026-07-19
 tags: [components, vcs, forge, releases, git]
 ---

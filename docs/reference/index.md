@@ -1,6 +1,6 @@
 ---
-title: Reference
-description: Lookup material for GTB: every command, every configuration key, the API stability policy, and the migration notes for each breaking change.
+title: "Reference"
+description: "Lookup material for GTB: every command, every configuration key, the API stability policy, and the migration notes for each breaking change."
 date: 2026-08-02
 tags: [reference, index, overview]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

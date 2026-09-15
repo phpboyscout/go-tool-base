@@ -1,6 +1,6 @@
 ---
-title: Release-binary signing
-description: How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI: without anyone holding a private key on their laptop.
+title: "Release-binary signing"
+description: "How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI: without anyone holding a private key on their laptop."
 date: 2026-06-08
 tags: [concepts, signing, openpgp, kms, rotation, trust]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
