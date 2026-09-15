@@ -133,6 +133,13 @@ uploads:
     mode: archive
     checksum: true
     signature: true
+    # mode: archive carries archives, checksums and signatures but not SBOMs,
+    # which the old release-attached flow shipped (14 assets at v0.40.0, 8 in
+    # the registry at v0.41.1). colophon links every file in the artefact
+    # manifest and verifies each resolves, so an SBOM that is generated but
+    # not uploaded fails the release rather than being quietly absent.
+    extra_files:
+      - glob: dist/*.sbom.json
     custom_headers:
       JOB-TOKEN: '{{ .Env.CI_JOB_TOKEN }}'
 

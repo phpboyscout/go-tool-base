@@ -86,6 +86,12 @@ include:
       branch: main
       stage: release
       assets: true
+      # The component's default asset_base names $CI_PROJECT_NAME
+      # (go-tool-base); GoReleaser uploads under its project_name, which is
+      # gtb. The two are written to match on purpose (see .goreleaser.yaml
+      # uploads:), and v0.41.1 was the release that showed they did not:
+      # every asset was in the registry and colophon 404'd on all of them.
+      asset_base: "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/gtb/$COLOPHON_VERSION"
 
   # Scheduled Renovate run — wires its own schedule gate
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
