@@ -67,7 +67,7 @@ manifest.
 | `--ci-component-source` | *(gitlab.com/phpboyscout/cicd)* | Override the `phpboyscout/cicd` component include base in the scaffolded GitLab pipeline. |
 | `--template` | — | Custom template overlay source `<src>@<ref>` (local path or forge repo); repeatable, layered in order. |
 
-**Help channel** (used when `--help-type` is `slack`/`teams`): `--slack-channel`, `--slack-team`, `--teams-channel`, `--teams-team`.
+**Help channel** (used when `--help-type` is `slack`/`teams`): `--slack-channel`, `--slack-team`, `--teams-channel`, `--teams-team`. The channel is required for its type; a type outside `slack`, `teams`, `none` is refused.
 
 <a id="features"></a>
 **Features** accepted by `--features`:
@@ -126,7 +126,7 @@ its manifest the first time it is regenerated with `ai` enabled.
 | `--signing-email` | — | Release WKD email (`external_key_email`); enables the external trust-anchor leg. |
 | `--signing-key-source` | `both` | Trust-anchor source: `embedded`, `external`, or `both`. |
 | `--signing-require-external-crosscheck` | `false` | Fail signing closed when the external (WKD) resolver is unreachable. |
-| `--signing-key-id` | — | Signing key id/ARN/alias (or PEM path for `local`) the release pipeline signs with; wires the GoReleaser signs block. |
+| `--signing-key-id` | — | Signing key id/ARN/alias (or PEM path for `local`) the release pipeline signs with; wires the GoReleaser signs block. Refused without `--signing` or `--signing-email`, since only the signing path renders it. |
 | `--signing-backend` | *(aws-kms when `--signing-key-id` set)* | `gtb sign` backend for the release pipeline. |
 | `--signing-kms-region` | *(eu-west-2)* | AWS region for the `aws-kms` backend. |
 | `--signing-public-key` | *(internal/trustkeys/keys/signing-key-v1.asc)* | Path to the embedded public key the signature identifies. |
