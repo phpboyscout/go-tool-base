@@ -125,6 +125,13 @@ func readerFor(sub forge.Config) credentialposture.Reader {
 		return nil
 	}
 
+	// GTB's own walk dereferences auth.env and auth.keychain, so it reads the
+	// raw configuration; the forge-facing view hides those keys because it
+	// exists for provider factories, which must not read them (#76).
+	if view, ok := sub.(configAdapter); ok {
+		return view.raw
+	}
+
 	return sub
 }
 

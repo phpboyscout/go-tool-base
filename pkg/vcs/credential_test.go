@@ -216,7 +216,7 @@ func TestForgeCredential_SectionFromEnvLayerAlone(t *testing.T) {
 // The scan tolerates the word in a comment — pkg/vcs/credential.go explains at
 // length why it is absent — and looks for a call.
 //
-// It scans GTB's OWN source only. CI sets GOMODCACHE inside the build directory
+// It scans GTB's OWN production source only. CI sets GOMODCACHE inside the build directory
 // (.go/pkg/mod), so a naive walk from the repo root descends into the forge
 // modules themselves and reports their legitimate calls — green locally, red in
 // CI, for a reason that has nothing to do with GTB. Dependency source is not
@@ -251,7 +251,7 @@ func TestConfigCredentialIsNotUsed(t *testing.T) {
 			return nil
 		}
 
-		if !strings.HasSuffix(path, ".go") {
+		if !isProductionGoFile(path) {
 			return nil
 		}
 
@@ -460,4 +460,11 @@ func TestForgeCredential_MalformedKeychainRefIsDiagnosed(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "malformed keychain reference")
+}
+
+// isProductionGoFile excludes tests from the guard: a test may call the
+// function to prove the adapter GTB hands to a factory survives the factories'
+// own composition (#76); production code must not.
+func isProductionGoFile(path string) bool {
+	return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")
 }
