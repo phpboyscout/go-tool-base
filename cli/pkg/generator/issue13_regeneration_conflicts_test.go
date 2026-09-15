@@ -40,7 +40,7 @@ func newIssue13Project(t *testing.T, overwrite, ignoreBody string) (*Generator, 
 	t.Helper()
 
 	g, fs, buf := newPerimeterTestProject(t, issue13Manifest)
-	g.config.Overwrite = overwrite
+	g.config.Overwrite = OverwriteMode(overwrite)
 
 	require.NoError(t, fs.MkdirAll("/work/pkg/cmd/alpha", 0o755))
 	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/alpha/cmd.go", []byte(issue13HandEdited), 0o644))

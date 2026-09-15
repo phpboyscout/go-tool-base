@@ -38,7 +38,7 @@ type CommandContext struct {
 	DryRun      bool
 	Force       bool
 	UpdateDocs  bool
-	Overwrite   string
+	Overwrite   OverwriteMode
 }
 
 // buildCommandContext constructs a CommandContext from a ManifestCommand and

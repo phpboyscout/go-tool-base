@@ -534,6 +534,25 @@ func ValidateSigningExternalKeyEmail(email string) error {
 	return nil
 }
 
+// helpTypes is the help-channel enum the root template renders; "none" and
+// empty both mean no channel.
+var helpTypes = map[string]bool{
+	"":      true,
+	"none":  true,
+	"slack": true,
+	"teams": true,
+}
+
+// ValidateHelpType restricts the help channel to the known enum: "slack",
+// "teams", "none", or empty.
+func ValidateHelpType(helpType string) error {
+	if !helpTypes[norm.NFC.String(helpType)] {
+		return rejectf("HelpType", "help type must be one of: slack, teams, none (or empty)", helpType)
+	}
+
+	return nil
+}
+
 // ValidateSigningKeySource restricts the trust-anchor source to the known
 // enum: "embedded", "external", "both", or empty for the framework default.
 func ValidateSigningKeySource(source string) error {
@@ -1275,6 +1294,10 @@ func validateManifestProperties(p *ManifestProperties) error {
 // validateManifestHelp validates the Slack/Teams help-channel fields,
 // keeping validateManifestProperties under the cyclomatic-complexity budget.
 func validateManifestHelp(h *ManifestHelp) error {
+	if err := ValidateHelpType(h.Type); err != nil {
+		return err
+	}
+
 	if err := ValidateSlackChannel(h.SlackChannel); err != nil {
 		return err
 	}

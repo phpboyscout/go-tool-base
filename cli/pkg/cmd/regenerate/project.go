@@ -47,19 +47,18 @@ Does not overwrite implementation files (main.go) unless --force is provided.`,
 func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
 	o.Path = icmd.ResolveProjectPath(p, o.Path)
 
-	if o.Overwrite == "" {
-		o.Overwrite = "ask"
-	}
-
-	if o.Overwrite != "allow" && o.Overwrite != "deny" && o.Overwrite != "ask" {
+	mode, err := generator.ParseOverwriteMode(o.Overwrite)
+	if err != nil {
 		return errors.Wrapf(ErrInvalidOverwriteValue, "%q", o.Overwrite)
 	}
+
+	o.Overwrite = string(mode)
 
 	cfg := &generator.Config{
 		Path:       o.Path,
 		DryRun:     o.shared.dryRun(),
 		Force:      o.Force,
-		Overwrite:  o.Overwrite,
+		Overwrite:  generator.OverwriteMode(o.Overwrite),
 		UpdateDocs: o.UpdateDocs,
 	}
 

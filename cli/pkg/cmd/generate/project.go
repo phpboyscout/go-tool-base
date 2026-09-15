@@ -939,13 +939,12 @@ func resolveFeatures(selected []string) []generator.ManifestFeature {
 // before Run touches the filesystem, so a bad invocation fails without leaving a
 // half-scaffolded directory behind.
 func (o *SkeletonOptions) preflight() error {
-	if o.Overwrite == "" {
-		o.Overwrite = "ask"
-	}
-
-	if o.Overwrite != "allow" && o.Overwrite != "deny" && o.Overwrite != "ask" {
+	mode, err := generator.ParseOverwriteMode(o.Overwrite)
+	if err != nil {
 		return errors.Wrapf(ErrInvalidOverwriteValue, "%q", o.Overwrite)
 	}
+
+	o.Overwrite = string(mode)
 
 	// --push implies a commit to push; --no-git removes it. The two are
 	// contradictory, so reject the combination rather than silently dropping one.
@@ -979,7 +978,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	gen := generator.New(p, &generator.Config{
 		DryRun:    o.shared.dryRun(),
 		Path:      o.Path,
-		Overwrite: o.Overwrite,
+		Overwrite: generator.OverwriteMode(o.Overwrite),
 		GitInit:   !o.NoGit,
 		GitPush:   o.Push,
 		GitBranch: o.GitBranch,

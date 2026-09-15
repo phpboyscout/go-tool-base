@@ -74,13 +74,15 @@ func (g *Generator) resolveCommandFileConflict(fullPath string, newContent []byt
 // choose to view a full-screen diff before deciding.
 func (g *Generator) promptOverwrite(path string, existing, newContent []byte) bool {
 	switch g.config.Overwrite {
-	case "allow":
+	case OverwriteAllow:
 		return true
-	case "deny":
+	case OverwriteDeny:
 		return false
+	case OverwriteAsk:
+	default: // unset: ask
 	}
 
-	// Default: ask. Never attempt a terminal prompt in a non-interactive context.
+	// Ask. Never attempt a terminal prompt in a non-interactive context.
 	// A headless/CI run has no controlling TTY, so huh would fail opening
 	// /dev/tty and emit a per-file, stack-flavoured "Prompt failed" warning
 	// (issue #6.2). Detect it up front and resolve by the safe default — skip —
