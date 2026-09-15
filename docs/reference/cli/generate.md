@@ -44,8 +44,12 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 |------|---------|-------------|
 | `--name, -n` | — | Project name (e.g. `als`). |
 | `--repo, -r` | — | Repository in `org/repo` format. |
-| `--git-backend` | `github` | Git backend: `github` or `gitlab`. Selects the skeleton asset set (CI pipelines, release automation, repository conventions), so the accepted values are the forges the generator ships a skeleton for: a narrower set than the forges a tool can authenticate against. |
-| `--host` | *(backend's canonical host)* | Git host (for self-managed instances). |
+| `--forge-backend` | `github` | The forge the project is hosted on: `github`, `gitlab`, `gitea`, `codeberg` or `bitbucket`. Decides the release source, the host default and the CI skeleton (only GitHub and GitLab ship one; the others get no CI files and the run says so). Recorded as `release_source.backend`. `--git-backend` is accepted as a deprecated alias until spec 0195 step 2 removes it. |
+| `--no-forge` | `false` | The project is not hosted on a forge: no backend, no repository; requires `--module`. |
+| `--module` | *(`<host>/<org>/<repo>`)* | Go module path. Required with `--no-forge`; otherwise an override for a vanity import path. Recorded as `module_path`. |
+| `--forge-credentials` | — | Further forges to enable for credential capture (their `init <forge>` wizard and adapter), never the release source. |
+| `--release-channel` | *(`forge` when hosted)* | Where self-update releases from when `update` is enabled: `forge` or `direct`. Required with `update`; `direct` needs `--release-url-template` and `--release-version-url`, and accepts `--release-checksum-url-template`, `--release-signature-url-template`, `--release-version-format`, `--release-version-key`, `--release-pinned-version`. |
+| `--host` | *(backend's canonical host)* | Git host, for a self-managed instance. |
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
 | `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. |

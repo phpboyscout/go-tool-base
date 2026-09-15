@@ -122,24 +122,11 @@ func forgeModules(features []ManifestFeature) []string {
 }
 
 // syncAdapterFiles rewrites cmd/<name>/chat.go and forge.go from the manifest
-// on regenerate. A manifest with no chat block is a project generated before
-// the block existed; it is read as every provider the framework could
-// configure and the list is written out so the project states its own choice
-// from then on (spec 0194 D7). The manifest is the source of truth and the
-// files follow it, so a provider removed from the manifest leaves the binary
-// on the next regenerate.
+// on regenerate. The manifest is the source of truth and the files follow it,
+// so a provider removed from the manifest leaves the binary on the next
+// regenerate. A manifest with no chat block had the default recorded by
+// syncDerivedManifestFields before rendering (spec 0194 D7).
 func (g *Generator) syncAdapterFiles(m *Manifest) error {
-	if m.Properties.Chat.Providers == nil && featureEnabledIn(m.Properties.Features, string(props.AiCmd)) {
-		m.Properties.Chat.Providers = DefaultChatProviders()
-
-		if err := g.marshalManifestFile(ManifestPathFor(g.config.Path), m); err != nil {
-			return err
-		}
-
-		g.props.Logger.Info("manifest had no chat block; recorded the default providers",
-			"providers", m.Properties.Chat.Providers)
-	}
-
 	name := m.Properties.Name
 
 	chatFile := filepath.Join("cmd", name, "chat.go")

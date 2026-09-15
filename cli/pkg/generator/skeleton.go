@@ -16,6 +16,8 @@ import (
 	"strings"
 	"text/template"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 	"github.com/dave/jennifer/jen"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
@@ -76,6 +78,21 @@ type SkeletonConfig struct {
 	// through generation. The wizard/flags populate it and
 	// writeSkeletonManifest persists it.
 	Templates []TemplateSource
+	// ForgeBackend is the forge the project is hosted on (spec 0195 D2 and
+	// D4). Empty means not hosted: no forge feature, adapter or credential
+	// wizard, and ModulePath must be given.
+	ForgeBackend props.FeatureID
+	// ForgeCredentials are further forges enabled for credential capture and
+	// their adapter, without affecting the release source (spec 0195 D6).
+	ForgeCredentials []props.FeatureID
+	// ModulePath is the Go module path; empty derives <host>/<repo> for a
+	// hosted project (spec 0195 D5).
+	ModulePath string
+	// ReleaseChannel is forge or direct when the update feature is enabled
+	// (spec 0195 D7); empty falls back to the backend's source type.
+	ReleaseChannel string
+	// Direct carries the direct source's settings when ReleaseChannel is direct.
+	Direct ManifestDirectSource
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -121,6 +138,23 @@ func releaseProviderForHost(host string) string {
 // provider from template data structs without brittle full-struct type assertions.
 type releaseProviderAccessor interface {
 	GetReleaseProvider() string
+}
+
+// forgeBackendAccessor is the sibling of releaseProviderAccessor for the
+// backend, which chooses the CI skeleton (spec 0195 D8).
+type forgeBackendAccessor interface {
+	GetForgeBackend() props.FeatureID
+}
+
+// extractForgeBackend reads the backend from a data struct that carries one;
+// a data type without it (a template contract) yields "" and the release
+// provider decides the CI skeleton as before.
+func extractForgeBackend(data any) props.FeatureID {
+	if fb, ok := data.(forgeBackendAccessor); ok {
+		return fb.GetForgeBackend()
+	}
+
+	return ""
 }
 
 // extractReleaseProvider reads the release provider from the data struct via
@@ -314,12 +348,12 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 // generateSkeletonFiles performs the core skeleton file generation: Go files,
 // template files, and manifest. It does not run post-processing shell commands.
 func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
-	org, repoName, err := splitRepoPath(config.Repo)
+	org, repoName, err := repoParts(config)
 	if err != nil {
 		return err
 	}
 
-	if config.Host == "" {
+	if config.Host == "" && config.hosted() {
 		config.Host = "github.com"
 	}
 
@@ -331,11 +365,12 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		Name:                  config.Name,
 		Repo:                  config.Repo,
 		Host:                  config.Host,
-		ModulePath:            fmt.Sprintf("%s/%s", config.Host, config.Repo),
+		ModulePath:            modulePathFor(config),
 		Description:           config.Description,
 		Org:                   org,
 		RepoName:              repoName,
-		ReleaseProvider:       releaseProviderForHost(config.Host),
+		ReleaseProvider:       releaseSourceTypeFor(config.ForgeBackend, config.ReleaseChannel, config.Host),
+		ForgeBackend:          config.ForgeBackend,
 		GoToolBaseVersion:     g.currentVersion(),
 		GoVersion:             resolveGoVersion(config.GoVersion),
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
@@ -765,14 +800,18 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 		return nil, nil, err
 	}
 
-	// Walk the provider-specific CI assets.
-	providerFS, providerRoot := skeletonGitHubAssets, "assets/skeleton-github"
-	if releaseProvider == "gitlab" {
-		providerFS, providerRoot = skeletonGitLabAssets, "assets/skeleton-gitlab"
-	}
+	// Walk the CI assets the backend has, if any (spec 0195 D8).
+	if ci := ciSkeletonFor(extractForgeBackend(data), releaseProvider); ci.root != "" {
+		providerFS := skeletonGitHubAssets
+		if ci.root == "assets/skeleton-gitlab" {
+			providerFS = skeletonGitLabAssets
+		}
 
-	if err := g.walkSkeletonAssets(providerFS, providerRoot, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
-		return nil, nil, err
+		if err := g.walkSkeletonAssets(providerFS, ci.root, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
+			return nil, nil, err
+		}
+	} else {
+		g.props.Logger.Info("no CI skeleton for this backend; no CI files written", "backend", extractForgeBackend(data))
 	}
 
 	// Layer the custom template overlays on top of the embedded base.
@@ -964,7 +1003,7 @@ func isUserOwnedSeedFile(relPath string) bool {
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {
 	g.props.Logger.Debug("writing skeleton manifest", "hashes", len(fileHashes))
 
-	if _, _, err := splitRepoPath(config.Repo); err != nil {
+	if _, _, err := repoParts(config); err != nil {
 		return err
 	}
 
@@ -984,7 +1023,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 // TestSkeletonConfig_RoundTripsThroughTheManifest holds the table.
 func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]string, gtbVersion string) Manifest {
 	// Validated by the caller; a malformed repo cannot reach here.
-	org, repoName, _ := splitRepoPath(config.Repo)
+	org, repoName, _ := repoParts(config)
 
 	return Manifest{
 		Properties: ManifestProperties{
@@ -1015,20 +1054,54 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 				// stays minimal; an absent ci block defaults on render.
 				ComponentSource: config.CIComponentSource,
 			},
-			Templates: config.Templates,
+			Templates:        config.Templates,
+			ModulePath:       modulePathFor(config),
+			ForgeCredentials: config.ForgeCredentials,
 		},
 		ReleaseSource: ManifestReleaseSource{
-			Type:    releaseProviderForHost(config.Host),
+			Type:    releaseSourceTypeFor(config.ForgeBackend, config.ReleaseChannel, config.Host),
+			Backend: config.ForgeBackend,
 			Host:    config.Host,
 			Owner:   org,
 			Repo:    repoName,
 			Private: config.Private,
+			Direct:  config.Direct,
 		},
 		Version: ManifestVersion{
 			GoToolBase: gtbVersion,
 		},
 		Hashes: fileHashes,
 	}
+}
+
+// hosted reports whether the project lives on a forge (spec 0195 D3): a
+// backend, or a repository from before the backend field existed.
+func (c SkeletonConfig) hosted() bool {
+	return c.ForgeBackend != "" || c.Repo != ""
+}
+
+// repoParts splits the repository for a hosted project and is empty for one
+// that is not, which has no org or repo to render.
+func repoParts(config SkeletonConfig) (org, repoName string, err error) {
+	if !config.hosted() {
+		return "", "", nil
+	}
+
+	return splitRepoPath(config.Repo)
+}
+
+// modulePathFor is the Go module path a generation records: the one given, or
+// <host>/<repo> for a hosted project (spec 0195 D5).
+func modulePathFor(config SkeletonConfig) string {
+	if config.ModulePath != "" {
+		return config.ModulePath
+	}
+
+	if config.Host == "" || config.Repo == "" {
+		return config.Name
+	}
+
+	return fmt.Sprintf("%s/%s", config.Host, config.Repo)
 }
 
 func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, args ...string) error {

@@ -122,6 +122,9 @@ func TestSyncAdapterFiles(t *testing.T) {
 		require.NoError(t, fs.MkdirAll("/proj/.gtb", 0o755))
 		require.NoError(t, g.marshalManifestFile(ManifestPathFor("/proj"), m))
 
+		// The default is recorded before rendering (so a later hash
+		// persistence cannot drop it) and the files follow the manifest.
+		require.NoError(t, g.syncDerivedManifestFields(m))
 		require.NoError(t, g.syncAdapterFiles(m))
 
 		assert.Equal(t, DefaultChatProviders(), m.Properties.Chat.Providers)

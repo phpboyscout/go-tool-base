@@ -3,6 +3,9 @@ package generator
 import (
 	"testing"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,6 +44,11 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 		UpdateCheckInterval:   "12h",
 		CIComponentSource:     "gitlab.com/acme/cicd",
 		Templates:             []TemplateSource{{Name: "acme", Location: "acme/templates", Ref: "v1"}},
+		ForgeBackend:          forge.GitlabFeature,
+		ForgeCredentials:      []props.FeatureID{forge.GithubFeature},
+		ModulePath:            "go.acme.dev/tool",
+		ReleaseChannel:        ReleaseChannelDirect,
+		Direct:                ManifestDirectSource{URLTemplate: "https://dl.example.com/{{.Version}}/{{.Asset}}", VersionURL: "https://dl.example.com/latest", PinnedVersion: "v1.2.3"},
 	}
 
 	m := manifestFromSkeletonConfig(config, map[string]string{"go.mod": "abc"}, "v9.9.9")
@@ -69,6 +77,11 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 	assert.Equal(t, "tool", m.ReleaseSource.Repo)
 	assert.True(t, m.ReleaseSource.Private)
 	assert.Equal(t, "v9.9.9", m.Version.GoToolBase)
+	assert.Equal(t, config.ForgeBackend, m.ReleaseSource.Backend)
+	assert.Equal(t, config.ForgeCredentials, m.Properties.ForgeCredentials)
+	assert.Equal(t, config.ModulePath, m.Properties.ModulePath, "an explicit module path wins over the derivation")
+	assert.Equal(t, "direct", m.ReleaseSource.Type)
+	assert.Equal(t, config.Direct, m.ReleaseSource.Direct)
 
 	// Read back into the root template the way regenerate does.
 	data := buildSkeletonRootData(m, nil)
@@ -81,4 +94,8 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 	assert.Equal(t, config.HelpType, data.HelpType)
 	assert.Equal(t, config.Host, data.Host)
 	assert.True(t, data.Private)
+
+	tmpl := buildSkeletonTemplateDataFrom(m)
+	assert.Equal(t, config.ModulePath, tmpl.ModulePath, "regenerate renders the recorded module path")
+	assert.Equal(t, config.ForgeBackend, tmpl.ForgeBackend)
 }

@@ -1126,6 +1126,14 @@ func ValidateManifest(m *Manifest) error {
 		return err
 	}
 
+	if err := ValidateForgeBackend(string(m.ReleaseSource.Backend)); err != nil {
+		return err
+	}
+
+	if err := ValidateModulePath(m.Properties.ModulePath); err != nil {
+		return err
+	}
+
 	if err := validateManifestCommands(m.Commands); err != nil {
 		return err
 	}

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -144,6 +146,14 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 
 	if err := ValidateManifest(m); err != nil {
 		return errors.Newf("manifest validation failed: %w", err)
+	}
+
+	// Derived fields are recorded before anything renders, so the render
+	// reads them and the later hash persistence (which re-reads the manifest
+	// from disk) keeps them; a write from this in-memory copy after that
+	// persistence would drop the hashes it recorded.
+	if err := g.syncDerivedManifestFields(m); err != nil {
+		return err
 	}
 
 	g.props.Logger.Info("Regenerating project from manifest...")
@@ -410,7 +420,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		SigningEnabled:        m.Properties.Signing.Enabled,
-		ModulePath:            m.ReleaseSource.Host + "/" + org + "/" + repoName,
+		ModulePath:            manifestModulePath(m),
 		AutoInitialise:        m.Properties.Bootstrap.AutoInitialise,
 		SkipConfigCheck:       m.Properties.Bootstrap.SkipConfigCheck,
 		Subcommands:           subcommands,
@@ -485,14 +495,17 @@ func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]temp
 // reconstructed from a manifest. Shared by the full regenerate and the
 // targeted .goreleaser.yaml re-render that enable/disable signing performs.
 type skeletonTemplateData struct {
-	Name              string
-	Repo              string
-	Host              string
-	ModulePath        string
-	Description       string
-	Org               string
-	RepoName          string
-	ReleaseProvider   string
+	Name            string
+	Repo            string
+	Host            string
+	ModulePath      string
+	Description     string
+	Org             string
+	RepoName        string
+	ReleaseProvider string
+	// ForgeBackend chooses the CI skeleton (spec 0195 D8); empty on a
+	// manifest that predates the field, when the provider decides.
+	ForgeBackend      props.FeatureID
 	GoToolBaseVersion string
 	GoVersion         string
 	DisabledFeatures  []string
@@ -534,22 +547,34 @@ type skeletonTemplateData struct {
 // fallback now that every caller passes the named skeletonTemplateData.
 func (d skeletonTemplateData) GetReleaseProvider() string { return d.ReleaseProvider }
 
+// GetForgeBackend satisfies forgeBackendAccessor for the CI skeleton choice.
+func (d skeletonTemplateData) GetForgeBackend() props.FeatureID { return d.ForgeBackend }
+
 // buildSkeletonTemplateData reconstructs the skeleton asset template data
 // from a manifest. GoVersion is not persisted, so it falls back to the
 // runtime default.
 func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
+	data := buildSkeletonTemplateDataFrom(m)
+	data.GoToolBaseVersion = g.currentVersion()
+
+	return data
+}
+
+// buildSkeletonTemplateDataFrom is the pure part of buildSkeletonTemplateData,
+// so a round-trip test can reach it without a Generator.
+func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 	_, org, repoName := m.GetReleaseSource()
 
 	return skeletonTemplateData{
 		Name:                  m.Properties.Name,
 		Repo:                  org + "/" + repoName,
 		Host:                  m.ReleaseSource.Host,
-		ModulePath:            m.ReleaseSource.Host + "/" + org + "/" + repoName,
+		ModulePath:            manifestModulePath(m),
 		Description:           string(m.Properties.Description),
 		Org:                   org,
 		RepoName:              repoName,
 		ReleaseProvider:       m.ReleaseSource.Type,
-		GoToolBaseVersion:     g.currentVersion(),
+		ForgeBackend:          m.ReleaseSource.Backend,
 		GoVersion:             resolveGoVersion(""),
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),

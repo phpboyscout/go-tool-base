@@ -26,7 +26,7 @@ type SkeletonOptions struct {
 	shared *SharedFlags
 
 	Name         string
-	GitBackend   string
+	ForgeBackend string
 	Repo         string
 	Host         string
 	Private      bool
@@ -51,6 +51,21 @@ type SkeletonOptions struct {
 	// throttle as a Go duration string (e.g. "24h"). Empty leaves it unset so
 	// the framework default (24h) applies.
 	UpdateCheckInterval string
+
+	// NoForge marks a project that is not hosted on a forge (spec 0195 D3):
+	// no backend, no repository, and Module names the Go module path.
+	NoForge bool
+	// Module is the Go module path; required with NoForge, an override of
+	// <host>/<org>/<repo> otherwise (spec 0195 D5, OQ6).
+	Module string
+	// ForgeCredentials are further forges enabled for their credential
+	// wizard and adapter only (spec 0195 D6).
+	ForgeCredentials []string
+	// ReleaseChannel is forge or direct when update is enabled (spec 0195
+	// D7); empty resolves to forge for a hosted project.
+	ReleaseChannel string
+	// Direct carries the direct source's settings for ReleaseChannel direct.
+	Direct generator.ManifestDirectSource
 
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline (GitLab backend only). Empty uses the
@@ -93,9 +108,9 @@ type SkeletonOptions struct {
 
 func NewCmdSkeleton(p *props.Props, shared *SharedFlags) *cobra.Command {
 	opts := SkeletonOptions{
-		shared:     shared,
-		GitBackend: "github",
-		HelpType:   "none",
+		shared:       shared,
+		ForgeBackend: "github",
+		HelpType:     "none",
 	}
 
 	cmd := &cobra.Command{
@@ -125,8 +140,22 @@ otherwise supply the flags directly.`,
 
 	cmd.Flags().StringVarP(&opts.Name, "name", "n", "", "Project name (e.g. als)")
 	cmd.Flags().StringVarP(&opts.Repo, "repo", "r", "", "Repository in org/repo format")
-	cmd.Flags().StringVar(&opts.GitBackend, "git-backend", defaultGitBackend,
-		"Git backend ("+strings.Join(gitBackendNames(), ", ")+")")
+	cmd.Flags().StringVar(&opts.ForgeBackend, "forge-backend", defaultGitBackend,
+		"Forge the project is hosted on ("+strings.Join(gitBackendNames(), ", ")+")")
+	cmd.Flags().StringVar(&opts.ForgeBackend, "git-backend", defaultGitBackend, "Deprecated: use --forge-backend")
+	_ = cmd.Flags().MarkDeprecated("git-backend", "use --forge-backend")
+	cmd.Flags().BoolVar(&opts.NoForge, "no-forge", false, "The project is not hosted on a forge; requires --module")
+	cmd.Flags().StringVar(&opts.Module, "module", "", "Go module path (required with --no-forge; overrides <host>/<org>/<repo> otherwise)")
+	cmd.Flags().StringSliceVar(&opts.ForgeCredentials, "forge-credentials", nil,
+		"Further forges to enable for credential capture (their init wizard and adapter), not the release source")
+	cmd.Flags().StringVar(&opts.ReleaseChannel, "release-channel", "", "Release channel for self-update: forge (default when hosted) or direct")
+	cmd.Flags().StringVar(&opts.Direct.URLTemplate, "release-url-template", "", "direct channel: asset URL template")
+	cmd.Flags().StringVar(&opts.Direct.ChecksumURLTemplate, "release-checksum-url-template", "", "direct channel: checksum URL template")
+	cmd.Flags().StringVar(&opts.Direct.SignatureURLTemplate, "release-signature-url-template", "", "direct channel: signature URL template")
+	cmd.Flags().StringVar(&opts.Direct.VersionURL, "release-version-url", "", "direct channel: URL that reports the latest version")
+	cmd.Flags().StringVar(&opts.Direct.VersionFormat, "release-version-format", "", "direct channel: version endpoint format (text, json, yaml, xml)")
+	cmd.Flags().StringVar(&opts.Direct.VersionKey, "release-version-key", "", "direct channel: key holding the version in a structured endpoint")
+	cmd.Flags().StringVar(&opts.Direct.PinnedVersion, "release-pinned-version", "", "direct channel: pin to one version")
 	cmd.Flags().StringVar(&opts.Host, "host", "", "Git host (defaults to backend's canonical host)")
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "A tool built with gtb", "Project description")
@@ -166,7 +195,7 @@ otherwise supply the flags directly.`,
 }
 
 func (o *SkeletonOptions) ValidateOrPrompt() error {
-	if o.Name == "" || o.Repo == "" {
+	if o.Name == "" || (o.Repo == "" && !o.NoForge) {
 		if !utils.IsInteractive() {
 			return ErrNonInteractive
 		}
@@ -206,6 +235,93 @@ func (o *SkeletonOptions) validateFields() error {
 	}
 
 	return generator.ValidateChatProviders(o.ChatProviders, resolveFeatures(o.Features))
+}
+
+// validateHostingFields checks the forge half (backend, repository, host, org)
+// for a hosted project, or the module path for one that is not (spec 0195
+// D3, D4, D5).
+func (o *SkeletonOptions) validateHostingFields() error {
+	if o.NoForge {
+		if o.Module == "" {
+			return errors.WithStack(ErrModuleRequired)
+		}
+
+		return generator.ValidateModulePath(o.Module)
+	}
+
+	if err := o.validateForgeSelection(); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateRepo(o.Repo); err != nil {
+		return err
+	}
+
+	if o.Host != "" {
+		if err := generator.ValidateHost(o.Host); err != nil {
+			return err
+		}
+	}
+
+	// Derive org from repo for validation so a bad org fails early
+	// rather than at CODEOWNERS render time.
+	if org, err := splitRepoOrgForValidate(o.Repo); err == nil {
+		if verr := generator.ValidateOrg(org, o.ForgeBackend); verr != nil {
+			return verr
+		}
+	}
+
+	return nil
+}
+
+// validateForgeSelection checks the backend, the credential forges and an
+// optional module-path override.
+func (o *SkeletonOptions) validateForgeSelection() error {
+	if err := generator.ValidateForgeBackend(o.ForgeBackend); err != nil {
+		return err
+	}
+
+	for _, extra := range o.ForgeCredentials {
+		if err := generator.ValidateForgeBackend(extra); err != nil {
+			return err
+		}
+	}
+
+	return generator.ValidateModulePath(o.Module)
+}
+
+// validateReleaseChannel enforces spec 0195 D7: a self-updating tool has a
+// release channel, and the direct channel has the URLs the source needs.
+func (o *SkeletonOptions) validateReleaseChannel() error {
+	if err := generator.ValidateReleaseChannel(o.ReleaseChannel); err != nil {
+		return err
+	}
+
+	if !slices.Contains(o.Features, string(props.UpdateCmd)) {
+		return nil
+	}
+
+	switch o.resolvedReleaseChannel() {
+	case generator.ReleaseChannelDirect:
+		if o.Direct.URLTemplate == "" || o.Direct.VersionURL == "" {
+			return errors.WithStack(ErrDirectSourceIncomplete)
+		}
+
+		return nil
+	case generator.ReleaseChannelForge:
+		return nil
+	default:
+		return errors.WithStack(ErrReleaseChannelRequired)
+	}
+}
+
+// resolvedReleaseChannel is the channel a hosted project defaults to.
+func (o *SkeletonOptions) resolvedReleaseChannel() string {
+	if o.ReleaseChannel == "" && !o.NoForge {
+		return generator.ReleaseChannelForge
+	}
+
+	return o.ReleaseChannel
 }
 
 // validateSigningFields checks the signing key-source value when signing
@@ -251,22 +367,12 @@ func (o *SkeletonOptions) validateCoreFields() error {
 		return err
 	}
 
-	if err := generator.ValidateRepo(o.Repo); err != nil {
+	if err := o.validateHostingFields(); err != nil {
 		return err
 	}
 
-	if o.Host != "" {
-		if err := generator.ValidateHost(o.Host); err != nil {
-			return err
-		}
-	}
-
-	// Derive org from repo for validation so a bad org fails early
-	// rather than at CODEOWNERS render time.
-	if org, err := splitRepoOrgForValidate(o.Repo); err == nil {
-		if verr := generator.ValidateOrg(org, o.GitBackend); verr != nil {
-			return verr
-		}
+	if err := o.validateReleaseChannel(); err != nil {
+		return err
 	}
 
 	if err := o.validateUpdateFields(); err != nil {
@@ -415,7 +521,7 @@ func (o *SkeletonOptions) resolvedHost() string {
 		return o.Host
 	}
 
-	return hostForBackend(o.GitBackend)
+	return hostForBackend(o.ForgeBackend)
 }
 
 // repoDescription is the repository-field help text for a git backend.
@@ -691,7 +797,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Title("Git Backend").
 			Description("Where the repository will be hosted.").
 			Options(gitBackendOptions()...).
-			Value(&o.GitBackend),
+			Value(&o.ForgeBackend),
 		huh.NewSelect[string]().
 			Title("Help Channel").
 			Description("Where users should ask for help — shown in error messages.").
@@ -836,15 +942,15 @@ func (o *SkeletonOptions) gitGroup() *huh.Group {
 			Title("Git Host").
 			DescriptionFunc(func() string {
 				return fmt.Sprintf("The %s host. Leave empty for %s; set it only for a self-hosted instance.",
-					backendLabel(o.GitBackend), hostForBackend(o.GitBackend))
-			}, &o.GitBackend).
-			PlaceholderFunc(func() string { return hostForBackend(o.GitBackend) }, &o.GitBackend).
+					backendLabel(o.ForgeBackend), hostForBackend(o.ForgeBackend))
+			}, &o.ForgeBackend).
+			PlaceholderFunc(func() string { return hostForBackend(o.ForgeBackend) }, &o.ForgeBackend).
 			Value(&o.Host),
 		huh.NewInput().
 			Key("repo").
 			Title("Repository").
-			DescriptionFunc(func() string { return repoDescription(o.GitBackend) }, &o.GitBackend).
-			PlaceholderFunc(func() string { return repoPlaceholder(o.GitBackend) }, &o.GitBackend).
+			DescriptionFunc(func() string { return repoDescription(o.ForgeBackend) }, &o.ForgeBackend).
+			PlaceholderFunc(func() string { return repoPlaceholder(o.ForgeBackend) }, &o.ForgeBackend).
 			Value(&o.Repo).
 			Validate(func(s string) error {
 				if s == "" {
@@ -1027,6 +1133,11 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		GitBranch: o.GitBranch,
 	}).EnableRealTemplateClone()
 
+	return gen.GenerateSkeleton(ctx, o.skeletonConfig(templates))
+}
+
+// skeletonConfig assembles the generator's input from the resolved options.
+func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) generator.SkeletonConfig {
 	features := resolveFeatures(o.Features)
 
 	// The chat list only means something with the ai feature; without it the
@@ -1037,18 +1148,13 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		chatProviders = nil
 	}
 
-	host := o.resolvedHost()
-
 	helpType := o.HelpType
 	if helpType == "none" {
 		helpType = ""
 	}
 
-	return gen.GenerateSkeleton(ctx, generator.SkeletonConfig{
+	cfg := generator.SkeletonConfig{
 		Name:                o.Name,
-		Repo:                o.Repo,
-		Host:                host,
-		Private:             o.Private,
 		Description:         o.Description,
 		Path:                o.Path,
 		GoVersion:           o.GoVersion,
@@ -1065,7 +1171,28 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		CIComponentSource:   o.CIComponentSource,
 		Signing:             o.resolveSigning(),
 		Templates:           templates,
-	})
+		ModulePath:          o.Module,
+	}
+
+	if !o.NoForge {
+		cfg.Repo = o.Repo
+		cfg.Host = o.resolvedHost()
+		cfg.Private = o.Private
+		cfg.ForgeBackend = props.FeatureID(o.ForgeBackend)
+
+		for _, extra := range o.ForgeCredentials {
+			cfg.ForgeCredentials = append(cfg.ForgeCredentials, props.FeatureID(extra))
+		}
+	}
+
+	if slices.Contains(o.Features, string(props.UpdateCmd)) {
+		cfg.ReleaseChannel = o.resolvedReleaseChannel()
+		if cfg.ReleaseChannel == generator.ReleaseChannelDirect {
+			cfg.Direct = o.Direct
+		}
+	}
+
+	return cfg
 }
 
 // isCIEnv reports whether the tool is running under CI, honouring the `ci`

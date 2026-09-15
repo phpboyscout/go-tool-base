@@ -17,4 +17,7 @@ var (
 	ErrInvalidSigningKeySource = errors.NewSentinel("gtb.generate.invalid_signing_key_source", "invalid --signing-key-source: must be embedded, external, or both")
 	ErrInvalidSigningBackend   = errors.NewSentinel("gtb.generate.invalid_signing_backend", "invalid --signing-backend: not a registered signing backend")
 	ErrGitFlagsConflict        = errors.NewSentinel("gtb.generate.git_flags_conflict", "conflicting flags: --no-git skips the initial commit that --push would publish")
+	ErrModuleRequired          = errors.NewSentinel("gtb.generate.module_required", "a project that is not hosted on a forge needs --module")
+	ErrReleaseChannelRequired  = errors.NewSentinel("gtb.generate.release_channel_required", "self-update needs a release channel: a forge backend, or --release-channel direct with --release-url-template and --release-version-url; or drop update from --features")
+	ErrDirectSourceIncomplete  = errors.NewSentinel("gtb.generate.direct_source_incomplete", "--release-channel direct needs --release-url-template and --release-version-url")
 )

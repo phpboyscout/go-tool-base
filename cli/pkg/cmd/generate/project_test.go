@@ -296,10 +296,10 @@ func TestValidateCoreFields_TwoSegmentRepoOrgValidated(t *testing.T) {
 	t.Parallel()
 
 	o := &SkeletonOptions{
-		Name:        "mytool",
-		Description: "a tool",
-		Repo:        "my_org/mytool",
-		GitBackend:  "github",
+		Name:         "mytool",
+		Description:  "a tool",
+		Repo:         "my_org/mytool",
+		ForgeBackend: "github",
 	}
 
 	err := o.validateCoreFields()
@@ -318,10 +318,10 @@ func TestValidateCoreFields_UpdatePolicy(t *testing.T) {
 
 	base := func() *SkeletonOptions {
 		return &SkeletonOptions{
-			Name:        "mytool",
-			Description: "a tool",
-			Repo:        "myorg/mytool",
-			GitBackend:  "github",
+			Name:         "mytool",
+			Description:  "a tool",
+			Repo:         "myorg/mytool",
+			ForgeBackend: "github",
 		}
 	}
 
@@ -344,10 +344,10 @@ func TestValidateCoreFields_UpdateCheckInterval(t *testing.T) {
 
 	base := func() *SkeletonOptions {
 		return &SkeletonOptions{
-			Name:        "mytool",
-			Description: "a tool",
-			Repo:        "myorg/mytool",
-			GitBackend:  "github",
+			Name:         "mytool",
+			Description:  "a tool",
+			Repo:         "myorg/mytool",
+			ForgeBackend: "github",
 		}
 	}
 

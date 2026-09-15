@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
@@ -385,6 +387,13 @@ type ManifestProperties struct {
 	// own gtb-template.yaml descriptor. See
 	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 	Templates []TemplateSource `yaml:"templates,omitempty"`
+	// ModulePath is the Go module path (spec 0195 D5). A hosted project
+	// derives <host>/<org>/<repo>; one that is not names its own. Absent on a
+	// manifest that predates the field; regenerate derives and records it.
+	ModulePath string `yaml:"module_path,omitempty"`
+	// ForgeCredentials are forges enabled for their credential wizard and
+	// adapter only, never the release source (spec 0195 D6).
+	ForgeCredentials []props.FeatureID `yaml:"forge_credentials,omitempty"`
 	// ConfigLayers records which layers of the configuration stack the project
 	// wires (see props.ConfigLayer). Empty means the project states nothing and
 	// inherits the framework default — the reading every project generated
@@ -547,11 +556,29 @@ func (m *Manifest) GetReleaseSource() (sourceType, owner, repo string) {
 }
 
 type ManifestReleaseSource struct {
-	Type    string `yaml:"type"`
-	Host    string `yaml:"host"`
-	Owner   string `yaml:"owner"`
-	Repo    string `yaml:"repo"`
-	Private bool   `yaml:"private,omitempty"`
+	Type string `yaml:"type"`
+	// Backend is the forge the project is hosted on (spec 0195 D2). Absent on
+	// a manifest that predates the field; regenerate derives and records it.
+	Backend props.FeatureID `yaml:"backend,omitempty"`
+	Host    string          `yaml:"host"`
+	Owner   string          `yaml:"owner"`
+	Repo    string          `yaml:"repo"`
+	Private bool            `yaml:"private,omitempty"`
+	// Direct carries the go/forge direct source's settings when Type is
+	// direct (spec 0195 D7).
+	Direct ManifestDirectSource `yaml:"direct,omitempty"`
+}
+
+// ManifestDirectSource mirrors the keys the go/forge direct source reads from
+// its config section.
+type ManifestDirectSource struct {
+	URLTemplate          string `yaml:"url_template,omitempty"`
+	ChecksumURLTemplate  string `yaml:"checksum_url_template,omitempty"`
+	SignatureURLTemplate string `yaml:"signature_url_template,omitempty"`
+	VersionURL           string `yaml:"version_url,omitempty"`
+	VersionFormat        string `yaml:"version_format,omitempty"`
+	VersionKey           string `yaml:"version_key,omitempty"`
+	PinnedVersion        string `yaml:"pinned_version,omitempty"`
 }
 
 type ManifestVersion struct {
