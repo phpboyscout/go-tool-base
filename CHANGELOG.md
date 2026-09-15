@@ -1,5 +1,70 @@
 # Changelog
 
+## [v0.43.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.43.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.42.0...v0.43.0)
+
+### Notes
+
+- `gtb generate project` records the author's default chat provider, model and endpoint in the manifest (`chat.default`) and ships them as the generated tool's embedded defaults beside `chat.go`. One linked provider is its own default; several require `--chat-default-provider`. An existing project that links several providers regenerates unchanged and warns until its author names one.
+
+- The whole `ai:` section now reaches the chat client: `ai.model`, `ai.base_url`, `ai.api_version`, `ai.project` and `ai.location` configure the primary provider, so `openai-compatible`, `azure-openai`, `gemini-vertex` and `bedrock` are configurable from a file. Azure OpenAI has a credential root (`azure.api.*`). The fallback chain is built by go/chat, which keeps the primary's model and endpoint and lets every other member resolve its own.
+
+- `init` and `doctor` now follow the tool's enabled features: a tool without a forge feature no longer offers `--skip-login`, and `doctor` reports only the credentials of features the tool enables.
+
+- the generate wizard now refuses an invalid project name, env prefix or repository, and an empty chat provider list, at the field rather than after the last page.
+
+- the `gtb generate project` wizard asks whether the project is hosted on a forge, then the forge details or a Go module path, and puts the release channel, update policy and check interval on one self-update page shown only when the update feature is selected.
+
+- `gtb generate project` no longer accepts forge names in `--features`; the forge is chosen with `--forge-backend` (which replaces `--git-backend`, removed) and further forges for credentials with `--forge-credentials`. A default project now links its backend's adapter and can update itself. `doctor` reports a release source with no registered provider.
+
+- tools with a forge feature enabled can check for updates again when no token is in the environment (every CI image); the update check reported the configuration as stale since go/forge v0.8.0 stopped reading `auth.env`.
+
+- in the generate wizard, answering No to release signing after entering details on the signing page now wins; the details are discarded.
+
+- a manifest with `chat.providers: []` now keeps that choice across regenerates instead of reverting to every provider; regenerate refuses a provider name no module registers.
+
+- the generate wizard no longer blocks on the Git Host page when the default host is wanted; leave it empty. The env prefix is offered as a suggestion rather than pre-filled; press tab to accept it.
+
+- `gtb regenerate project` now fails, writing nothing, when the manifest's signing block is invalid. It used to log an error, remove the generated signing wiring and exit 0.
+
+- gtb v0.41.1, v0.41.2 and v0.42.0 shipped without their embedded documentation and changelog (`gtb docs` and `gtb changelog` failed). This release restores both; no action is needed beyond updating.
+
+### Features
+
+- **generator**: the manifest records the author's chat default, and the tool ships it ([4e248fb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4e248fb404e80f4c3aaca26bbdf09ce9ca1397f9))
+- **chat**: the whole ai section reaches the client, and the fallback chain is the module's ([4190c6b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4190c6b5e7f05211282a58bd123835457f45aa74))
+- **generator**: the wizard asks three separable questions, each on its own page ([fb78761](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fb7876183f45733ce81bb884809e28a3ee2d1c00))
+- **generator**: the forge backend implies the forge, and a default project can update itself ([9597276](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9597276d90b6b91a8ed7c492022c31c81eca1d8f))
+
+### Bug Fixes
+
+- **init,doctor**: a narrow tool advertises only the flags and credentials of its enabled features ([7cb3df1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7cb3df1f8a6e6760a2a201b3848d5afe300adaf7))
+- **generator**: the wizard refuses at the field what the generator refuses afterwards ([b0f3efd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b0f3efd81dfa41216abb450ab9f2b31c0741dae0))
+- **generator**: the forge backend, module path and release channel are fields the manifest records ([bd3e833](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd3e833d27eb38281b5d9f849022473755109dfe))
+- **generator**: one flag-type table behind every site that renders a flag ([13caf07](https://gitlab.com/phpboyscout/go-tool-base/-/commit/13caf073dcd55fe4f495778589d127354d056580))
+- **vcs**: hand provider factories a config that resolves GTB's credential instead of the keys it dereferences ([9dc1580](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9dc1580711e90be2b7c809c9107686b7e1e5af5b))
+- **generator**: a page hidden at the end of the wizard contributes no answers ([ae9125a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ae9125a0ba4bc436f460ac8cd146e3ea9eec6cb3))
+- **generator**: keep an explicit empty provider list, and refuse unknown providers at regenerate ([c1c8502](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c1c85022190a7ef6e41a799c5fbb41fb434d16e1))
+- **generator**: size every wizard multi-select to show all its options on first paint ([08070fb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/08070fbd4526f0c377082b89f8be672a62828ae4))
+- **generator**: persist telemetry endpoints in the manifest so regenerate keeps them ([7137183](https://gitlab.com/phpboyscout/go-tool-base/-/commit/71371835c0474b4e14923b142620c3f86f9fbbd0))
+- **generator**: the wizard ticks the current selection, not the defaults plus it ([1c2e206](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1c2e206685fde672742e039fa8676ceb293553d3))
+- **generator**: the wizard offers the derived host and env prefix instead of seeding values huh cannot show ([48dbc48](https://gitlab.com/phpboyscout/go-tool-base/-/commit/48dbc48c5de777c249f6b6cb3bad881e65166dc0))
+- **generator**: refuse to regenerate on an invalid signing block instead of dropping enforcement ([a0b35ad](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a0b35ad474632056ff54b3d252dc8a29d2df97e7))
+- **release**: generate the gtb CLI's embedded docs and changelog where the build can find them ([22e0c45](https://gitlab.com/phpboyscout/go-tool-base/-/commit/22e0c4556332905285a95db2462c1c4a006951e4))
+- **version**: a +dirty build of the latest release is a development build, and is not behind it ([f3e7392](https://gitlab.com/phpboyscout/go-tool-base/-/commit/f3e739254ddbd615748a7640f2e8b209abde003f))
+- **props**: serve .xml assets verbatim, and build the one stray sentinel with NewSentinel ([bfb0388](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bfb038849a919f90d7bda6fe86c4dc16027976a2))
+
+### Other
+
+- sweep the parameters nobody read, and let revive keep it that way ([35fe36a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/35fe36a07510f717cca84363e4fc12c48ff2d83a))
+- **transport**: share the config-selection plumbing between the http and grpc adapters ([73f5df2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/73f5df216c926b46caf8b1a450186f120b850c7d))
+- **props**: Version and Assets are the concrete types their one implementation always was ([cbb200a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cbb200afdb6e90264d9af699f52a706ef3859b60))
+- **setup**: resolve the update trust settings from config.Reader, not two ad hoc interfaces ([57471de](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57471de8a281ec1ffbc53459ddc356a127407257))
+- **generator**: type the overwrite mode, and validate the help type in the manifest ([49ccb65](https://gitlab.com/phpboyscout/go-tool-base/-/commit/49ccb657383e7759ba78d54c71e523b60c5b72ee))
+- **config**: declare the update, telemetry and ai config keys once ([5cbbc1a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5cbbc1acee695366260bfbe28fe6cd164339e033))
+- **pkg**: remove exports nothing calls and fix three comments left behind by the moves ([93f7be9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/93f7be94e4e0d13931e6fd10a338fd3b0d472b8b))
+
 ## [v0.42.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.42.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.41.2...v0.42.0)
