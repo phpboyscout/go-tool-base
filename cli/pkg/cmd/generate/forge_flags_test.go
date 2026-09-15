@@ -91,3 +91,52 @@ func TestResolveFeatures_DerivesForgesFromTheBackend(t *testing.T) {
 	stale := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: []string{"update", "github"}}
 	require.Error(t, stale.validateFields())
 }
+
+// #49: closed sets are enforced at the flag, and a flag whose intent cannot
+// be honoured is refused rather than dropped.
+func TestSkeletonOptions_ClosedSetsAndCompanions(t *testing.T) {
+	t.Parallel()
+
+	base := func() *SkeletonOptions {
+		return &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: generator.DefaultSelectedFeatures}
+	}
+
+	t.Run("an unknown help type is refused", func(t *testing.T) {
+		t.Parallel()
+
+		o := base()
+		o.HelpType = "bogus"
+		require.Error(t, o.validateFields())
+	})
+
+	t.Run("slack without a channel is refused", func(t *testing.T) {
+		t.Parallel()
+
+		o := base()
+		o.HelpType = "slack"
+		require.ErrorIs(t, o.validateFields(), ErrHelpChannelRequired)
+
+		o.SlackChannel = "#help"
+		require.NoError(t, o.validateFields())
+	})
+
+	t.Run("teams without a channel is refused", func(t *testing.T) {
+		t.Parallel()
+
+		o := base()
+		o.HelpType = "teams"
+		require.ErrorIs(t, o.validateFields(), ErrHelpChannelRequired)
+	})
+
+	t.Run("a signing key id without signing is refused, not dropped", func(t *testing.T) {
+		t.Parallel()
+
+		o := base()
+		o.SigningKeyID = "alias/release"
+		require.ErrorIs(t, o.validateFields(), ErrSigningKeyWithoutSigning)
+
+		o.Signing = true
+		require.NoError(t, o.validateFields())
+		assert.Equal(t, "alias/release", o.resolveSigning().KeyID)
+	})
+}

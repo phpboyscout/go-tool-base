@@ -397,12 +397,16 @@ func (o *SkeletonOptions) resolvedReleaseChannel() string {
 // is requested (explicitly or implied by a signing email).
 func (o *SkeletonOptions) validateSigningFields() error {
 	if !o.Signing && o.SigningEmail == "" {
+		// A key id promises the release pipeline's signs block, which only
+		// the signing path renders; refuse rather than drop it (#49).
+		if o.SigningKeyID != "" {
+			return errors.WithStack(ErrSigningKeyWithoutSigning)
+		}
+
 		return nil
 	}
 
-	switch o.SigningKeySource {
-	case "", "embedded", "external", "both":
-	default:
+	if err := generator.ValidateSigningKeySource(o.SigningKeySource); err != nil {
 		return errors.Wrapf(ErrInvalidSigningKeySource, "%q", o.SigningKeySource)
 	}
 
@@ -482,6 +486,28 @@ func (o *SkeletonOptions) validateUpdateFields() error {
 
 // validateHelpFields groups the Slack/Teams help-channel checks.
 func (o *SkeletonOptions) validateHelpFields() error {
+	helpType := o.HelpType
+	if helpType == "none" {
+		helpType = ""
+	}
+
+	if err := generator.ValidateHelpType(helpType); err != nil {
+		return err
+	}
+
+	// The type is a closed set and each member needs its channel: a Slack
+	// help block with no channel renders an empty SupportMessage (#49).
+	switch helpType {
+	case "slack":
+		if o.SlackChannel == "" {
+			return errors.WithStack(ErrHelpChannelRequired)
+		}
+	case "teams":
+		if o.TeamsChannel == "" {
+			return errors.WithStack(ErrHelpChannelRequired)
+		}
+	}
+
 	if err := generator.ValidateSlackChannel(o.SlackChannel); err != nil {
 		return err
 	}
@@ -1352,12 +1378,20 @@ func (o *SkeletonOptions) slackGroup() *huh.Group {
 			Title("Slack Channel").
 			Description("The channel where users should ask for help (e.g. #platform-help).").
 			Placeholder("#my-team-help").
-			Value(&o.SlackChannel),
+			Value(&o.SlackChannel).
+			Validate(func(s string) error {
+				if s == "" {
+					return ErrHelpChannelRequired
+				}
+
+				return hintedValidation(generator.ValidateSlackChannel(s))
+			}),
 		huh.NewInput().
 			Title("Slack Team").
 			Description("The team or squad name owning this tool.").
 			Placeholder("My Team").
-			Value(&o.SlackTeam),
+			Value(&o.SlackTeam).
+			Validate(func(s string) error { return hintedValidation(generator.ValidateSlackTeam(s)) }),
 	).
 		Title("Slack Help Configuration").
 		Description("These values appear in error messages to direct users to support.\n").
@@ -1372,12 +1406,20 @@ func (o *SkeletonOptions) teamsGroup() *huh.Group {
 			Title("Teams Channel").
 			Description("The channel where users should ask for help.").
 			Placeholder("Support").
-			Value(&o.TeamsChannel),
+			Value(&o.TeamsChannel).
+			Validate(func(s string) error {
+				if s == "" {
+					return ErrHelpChannelRequired
+				}
+
+				return hintedValidation(generator.ValidateTeamsChannel(s))
+			}),
 		huh.NewInput().
 			Title("Teams Team").
 			Description("The team name owning this tool.").
 			Placeholder("Engineering").
-			Value(&o.TeamsTeam),
+			Value(&o.TeamsTeam).
+			Validate(func(s string) error { return hintedValidation(generator.ValidateTeamsTeam(s)) }),
 	).
 		Title("Microsoft Teams Help Configuration").
 		Description("These values appear in error messages to direct users to support.\n").
