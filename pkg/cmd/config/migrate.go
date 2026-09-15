@@ -709,7 +709,7 @@ func defaultEnvVarName(key string) string {
 	return strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
 }
 
-// defaultAIEnvVarName resolves the three AI-provider credential keys
+// defaultAIEnvVarName resolves the AI-provider credential keys
 // to the well-known env var names their SDKs / CI integrations
 // expect.
 func defaultAIEnvVarName(key string) string {
@@ -720,6 +720,8 @@ func defaultAIEnvVarName(key string) string {
 		return chat.EnvOpenAIKey
 	case chat.ConfigKeyGeminiKey:
 		return chat.EnvGeminiKey
+	case chat.ConfigKeyAzureKey:
+		return chat.EnvAzureKey
 	}
 
 	return ""

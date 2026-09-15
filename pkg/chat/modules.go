@@ -51,6 +51,13 @@ func ProviderModules() []ProviderModuleEntry {
 	return out
 }
 
+// NeedsCredential reports whether GTB holds a credential for the provider: a
+// local CLI authenticates on its own, and bedrock authenticates through the
+// AWS chain, so neither has a credential root in GTB's config.
+func NeedsCredential(provider gochat.Provider) bool {
+	return credentialConfigRoot(provider) != ""
+}
+
 // IsLocalCLI reports whether a provider drives a locally installed CLI, which
 // authenticates on its own and so carries no credential in GTB's config.
 func IsLocalCLI(provider gochat.Provider) bool {

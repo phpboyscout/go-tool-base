@@ -150,8 +150,8 @@ The protected set is the exact list in
   `update.external_key_email`
 - `telemetry.enabled`, `telemetry.consent`
 - every credential subtree: any path with an `auth` segment (`github.auth.env`,
-  `gitlab.auth.value`, …), plus `anthropic.api`, `openai.api`, `gemini.api` and
-  `bitbucket.app_password`
+  `gitlab.auth.value`, …), plus `anthropic.api`, `openai.api`, `gemini.api`,
+  `azure.api` and `bitbucket.app_password`
 
 Stripping is never silent. Each decode logs one WARN naming the file and the keys:
 
@@ -255,20 +255,26 @@ See [Configure self-updating](../../how-to/configure-self-updating.md) and
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `ai.provider` | string | `claude` | Active provider. |
+| `ai.model` | string | *(the provider module's default)* | Model for `ai.provider`. Blank means the module's choice, which favours capability over cost. |
+| `ai.base_url` | string | *(none)* | API endpoint. Required by `openai-compatible` and `azure-openai`; must be HTTPS with no userinfo (see `chat.ValidateBaseURL`). |
+| `ai.api_version` | string | *(none)* | Dated API version. Required by `azure-openai`, which has no default. Quote it (`"2024-10-21"`): unquoted, YAML reads a date as a timestamp, which the framework tolerates but other tools may not. |
+| `ai.project` | string | *(none)* | Cloud project, for `gemini-vertex` (falls back to `GOOGLE_CLOUD_PROJECT`). |
+| `ai.location` | string | *(none)* | Region, for `gemini-vertex` (falls back to `GOOGLE_CLOUD_LOCATION`) and `bedrock` (falls back to the AWS chain). |
 | `ai.request_timeout` | duration | `5m` | Bound on a single AI request. Deliberately generous (a large single-shot generation runs well past the shared 30s HTTP default) but bounded, so a model stuck in a loop fails rather than hanging. |
 | `ai.fallback.enabled` | bool | `false` | Try other providers when the primary fails. |
 | `ai.fallback.providers` | list of string | `[]` | Ordered provider list for failover. |
 
-**`ai.provider` accepted values are `claude`, `openai` and `gemini`.**
-`anthropic` is *not* one of them. That is the name of the *credential section*
-(`anthropic.api.*`), not the provider identifier. Setting `ai.provider:
-anthropic` leaves `init`'s "is AI configured?" check reporting unconfigured and
-fails at client construction with an unregistered-provider error.
+`ai.provider` accepts any provider the binary links (the ten in
+`chat.ProviderModules()`: `claude`, `claude-local`, `openai`,
+`openai-compatible`, `codex-local`, `gemini`, `gemini-vertex`, `agy-local`,
+`bedrock`, `azure-openai`). `anthropic` is *not* one of them. That is the name
+of the *credential section* (`anthropic.api.*`), not the provider identifier.
+Setting `ai.provider: anthropic` fails at client construction with an
+unregistered-provider error.
 
-The chat module also defines `claude-local` (drives a locally installed `claude`
-CLI) and `openai-compatible` (any OpenAI-shaped endpoint; requires an explicit
-base URL). Neither is offered by the `init ai` wizard, and `openai-compatible`
-cannot be configured from these keys alone: it needs a `BaseURL` supplied in Go.
+`ai.model`, `ai.base_url`, `ai.api_version`, `ai.project` and `ai.location`
+apply to `ai.provider` only. A fallback member resolves its own model and
+endpoint; a model name is provider-specific and an endpoint doubly so.
 
 When `ai.provider` is unset, the framework uses the `AI_PROVIDER` environment
 variable if present, and otherwise defaults to `claude`. `AI_PROVIDER` is read
@@ -279,14 +285,17 @@ first entry becomes the primary. If that disagrees with an explicitly configured
 `ai.provider`, the framework logs `ai.fallback.providers[0] overrides
 ai.provider` and the fallback list wins.
 
-Provider credentials use the `<provider>.api.*` blocks below.
+Provider credentials use the `<provider>.api.*` blocks below: `anthropic` for
+`claude`, `openai` for `openai` and `openai-compatible`, `gemini` for `gemini`
+and `gemini-vertex`, `azure` for `azure-openai`. The local CLIs and `bedrock`
+carry no GTB credential.
 
 ### Keys the framework does not read
 
-`ai.model` and `ai.claude.local` are read by the **`gtb` generator only**, when
-choosing a model for AI-assisted code and doc generation. They are not part of
-the runtime chat client, so setting them in a tool built on GTB has no effect on
-that tool's own AI calls.
+`ai.claude.local` is read by the **`gtb` generator only**, when choosing a model
+for AI-assisted code and doc generation. It is not part of the runtime chat
+client, so setting it in a tool built on GTB has no effect on that tool's own
+AI calls. (`ai.model` used to be in this list; it is a runtime key now.)
 
 There is no `ai.max_tokens` key. Token limits are a per-call option in Go.
 
@@ -392,7 +401,7 @@ in order:
 1. `<section>.api.env` (or `<section>.auth.env`) → read the **named** environment variable
 2. `<section>.api.keychain` (or `<section>.auth.keychain`) → read the OS keychain via a `<service>/<account>` reference
 3. `<section>.api.key` (or `<section>.auth.value`) → the literal value in config (legacy)
-4. a well-known unprefixed fallback env var: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `<FORGE>_TOKEN`
+4. a well-known unprefixed fallback env var: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `AZURE_OPENAI_API_KEY`, `<FORGE>_TOKEN`
 
 Every step trims whitespace and an empty result falls through, so a
 half-configured entry cannot mask a fully-configured one lower down.

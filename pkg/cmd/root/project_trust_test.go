@@ -128,6 +128,7 @@ func TestStripProtectedKeys(t *testing.T) {
 		"telemetry": map[string]any{"enabled": true},
 		"github":    map[string]any{"auth": map[string]any{"value": "x"}},
 		"anthropic": map[string]any{"api": map[string]any{"key": "sk"}},
+		"azure":     map[string]any{"api": map[string]any{"key": "az"}},
 		"log":       map[string]any{"level": "debug"}, // kept
 	}
 
@@ -137,6 +138,7 @@ func TestStripProtectedKeys(t *testing.T) {
 	assert.Contains(t, removed, "telemetry.enabled")
 	assert.Contains(t, removed, "github.auth")
 	assert.Contains(t, removed, "anthropic.api")
+	assert.Contains(t, removed, "azure.api", "every chat credential root is protected (spec 0196 D6)")
 
 	// Non-sensitive keys survive.
 	upd, _ := doc["update"].(map[string]any)

@@ -33,6 +33,7 @@ var protectedProjectConfigKeys = []string{
 	"anthropic.api",
 	"openai.api",
 	"gemini.api",
+	"azure.api",
 	"bitbucket.app_password",
 }
 

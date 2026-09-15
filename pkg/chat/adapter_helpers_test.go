@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"bytes"
 	"log/slog"
 	"testing"
 	"time"
@@ -33,57 +32,6 @@ func TestApplyDefaultProvider(t *testing.T) {
 		applyDefaultProvider(log, &cfg)
 		assert.Equal(t, gochat.ProviderClaude, cfg.Provider)
 	})
-}
-
-func TestWarnFallbackPrimaryOverride(t *testing.T) {
-	newLog := func(buf *bytes.Buffer) *slog.Logger {
-		return slog.New(slog.NewTextHandler(buf, nil))
-	}
-
-	t.Run("warns when a configured provider is overridden", func(t *testing.T) {
-		var buf bytes.Buffer
-		warnFallbackPrimaryOverride(newLog(&buf), gochat.Config{Provider: gochat.ProviderGemini}, gochat.ProviderClaude)
-		assert.Contains(t, buf.String(), "overrides ai.provider")
-	})
-
-	t.Run("silent when provider unset", func(t *testing.T) {
-		var buf bytes.Buffer
-		warnFallbackPrimaryOverride(newLog(&buf), gochat.Config{}, gochat.ProviderClaude)
-		assert.Empty(t, buf.String())
-	})
-
-	t.Run("silent when provider equals primary", func(t *testing.T) {
-		var buf bytes.Buffer
-		warnFallbackPrimaryOverride(newLog(&buf), gochat.Config{Provider: gochat.ProviderClaude}, gochat.ProviderClaude)
-		assert.Empty(t, buf.String())
-	})
-}
-
-func TestFallbackProviderConfigs(t *testing.T) {
-	t.Parallel()
-
-	base := gochat.Config{
-		Provider:    gochat.ProviderClaude,
-		Token:       "secret",
-		Model:       "some-model",
-		BaseURL:     "https://example.test",
-		Credentials: gochat.CredentialConfig{Key: "k"},
-		MaxSteps:    7, // a non-provider-specific field that must be inherited
-	}
-
-	got := fallbackProviderConfigs(base, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderGemini})
-
-	assert.Len(t, got, 2)
-	assert.Equal(t, gochat.ProviderOpenAI, got[0].Provider)
-	assert.Equal(t, gochat.ProviderGemini, got[1].Provider)
-
-	for _, c := range got {
-		assert.Empty(t, c.Token, "per-provider config clears the token")
-		assert.Empty(t, c.Model, "per-provider config clears the model")
-		assert.Empty(t, c.BaseURL, "per-provider config clears the base URL")
-		assert.True(t, c.Credentials.IsZero(), "per-provider config clears credentials")
-		assert.Equal(t, 7, c.MaxSteps, "non-provider-specific fields are inherited")
-	}
 }
 
 func TestResolveChatTimeout(t *testing.T) {

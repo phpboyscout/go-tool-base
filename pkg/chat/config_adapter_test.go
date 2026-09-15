@@ -91,10 +91,10 @@ func TestApplyRuntimeConfig_MockReader(t *testing.T) {
 	cfg := configmocks.NewMockReader(t)
 	cfg.EXPECT().SectionExists("ai").Return(true).Once()
 	cfg.EXPECT().UnmarshalKey("ai", mock.Anything).RunAndReturn(func(_ string, target any) error {
-		runtime, ok := target.(*gochat.RuntimeConfig)
+		section, ok := target.(*aiSection)
 		require.True(t, ok)
 
-		runtime.Provider = gochat.ProviderGemini
+		section.Provider = gochat.ProviderGemini
 
 		return nil
 	}).Once()

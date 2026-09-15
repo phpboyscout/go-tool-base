@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -78,6 +79,13 @@ func NewFromProps(ctx context.Context, p *props.Props, cfg gochat.Config) (gocha
 
 // NewWithFallbackFromProps adapts GTB props into package-owned chat settings,
 // then constructs either a single provider client or a fallback composite.
+//
+// The chain itself is the module's: NewWithFallbackSettings keeps the primary's
+// model and addressing and lets every other member self-resolve, and the
+// credential resolver below is how each member finds GTB's credential for it.
+// GTB used to derive the per-member configs itself with a denylist that
+// cleared the primary's model and would have carried addressing fields to
+// every member (spec 0196 D6).
 func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Config, opts ...gochat.FallbackOption) (gochat.ChatClient, error) {
 	settings, err := SettingsFromProps(p, cfg)
 	if err != nil {
@@ -95,22 +103,35 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Co
 		return client, hintUnsupportedProvider(err, settings.Config.Provider)
 	}
 
-	log := settings.Logger
-	warnFallbackPrimaryOverride(log, explicitProviderConfig(p, cfg), fallback.Providers[0])
+	// The module warns when fallback.providers[0] overrides Config.Provider,
+	// and SettingsFromProps has defaulted that field by now; hand it the
+	// provider the operator actually configured so an unset one warns nothing.
+	settings.Config.Provider = explicitProviderConfig(p, cfg).Provider
 
-	providerSettings := make([]gochat.Settings, 0, len(fallback.Providers))
-	for _, providerConfig := range fallbackProviderConfigs(settings.Config, fallback.Providers) {
-		next, err := SettingsFromProps(p, providerConfig)
-		if err != nil {
-			return nil, err
+	opts = append([]gochat.FallbackOption{
+		gochat.WithProviderCredentials(providerCredentialsFrom(props.ViewOrNil(p))),
+	}, opts...)
+
+	return gochat.NewWithFallbackSettings(ctx, settings, fallback, opts...)
+}
+
+// providerCredentialsFrom resolves a chain member's credential from GTB's
+// config the way SettingsFromProps does for a single provider.
+func providerCredentialsFrom(cfg config.Reader) gochat.ProviderCredentials {
+	return func(provider gochat.Provider) (gochat.CredentialConfig, bool) {
+		if !NeedsCredential(provider) {
+			return gochat.CredentialConfig{}, false
 		}
 
-		providerSettings = append(providerSettings, next)
+		credentials, err := loadCredentialConfig(cfg, provider)
+		if err != nil || credentials.IsZero() {
+			return gochat.CredentialConfig{}, false
+		}
+
+		credentials.Lookup = gtbcreds.Retrieve
+
+		return credentials, true
 	}
-
-	opts = append([]gochat.FallbackOption{gochat.WithFallbackLogger(log)}, opts...)
-
-	return gochat.NewFallbackFromSettings(ctx, providerSettings, opts...)
 }
 
 // NewWithFallback adapts GTB props and framework config before constructing a
@@ -157,11 +178,53 @@ func applyRuntimeConfig(cfg config.Reader, target *gochat.Config) error {
 		target.RequestTimeout = runtime.RequestTimeout
 	}
 
+	fillEmpty(&target.Model, runtime.Model)
+	fillEmpty(&target.BaseURL, runtime.BaseURL)
+	fillEmpty(&target.APIVersion, runtime.apiVersion())
+	fillEmpty(&target.Project, runtime.Project)
+	fillEmpty(&target.Location, runtime.Location)
+
 	return nil
 }
 
+func fillEmpty(target *string, value string) {
+	if *target == "" {
+		*target = value
+	}
+}
+
+// aiSection is the whole `ai:` block as GTB's config spells it. The module's
+// RuntimeConfig stops at provider, timeout and fallback; the addressing keys
+// are GTB's own schema (constants.go) and apply to the primary provider only.
+type aiSection struct {
+	gochat.RuntimeConfig `mapstructure:",squash"`
+
+	Model   string `mapstructure:"model"`
+	BaseURL string `mapstructure:"base_url"`
+	// APIVersion is untyped because Azure's versions are dates (2024-10-21),
+	// and an unquoted date in a YAML file arrives as a time.Time.
+	APIVersion any    `mapstructure:"api_version"`
+	Project    string `mapstructure:"project"`
+	Location   string `mapstructure:"location"`
+}
+
+// apiVersion renders the configured API version as the dated string the
+// provider expects, whether the file quoted it or not.
+func (s aiSection) apiVersion() string {
+	switch v := s.APIVersion.(type) {
+	case nil:
+		return ""
+	case time.Time:
+		return v.UTC().Format(time.DateOnly)
+	case string:
+		return v
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
 func applyCredentialConfig(cfg config.Reader, target *gochat.Config) error {
-	if cfg == nil || target == nil || IsLocalCLI(target.Provider) {
+	if cfg == nil || target == nil || !NeedsCredential(target.Provider) {
 		return nil
 	}
 
@@ -179,10 +242,10 @@ func applyCredentialConfig(cfg config.Reader, target *gochat.Config) error {
 	return nil
 }
 
-func loadRuntimeConfig(cfg config.Reader) (gochat.RuntimeConfig, error) {
-	section, err := config.UnmarshalSection[gochat.RuntimeConfig](cfg, "ai")
+func loadRuntimeConfig(cfg config.Reader) (aiSection, error) {
+	section, err := config.UnmarshalSection[aiSection](cfg, configSectionAI)
 	if err != nil || !section.Exists {
-		return gochat.RuntimeConfig{}, err
+		return aiSection{}, err
 	}
 
 	return section.Value, nil
@@ -217,8 +280,10 @@ func credentialConfigRoot(provider gochat.Provider) string {
 		return configRootOpenAI
 	case gochat.ProviderClaude:
 		return configRootClaude
-	case gochat.ProviderGemini:
+	case gochat.ProviderGemini, gochat.ProviderGeminiVertex:
 		return configRootGemini
+	case gochat.ProviderAzureOpenAI:
+		return configRootAzure
 	default:
 		return ""
 	}

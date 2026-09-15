@@ -84,6 +84,12 @@ var knownCredentials = []credentialDescriptor{
 		keychainAccount:   "gemini.api",
 	},
 	{
+		key:               chat.ConfigKeyAzureKey,
+		envTargetKey:      chat.ConfigKeyAzureEnv,
+		keychainTargetKey: chat.ConfigKeyAzureKeychain,
+		keychainAccount:   "azure.api",
+	},
+	{
 		key:               "github.auth.value",
 		envTargetKey:      "github.auth.env",
 		keychainTargetKey: "github.auth.keychain",

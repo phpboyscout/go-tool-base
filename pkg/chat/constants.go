@@ -5,8 +5,11 @@ package chat
 // the standalone chat module (which is config-system-agnostic). config_adapter.go
 // maps these keys into the module's typed Config/CredentialConfig.
 
+// configSectionAI is the config section every ai.* key lives under.
+const configSectionAI = "ai"
+
 // ConfigKeyAIProvider is the config key for the AI provider.
-const ConfigKeyAIProvider = "ai.provider"
+const ConfigKeyAIProvider = configSectionAI + ".provider"
 
 // ConfigKeyAIRequestTimeout is the config key for the per-request AI timeout
 // (a duration like "8m"). Overrides DefaultChatRequestTimeout.
@@ -14,6 +17,20 @@ const ConfigKeyAIRequestTimeout = "ai.request_timeout"
 
 // ConfigKeyAIModel is the config key for the default model name.
 const ConfigKeyAIModel = "ai.model"
+
+// The addressing keys a few providers need. They apply to ai.provider only; a
+// fallback member resolves its own endpoint (spec 0196 D6).
+const (
+	// ConfigKeyAIBaseURL overrides the API endpoint; required by
+	// openai-compatible and azure-openai.
+	ConfigKeyAIBaseURL = "ai.base_url"
+	// ConfigKeyAIAPIVersion is the dated API version azure-openai requires.
+	ConfigKeyAIAPIVersion = "ai.api_version"
+	// ConfigKeyAIProject is the cloud project gemini-vertex addresses.
+	ConfigKeyAIProject = "ai.project"
+	// ConfigKeyAILocation is the region gemini-vertex and bedrock address.
+	ConfigKeyAILocation = "ai.location"
+)
 
 // ConfigKeyAIFallback is the config section holding the fallback-provider chain.
 const ConfigKeyAIFallback = "ai.fallback"
@@ -37,6 +54,7 @@ const (
 	configRootOpenAI = "openai.api"
 	configRootClaude = "anthropic.api"
 	configRootGemini = "gemini.api"
+	configRootAzure  = "azure.api"
 
 	ConfigKeyOpenAIKey      = configRootOpenAI + ".key"
 	ConfigKeyOpenAIEnv      = configRootOpenAI + ".env"
@@ -52,4 +70,9 @@ const (
 	ConfigKeyGeminiEnv      = configRootGemini + ".env"
 	ConfigKeyGeminiKeychain = configRootGemini + ".keychain"
 	EnvGeminiKey            = "GEMINI_API_KEY"
+
+	ConfigKeyAzureKey      = configRootAzure + ".key"
+	ConfigKeyAzureEnv      = configRootAzure + ".env"
+	ConfigKeyAzureKeychain = configRootAzure + ".keychain"
+	EnvAzureKey            = "AZURE_OPENAI_API_KEY"
 )

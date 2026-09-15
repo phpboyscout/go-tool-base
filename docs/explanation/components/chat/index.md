@@ -40,12 +40,35 @@ framework integration on top:
   |---|---|---|---|---|
   | Claude | `anthropic.api.key` | `anthropic.api.env` | `anthropic.api.keychain` | `ANTHROPIC_API_KEY` |
   | OpenAI | `openai.api.key` | `openai.api.env` | `openai.api.keychain` | `OPENAI_API_KEY` |
-  | Gemini | `gemini.api.key` | `gemini.api.env` | `gemini.api.keychain` | `GEMINI_API_KEY` |
+  | Gemini, Gemini Vertex | `gemini.api.key` | `gemini.api.env` | `gemini.api.keychain` | `GEMINI_API_KEY` |
+  | Azure OpenAI | `azure.api.key` | `azure.api.env` | `azure.api.keychain` | `AZURE_OPENAI_API_KEY` |
 
-  The provider is chosen by `ai.provider` (or `AI_PROVIDER`); fallback is
-  configured under `ai.fallback.*`. Resolution precedence: direct token → env-var
+  `openai-compatible` shares OpenAI's root. The local CLIs (`claude-local`,
+  `codex-local`, `agy-local`) and `bedrock` carry no GTB credential:
+  `chat.NeedsCredential(p)` says which. The provider is chosen by
+  `ai.provider` (or `AI_PROVIDER` when that is unset); fallback is configured
+  under `ai.fallback.*`. Resolution precedence: direct token → env-var
   reference → OS keychain → literal → ecosystem env var. The recommended path
   (env-var reference) keeps the literal secret out of the config file.
+- **The whole `ai:` section reaches the client.** `ai.model`, `ai.base_url`,
+  `ai.api_version`, `ai.project` and `ai.location` fill the matching
+  `chat.Config` fields when the caller left them empty, so `openai-compatible`,
+  `azure-openai`, `gemini-vertex` and `bedrock` are configurable from a file.
+  They apply to `ai.provider` only. A fallback chain is built by the module's
+  `NewWithFallbackSettings`: the primary keeps its model and addressing, every
+  other member resolves its own, and GTB supplies each member's credential
+  through `WithProviderCredentials`. GTB used to derive the chain itself with a
+  denylist that cleared the primary's model and would have carried addressing
+  to every member.
+- **Three layers, three owners.** A generated tool's chat configuration is
+  three things that used to blur together. The *author's defaults* (default
+  provider, model, endpoint) live in the manifest's `chat.default` block and
+  ship as an embedded defaults bundle beside `cmd/<name>/chat.go`, the lowest
+  config layer. The *end user's overrides* live in their own config file,
+  written by `init ai` or by hand, and win over the author's. *Credentials*
+  are only ever the end user's, in their file or their environment; nothing
+  the author records carries one. See spec 0196 and the
+  [generate reference](../../../reference/cli/generate.md).
 - **Hardened HTTP + keychain seams.** The adapter injects `pkg/http`'s hardened
   transport and wires `pkg/credentials.Retrieve` as the keychain lookup, so GTB
   tools get the framework's security posture; the module core carries neither.

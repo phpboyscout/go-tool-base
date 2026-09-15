@@ -9,7 +9,7 @@ import (
 //
 // Spec 0189 R1/R4: `doctor` reported resolution for forges only, so an operator
 // could be told exactly which rung supplies their GitHub token and nothing at
-// all about the Anthropic key sitting in the same file. These three registrations
+// all about the Anthropic key sitting in the same file. These registrations
 // close that, and they live here rather than in doctor because this package owns
 // the keys — a fourth hand-maintained list somewhere else is the problem, not
 // the fix.
@@ -49,6 +49,15 @@ func providerCredentials() []credentialposture.Descriptor {
 			KeychainKey: ConfigKeyGeminiKeychain,
 			LiteralKey:  ConfigKeyGeminiKey,
 			FallbackEnv: EnvGeminiKey,
+		},
+		{
+			Owner:       "chat:azure",
+			Feature:     string(props.AiCmd),
+			Label:       "Azure OpenAI API key",
+			EnvKey:      ConfigKeyAzureEnv,
+			KeychainKey: ConfigKeyAzureKeychain,
+			LiteralKey:  ConfigKeyAzureKey,
+			FallbackEnv: EnvAzureKey,
 		},
 	}
 }
