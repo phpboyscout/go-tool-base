@@ -495,9 +495,27 @@ var providerGlosses = map[string]string{
 	"azure-openai":      "Azure OpenAI; a deployment endpoint and api-key or Entra token",
 }
 
-// multiSelectHeaderLines is what a one-line title and a one-line description
-// take off a multi-select's auto height in huh v2.
-const multiSelectHeaderLines = 2
+// newMultiSelect builds a multi-select whose viewport shows every option on
+// first paint. huh sizes an auto-height multi-select to its options and then
+// subtracts the title and description lines (field_multiselect.go,
+// updateViewportSize), so a list built without an explicit Height clips its
+// last options: two of five providers, then the sixteenth feature (#43).
+func newMultiSelect(title, description string, options []huh.Option[string]) *huh.MultiSelect[string] {
+	header := 0
+	if title != "" {
+		header += strings.Count(title, "\n") + 1
+	}
+
+	if description != "" {
+		header += strings.Count(description, "\n") + 1
+	}
+
+	return huh.NewMultiSelect[string]().
+		Title(title).
+		Description(description).
+		Options(options...).
+		Height(len(options) + header)
+}
 
 // optionLabel lays a label and its gloss out as two columns, padding the label
 // to width so the glosses line up down the list.
@@ -640,9 +658,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 		huh.NewInput().
 			Title("Destination Path").
 			Value(&o.Path),
-		huh.NewMultiSelect[string]().
-			Title("Features").
-			Options(featureOptions(o.Features)...).
+		newMultiSelect("Features", "", featureOptions(o.Features)).
 			Value(&o.Features),
 		huh.NewSelect[string]().
 			Title("Git Backend").
@@ -696,13 +712,9 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 // is (spec 0194 OQ4).
 func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 	return huh.NewGroup(
-		huh.NewMultiSelect[string]().
-			Title("Chat providers").
-			Description("Each one is a module linked into the binary; untick what this tool will never use.").
-			Options(chatProviderOptions(o.ChatProviders)...).
-			// huh sizes an auto-height multi-select as the options minus its
-			// title and description lines, which hid two of five providers.
-			Height(len(generator.DefaultChatProviders()) + multiSelectHeaderLines).
+		newMultiSelect("Chat providers",
+			"Each one is a module linked into the binary; untick what this tool will never use.",
+			chatProviderOptions(o.ChatProviders)).
 			Value(&o.ChatProviders),
 	).
 		Title("AI Chat").

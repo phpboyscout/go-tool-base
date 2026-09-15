@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"fmt"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -94,4 +95,40 @@ func TestWizard_KeepsExplicitFeatureSelection(t *testing.T) {
 	require.Equal(t, huh.StateCompleted, f.State)
 	assert.Equal(t, []string{"ai"}, o.Features, "the wizard must not add the default features back")
 	assert.Equal(t, []string{"codex-local"}, o.ChatProviders, "the wizard must not add every provider back")
+}
+
+// focusFeatures drives the form to the Features multi-select.
+func focusFeatures(t *testing.T, o *SkeletonOptions) *huh.Form {
+	t.Helper()
+
+	f := o.wizardForm()
+	f.Update(f.Init())
+
+	var m huh.Model = f
+	for _, r := range "my-app" {
+		m, _ = m.Update(keypress(r))
+	}
+
+	for i := 0; i < 3; i++ {
+		m, _ = advance(f, m)
+	}
+
+	require.IsType(t, &huh.MultiSelect[string]{}, f.GetFocusedField())
+
+	return f
+}
+
+// TestWizard_EveryFeatureIsVisibleOnFirstPaint pins #43: huh sizes an
+// auto-height multi-select to its options and then subtracts the title and
+// description lines, so the sixteenth feature (OS Keychain, default-ticked)
+// rendered off-screen until the cursor had moved fifteen times.
+func TestWizard_EveryFeatureIsVisibleOnFirstPaint(t *testing.T) {
+	t.Parallel()
+
+	f := focusFeatures(t, &SkeletonOptions{Features: generator.DefaultSelectedFeatures})
+	view := fmt.Sprint(f.View())
+
+	for _, name := range generator.SelectableFeatures {
+		assert.Containsf(t, view, featureLabel(name), "feature %q is not on the first paint of the list", name)
+	}
 }
