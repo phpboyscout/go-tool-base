@@ -41,6 +41,8 @@ func TestInfo_IsDevelopment(t *testing.T) {
 		{"empty string", "", true},
 		{"invalid version", "not-a-version", true},
 		{"prerelease", "1.0.0-beta.1", false},
+		{"dirty build metadata", "0.42.0+dirty", true},
+		{"dev prerelease segment", "0.42.0-rc.1.dev", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -108,7 +108,8 @@ builds.`,
 			}
 
 			info.Latest = latest
-			info.Current = info.Version == latest
+			// Semver precedence, not string equality: v1.0.0+dirty is v1.0.0.
+			info.Current = ver.CompareVersions(info.Version, latest) >= 0
 
 			if !info.Current {
 				props.Logger.Warn("a new version is available", "version", latest)

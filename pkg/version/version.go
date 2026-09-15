@@ -49,13 +49,22 @@ func (i Info) Compare(other string) int {
 	return CompareVersions(i.Version, other)
 }
 
+// IsDevelopment reports whether this is not a release build: an invalid
+// version, a prerelease carrying a dev or dirty segment, or any build
+// metadata (a VCS-stamped module build reports the tag plus "+dirty").
 func (i Info) IsDevelopment() bool {
 	v := FormatVersionString(i.Version, true)
 	if !semver.IsValid(v) {
 		return true
 	}
 
-	return strings.Contains(i.Version, "-dev") || strings.Contains(i.Version, "-dirty")
+	if semver.Build(v) != "" {
+		return true
+	}
+
+	pre := semver.Prerelease(v)
+
+	return strings.Contains(pre, "dev") || strings.Contains(pre, "dirty")
 }
 
 // FormatVersionString adds or removes a "v" prefix from version string.
