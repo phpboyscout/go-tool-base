@@ -35,8 +35,11 @@ gtb generate <subcommand> [flags]
 
 ### `generate project`
 
-Generate a new project skeleton. Run without `--name`/`--repo` in an interactive
-terminal to launch the guided wizard; otherwise supply the flags directly.
+Generate a new project skeleton. Run without `--name` (or without `--repo` for
+a hosted project) in an interactive terminal to launch the wizard, whose pages
+are described in the [scaffolding how-to](../../how-to/framework-cli/scaffold-project.md#interactive-wizard);
+otherwise supply the flags directly. The wizard and the flags produce the same
+manifest.
 
 **Core:**
 

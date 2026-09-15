@@ -55,6 +55,9 @@ type SkeletonOptions struct {
 	// NoForge marks a project that is not hosted on a forge (spec 0195 D3):
 	// no backend, no repository, and Module names the Go module path.
 	NoForge bool
+	// hosted is the wizard's confirm for NoForge, bound positively so the
+	// question reads "hosted on a forge?" and defaults to yes.
+	hosted bool
 	// Module is the Go module path; required with NoForge, an override of
 	// <host>/<org>/<repo> otherwise (spec 0195 D5, OQ6).
 	Module string
@@ -740,6 +743,28 @@ func (o *SkeletonOptions) runWizard() error {
 // discarded here rather than letting an earlier email re-enable signing that
 // a later No switched off (#46). The flag path keeps "email implies signing".
 func (o *SkeletonOptions) afterWizard() error {
+	o.NoForge = !o.hosted
+
+	if o.NoForge {
+		o.ForgeBackend, o.Repo, o.Host = "", "", ""
+		o.Private = false
+		o.ForgeCredentials = nil
+	} else {
+		o.Module = ""
+		o.ForgeCredentials = slices.DeleteFunc(o.ForgeCredentials, func(f string) bool { return f == o.ForgeBackend })
+	}
+
+	if !o.updateSelected() {
+		o.ReleaseChannel = ""
+		o.Direct = generator.ManifestDirectSource{}
+		o.UpdatePolicy, o.UpdateCheckInterval = "", ""
+		o.Signing = false
+	}
+
+	if o.ReleaseChannel != generator.ReleaseChannelDirect {
+		o.Direct = generator.ManifestDirectSource{}
+	}
+
 	if !o.Signing {
 		o.SigningEmail = ""
 		o.SigningKeySource = ""
@@ -783,11 +808,13 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Value(&o.Path),
 		newMultiSelect("Features", "", featureOptions(o.Features)).
 			Value(&o.Features),
-		huh.NewSelect[string]().
-			Title("Git Backend").
-			Description("Where the repository will be hosted.").
-			Options(forgeBackendOptions()...).
-			Value(&o.ForgeBackend),
+		huh.NewConfirm().
+			Key("hosted").
+			Title("Hosted on a forge?").
+			Description("Yes: the next page asks which forge and where. No: the project names its own Go module path and links no forge.").
+			Affirmative("Yes").
+			Negative("No").
+			Value(&o.hosted),
 		huh.NewSelect[string]().
 			Title("Help Channel").
 			Description("Where users should ask for help — shown in error messages.").
@@ -799,7 +826,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Value(&o.HelpType),
 	).
 		Title("New CLI Project").
-		Description("Configure your new CLI tool. The next steps will collect repository and help channel details.\n")
+		Description("Configure your new CLI tool. The pages that follow depend on what you choose here.\n")
 }
 
 // wizardForm assembles the single native form: the entry group plus the
@@ -815,18 +842,137 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.SigningKeySource = "both"
 	}
 
+	// The confirm is bound positively (spec 0195 D3); the flag is the negative.
+	o.hosted = !o.NoForge
+
 	return newForm(
 		o.basicsGroup(),
+		o.forgeGroup(),
+		o.moduleGroup(),
 		o.envPrefixGroup(),
-		o.updatePolicyGroup(),
-		o.updateCheckIntervalGroup(),
+		o.selfUpdateGroup(),
+		o.directSourceGroup(),
 		o.chatProvidersGroup(),
-		o.gitGroup(),
 		o.slackGroup(),
 		o.teamsGroup(),
 		o.signingEnableGroup(),
 		o.signingDetailGroup(),
 	)
+}
+
+// updateSelected reports whether the update feature is among the chosen
+// features; the self-update, direct-source and signing pages hang off it.
+func (o *SkeletonOptions) updateSelected() bool {
+	return slices.Contains(o.Features, string(props.UpdateCmd))
+}
+
+// moduleGroup asks for the Go module path of a project that is not hosted on
+// a forge (spec 0195 D5); a hosted project derives it and never sees this.
+func (o *SkeletonOptions) moduleGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Key("module").
+			Title("Go module path").
+			Description("The module line of go.mod. A tool that is never imported can be a single word.").
+			Placeholder("myapp").
+			Value(&o.Module).
+			Validate(func(s string) error {
+				if s == "" {
+					return ErrModuleRequired
+				}
+
+				return generator.ValidateModulePath(s)
+			}),
+	).
+		Title("Module").
+		Description("Without a forge there is no host and repository to derive a module path from.\n").
+		WithHideFunc(func() bool { return o.hosted })
+}
+
+// selfUpdateGroup is the one page for the update feature (spec 0195 D7): the
+// release channel, the policy and the check interval. Shown only when the
+// feature is selected; the channel cannot be left empty.
+func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewSelect[string]().
+			Key("channel").
+			Title("Release channel").
+			Description("Where the tool fetches its releases from.").
+			Options(
+				huh.NewOption("This forge", generator.ReleaseChannelForge),
+				huh.NewOption("Direct URL (a server you name)", generator.ReleaseChannelDirect),
+			).
+			Value(&o.ReleaseChannel).
+			Validate(func(s string) error {
+				switch {
+				case s == "":
+					return ErrReleaseChannelRequired
+				case s == generator.ReleaseChannelForge && !o.hosted:
+					return errors.WithHint(ErrReleaseChannelRequired, "This project is not hosted on a forge; choose the direct channel.")
+				default:
+					return nil
+				}
+			}),
+		huh.NewSelect[string]().
+			Title("Self-update policy").
+			Description("What the tool does when a newer release exists. Users can override via update.policy.").
+			Options(
+				huh.NewOption("Notify only: log that an update exists, then continue (default)", "").Selected(o.UpdatePolicy == "" || o.UpdatePolicy == "disabled"),
+				huh.NewOption("Prompt: ask to update; declining continues the command", "prompt").Selected(o.UpdatePolicy == "prompt"),
+				huh.NewOption("Enforce: block every command until the tool is updated", "enabled").Selected(o.UpdatePolicy == "enabled"),
+			).
+			Value(&o.UpdatePolicy),
+		huh.NewInput().
+			Title("Update check interval").
+			Description("How often the tool checks for releases, as a Go duration (24h, 168h). Empty is the framework default (24h); the check runs under every policy.").
+			Placeholder("24h").
+			Value(&o.UpdateCheckInterval).
+			Validate(generator.ValidateUpdateCheckInterval),
+	).
+		Title("Self-update").
+		Description("How the generated tool finds and applies its own releases.\n").
+		WithHideFunc(func() bool { return !o.updateSelected() })
+}
+
+// directSourceGroup collects the go/forge direct source's settings when the
+// direct channel is chosen (spec 0195 D7, OQ7: all of them; the URL template
+// and the version URL are required).
+func (o *SkeletonOptions) directSourceGroup() *huh.Group {
+	required := func(s string) error {
+		if s == "" {
+			return ErrDirectSourceIncomplete
+		}
+
+		return nil
+	}
+
+	return huh.NewGroup(
+		huh.NewInput().Key("release-url").Title("Asset URL template").
+			Description("Where a release asset is fetched from; {{.Version}} and {{.Asset}} are substituted.").
+			Placeholder("https://dl.example.com/myapp/{{.Version}}/{{.Asset}}").
+			Value(&o.Direct.URLTemplate).Validate(required),
+		huh.NewInput().Key("release-version-url").Title("Version URL").
+			Description("An endpoint that reports the latest version.").
+			Placeholder("https://dl.example.com/myapp/latest").
+			Value(&o.Direct.VersionURL).Validate(required),
+		huh.NewInput().Title("Checksum URL template (optional)").
+			Value(&o.Direct.ChecksumURLTemplate),
+		huh.NewInput().Title("Signature URL template (optional)").
+			Value(&o.Direct.SignatureURLTemplate),
+		huh.NewInput().Title("Version format (optional)").
+			Description("text, json, yaml or xml; empty means text.").
+			Value(&o.Direct.VersionFormat),
+		huh.NewInput().Title("Version key (optional)").
+			Description("The key holding the version in a structured endpoint.").
+			Value(&o.Direct.VersionKey),
+		huh.NewInput().Title("Pinned version (optional)").
+			Value(&o.Direct.PinnedVersion),
+	).
+		Title("Direct release source").
+		Description("Recorded under release_source.direct in the manifest.\n").
+		WithHideFunc(func() bool {
+			return !o.updateSelected() || o.ReleaseChannel != generator.ReleaseChannelDirect
+		})
 }
 
 // chatProvidersGroup picks the chat providers the tool links. Shown only when
@@ -867,7 +1013,7 @@ func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
 		huh.NewInput().
 			Title("Environment Variable Prefix").
 			DescriptionFunc(func() string {
-				return fmt.Sprintf("Prefix for config env var overrides (e.g. %[1]s → %[1]s_LOG_LEVEL). Tab accepts the suggestion; leave empty to disable.", deriveEnvPrefix(o.Name))
+				return fmt.Sprintf("Prefix for config env var overrides (e.g. %[1]s → %[1]s_LOG_LEVEL). ctrl+e accepts the suggestion; leave empty to disable.", deriveEnvPrefix(o.Name))
 			}, &o.Name).
 			Placeholder("e.g. MY_APP").
 			SuggestionsFunc(func() []string {
@@ -890,44 +1036,19 @@ func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
 		Description("Scopes config env var lookups so only variables starting with this prefix are considered.\n")
 }
 
-// updatePolicyGroup selects the self-update posture. The default (and "Disabled")
-// leaves the policy empty so the framework default applies.
-func (o *SkeletonOptions) updatePolicyGroup() *huh.Group {
+// forgeGroup is the forge page (spec 0195 D3, D4, D6): which forge, where,
+// under what path, private or not, and the other forges the tool captures
+// credentials for. Shown only for a hosted project; the host and repository
+// help react to the backend through *Func binders.
+func (o *SkeletonOptions) forgeGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewSelect[string]().
-			Title("Self-Update Policy").
-			Description("How the generated tool behaves when a newer release is found. Users can override via the update.policy config key.").
-			Options(
-				huh.NewOption("Disabled — log that an update is available, then continue (default)", "").Selected(o.UpdatePolicy == "" || o.UpdatePolicy == "disabled"),
-				huh.NewOption("Prompt — ask to update; declining continues the command", "prompt").Selected(o.UpdatePolicy == "prompt"),
-				huh.NewOption("Enabled — block every command until the tool is updated", "enabled").Selected(o.UpdatePolicy == "enabled"),
-			).
-			Value(&o.UpdatePolicy),
-	).
-		Title("Self-Update Policy").
-		Description("Sets props.Tool.UpdatePolicy in the generated tool.\n")
-}
-
-// updateCheckIntervalGroup collects the baseline self-update-check throttle as a
-// Go duration. Empty leaves it unset so the framework default (24h) applies.
-func (o *SkeletonOptions) updateCheckIntervalGroup() *huh.Group {
-	return huh.NewGroup(
-		huh.NewInput().
-			Title("Update Check Interval").
-			Description("How often the generated tool checks for updates, as a Go duration (e.g. 24h, 168h). Leave empty for the framework default (24h). Users can override via update.check_interval.").
-			Placeholder("24h").
-			Value(&o.UpdateCheckInterval).
-			Validate(generator.ValidateUpdateCheckInterval),
-	).
-		Title("Update Check Interval").
-		Description("Sets props.Tool.UpdateCheckInterval in the generated tool.\n")
-}
-
-// gitGroup collects repository details. The host is pre-seeded from the chosen
-// backend (see the backend field's validator); the host/repository help text and
-// the repository placeholder react to the backend via *Func binders.
-func (o *SkeletonOptions) gitGroup() *huh.Group {
-	return huh.NewGroup(
+			Key("backend").
+			Title("Forge Backend").
+			Description("The forge the repository lives on. Decides the release source, the credential wizard, the linked adapter and the CI skeleton (GitHub and GitLab have one).").
+			Options(forgeBackendOptions()...).
+			Value(&o.ForgeBackend).
+			Validate(generator.ValidateForgeBackend),
 		huh.NewInput().
 			Title("Git Host").
 			DescriptionFunc(func() string {
@@ -959,9 +1080,28 @@ func (o *SkeletonOptions) gitGroup() *huh.Group {
 			Affirmative("Private").
 			Negative("Public").
 			Value(&o.Private),
+		newMultiSelect("Other forges to capture credentials for",
+			"Each adds that forge's init wizard, config section and adapter; the release source stays the backend's.",
+			forgeCredentialOptions(o.ForgeCredentials)).
+			Value(&o.ForgeCredentials),
 	).
-		Title("Repository").
-		Description("Configure the repository that will host your new tool. The host and repository help below reflect the backend you chose.\n")
+		Title("Forge").
+		Description("Where the repository lives and how the tool reaches it.\n").
+		WithHideFunc(func() bool { return !o.hosted })
+}
+
+// forgeCredentialOptions lists every backend for the credential multi-select,
+// ticked from the current selection (#42's rule); the chosen backend is
+// dropped from the answer afterwards, since it is already enabled.
+func forgeCredentialOptions(selected []string) []huh.Option[string] {
+	displays := forgeBackendDisplays()
+	opts := make([]huh.Option[string], 0, len(displays))
+
+	for _, d := range displays {
+		opts = append(opts, huh.NewOption(d.Label, string(d.ID)).Selected(slices.Contains(selected, string(d.ID))))
+	}
+
+	return opts
 }
 
 // slackGroup collects Slack help-channel details. Shown only when the help
@@ -1016,7 +1156,8 @@ func (o *SkeletonOptions) signingEnableGroup() *huh.Group {
 			Value(&o.Signing),
 	).
 		Title("Release Signing").
-		Description("Verify self-update downloads against an embedded release key.\n")
+		Description("Verify self-update downloads against an embedded release key.\n").
+		WithHideFunc(func() bool { return !o.updateSelected() })
 }
 
 // signingDetailGroup collects the WKD email and key source. Shown only when
@@ -1047,7 +1188,7 @@ func (o *SkeletonOptions) signingDetailGroup() *huh.Group {
 	).
 		Title("Signing Configuration").
 		Description("These values are written to the manifest signing block.\n").
-		WithHideFunc(func() bool { return !o.Signing })
+		WithHideFunc(func() bool { return !o.updateSelected() || !o.Signing })
 }
 
 // resolveFeatures builds the full feature list from the selected set,

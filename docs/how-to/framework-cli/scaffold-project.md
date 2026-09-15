@@ -171,20 +171,53 @@ gtb generate cli \
   --slack-team "My Team"
 ```
 
-### Interactive Multi-Stage Form
+### Interactive wizard
 
-You don't have to remember all the flags! If you run it without `--name` and `--repo`, the CLI will guide you through a three-stage interactive form:
+You don't have to remember all the flags. Run `gtb generate project` without
+`--name` (or without `--repo` for a hosted project) in a terminal and the
+wizard asks one page at a time. Pages appear only when they apply; each is
+one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
 
-**Stage 1, Project Setup**
-: Name, Description, Destination Path, Features, Git Backend (GitHub/GitLab), Help Channel (Slack/Teams/None).
+**Start**
+: Name, description, destination path, the features to enable, whether the
+  project is *hosted on a forge* (yes by default), and the help channel.
+  Forges are not features here: the next page chooses one.
 
-**Stage 2, Git Repository**
-: Git Host (leave empty for the backend's host, shown as the placeholder; set it for a self-hosted instance) and Repository in `org/repo` format.
+**Forge** *(hosted on a forge: yes)*
+: Forge Backend (GitHub, GitLab, Gitea, Codeberg or Bitbucket), the host
+  (leave empty for the backend's own host, shown as the placeholder; set it
+  for a self-managed instance), the repository as `org/repo` (or
+  `group/subgroup/repo` on GitLab), whether it is private, and any *other
+  forges to capture credentials for* (their `init <forge>` wizard and
+  adapter, never the release source). Only GitHub and GitLab have a CI
+  skeleton; the others get no CI files and the run says so.
 
-**Stage 3, Help Channel** *(skipped if None selected)*
-: Slack Channel + Slack Team, or Teams Channel + Teams Team, depending on your Stage 1 selection.
+**Module** *(hosted on a forge: no)*
+: The Go module path, since there is no host and repository to derive one
+  from. A tool that is never imported can be a single word.
 
-Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** to cancel.
+**Environment variable prefix**
+: The derived prefix is offered as a suggestion (`ctrl+e` accepts it); empty
+  means no prefix, the same as the flag.
+
+**Self-update** *(the `update` feature selected)*
+: The release channel, *this forge* or a *direct URL*; the self-update
+  policy (notify only, prompt, enforce); and the check interval. A
+  self-updating tool cannot be generated without a channel: to have none, go
+  back and deselect Self-Update. Choosing the direct channel opens a page for
+  the direct source's settings (asset URL template and version URL required;
+  checksum and signature templates, version format and key, pinned version
+  optional).
+
+**Chat providers** *(the `ai` feature selected)*
+: Which providers the tool links; see the [generate reference](../../reference/cli/generate.md#adapters).
+
+**Help channel** *(Slack or Teams chosen)*
+: Slack channel and team, or Teams channel and team.
+
+**Release signing** *(the `update` feature selected)*
+: Whether to verify self-update downloads, and if so the WKD email, key
+  source and key id. Answering No after entering details discards them.
 
 ### Available Flags
 
@@ -197,7 +230,7 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | `--private` | | Mark the repository as private (requires a token for updates) | `false` |
 | `--description` | `-d` | Short description of the tool | `A tool built with gtb` |
 | `--path` | `-p` | Destination path for the generated project | `.` |
-| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`), forges (`github`, `gitlab`, `gitea`, `bitbucket`), and `keychain`. Replaces the default set rather than extending it: see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
+| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`) and `keychain`. A forge is chosen with `--forge-backend`, not here. Replaces the default set rather than extending it: see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
 | `--go-version` | | Go version for `go.mod` | running toolchain version |
 | `--help-type` | | Help channel type (`slack`, `teams`, or `none`) | `none` |
 | `--overwrite` | | How to handle file conflicts (`allow`, `deny`, or `ask`) | `ask` |
