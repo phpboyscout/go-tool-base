@@ -30,7 +30,7 @@ plus the CI integration with OIDC) and the verification path
 gtb sign \
     --backend aws-kms \
     --kms-region eu-west-2 \
-    --key-id alias/gtb-release-signing-v1 \
+    --key-id alias/gtb-release-signing-v2 \
     --public-key ./release.asc \
     --output checksums.txt.sig \
     checksums.txt
@@ -40,7 +40,7 @@ The logged INFO line includes the public-key fingerprint so you can
 spot-check it matches the trust anchor:
 
 ```
-INFO Signed file backend=aws-kms key_id=alias/gtb-release-signing-v1
+INFO Signed file backend=aws-kms key_id=alias/gtb-release-signing-v2
      public_key=./release.asc input=checksums.txt output=checksums.txt.sig
      sig_creation_time=2026-06-09T15:11:32Z
      fingerprint=6E2072BBF83DFAAF006300C495DDAC333C37AA35
@@ -65,7 +65,7 @@ artefacts in a SLSA-style chain.
 gtb sign \
     --backend aws-kms \
     --kms-region eu-west-2 \
-    --key-id alias/gtb-release-signing-v1 \
+    --key-id alias/gtb-release-signing-v2 \
     --public-key ./release.asc \
     --created 2026-06-09T15:11:32Z \
     checksums.txt
@@ -135,7 +135,7 @@ The setup is split into two layers:
        AWS_WEB_IDENTITY_TOKEN:
          aud: https://gitlab.com
      variables:
-       AWS_ROLE_ARN: arn:aws:iam::<account>:role/gtb-release-signing-v1-signer
+       AWS_ROLE_ARN: arn:aws:iam::<account>:role/gtb-release-signing-v2-signer
      before_script:
        - |
          creds=$(aws sts assume-role-with-web-identity \

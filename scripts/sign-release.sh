@@ -19,12 +19,12 @@
 #
 # Required env:
 #   GTB_SIGNING_KEY_ID         KMS key id / ARN / alias to sign with.
-#                              Default: alias/gtb-release-signing-v1.
+#                              Default: alias/gtb-release-signing-v2.
 #   GTB_SIGNING_KEY_PUBLIC     Path to the armored public key file
 #                              (the .asc embedded in
 #                              cli/pkg/trustkeys/keys/). Identity
 #                              source for the signature.
-#                              Default: cli/pkg/trustkeys/keys/signing-key-v1.asc.
+#                              Default: cli/pkg/trustkeys/keys/signing-key-v2.asc.
 #   AWS_REGION                 KMS region. Default: eu-west-2.
 #
 # The credential check below IS the gate, not a safety net behind one.
@@ -46,14 +46,14 @@ fi
 artifact="$1"
 signature="$2"
 
-key_id="${GTB_SIGNING_KEY_ID:-alias/gtb-release-signing-v1}"
-public_key="${GTB_SIGNING_KEY_PUBLIC:-cli/pkg/trustkeys/keys/signing-key-v1.asc}"
+key_id="${GTB_SIGNING_KEY_ID:-alias/gtb-release-signing-v2}"
+public_key="${GTB_SIGNING_KEY_PUBLIC:-cli/pkg/trustkeys/keys/signing-key-v2.asc}"
 region="${AWS_REGION:-eu-west-2}"
 
 if [[ ! -f "${public_key}" ]]; then
 	echo "sign-release.sh: GTB_SIGNING_KEY_PUBLIC (${public_key}) not found" >&2
 	echo "  The signing-key public half must be present in the working tree" >&2
-	echo "  (embedded at cli/pkg/trustkeys/keys/signing-key-v1.asc by default)." >&2
+	echo "  (embedded at cli/pkg/trustkeys/keys/signing-key-v2.asc by default)." >&2
 	exit 1
 fi
 

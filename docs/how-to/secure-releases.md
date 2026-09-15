@@ -180,7 +180,7 @@ the runner can export it. Three variables select the key, all with defaults:
 
 | Variable | Default | What it is |
 | :--- | :--- | :--- |
-| `GTB_SIGNING_KEY_ID` | `alias/gtb-release-signing-v1` | the KMS key alias to sign with |
+| `GTB_SIGNING_KEY_ID` | `alias/gtb-release-signing-v2` | the KMS key alias to sign with |
 | `GTB_SIGNING_KEY_PUBLIC` | `internal/trustkeys/keys/signing-key-v1.asc` | the public half, which must be present in the working tree |
 | `AWS_REGION` | `eu-west-2` | where the key lives |
 
