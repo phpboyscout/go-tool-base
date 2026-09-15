@@ -1,6 +1,9 @@
 package chat
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+import (
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+)
 
 // The provider credentials declared where their keys are defined.
 //
@@ -22,6 +25,7 @@ func providerCredentials() []credentialposture.Descriptor {
 	return []credentialposture.Descriptor{
 		{
 			Owner:       "chat:anthropic",
+			Feature:     string(props.AiCmd),
 			Label:       "Anthropic API key",
 			EnvKey:      ConfigKeyClaudeEnv,
 			KeychainKey: ConfigKeyClaudeKeychain,
@@ -30,6 +34,7 @@ func providerCredentials() []credentialposture.Descriptor {
 		},
 		{
 			Owner:       "chat:openai",
+			Feature:     string(props.AiCmd),
 			Label:       "OpenAI API key",
 			EnvKey:      ConfigKeyOpenAIEnv,
 			KeychainKey: ConfigKeyOpenAIKeychain,
@@ -38,6 +43,7 @@ func providerCredentials() []credentialposture.Descriptor {
 		},
 		{
 			Owner:       "chat:gemini",
+			Feature:     string(props.AiCmd),
 			Label:       "Gemini API key",
 			EnvKey:      ConfigKeyGeminiEnv,
 			KeychainKey: ConfigKeyGeminiKeychain,

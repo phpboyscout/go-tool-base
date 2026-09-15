@@ -71,6 +71,7 @@ func TestCheckCredentialResolution_NeverRendersAValue(t *testing.T) {
 	credentialposture.Register(credentialposture.Descriptor{
 		Owner:       "test:posture",
 		Label:       "Posture test credential",
+		Feature:     "posturetest",
 		EnvKey:      "posturetest.api.env",
 		KeychainKey: "posturetest.api.keychain",
 		LiteralKey:  "posturetest.api.key",

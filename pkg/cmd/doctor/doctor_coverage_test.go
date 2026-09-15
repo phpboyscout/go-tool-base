@@ -19,6 +19,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
@@ -173,15 +174,20 @@ func TestCheckNoLiteralCredentials_Leaked(t *testing.T) {
 	// linked into doctor's own test binary. That coupling is the point: a
 	// credential is reported because something declared it, which is also why a
 	// tool with no GitLab feature is no longer warned about gitlab.auth.value.
+	// Register replaces by owner and key, so these carry the features the
+	// real descriptors carry or they would untag them for the rest of the
+	// package's tests.
 	credentialposture.Register(credentialposture.Descriptor{
 		Owner:      "forge:gitlab",
 		Label:      "GitLab credential",
+		Feature:    string(forge.GitlabFeature),
 		EnvKey:     "gitlab.auth.env",
 		LiteralKey: "gitlab.auth.value",
 	})
 	credentialposture.Register(credentialposture.Descriptor{
 		Owner:      "chat:anthropic",
 		Label:      "Anthropic API key",
+		Feature:    string(p.AiCmd),
 		EnvKey:     chat.ConfigKeyClaudeEnv,
 		LiteralKey: chat.ConfigKeyClaudeKey,
 	})

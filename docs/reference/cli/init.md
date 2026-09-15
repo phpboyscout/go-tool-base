@@ -36,6 +36,8 @@ The credential wizards (GitHub, Bitbucket, AI) are interactive. When `init` runs
 | `--skip-codeberg` | Skip configuring Codeberg credentials | `false` (or `true` in CI) |
 | `--skip-bitbucket` | Skip configuring Bitbucket credentials | `false` (or `true` in CI) |
 
+Only an enabled feature contributes its flags: a tool with no forge feature has no `--skip-login` or `--skip-key`, and a GitLab-only tool has `--skip-gitlab` but not `--skip-login`. The same gate decides which `init <provider>` subcommands exist.
+
 !!! info "CI Mode Detection"
     When the `CI` environment variable is set to `true`, the `--skip-login`, `--skip-key`, `--skip-gitlab`, `--skip-gitea`, `--skip-codeberg` and `--skip-bitbucket` flags default to `true` to avoid interactive prompts in automated environments. Independently of those flags, the credential wizards are also skipped whenever stdin is not an interactive terminal, so `init` is safe to run in pipelines and scripts without hanging.
 

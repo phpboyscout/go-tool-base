@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+
 	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
@@ -18,8 +20,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testTool enables the github forge and ai features: the tests pass their
+// --skip-login/--skip-key/--skip-ai flags, which exist only for an enabled
+// feature (#55). The narrow-tool case has its own test.
+func testTool() p.Tool {
+	return p.Tool{
+		Name:     "test-tool",
+		Features: p.SetFeatures(p.Enable(forge.GithubFeature), p.Enable(p.AiCmd)),
+	}
+}
+
 func newTestProps() *p.Props {
-	return propstest.New(propstest.WithTool(p.Tool{Name: "test-tool"}))
+	return propstest.New(propstest.WithTool(testTool()))
 }
 
 // resetSkipFlags re-parses the registered feature flags with explicit false
@@ -30,7 +42,7 @@ func resetSkipFlags(t *testing.T) {
 
 	t.Cleanup(func() {
 		resetCmd := &cobra.Command{Use: "reset"}
-		registerFeatureFlags(resetCmd)
+		registerFeatureFlagsWhere(resetCmd, func(p.FeatureID) bool { return true })
 		_ = resetCmd.ParseFlags([]string{
 			"--skip-login=false",
 			"--skip-key=false",
@@ -84,9 +96,7 @@ func TestNewCmdInit(t *testing.T) {
 	t.Setenv("HOME", "/tmp/home")
 
 	props := &p.Props{
-		Tool: p.Tool{
-			Name: "test-tool",
-		},
+		Tool:         testTool(),
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
@@ -97,7 +107,7 @@ func TestNewCmdInit(t *testing.T) {
 
 	// Execute command with defaults
 	// This will try to write to /tmp/home/.config/test-tool/config.yaml (or similar)
-	cmd.SetArgs([]string{"--skip-login", "--skip-key", "--clean"})
+	cmd.SetArgs([]string{"--clean"})
 
 	err := cmd.Execute()
 	require.NoError(t, err)
@@ -151,7 +161,7 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 			fs := afero.NewMemMapFs()
 
 			props := &p.Props{
-				Tool:         p.Tool{Name: "test-tool"},
+				Tool:         testTool(),
 				Logger:       logger.NewNoop(),
 				FS:           fs,
 				Assets:       p.NewAssets(),
@@ -179,7 +189,7 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	props := &p.Props{
-		Tool:         p.Tool{Name: "test-tool"},
+		Tool:         testTool(),
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		Assets:       p.NewAssets(),
@@ -213,7 +223,7 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	props := &p.Props{
-		Tool:         p.Tool{Name: "test-tool"},
+		Tool:         testTool(),
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		Assets:       p.NewAssets(),
@@ -248,7 +258,7 @@ func TestNewCmdInit_CustomDir(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	props := &p.Props{
-		Tool:         p.Tool{Name: "test-tool"},
+		Tool:         testTool(),
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		Assets:       p.NewAssets(),

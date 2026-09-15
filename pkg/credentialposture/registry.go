@@ -70,10 +70,21 @@ func Registered() []Descriptor {
 // run: "this one is configured but broken" is a finding, and losing the other
 // nine to it would be a worse report than any of them.
 func ReportAll(ctx context.Context, cfg Reader) []Result {
+	return ReportEnabled(ctx, cfg, func(string) bool { return true })
+}
+
+// ReportEnabled is ReportAll over the descriptors whose Feature the tool has
+// enabled (enabled reports it); a descriptor with no Feature is always
+// included. It is what lets doctor speak only about what the tool has (#55).
+func ReportEnabled(ctx context.Context, cfg Reader, enabled func(feature string) bool) []Result {
 	descriptors := Registered()
 	results := make([]Result, 0, len(descriptors))
 
 	for _, d := range descriptors {
+		if d.Feature != "" && !enabled(d.Feature) {
+			continue
+		}
+
 		posture, err := Resolve(ctx, cfg, d)
 
 		results = append(results, Result{Posture: posture, Err: err})

@@ -91,6 +91,10 @@ type Descriptor struct {
 	LiteralKey string
 	// FallbackEnv is the well-known variable tried when config says nothing.
 	FallbackEnv string
+	// Feature is the feature that consumes this credential (a forge feature,
+	// the ai feature), as its FeatureID string. A reporting surface uses it
+	// to speak only about what the tool has enabled; empty means always.
+	Feature string
 }
 
 // Rung is one step of the precedence chain: what it is, and how to read it.
