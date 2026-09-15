@@ -179,7 +179,7 @@ You don't have to remember all the flags! If you run it without `--name` and `--
 : Name, Description, Destination Path, Features, Git Backend (GitHub/GitLab), Help Channel (Slack/Teams/None).
 
 **Stage 2, Git Repository**
-: Git Host (pre-filled from your backend selection, editable for self-hosted instances) and Repository in `org/repo` format.
+: Git Host (leave empty for the backend's host, shown as the placeholder; set it for a self-hosted instance) and Repository in `org/repo` format.
 
 **Stage 3, Help Channel** *(skipped if None selected)*
 : Slack Channel + Slack Team, or Teams Channel + Teams Team, depending on your Stage 1 selection.
