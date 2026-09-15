@@ -15,10 +15,19 @@ func NewMockEditor(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockEditor {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockEditor{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -38,12 +47,13 @@ func (_m *MockEditor) EXPECT() *MockEditor_Expecter {
 
 // Apply provides a mock function for the type MockEditor
 func (_mock *MockEditor) Apply(changes ...config.Change) error {
-	var ret mock.Arguments
+	var tmpRet mock.Arguments
 	if len(changes) > 0 {
-		ret = _mock.Called(changes)
+		tmpRet = _mock.Called(changes)
 	} else {
-		ret = _mock.Called()
+		tmpRet = _mock.Called()
 	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Apply")
@@ -65,9 +75,9 @@ type MockEditor_Apply_Call struct {
 
 // Apply is a helper method to define mock.On call
 //   - changes ...config.Change
-func (_e *MockEditor_Expecter) Apply(changes ...interface{}) *MockEditor_Apply_Call {
+func (_e *MockEditor_Expecter) Apply(changes ...any) *MockEditor_Apply_Call {
 	return &MockEditor_Apply_Call{Call: _e.mock.On("Apply",
-		append([]interface{}{}, changes...)...)}
+		append([]any{}, changes...)...)}
 }
 
 func (_c *MockEditor_Apply_Call) Run(run func(changes ...config.Change)) *MockEditor_Apply_Call {
@@ -120,7 +130,7 @@ type MockEditor_Set_Call struct {
 // Set is a helper method to define mock.On call
 //   - key string
 //   - value any
-func (_e *MockEditor_Expecter) Set(key interface{}, value interface{}) *MockEditor_Set_Call {
+func (_e *MockEditor_Expecter) Set(key any, value any) *MockEditor_Set_Call {
 	return &MockEditor_Set_Call{Call: _e.mock.On("Set", key, value)}
 }
 
