@@ -28,7 +28,9 @@ func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, erro
 	}
 
 	log := props.SlogLogger(p)
-	applyDefaultProvider(log, &cfg)
+	if err := applyDefaultProvider(log, &cfg); err != nil {
+		return gochat.Settings{}, err
+	}
 
 	if err := applyCredentialConfig(view, &cfg); err != nil {
 		return gochat.Settings{}, err
@@ -87,12 +89,19 @@ func NewFromProps(ctx context.Context, p *props.Props, cfg gochat.Config) (gocha
 // cleared the primary's model and would have carried addressing fields to
 // every member (spec 0196 D6).
 func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Config, opts ...gochat.FallbackOption) (gochat.ChatClient, error) {
-	settings, err := SettingsFromProps(p, cfg)
+	fallback, err := fallbackConfigFromProps(p)
 	if err != nil {
 		return nil, err
 	}
 
-	fallback, err := fallbackConfigFromProps(p)
+	// fallback.providers[0] is the primary and stands in for an unset
+	// provider, so the settings resolve for it rather than failing as unset.
+	explicit := explicitProviderConfig(p, cfg).Provider
+	if explicit == "" && fallback.Enabled && len(fallback.Providers) > 0 {
+		cfg.Provider = fallback.Providers[0]
+	}
+
+	settings, err := SettingsFromProps(p, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +112,10 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Co
 		return client, hintUnsupportedProvider(err, settings.Config.Provider)
 	}
 
-	// The module warns when fallback.providers[0] overrides Config.Provider,
-	// and SettingsFromProps has defaulted that field by now; hand it the
-	// provider the operator actually configured so an unset one warns nothing.
-	settings.Config.Provider = explicitProviderConfig(p, cfg).Provider
+	// The module warns when fallback.providers[0] overrides Config.Provider;
+	// hand it the provider the operator actually configured so an unset one
+	// warns nothing.
+	settings.Config.Provider = explicit
 
 	opts = append([]gochat.FallbackOption{
 		gochat.WithProviderCredentials(providerCredentialsFrom(props.ViewOrNil(p))),
@@ -142,10 +151,9 @@ func NewWithFallback(ctx context.Context, p *props.Props, cfg gochat.Config, opt
 
 // explicitProviderConfig resolves the provider the operator actually configured
 // — the caller-supplied Config.Provider or, failing that, ai.provider — without
-// applying the package default. The fallback-override warning must fire only
-// when an explicit provider is overridden by fallback.providers[0]; defaulting
-// to claude first (as SettingsFromProps does) would warn spuriously when no
-// provider was configured at all.
+// the AI_PROVIDER fallback. The fallback-override warning must fire only when
+// an explicit provider is overridden by fallback.providers[0], never for one
+// that was merely filled in.
 func explicitProviderConfig(p *props.Props, cfg gochat.Config) gochat.Config {
 	explicit := gochat.Config{Provider: cfg.Provider}
 	// applyRuntimeConfig only fills Provider from ai.provider when it is empty

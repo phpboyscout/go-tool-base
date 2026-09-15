@@ -6,6 +6,7 @@ import (
 	"time"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // resolveChatTimeout picks the effective per-request timeout: an explicit
@@ -24,12 +25,19 @@ func resolveChatTimeout(cfg gochat.Config) time.Duration {
 // effective provider first. The fallback chain itself is the module's
 // (NewWithFallbackSettings); GTB no longer derives per-member configs.
 
-// applyDefaultProvider fills an unset provider from AI_PROVIDER, else the Claude
-// default — matching the module's own default resolution so credential loading
-// (which is per-provider) sees the effective provider.
-func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config) {
+// ErrProviderUnset is a chat client asked for with no provider anywhere: not
+// the caller's Config, not ai.provider, not AI_PROVIDER. The framework names
+// no vendor as its default (spec 0196 D5); a tool's author does, through its
+// embedded defaults, and an end user does through init ai.
+var ErrProviderUnset = errors.NewSentinel("gtb.chat.provider_unset", "no AI provider is configured")
+
+// applyDefaultProvider fills an unset provider from AI_PROVIDER, the legacy
+// fallback read only when every config layer left ai.provider empty, so
+// credential loading (which is per provider) sees the effective provider. It
+// never names a vendor: with nothing configured it returns ErrProviderUnset.
+func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config) error {
 	if cfg.Provider != "" {
-		return
+		return nil
 	}
 
 	if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
@@ -37,9 +45,9 @@ func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config) {
 		log.Debug("provider not specified in config, using environment variable",
 			"env", EnvAIProvider, "provider", cfg.Provider)
 
-		return
+		return nil
 	}
 
-	cfg.Provider = gochat.ProviderClaude
-	log.Debug("no provider specified, using default", "provider", cfg.Provider)
+	return errors.WithHint(ErrProviderUnset,
+		"Set "+ConfigKeyAIProvider+" in the tool's config, or run its `init ai` to choose one.")
 }

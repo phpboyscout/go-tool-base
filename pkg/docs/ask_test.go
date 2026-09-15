@@ -87,18 +87,17 @@ func TestResolveProvider(t *testing.T) {
 		assert.Equal(t, gochat.ProviderClaude, provider)
 	})
 
-	t.Run("default is openai", func(t *testing.T) {
+	// Spec 0196 D5: docs ask names no default of its own; unset is left to
+	// the chat adapter so both agree.
+	t.Run("nothing configured resolves to nothing", func(t *testing.T) {
 		store, err := config.NewStore(t.Context(),
 			config.WithReaders(config.NamedSource{Name: "test", Content: []byte("{}\n")}))
 		require.NoError(t, err)
 
-		provider := ResolveProvider(&props.Props{Config: store})
-		assert.Equal(t, gochat.ProviderOpenAI, provider)
+		assert.Empty(t, ResolveProvider(&props.Props{Config: store}))
 	})
 
-	t.Run("no config defaults to openai", func(t *testing.T) {
-		p := &props.Props{}
-		provider := ResolveProvider(p)
-		assert.Equal(t, gochat.ProviderOpenAI, provider)
+	t.Run("no config resolves to nothing", func(t *testing.T) {
+		assert.Empty(t, ResolveProvider(&props.Props{}))
 	})
 }

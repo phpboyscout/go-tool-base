@@ -231,9 +231,9 @@ func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *tes
 		Config: chatStoreFromYAML(t, "ai:\n  fallback:\n    enabled: true\n    providers: [fbt-ok]\n"),
 	}
 
-	// No ai.provider is configured and the caller passes an empty Config, so the
-	// provider is only defaulted internally (to claude). The override warning
-	// must NOT fire — nothing the operator configured was overridden.
+	// No ai.provider is configured and the caller passes an empty Config, so
+	// fallback.providers[0] is the primary. The override warning must NOT fire:
+	// nothing the operator configured was overridden.
 	client, err := NewWithFallbackFromProps(context.Background(), p, gochat.Config{})
 	require.NoError(t, err)
 	require.NotNil(t, client)

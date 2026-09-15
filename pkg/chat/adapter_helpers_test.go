@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 func TestApplyDefaultProvider(t *testing.T) {
@@ -15,22 +17,27 @@ func TestApplyDefaultProvider(t *testing.T) {
 
 	t.Run("keeps an explicit provider", func(t *testing.T) {
 		cfg := gochat.Config{Provider: gochat.ProviderGemini}
-		applyDefaultProvider(log, &cfg)
+		require.NoError(t, applyDefaultProvider(log, &cfg))
 		assert.Equal(t, gochat.ProviderGemini, cfg.Provider)
 	})
 
 	t.Run("uses AI_PROVIDER when unset", func(t *testing.T) {
 		t.Setenv(EnvAIProvider, "openai")
 		cfg := gochat.Config{}
-		applyDefaultProvider(log, &cfg)
+		require.NoError(t, applyDefaultProvider(log, &cfg))
 		assert.Equal(t, gochat.ProviderOpenAI, cfg.Provider)
 	})
 
-	t.Run("defaults to claude when nothing set", func(t *testing.T) {
+	// Spec 0196 D5: the framework names no vendor. Nothing configured is an
+	// error that says what to set, not a silent Claude.
+	t.Run("nothing set is an error naming ai.provider", func(t *testing.T) {
 		t.Setenv(EnvAIProvider, "")
 		cfg := gochat.Config{}
-		applyDefaultProvider(log, &cfg)
-		assert.Equal(t, gochat.ProviderClaude, cfg.Provider)
+		err := applyDefaultProvider(log, &cfg)
+		require.ErrorIs(t, err, ErrProviderUnset)
+		assert.Contains(t, errors.FlattenHints(err), ConfigKeyAIProvider)
+		assert.Contains(t, errors.FlattenHints(err), "init ai")
+		assert.Empty(t, cfg.Provider)
 	})
 }
 

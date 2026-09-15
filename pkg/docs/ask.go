@@ -117,7 +117,10 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 	})
 }
 
-// ResolveProvider determines the AI provider to use based on override, config, and defaults.
+// ResolveProvider determines the AI provider from the override, then config.
+// It names no default: an empty result leaves resolution to
+// chat.SettingsFromProps, so both paths agree on what unset means (spec 0196
+// D5). It used to default to OpenAI while the client defaulted to Claude.
 func ResolveProvider(p props.ConfigProvider, providerOverride ...string) gochat.Provider {
 	if len(providerOverride) > 0 && providerOverride[0] != "" {
 		return gochat.Provider(providerOverride[0])
@@ -129,5 +132,5 @@ func ResolveProvider(p props.ConfigProvider, providerOverride ...string) gochat.
 		}
 	}
 
-	return gochat.ProviderOpenAI
+	return ""
 }

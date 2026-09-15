@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/errors"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -73,7 +74,7 @@ documentation assets (a plain "go install" build omits them).`,
 			return nil
 		},
 	}
-	cmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai, claude, gemini)")
+	cmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use ("+chat.ProviderNames()+")")
 
 	docsCmd := setup.Wrap(props.DocsCmd, cmd)
 	docsCmd.Register(setup.Wrap(props.DocsCmd, NewCmdDocsAsk(p)))

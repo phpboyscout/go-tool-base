@@ -20,44 +20,30 @@ func init() {
 }
 
 // providerCredentials is the declaration itself, split out so it is testable
-// without relying on init having run.
+// without relying on init having run. One descriptor per credential root,
+// derived the way CredentialKeysFor derives the keys.
 func providerCredentials() []credentialposture.Descriptor {
-	return []credentialposture.Descriptor{
-		{
-			Owner:       "chat:anthropic",
-			Feature:     string(props.AiCmd),
-			Label:       "Anthropic API key",
-			EnvKey:      ConfigKeyClaudeEnv,
-			KeychainKey: ConfigKeyClaudeKeychain,
-			LiteralKey:  ConfigKeyClaudeKey,
-			FallbackEnv: EnvClaudeKey,
-		},
-		{
-			Owner:       "chat:openai",
-			Feature:     string(props.AiCmd),
-			Label:       "OpenAI API key",
-			EnvKey:      ConfigKeyOpenAIEnv,
-			KeychainKey: ConfigKeyOpenAIKeychain,
-			LiteralKey:  ConfigKeyOpenAIKey,
-			FallbackEnv: EnvOpenAIKey,
-		},
-		{
-			Owner:       "chat:gemini",
-			Feature:     string(props.AiCmd),
-			Label:       "Gemini API key",
-			EnvKey:      ConfigKeyGeminiEnv,
-			KeychainKey: ConfigKeyGeminiKeychain,
-			LiteralKey:  ConfigKeyGeminiKey,
-			FallbackEnv: EnvGeminiKey,
-		},
-		{
-			Owner:       "chat:azure",
-			Feature:     string(props.AiCmd),
-			Label:       "Azure OpenAI API key",
-			EnvKey:      ConfigKeyAzureEnv,
-			KeychainKey: ConfigKeyAzureKeychain,
-			LiteralKey:  ConfigKeyAzureKey,
-			FallbackEnv: EnvAzureKey,
-		},
+	roots := []struct{ root, owner, label string }{
+		{configRootClaude, "chat:anthropic", "Anthropic API key"},
+		{configRootOpenAI, "chat:openai", "OpenAI API key"},
+		{configRootGemini, "chat:gemini", "Gemini API key"},
+		{configRootAzure, "chat:azure", "Azure OpenAI API key"},
 	}
+
+	out := make([]credentialposture.Descriptor, 0, len(roots))
+
+	for _, r := range roots {
+		keys := credentialKeysForRoot(r.root)
+		out = append(out, credentialposture.Descriptor{
+			Owner:       r.owner,
+			Feature:     string(props.AiCmd),
+			Label:       r.label,
+			EnvKey:      keys.Env,
+			KeychainKey: keys.Keychain,
+			LiteralKey:  keys.Literal,
+			FallbackEnv: keys.FallbackEnv,
+		})
+	}
+
+	return out
 }
