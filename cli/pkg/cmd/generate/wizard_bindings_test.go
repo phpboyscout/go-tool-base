@@ -132,3 +132,75 @@ func TestWizard_EveryFeatureIsVisibleOnFirstPaint(t *testing.T) {
 		assert.Containsf(t, view, featureLabel(name), "feature %q is not on the first paint of the list", name)
 	}
 }
+
+// driveUntilKey accepts each page as offered (typing the repository where
+// required) until the focused field carries key, or the form completes.
+func driveUntilKey(f *huh.Form, m huh.Model, o *SkeletonOptions, key string) huh.Model {
+	for i := 0; i < 40 && f.State != huh.StateCompleted; i++ {
+		field := f.GetFocusedField()
+		if field != nil && field.GetKey() == key {
+			return m
+		}
+
+		if field != nil && field.GetKey() == "repo" && o.Repo == "" {
+			for _, r := range "org/my-app" {
+				m, _ = m.Update(keypress(r))
+			}
+		}
+
+		var ok bool
+		if m, ok = advance(f, m); !ok {
+			return m
+		}
+	}
+
+	return m
+}
+
+// TestWizard_ALaterNoToSigningWinsOverAnEarlierEmail pins #46: the signing
+// detail page hides when the enable confirm is No, but its answers stayed
+// bound, and resolveSigning treated a non-empty email as enablement. Yes,
+// email, back, No must produce a project without signing.
+func TestWizard_ALaterNoToSigningWinsOverAnEarlierEmail(t *testing.T) {
+	t.Parallel()
+
+	o := &SkeletonOptions{Features: generator.DefaultSelectedFeatures}
+	f := o.wizardForm()
+	f.Update(f.Init())
+
+	var m huh.Model = f
+	for _, r := range "my-app" {
+		m, _ = m.Update(keypress(r))
+	}
+
+	m = driveUntilKey(f, m, o, "signing")
+
+	require.Equal(t, "signing", f.GetFocusedField().GetKey(), "the drive must reach the signing confirm")
+
+	// Yes, then an email on the detail page.
+	m, _ = m.Update(keypress('y'))
+	m, _ = advance(f, m)
+	require.True(t, o.Signing)
+
+	for _, r := range "release@example.com" {
+		m, _ = m.Update(keypress(r))
+	}
+
+	// Back to the confirm, answer No, and finish.
+	m, _ = m.Update(huh.PrevField())
+	_ = f.PrevGroup()
+	require.Equal(t, "signing", f.GetFocusedField().GetKey(), "back-navigation must land on the confirm")
+
+	m, _ = m.Update(keypress('n'))
+	require.False(t, o.Signing)
+
+	for i := 0; i < 5 && f.State != huh.StateCompleted; i++ {
+		m, _ = advance(f, m)
+	}
+
+	require.Equal(t, huh.StateCompleted, f.State)
+	require.NoError(t, o.afterWizard())
+
+	assert.False(t, o.resolveSigning().Enabled, "No on the confirm must win over the email typed before going back")
+	assert.Empty(t, o.SigningEmail, "answers on a page hidden at completion do not survive it")
+}

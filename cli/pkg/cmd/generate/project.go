@@ -631,7 +631,34 @@ func deriveEnvPrefix(name string) string {
 }
 
 func (o *SkeletonOptions) runWizard() error {
-	return o.wizardForm().Run()
+	if err := o.wizardForm().Run(); err != nil {
+		return err
+	}
+
+	return o.afterWizard()
+}
+
+// afterWizard makes the form's final state the only state that counts. A
+// group hidden by WithHideFunc keeps whatever the user typed in it before
+// navigating back and changing the answer that hides it, so those values are
+// discarded here rather than letting an earlier email re-enable signing that
+// a later No switched off (#46). The flag path keeps "email implies signing".
+func (o *SkeletonOptions) afterWizard() error {
+	if !o.Signing {
+		o.SigningEmail = ""
+		o.SigningKeySource = ""
+		o.SigningKeyID = ""
+	}
+
+	if o.HelpType != "slack" {
+		o.SlackChannel, o.SlackTeam = "", ""
+	}
+
+	if o.HelpType != "teams" {
+		o.TeamsChannel, o.TeamsTeam = "", ""
+	}
+
+	return nil
 }
 
 // basicsGroup is the entry group: project basics plus the backend and help-type
@@ -885,6 +912,7 @@ func (o *SkeletonOptions) teamsGroup() *huh.Group {
 func (o *SkeletonOptions) signingEnableGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewConfirm().
+			Key("signing").
 			Title("Enable release signing?").
 			Description("Sets up consumer-side self-update signature verification. Needs a signing key and a published WKD endpoint — leave off unless you have them.").
 			Affirmative("Yes").
