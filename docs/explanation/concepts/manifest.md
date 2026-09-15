@@ -96,6 +96,12 @@ the generated Go source does not fully encode:
 - **features**: The built-in feature toggles (e.g. `ai`, `config`, `telemetry`,
     plus the scaffold-only `keychain`). Only entries that differ from the
     framework default are recorded, so the block stays minimal.
+- **chat**: The AI decision, when `ai` is enabled: `providers` (which chat
+    provider modules the binary links; `[]` means none) and `default` (the
+    author's default provider, optionally its model, and the endpoint a few
+    providers need). `default` is rendered into `cmd/<name>/chat/assets` as
+    the tool's lowest config layer; several providers require the author to
+    name one, a single provider is its own. Credentials are never recorded.
 - **signing**: The self-update signing posture (backend, key id/region, public
     key path, enforcement flags).
 - **templates**: Custom template-overlay provenance and pins: `{name, type,

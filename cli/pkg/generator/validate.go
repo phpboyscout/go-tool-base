@@ -1290,7 +1290,7 @@ func validateManifestProperties(p *ManifestProperties) error {
 		return err
 	}
 
-	if err := validateManifestChat(p.Chat.Providers); err != nil {
+	if err := validateManifestChat(p.Chat, p.Features); err != nil {
 		return err
 	}
 
@@ -1314,16 +1314,23 @@ func validateManifestEndpoints(p *ManifestProperties) error {
 // validateManifestChat refuses a provider no module registers, the same rule
 // generation applies; an absent or empty list is allowed here (see
 // ManifestChat), so it is not ValidateChatProviders.
-func validateManifestChat(providers []string) error {
+func validateManifestChat(c ManifestChat, features []ManifestFeature) error {
 	known := KnownChatProviders()
 
-	for _, p := range providers {
+	for _, p := range c.Providers {
 		if !slices.Contains(known, p) {
 			return errors.Wrapf(ErrUnknownChatProvider, "%q (known: %s)", p, strings.Join(known, ", "))
 		}
 	}
 
-	return nil
+	// A manifest with several providers and no default is not refused here:
+	// regenerate warns and emits no author default (spec 0196 D3), because an
+	// older project must keep working. The flag path is stricter.
+	if c.Default.IsZero() {
+		return nil
+	}
+
+	return ValidateChatDefault(c.Default, c.Providers, features)
 }
 
 // validateManifestHelp validates the Slack/Teams help-channel fields,

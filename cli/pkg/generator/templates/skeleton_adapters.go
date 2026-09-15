@@ -2,19 +2,44 @@ package templates
 
 import (
 	"github.com/dave/jennifer/jen"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // SkeletonChatProviders generates cmd/<name>/chat.go: one blank import per
 // chat provider module the manifest's chat.providers selects. Deleting the
 // file drops every chat SDK from the linked binary; regenerate rewrites it
 // from the manifest (spec 0194 D6).
-func SkeletonChatProviders(modules []string) *jen.File {
-	return blankImportFile(
+//
+// With withDefaults the file also embeds the sibling chat/ directory and
+// registers it as an ai defaults bundle. The bundle is re-rooted with fs.Sub so
+// its assets/config.yaml sits at the path the framework's defaults layer
+// opens, the way the framework's own feature bundles are (spec 0196 D4).
+func SkeletonChatProviders(modules []string, withDefaults bool) *jen.File {
+	f := blankImportFile(
 		"Registers the chat providers this tool ships, one module per line.",
 		"Generated from .gtb/manifest.yaml chat.providers; edit the manifest and",
 		"regenerate rather than this file. Set providers to [] to ship none.",
 		modules,
 	)
+
+	if !withDefaults {
+		return f
+	}
+
+	f.Comment("chatDefaults is the author's ai defaults from .gtb/manifest.yaml chat.default,")
+	f.Comment("the tool's lowest config layer. An end user overrides it in their own file.")
+	f.Comment("//go:embed chat")
+	f.Var().Id("chatDefaults").Qual("embed", "FS")
+	f.Line()
+	f.Func().Id("init").Params().Block(
+		jen.List(jen.Id("sub"), jen.Id("err")).Op(":=").Qual("io/fs", "Sub").Call(jen.Id("chatDefaults"), jen.Lit("chat")),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(jen.Panic(jen.Id("err"))),
+		jen.Line(),
+		jen.Qual(gtbSetupPath, "RegisterAssets").Call(jen.Qual(props.PackagePath, "AiCmd"), jen.Lit("chat"), jen.Id("sub")),
+	)
+
+	return f
 }
 
 // SkeletonForgeAdapters generates cmd/<name>/forge.go: one blank import per

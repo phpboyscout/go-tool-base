@@ -57,6 +57,12 @@ manifest.
 | `--description, -d` | `A tool built with gtb` | Project description. |
 | `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. A forge name is refused here; the forge is chosen with `--forge-backend`. |
 | `--chat-providers` | *(every known provider)* | Chat providers the tool links when `ai` is among its features: see [adapters](#adapters). Ignored without `ai`; empty with `ai` is refused. |
+| `--chat-default-provider` | *(the only provider, when one is linked)* | The tool's default chat provider. Required when `--chat-providers` links more than one: the generator does not choose for you. Must be one of the linked providers. Recorded as `chat.default.provider` and shipped as the tool's embedded default: see [chat defaults](#chat-defaults). |
+| `--chat-default-model` | *(the provider module's choice)* | Default model for the default provider. |
+| `--chat-base-url` | — | API endpoint for the default provider. Required by `openai-compatible` and `azure-openai`; HTTPS, no userinfo, no placeholder host. |
+| `--chat-api-version` | — | Dated API version. Required by `azure-openai`, which has no default. |
+| `--chat-project` | — | Cloud project, for `gemini-vertex` (optional; falls back to `GOOGLE_CLOUD_PROJECT` at runtime). |
+| `--chat-location` | — | Region, for `gemini-vertex` and `bedrock` (optional; falls back to the platform's environment at runtime). |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
@@ -109,6 +115,37 @@ next regenerate; to ship no chat provider, set `chat.providers: []` in the
 manifest, which regenerate keeps as written. A project generated before the
 `chat:` block existed has no block at all, and gets the full list written into
 its manifest the first time it is regenerated with `ai` enabled.
+
+**Chat defaults.** AI in a generated tool is one decision with several parts:
+which providers to link, which is the default, which model, and the endpoint a
+few providers need. The manifest records the answer under `chat:` and the
+generator ships it as the tool's lowest config layer, beside the file that
+links the modules:
+
+```yaml
+chat:
+  providers: [claude, claude-local]
+  default:
+    provider: claude
+    model: claude-opus-5     # optional
+    base_url: ""             # openai-compatible, azure-openai
+    api_version: ""          # azure-openai
+    project: ""              # gemini-vertex
+    location: ""             # gemini-vertex, bedrock
+```
+
+| File | Role |
+|------|------|
+| `cmd/<name>/chat/assets/config.yaml` | The author's defaults, registered by `chat.go` as an `ai` defaults bundle. The lowest layer of the running tool's config: an end user's own file overrides every key. |
+| `cmd/<name>/chat/assets/init/config.yaml` | The same values as an `init` template, so a tool with the `init` feature seeds them into the end user's file as a visible, editable starting point. |
+
+Both are `DO NOT EDIT` files rewritten from the manifest by `regenerate
+project`, and both are absent when the manifest names no default. One linked
+provider is its own default. With several, name one: an older manifest that
+links several and names none regenerates without an author default and warns
+naming `chat.default.provider`; the tool then falls back to its runtime
+resolution. Credentials never appear in the manifest or these files; they are
+the end user's, captured by `init ai` or supplied through the environment.
 
 **Git lifecycle** (the new project is git-initialised with an initial commit by default):
 

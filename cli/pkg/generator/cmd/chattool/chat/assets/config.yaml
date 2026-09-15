@@ -1,0 +1,3 @@
+ai:
+  provider: "claude-local"
+  model: "claude-opus-5"

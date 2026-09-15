@@ -179,8 +179,16 @@ func manifestModulePath(m Manifest) string {
 // only when something was derived.
 func (g *Generator) syncDerivedManifestFields(m *Manifest) error {
 	changed, err := deriveMissingManifestFields(m)
-	if err != nil || !changed {
+	if err != nil {
 		return err
+	}
+
+	// After derivation, so a manifest that has just gained the default
+	// provider set is told the one thing derivation cannot decide.
+	g.warnUndecidedChatDefault(m)
+
+	if !changed {
+		return nil
 	}
 
 	if err := g.marshalManifestFile(ManifestPathFor(g.config.Path), m); err != nil {
@@ -194,15 +202,23 @@ func (g *Generator) syncDerivedManifestFields(m *Manifest) error {
 	return nil
 }
 
+// warnUndecidedChatDefault says what an older manifest's author has still to
+// decide: with several providers linked and no default, regenerate proceeds
+// without an author default rather than guessing (spec 0196 D3).
+func (g *Generator) warnUndecidedChatDefault(m *Manifest) {
+	c := m.Properties.Chat
+	if c.Default.Provider != "" || len(c.Providers) < 2 || !featureEnabledIn(m.Properties.Features, string(props.AiCmd)) {
+		return
+	}
+
+	g.props.Logger.Warn("the manifest links several chat providers and names no default; the tool ships without one",
+		"set", "properties.chat.default.provider", "providers", strings.Join(c.Providers, ", "))
+}
+
 // deriveMissingManifestFields fills the derivable fields a manifest lacks and
 // reports whether it changed anything.
 func deriveMissingManifestFields(m *Manifest) (bool, error) {
-	changed := false
-
-	if m.Properties.Chat.Providers == nil && featureEnabledIn(m.Properties.Features, string(props.AiCmd)) {
-		m.Properties.Chat.Providers = DefaultChatProviders()
-		changed = true
-	}
+	changed := deriveMissingChatFields(&m.Properties)
 
 	if m.ReleaseSource.Backend == "" && m.ReleaseSource.Type != ReleaseChannelDirect {
 		backend, err := deriveForgeBackend(m)
@@ -222,6 +238,30 @@ func deriveMissingManifestFields(m *Manifest) (bool, error) {
 	}
 
 	return changed, nil
+}
+
+// deriveMissingChatFields fills the chat block an older manifest lacks: the
+// default provider set (spec 0194 D7), and the default provider when exactly
+// one is linked. Between several the generator does not choose (spec 0196 D3,
+// OQ5).
+func deriveMissingChatFields(p *ManifestProperties) bool {
+	if !featureEnabledIn(p.Features, string(props.AiCmd)) {
+		return false
+	}
+
+	changed := false
+
+	if p.Chat.Providers == nil {
+		p.Chat.Providers = DefaultChatProviders()
+		changed = true
+	}
+
+	if p.Chat.Default.Provider == "" && len(p.Chat.Providers) == 1 {
+		p.Chat.Default.Provider = p.Chat.Providers[0]
+		changed = true
+	}
+
+	return changed
 }
 
 // ciSkeleton names an embedded CI asset set; an empty root means the backend

@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -22,6 +23,17 @@ var ErrUnknownChatProvider = errors.NewSentinel("gtb.generator.unknown_chat_prov
 // ErrChatProvidersRequired is the ai feature selected with no provider to
 // serve it (spec 0194 OQ5).
 var ErrChatProvidersRequired = errors.NewSentinel("gtb.generator.chat_providers_required", "the ai feature needs at least one chat provider")
+
+// ErrChatDefaultRequired is several providers linked and no default named:
+// the generator does not guess which the author wants (spec 0196 D1).
+var ErrChatDefaultRequired = errors.NewSentinel("gtb.generator.chat_default_required", "several chat providers are linked; name the default")
+
+// ErrChatDefaultNotLinked is a default provider outside the linked set.
+var ErrChatDefaultNotLinked = errors.NewSentinel("gtb.generator.chat_default_not_linked", "the default chat provider is not one the tool links")
+
+// ErrChatEndpointRequired is a default provider whose module refuses to
+// construct without addressing the author has not given (spec 0196 D2).
+var ErrChatEndpointRequired = errors.NewSentinel("gtb.generator.chat_endpoint_required", "the default chat provider needs an endpoint")
 
 // KnownChatProviders is every provider a known module registers, in the
 // framework's table order. The generator emits an import; whether the running
@@ -62,6 +74,85 @@ func ValidateChatProviders(providers []string, features []ManifestFeature) error
 	}
 
 	return nil
+}
+
+// ValidateChatDefault applies spec 0196's rules for the author's default: with
+// ai enabled and several providers linked a default is required; it must be a
+// linked provider; and the providers that refuse to construct without an
+// endpoint must be given one (openai-compatible and azure-openai a base URL,
+// azure-openai an API version, as their modules document). Project and
+// location stay optional because gemini-vertex and bedrock fall back to the
+// environment for them.
+func ValidateChatDefault(d ManifestChatDefault, providers []string, features []ManifestFeature) error {
+	if !featureEnabledIn(features, string(props.AiCmd)) {
+		return nil
+	}
+
+	if d.Provider == "" {
+		switch len(providers) {
+		case 0:
+			return nil
+		case 1:
+			// One provider is its own default, and its endpoint rules apply.
+			d.Provider = providers[0]
+		default:
+			return errors.WithHint(ErrChatDefaultRequired,
+				"Pass --chat-default-provider with one of "+strings.Join(providers, ", ")+".")
+		}
+	}
+
+	if !slices.Contains(providers, d.Provider) {
+		return errors.Wrapf(ErrChatDefaultNotLinked, "%q (linked: %s)", d.Provider, strings.Join(providers, ", "))
+	}
+
+	return validateChatEndpoint(d)
+}
+
+func validateChatEndpoint(d ManifestChatDefault) error {
+	provider := gochat.Provider(d.Provider)
+
+	if provider == gochat.ProviderOpenAICompatible || provider == gochat.ProviderAzureOpenAI {
+		if d.BaseURL == "" {
+			return errors.Wrapf(ErrChatEndpointRequired, "%s needs --chat-base-url", d.Provider)
+		}
+	}
+
+	if provider == gochat.ProviderAzureOpenAI && d.APIVersion == "" {
+		return errors.Wrapf(ErrChatEndpointRequired, "%s needs --chat-api-version", d.Provider)
+	}
+
+	if d.BaseURL != "" {
+		if err := gochat.ValidateBaseURL(d.BaseURL, false); err != nil {
+			return errors.Wrapf(ErrChatEndpointRequired, "base URL: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// chatDefaultsYAML renders the author's default as the `ai:` section the
+// framework reads. The keys are GTB's config schema (pkg/chat/constants.go);
+// they are spelled here because the cli builds against the released
+// framework and cannot name constants a release ahead of it (Refs #63).
+func chatDefaultsYAML(d ManifestChatDefault) []byte {
+	var b strings.Builder
+
+	b.WriteString("ai:\n")
+
+	for _, kv := range [][2]string{
+		{"provider", d.Provider},
+		{"model", d.Model},
+		{"base_url", d.BaseURL},
+		{"api_version", d.APIVersion},
+		{"project", d.Project},
+		{"location", d.Location},
+	} {
+		if kv[1] != "" {
+			b.WriteString("  " + kv[0] + ": " + escapeYAML(kv[1]) + "\n")
+		}
+	}
+
+	return []byte(b.String())
 }
 
 // chatModulesFor is chatModules gated on the ai feature: a tool without ai
@@ -128,15 +219,69 @@ func forgeModules(features []ManifestFeature) []string {
 // syncDerivedManifestFields before rendering (spec 0194 D7).
 func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	name := m.Properties.Name
+	withDefaults := chatDefaultsFor(m.Properties)
 
 	chatFile := filepath.Join("cmd", name, "chat.go")
-	if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features))); err != nil {
+	if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features), !withDefaults.IsZero())); err != nil {
+		return err
+	}
+
+	if err := g.syncChatDefaultsBundle(g.config.Path, name, withDefaults); err != nil {
 		return err
 	}
 
 	forgeFile := filepath.Join("cmd", name, "forge.go")
 
 	return g.writeGeneratedGoFile(forgeFile, templates.SkeletonForgeAdapters(forgeModules(m.Properties.Features)))
+}
+
+// chatDefaultsFor is the author's default gated on the ai feature, the way
+// chatModulesFor gates the imports: no ai, no bundle.
+func chatDefaultsFor(p ManifestProperties) ManifestChatDefault {
+	if !featureEnabledIn(p.Features, string(props.AiCmd)) {
+		return ManifestChatDefault{}
+	}
+
+	return p.Chat.Default
+}
+
+// chatBundleDir is where a tool's author defaults for chat live, relative to
+// the project: cmd/<name>/chat, re-rooted by chat.go so that assets/config.yaml
+// sits at the path the framework's defaults layer opens (spec 0196 D4).
+func chatBundleDir(name string) string {
+	return filepath.Join("cmd", name, "chat")
+}
+
+// syncChatDefaultsBundle writes the defaults bundle (embedded defaults and the
+// init template, same content) under the project root, or removes it when the
+// manifest has no default. The root is a parameter because generate writes to
+// its destination path and regenerate to g.config.Path.
+func (g *Generator) syncChatDefaultsBundle(root, name string, d ManifestChatDefault) error {
+	dir := filepath.Join(root, chatBundleDir(name))
+
+	if d.IsZero() {
+		if err := g.props.FS.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			return errors.Newf("failed to remove %s: %w", dir, err)
+		}
+
+		return nil
+	}
+
+	content := chatDefaultsYAML(d)
+
+	for _, rel := range []string{"assets/config.yaml", "assets/init/config.yaml"} {
+		full := filepath.Join(dir, rel)
+
+		if err := g.props.FS.MkdirAll(filepath.Dir(full), DefaultDirMode); err != nil {
+			return errors.Newf("failed to create directory %s: %w", filepath.Dir(full), err)
+		}
+
+		if err := afero.WriteFile(g.props.FS, full, content, DefaultFileMode); err != nil {
+			return errors.Newf("failed to write %s: %w", full, err)
+		}
+	}
+
+	return nil
 }
 
 // recoverChatProviders reads cmd/<name>/chat.go on a from-scratch rebuild and

@@ -350,12 +350,31 @@ type ManifestCI struct {
 // written (#45). The two must marshal differently, so the list carries no
 // omitempty and IsZero decides whether the block is emitted at all.
 type ManifestChat struct {
-	Providers []string `yaml:"providers"`
+	Providers []string            `yaml:"providers"`
+	Default   ManifestChatDefault `yaml:"default,omitempty"`
 }
+
+// ManifestChatDefault is the author's default for the tool's chat client: the
+// provider, optionally its model, and the addressing a few providers refuse
+// to construct without. It is rendered into the tool's embedded defaults
+// (cmd/<name>/chat/assets) so the running tool reads it as its lowest config
+// layer, and the end user overrides it in their own file (spec 0196 D3, D4).
+// Credentials never appear here.
+type ManifestChatDefault struct {
+	Provider   string `yaml:"provider,omitempty"`
+	Model      string `yaml:"model,omitempty"`
+	BaseURL    string `yaml:"base_url,omitempty"`
+	APIVersion string `yaml:"api_version,omitempty"`
+	Project    string `yaml:"project,omitempty"`
+	Location   string `yaml:"location,omitempty"`
+}
+
+// IsZero reports a default the author has not stated; yaml omits the block.
+func (d ManifestChatDefault) IsZero() bool { return d == ManifestChatDefault{} }
 
 // IsZero reports an absent block, which yaml omits; an empty non-nil list is
 // not zero and is written as `providers: []`.
-func (c ManifestChat) IsZero() bool { return c.Providers == nil }
+func (c ManifestChat) IsZero() bool { return c.Providers == nil && c.Default.IsZero() }
 
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`

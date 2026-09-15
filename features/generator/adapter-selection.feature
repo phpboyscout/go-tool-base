@@ -54,6 +54,50 @@ Feature: A generated tool links only the adapters it selects
     And the project manifest contains "- claude-local"
     And the project manifest does not contain "- gemini"
 
+  Scenario: One provider is its own default and ships as the tool's embedded defaults
+    Given I generate a gtb project with features "init,update,ai" and chat providers "claude-local"
+    Then the project exit code is 0
+    And the project manifest contains "default:"
+    And the project manifest contains "provider: claude-local"
+    And the generated "cmd/feattool/chat/assets/config.yaml" file contains "claude-local"
+    And the generated "cmd/feattool/chat/assets/init/config.yaml" file contains "claude-local"
+    And the generated "cmd/feattool/chat.go" file contains "setup.RegisterAssets(props.AiCmd"
+
+  Scenario: Several providers need the author to name the default
+    Given I generate a gtb project with features "init,update,ai" and chat providers "claude,openai"
+    Then the project exit code is not zero
+    And the project output contains "--chat-default-provider"
+
+  Scenario: A named default is recorded and must be one of the linked providers
+    Given I generate a gtb project with features "init,update,ai", chat providers "claude,openai" and chat default "openai"
+    Then the project exit code is 0
+    And the project manifest contains "provider: openai"
+    And the generated "cmd/feattool/chat/assets/config.yaml" file contains "openai"
+    And the generated "cmd/feattool/chat/assets/config.yaml" file does not contain "claude"
+
+  Scenario: A default outside the linked providers is refused
+    Given I generate a gtb project with features "init,update,ai", chat providers "claude,openai" and chat default "gemini"
+    Then the project exit code is not zero
+    And the project output contains "not one the tool links"
+
+  Scenario: An OpenAI-compatible default needs its endpoint
+    Given I generate a gtb project with features "init,update,ai" and chat providers "openai-compatible"
+    Then the project exit code is not zero
+    And the project output contains "--chat-base-url"
+
+  Scenario: An OpenAI-compatible default with an endpoint ships it in the defaults
+    Given I generate a gtb project with features "init,update,ai", chat providers "openai-compatible" and chat base URL "https://llm.internal/v1"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat/assets/config.yaml" file contains "https://llm.internal/v1"
+
+  Scenario: A deleted defaults bundle comes back on regenerate
+    Given I generate a gtb project with features "init,update,ai" and chat providers "claude-local"
+    Then the project exit code is 0
+    When I delete the generated "cmd/feattool/chat/assets/config.yaml" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat/assets/config.yaml" file contains "claude-local"
+
   Scenario: Credential forges link their adapters beside the backend's, and codeberg shares gitea's
     Given I generate a gtb project with forge backend "github" and forge credentials "codeberg"
     Then the project exit code is 0
@@ -84,6 +128,8 @@ Feature: A generated tool links only the adapters it selects
     And the generated "cmd/feattool/chat.go" file contains "chat-anthropic"
     And the generated "cmd/feattool/chat.go" file contains "chat-openai"
     And the generated "cmd/feattool/chat.go" file contains "chat-gemini"
+    And the project output contains "names no default"
+    And the generated "cmd/feattool/chat/assets/config.yaml" file does not exist
 
   Scenario: An explicit empty provider list stays empty across regenerates
     Given I generate a gtb project with features "update,init,docs,doctor,ai" and chat providers "claude"

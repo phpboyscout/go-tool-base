@@ -210,3 +210,80 @@ func TestGeneratedDefaultProjectCanCheckForUpdates(t *testing.T) {
 	assert.NotContains(t, string(out), "No provider is registered",
 		"the default project must link its backend's adapter\ninit:\n%s\nversion:\n%s", initOut, out)
 }
+
+// TestGeneratedProjectShipsItsChatDefault proves spec 0196 D4 end to end: the
+// author's default is not just a file beside chat.go, it is read by the built
+// tool as its lowest config layer. The embedded-defaults layer opens one fixed
+// path per bundle and silently skips a bundle that lacks it, so a bundle at
+// the wrong path would pass every file-level assertion and change nothing.
+func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
+
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skipf("`go` not on PATH: %v", err)
+	}
+
+	localModule := localGoToolBasePath(t)
+	path := t.TempDir()
+
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: emptyTestStore(t)}
+	g := New(p, &Config{})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) { return nil, nil }
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name: "chattool", Repo: "test/chattool", Host: "github.com", Path: path,
+		ForgeBackend: "github", ReleaseChannel: ReleaseChannelForge,
+		Features: []ManifestFeature{
+			{Name: string(props.AiCmd), Enabled: true},
+			{Name: string(props.ConfigCmd), Enabled: true},
+			{Name: string(props.InitCmd), Enabled: true},
+			{Name: "github", Enabled: true},
+		},
+		Chat: ManifestChat{
+			Providers: []string{"claude-local"},
+			Default:   ManifestChatDefault{Provider: "claude-local", Model: "claude-opus-5"},
+		},
+	}))
+
+	injectGoToolBaseReplace(t, path, localModule)
+	runGo(t, path, "mod", "tidy")
+
+	bin := filepath.Join(t.TempDir(), "chattool")
+	runGo(t, path, "build", "-buildvcs=false",
+		"-ldflags", "-X github.com/test/chattool/internal/version.version=v1.0.0",
+		"-o", bin, "./cmd/chattool")
+
+	home := t.TempDir()
+	env := []string{"HOME=" + home, "PATH=" + os.Getenv("PATH")}
+
+	initCmd := exec.Command(bin, "init")
+	initCmd.Env = env
+	initOut, err := initCmd.CombinedOutput()
+	require.NoErrorf(t, err, "init:\n%s", initOut)
+
+	// init seeds the user's file from the bundle's init template; that is one
+	// half of D4. Blank the user's file so the read below can only be
+	// satisfied by the embedded-defaults layer, the other half.
+	userConfigs, err := filepath.Glob(filepath.Join(home, "*", "chattool", "config.yaml"))
+	require.NoError(t, err)
+
+	if len(userConfigs) == 0 {
+		userConfigs, err = filepath.Glob(filepath.Join(home, ".chattool", "config.yaml"))
+		require.NoError(t, err)
+	}
+
+	require.Lenf(t, userConfigs, 1, "init wrote one config file under %s\n%s", home, initOut)
+
+	seeded, err := os.ReadFile(userConfigs[0])
+	require.NoError(t, err)
+	assert.Contains(t, string(seeded), "claude-local", "the init template seeds the author's default into the user's file")
+	require.NoError(t, os.WriteFile(userConfigs[0], []byte("log:\n  level: info\n"), 0o600))
+
+	for key, want := range map[string]string{"ai.provider": "claude-local", "ai.model": "claude-opus-5"} {
+		cmd := exec.Command(bin, "config", "get", key)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		require.NoErrorf(t, err, "config get %s:\n%s", key, out)
+		assert.Containsf(t, string(out), want, "the built tool reads %s from its embedded chat defaults\n%s", key, out)
+	}
+}

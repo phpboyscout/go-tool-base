@@ -102,6 +102,11 @@ type SkeletonOptions struct {
 	// with the ai feature selected is refused (spec 0194 D5, OQ4, OQ5).
 	ChatProviders []string
 
+	// ChatDefault is the author's default provider, model and addressing,
+	// recorded in the manifest and shipped as the tool's lowest config layer.
+	// Required when several providers are linked (spec 0196 D1, D9).
+	ChatDefault generator.ManifestChatDefault
+
 	// Templates carries the custom template-overlay specs (<src>@<ref>)
 	// supplied via --template (repeatable). Each is parsed into a manifest
 	// TemplateSource and layered over the embedded skeleton.
@@ -167,6 +172,13 @@ otherwise supply the flags directly.`,
 		"Features to enable ("+strings.Join(generator.SelectableFeatures, ", ")+")")
 	cmd.Flags().StringSliceVar(&opts.ChatProviders, "chat-providers", generator.DefaultChatProviders(),
 		"Chat providers the tool links when the ai feature is enabled ("+strings.Join(generator.DefaultChatProviders(), ", ")+")")
+	cmd.Flags().StringVar(&opts.ChatDefault.Provider, "chat-default-provider", "",
+		"Default chat provider; required when --chat-providers links more than one")
+	cmd.Flags().StringVar(&opts.ChatDefault.Model, "chat-default-model", "", "Default model for the default provider (blank: the module's choice)")
+	cmd.Flags().StringVar(&opts.ChatDefault.BaseURL, "chat-base-url", "", "API endpoint; required by openai-compatible and azure-openai")
+	cmd.Flags().StringVar(&opts.ChatDefault.APIVersion, "chat-api-version", "", "Dated API version; required by azure-openai")
+	cmd.Flags().StringVar(&opts.ChatDefault.Project, "chat-project", "", "Cloud project, for gemini-vertex")
+	cmd.Flags().StringVar(&opts.ChatDefault.Location, "chat-location", "", "Region, for gemini-vertex and bedrock")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
@@ -234,7 +246,12 @@ func (o *SkeletonOptions) validateFields() error {
 		return err
 	}
 
-	return generator.ValidateChatProviders(o.ChatProviders, o.resolveFeatures())
+	features := o.resolveFeatures()
+	if err := generator.ValidateChatProviders(o.ChatProviders, features); err != nil {
+		return err
+	}
+
+	return generator.ValidateChatDefault(o.ChatDefault, o.ChatProviders, features)
 }
 
 // validateHostingFields checks the forge half (backend, repository, host, org)
@@ -1287,9 +1304,11 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 	// The chat list only means something with the ai feature; without it the
 	// manifest carries no chat block, and enabling ai later records the
 	// default set (spec 0194 D4, D7).
-	chatProviders := o.ChatProviders
+	chat := generator.ManifestChat{Providers: o.ChatProviders, Default: o.ChatDefault}
 	if !slices.Contains(o.Features, string(props.AiCmd)) {
-		chatProviders = nil
+		chat = generator.ManifestChat{}
+	} else if chat.Default.Provider == "" && len(chat.Providers) == 1 {
+		chat.Default.Provider = chat.Providers[0]
 	}
 
 	helpType := o.HelpType
@@ -1303,7 +1322,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		Path:                o.Path,
 		GoVersion:           o.GoVersion,
 		Features:            features,
-		Chat:                generator.ManifestChat{Providers: chatProviders},
+		Chat:                chat,
 		HelpType:            helpType,
 		SlackChannel:        o.SlackChannel,
 		SlackTeam:           o.SlackTeam,

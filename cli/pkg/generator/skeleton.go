@@ -376,6 +376,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
 		ChatModules:           chatModulesFor(config.Chat.Providers, config.Features),
+		ChatDefault:           chatDefaultsFor(ManifestProperties{Features: config.Features, Chat: config.Chat}),
 		ForgeModules:          forgeModules(config.Features),
 		Private:               config.Private,
 		HelpType:              config.HelpType,
@@ -676,9 +677,28 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	// The adapter files are always written, empty when nothing is selected, so
 	// their presence is a fact about the layout rather than about the choice;
 	// deleting one is the operator's way to ship none (spec 0194 D6).
-	goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatModules)
+	goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatModules, !data.ChatDefault.IsZero())
 	goFiles[filepath.Join("cmd", data.Name, "forge.go")] = templates.SkeletonForgeAdapters(data.ForgeModules)
 
+	if err := g.renderGoFiles(destPath, goFiles); err != nil {
+		return err
+	}
+
+	// When signing is enabled, ensure internal/trustkeys/keys/.gitkeep
+	// exists so the directory ships in git and the `all:keys` embed has a
+	// file to match. Author-added *.asc keys live alongside it and are
+	// never touched.
+	if data.Signing.Enabled {
+		if err := g.writeGitkeep(filepath.Join(destPath, "internal", "trustkeys", "keys")); err != nil {
+			return err
+		}
+	}
+
+	return g.syncChatDefaultsBundle(destPath, data.Name, data.ChatDefault)
+}
+
+// renderGoFiles writes each jennifer file under destPath.
+func (g *Generator) renderGoFiles(destPath string, goFiles map[string]*jen.File) error {
 	for path, f := range goFiles {
 		fullPath := filepath.Join(destPath, path)
 
@@ -704,16 +724,6 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 		}
 
 		g.props.Logger.Debug("wrote Go file", "path", fullPath)
-	}
-
-	// When signing is enabled, ensure internal/trustkeys/keys/.gitkeep
-	// exists so the directory ships in git and the `all:keys` embed has a
-	// file to match. Author-added *.asc keys live alongside it and are
-	// never touched.
-	if data.Signing.Enabled {
-		if err := g.writeGitkeep(filepath.Join(destPath, "internal", "trustkeys", "keys")); err != nil {
-			return err
-		}
 	}
 
 	return nil

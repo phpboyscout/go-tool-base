@@ -166,6 +166,8 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" on host "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendOnHost)
 	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" and forge credentials "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendAndCredentials)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)" and chat providers "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesAndChatProviders)
+	ctx.Step(`^I generate a gtb project with features "([^"]*)", chat providers "([^"]*)" and chat default "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesChatProvidersAndDefault)
+	ctx.Step(`^I generate a gtb project with features "([^"]*)", chat providers "([^"]*)" and chat base URL "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesChatProvidersAndBaseURL)
 	ctx.Step(`^a gtb project with a "([^"]*)" command$`, aGTBProjectWithACommand)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
@@ -397,6 +399,14 @@ func iGenerateAGTBProjectWithForgeBackendAndCredentials(ctx context.Context, bac
 
 func iGenerateAGTBProjectWithFeaturesAndChatProviders(ctx context.Context, features, providers string) (context.Context, error) {
 	return ctx, scaffoldProject(ctx, "gtb-e2e-adapters-*", "--features", features, "--chat-providers="+providers)
+}
+
+func iGenerateAGTBProjectWithFeaturesChatProvidersAndDefault(ctx context.Context, features, providers, def string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-adapters-*", "--features", features, "--chat-providers="+providers, "--chat-default-provider", def)
+}
+
+func iGenerateAGTBProjectWithFeaturesChatProvidersAndBaseURL(ctx context.Context, features, providers, baseURL string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-adapters-*", "--features", features, "--chat-providers="+providers, "--chat-base-url", baseURL)
 }
 
 // scaffoldProject runs `generate project` into a fresh temp directory and
@@ -734,7 +744,9 @@ func iSetTheProjectManifestChatProvidersToNone(ctx context.Context) error {
 		return fmt.Errorf("read manifest: %w", err)
 	}
 
-	block := regexp.MustCompile(`(?m)^  chat:\n    providers:\n(      - .*\n)+`)
+	// "None" means no provider and, with it, no default: a default names one
+	// of the linked providers, so the author's edit removes both (spec 0196 D3).
+	block := regexp.MustCompile(`(?m)^  chat:\n    providers:\n(      - .*\n)+(    default:\n(      .*\n)+)?`)
 	if !block.Match(content) {
 		return fmt.Errorf("manifest has no chat.providers list to replace:\n%s", content)
 	}

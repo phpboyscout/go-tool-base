@@ -42,6 +42,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [Chat providers and forge adapters registered by the tool's `main`; gtb CLI moves to `cli/`](v0.x-adapters-registered-by-main.md) |
 | v0.x | v0.x | [`Props.Version` and `Props.Assets` are concrete types](v0.x-props-concrete-types.md) |
 | v0.x | v0.x | [The forge backend implies the forge](v0.x-forge-backend-implies-the-forge.md) |
+| v0.x | v0.x | [Chat defaults in the manifest; the fallback chain is the module's](v0.x-chat-defaults-in-the-manifest.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 
