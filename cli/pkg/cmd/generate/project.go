@@ -3,7 +3,6 @@ package generate
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -487,10 +486,6 @@ func normalizeRepoHost(repo, host string) (string, string) {
 	return repo, host
 }
 
-// envPrefixRe validates the environment-variable prefix (upper-case, digits and
-// underscores). It is a build-time literal, so MustCompile is safe.
-var envPrefixRe = regexp.MustCompile(`^[A-Z0-9_]+$`)
-
 // defaultGitBackend is the backend chosen when none is given. It is also the
 // fallback when a lookup misses, which keeps every accessor below total.
 const defaultGitBackend = "github"
@@ -793,11 +788,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Title("Project Name").
 			Value(&o.Name).
 			Validate(func(s string) error {
-				if s == "" {
-					return ErrNameRequired
-				}
-
-				return nil
+				return hintedValidation(generator.ValidateName(s))
 			}),
 		huh.NewInput().
 			Title("Description").
@@ -984,7 +975,13 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 		newMultiSelect("Chat providers",
 			"Each one is a module linked into the binary; untick what this tool will never use.",
 			chatProviderOptions(o.ChatProviders)).
-			Value(&o.ChatProviders),
+			Key("chat-providers").
+			Value(&o.ChatProviders).
+			Validate(func(selected []string) error {
+				// Refused here, at the field, rather than after the wizard
+				// with every answer gone (#48).
+				return hintedValidation(generator.ValidateChatProviders(selected, o.resolveFeatures()))
+			}),
 	).
 		Title("AI Chat").
 		Description("The ai feature needs at least one provider.\n").
@@ -1011,6 +1008,7 @@ func chatProviderOptions(selected []string) []huh.Option[string] {
 func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewInput().
+			Key("env-prefix").
 			Title("Environment Variable Prefix").
 			DescriptionFunc(func() string {
 				return fmt.Sprintf("Prefix for config env var overrides (e.g. %[1]s → %[1]s_LOG_LEVEL). ctrl+e accepts the suggestion; leave empty to disable.", deriveEnvPrefix(o.Name))
@@ -1021,15 +1019,7 @@ func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
 			}, &o.Name).
 			Value(&o.EnvPrefix).
 			Validate(func(s string) error {
-				if s == "" {
-					return nil // opt-out
-				}
-
-				if !envPrefixRe.MatchString(s) {
-					return ErrEnvPrefixInvalid
-				}
-
-				return nil
+				return hintedValidation(generator.ValidateEnvPrefix(s))
 			}),
 	).
 		Title("Environment Variable Prefix").
@@ -1068,11 +1058,7 @@ func (o *SkeletonOptions) forgeGroup() *huh.Group {
 					return ErrRepositoryRequired
 				}
 
-				if !strings.Contains(s, "/") {
-					return ErrRepositoryInvalidFormat
-				}
-
-				return nil
+				return hintedValidation(generator.ValidateRepo(s))
 			}),
 		huh.NewConfirm().
 			Title("Private Repository").
