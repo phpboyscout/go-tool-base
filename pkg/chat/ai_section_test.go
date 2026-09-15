@@ -181,3 +181,54 @@ func TestAISection_APIVersionSurvivesYAMLTyping(t *testing.T) {
 		})
 	}
 }
+
+// TestProviderCredentialsFrom pins the resolver a fallback chain member gets
+// its GTB credential through: nothing for a provider without a credential
+// root, nothing when the root is unset, and the configured credential with
+// the keychain lookup wired otherwise.
+func TestProviderCredentialsFrom(t *testing.T) {
+	t.Parallel()
+
+	view := chatStoreFromYAML(t, "openai:\n  api:\n    env: MY_OPENAI_KEY\n").View()
+	resolve := providerCredentialsFrom(view)
+
+	_, ok := resolve(gochat.ProviderClaudeLocal)
+	assert.False(t, ok, "a local CLI carries no GTB credential")
+
+	_, ok = resolve(gochat.ProviderBedrock)
+	assert.False(t, ok, "bedrock authenticates through the AWS chain")
+
+	_, ok = resolve(gochat.ProviderGemini)
+	assert.False(t, ok, "a root with nothing configured contributes nothing")
+
+	creds, ok := resolve(gochat.ProviderOpenAI)
+	require.True(t, ok)
+	assert.Equal(t, "MY_OPENAI_KEY", creds.Env)
+	assert.NotNil(t, creds.Lookup, "the keychain lookup is wired the way SettingsFromProps wires it")
+
+	_, ok = providerCredentialsFrom(nil)(gochat.ProviderOpenAI)
+	assert.False(t, ok, "no config, no credential")
+}
+
+// TestAISection_APIVersionOtherScalars: a value YAML typed as something other
+// than a string or a date is still rendered rather than dropped.
+func TestAISection_APIVersionOtherScalars(t *testing.T) {
+	t.Parallel()
+
+	assert.Empty(t, aiSection{}.apiVersion())
+	assert.Equal(t, "20241021", aiSection{APIVersion: 20241021}.apiVersion())
+	assert.Equal(t, "preview", aiSection{APIVersion: "preview"}.apiVersion())
+}
+
+// TestNewWithFallbackFromProps_MalformedFallbackSectionIsAnError: a fallback
+// block that does not decode surfaces rather than silently building a
+// single-provider client.
+func TestNewWithFallbackFromProps_MalformedFallbackSectionIsAnError(t *testing.T) {
+	p := &props.Props{
+		Logger: logger.NewNoop(),
+		Config: chatStoreFromYAML(t, "ai:\n  provider: fbt-ok\n  fallback:\n    enabled: notabool\n"),
+	}
+
+	_, err := NewWithFallbackFromProps(context.Background(), p, gochat.Config{})
+	require.Error(t, err)
+}
