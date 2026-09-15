@@ -105,8 +105,8 @@ backend.
 Use this to confirm your opt-in state and whether collection is local-only.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := p.Config.View()
-			enabled := cfg.GetBool("telemetry.enabled")
-			localOnly := cfg.GetBool("telemetry.local_only")
+			enabled := cfg.GetBool(setup.ConfigKeyTelemetryEnabled)
+			localOnly := cfg.GetBool(setup.ConfigKeyTelemetryLocalOnly)
 
 			out := cmd.OutOrStdout()
 
@@ -198,7 +198,7 @@ func setTelemetryEnabled(ctx context.Context, p *props.Props, enabled bool, out 
 		return err
 	}
 
-	if _, err := p.Config.Apply(ctx, config.Set("telemetry.enabled", enabled)); err != nil {
+	if _, err := p.Config.Apply(ctx, config.Set(setup.ConfigKeyTelemetryEnabled, enabled)); err != nil {
 		return errors.Wrap(err, "failed to persist telemetry setting")
 	}
 

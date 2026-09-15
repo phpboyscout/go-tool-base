@@ -21,14 +21,14 @@ import (
 // paths reachable by the update and telemetry resolution chains
 // (pkg/setup/update.go, buildTelemetryCollector).
 var protectedProjectConfigKeys = []string{
-	"update.require_signature",
-	"update.require_checksum",
-	"update.require_external_crosscheck",
-	"update.policy",
-	"update.key_source",
-	"update.external_key_email",
-	"telemetry.enabled",
-	"telemetry.consent",
+	setup.ConfigKeyUpdateRequireSignature,
+	setup.ConfigKeyUpdateRequireChecksum,
+	setup.ConfigKeyUpdateRequireExternalCrosscheck,
+	setup.ConfigKeyUpdatePolicy,
+	setup.ConfigKeyUpdateKeySource,
+	setup.ConfigKeyUpdateExternalKeyEmail,
+	setup.ConfigKeyTelemetryEnabled,
+	setup.ConfigKeyTelemetryConsent,
 	// Credential subtrees carried as literal API keys.
 	"anthropic.api",
 	"openai.api",

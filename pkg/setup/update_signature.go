@@ -58,8 +58,8 @@ func resolveRequireSignature(cfg boolConfig) bool {
 		return verify.DefaultRequireSignature
 	}
 
-	if cfg.IsSet("update.require_signature") {
-		return cfg.GetBool("update.require_signature")
+	if cfg.IsSet(ConfigKeyUpdateRequireSignature) {
+		return cfg.GetBool(ConfigKeyUpdateRequireSignature)
 	}
 
 	return verify.DefaultRequireSignature
@@ -72,8 +72,8 @@ func resolveRequireExternalCrosscheck(cfg boolConfig) bool {
 		return verify.DefaultRequireExternalCrosscheck
 	}
 
-	if cfg.IsSet("update.require_external_crosscheck") {
-		return cfg.GetBool("update.require_external_crosscheck")
+	if cfg.IsSet(ConfigKeyUpdateRequireExternalCrosscheck) {
+		return cfg.GetBool(ConfigKeyUpdateRequireExternalCrosscheck)
 	}
 
 	return verify.DefaultRequireExternalCrosscheck
@@ -86,8 +86,8 @@ func resolveKeySource(cfg stringConfig) string {
 		return verify.DefaultKeySource
 	}
 
-	if cfg.IsSet("update.key_source") {
-		if v := strings.TrimSpace(cfg.GetString("update.key_source")); v != "" {
+	if cfg.IsSet(ConfigKeyUpdateKeySource) {
+		if v := strings.TrimSpace(cfg.GetString(ConfigKeyUpdateKeySource)); v != "" {
 			return v
 		}
 	}
@@ -102,8 +102,8 @@ func resolveExternalKeyEmail(cfg stringConfig) string {
 		return verify.DefaultExternalKeyEmail
 	}
 
-	if cfg.IsSet("update.external_key_email") {
-		if v := strings.TrimSpace(cfg.GetString("update.external_key_email")); v != "" {
+	if cfg.IsSet(ConfigKeyUpdateExternalKeyEmail) {
+		if v := strings.TrimSpace(cfg.GetString(ConfigKeyUpdateExternalKeyEmail)); v != "" {
 			return v
 		}
 	}

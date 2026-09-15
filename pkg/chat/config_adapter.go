@@ -189,7 +189,7 @@ func loadRuntimeConfig(cfg config.Reader) (gochat.RuntimeConfig, error) {
 }
 
 func loadFallbackConfig(cfg config.Reader) (gochat.FallbackConfig, error) {
-	section, err := config.UnmarshalSection[gochat.FallbackConfig](cfg, "ai.fallback")
+	section, err := config.UnmarshalSection[gochat.FallbackConfig](cfg, ConfigKeyAIFallback)
 	if err != nil || !section.Exists {
 		return gochat.FallbackConfig{}, err
 	}

@@ -528,7 +528,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	// interval agree with each other even under a mid-sequence reload.
 	view := props.Config.View()
 
-	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, view.GetString("update.policy"))
+	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, view.GetString(setup.ConfigKeyUpdatePolicy))
 
 	// Persistent out-of-date reminder from the cached latest version: emitted
 	// every invocation (even when the network check is throttled below), so a
@@ -614,7 +614,7 @@ func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command
 		return true
 	}
 
-	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, view.GetString("update.check_interval"))
+	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, view.GetString(setup.ConfigKeyUpdateCheckInterval))
 
 	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
 }
@@ -1379,7 +1379,7 @@ func consentPromptDeferred(props *p.Props, view *config.View, isInteractive func
 	case telemetryEnvSet:
 		// TELEMETRY_ENABLED pre-answers the consent question.
 		return true
-	case view.IsSet("telemetry.enabled"):
+	case view.IsSet(setup.ConfigKeyTelemetryEnabled):
 		// Already configured — no prompt needed.
 		return true
 	case isCIEnvironment(view):
@@ -1448,7 +1448,7 @@ func promptTelemetryConsent(ctx context.Context, props *p.Props, opts ...Consent
 		return
 	}
 
-	if _, err := props.Config.Apply(ctx, config.Set("telemetry.enabled", optIn)); err != nil {
+	if _, err := props.Config.Apply(ctx, config.Set(setup.ConfigKeyTelemetryEnabled, optIn)); err != nil {
 		props.Logger.Debug("failed to persist telemetry consent", "error", err)
 	}
 }
@@ -1480,8 +1480,8 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	view := props.Config.View()
 	cfg := telemetry.Config{
-		Enabled:   view.GetBool("telemetry.enabled"),
-		LocalOnly: view.GetBool("telemetry.local_only"),
+		Enabled:   view.GetBool(setup.ConfigKeyTelemetryEnabled),
+		LocalOnly: view.GetBool(setup.ConfigKeyTelemetryLocalOnly),
 	}
 
 	// Env var override (non-interactive bypass — tool-name-agnostic)

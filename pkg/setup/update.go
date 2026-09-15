@@ -394,9 +394,9 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		execLookPath:              exec.LookPath,
 		isInteractive:             utils.IsInteractive,
 		requireChecksum:           resolveRequireChecksum(cfg, p.Tool.Signing.RequireChecksum),
-		checksumAssetName:         strings.TrimSpace(cfg.GetString("update.checksum_asset_name")),
+		checksumAssetName:         strings.TrimSpace(cfg.GetString(ConfigKeyUpdateChecksumAssetName)),
 		requireSignature:          resolveRequireSignature(cfg),
-		signatureAssetName:        strings.TrimSpace(cfg.GetString("update.signature_asset_name")),
+		signatureAssetName:        strings.TrimSpace(cfg.GetString(ConfigKeyUpdateSignatureAssetName)),
 		keySource:                 resolveKeySource(cfg),
 		externalKeyEmail:          resolveExternalKeyEmail(cfg),
 		requireExternalCrosscheck: resolveRequireExternalCrosscheck(cfg),
@@ -562,8 +562,8 @@ func resolveRequireChecksum(cfg boolConfig, toolDefault *bool) bool {
 		return fallback
 	}
 
-	if cfg.IsSet("update.require_checksum") {
-		return cfg.GetBool("update.require_checksum")
+	if cfg.IsSet(ConfigKeyUpdateRequireChecksum) {
+		return cfg.GetBool(ConfigKeyUpdateRequireChecksum)
 	}
 
 	return fallback

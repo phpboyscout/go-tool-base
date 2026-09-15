@@ -222,7 +222,7 @@ func (g *Generator) aiDocsEnabled() bool {
 		return true
 	}
 
-	return g.props.Config != nil && g.props.Config.View().GetString("ai.provider") != ""
+	return g.props.Config != nil && g.props.Config.View().GetString(chat.ConfigKeyAIProvider) != ""
 }
 
 // handleNoAIDocs writes documentation without AI assistance.
@@ -832,7 +832,7 @@ func (g *Generator) resolveAIConfig() (provider, model string) {
 
 	provider = g.config.AIProvider
 	if provider == "" {
-		provider = view.GetString("ai.provider")
+		provider = view.GetString(chat.ConfigKeyAIProvider)
 	}
 
 	if provider == "" {

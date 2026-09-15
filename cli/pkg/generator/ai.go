@@ -2,13 +2,15 @@ package generator
 
 import (
 	gochat "gitlab.com/phpboyscout/go/chat"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 func (g *Generator) resolveProvider() gochat.Provider {
 	provider := gochat.ProviderClaude
 
 	if g.props.Config != nil {
-		if p := g.props.Config.View().GetString("ai.provider"); p != "" {
+		if p := g.props.Config.View().GetString(chat.ConfigKeyAIProvider); p != "" {
 			provider = gochat.Provider(p)
 		}
 	}

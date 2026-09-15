@@ -12,6 +12,16 @@ const ConfigKeyAIProvider = "ai.provider"
 // (a duration like "8m"). Overrides DefaultChatRequestTimeout.
 const ConfigKeyAIRequestTimeout = "ai.request_timeout"
 
+// ConfigKeyAIModel is the config key for the default model name.
+const ConfigKeyAIModel = "ai.model"
+
+// ConfigKeyAIFallback is the config section holding the fallback-provider chain.
+const ConfigKeyAIFallback = "ai.fallback"
+
+// ConfigKeyAIClaudeLocal is the legacy switch that routes generation through
+// the local claude CLI.
+const ConfigKeyAIClaudeLocal = "ai.claude.local"
+
 // EnvAIProvider is the environment variable for overriding the AI provider.
 const EnvAIProvider = "AI_PROVIDER"
 

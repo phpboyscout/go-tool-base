@@ -83,7 +83,7 @@ func (t *TelemetryInitialiser) IsConfigured(cfg config.Reader) bool {
 		return true
 	}
 
-	return cfg.IsSet("telemetry.enabled")
+	return cfg.IsSet(setup.ConfigKeyTelemetryEnabled)
 }
 
 // Configure prompts the user to opt into telemetry.
@@ -93,7 +93,7 @@ func (t *TelemetryInitialiser) Configure(_ context.Context, p *props.Props, cfg 
 	if val, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
 		enabled, _ := strconv.ParseBool(val)
 
-		return cfg.Set("telemetry.enabled", enabled)
+		return cfg.Set(setup.ConfigKeyTelemetryEnabled, enabled)
 	}
 
 	fCfg := &formConfig{
@@ -112,7 +112,7 @@ func (t *TelemetryInitialiser) Configure(_ context.Context, p *props.Props, cfg 
 		}
 	}
 
-	return cfg.Set("telemetry.enabled", optIn)
+	return cfg.Set(setup.ConfigKeyTelemetryEnabled, optIn)
 }
 
 func defaultTelemetryForm(p *props.Props, optIn *bool) *huh.Form {
