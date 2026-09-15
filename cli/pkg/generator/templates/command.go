@@ -114,15 +114,16 @@ func getConstantForFlag(flag CommandFlag) (jen.Code, bool) {
 }
 
 func getConstantValue(flag CommandFlag) jen.Code {
-	switch flag.Type {
-	case "int", "int32", "int64", "uint", "uint32", "uint64":
+	switch specFor(flag.Type).kind {
+	case kindInteger:
 		return getIntConstantValue(flag)
-	case "float64":
+	case kindFloat:
 		f, _ := strconv.ParseFloat(flag.Default, 64)
 
 		return jen.Id("float64").Call(jen.Lit(f))
-	case "duration":
+	case kindDuration:
 		return getDurationConstantValue(flag)
+	case kindString, kindBool, kindStringSlice, kindIntSlice:
 	}
 
 	return nil
@@ -232,32 +233,7 @@ func generateOptionsStruct(f *jen.File, data CommandData) {
 }
 
 func addFlagToStruct(g *jen.Group, flag CommandFlag) {
-	typeName := flag.Type
-	if typeName == "" {
-		typeName = "string"
-	}
-	// Map manifest types to Go types
-	goType := typeName
-	switch typeName {
-	case "stringSlice", "stringslice", "stringArray", "stringarray":
-		goType = "[]string"
-	case "intSlice", "intslice":
-		goType = "[]int"
-	case "int32":
-		goType = "int32"
-	case "uint":
-		goType = "uint"
-	case "uint32":
-		goType = "uint32"
-	case "uint64":
-		goType = "uint64"
-	case "duration":
-		g.Id(pascalCase(flag.Name)).Qual("time", "Duration")
-
-		return
-	}
-
-	g.Id(pascalCase(flag.Name)).Id(goType)
+	g.Id(pascalCase(flag.Name)).Add(specFor(flag.Type).fieldType())
 }
 
 func generateNewCmdFunction(f *jen.File, data CommandData) {
@@ -621,26 +597,7 @@ func addFlag(g *jen.Group, flag CommandFlag, isPersistent bool) {
 }
 
 func pullFlag(g *jen.Group, flag CommandFlag) {
-	funcSuffix := "String"
-
-	switch flag.Type {
-	case "bool":
-		funcSuffix = "Bool"
-	case "int":
-		funcSuffix = "Int"
-	case "float64":
-		funcSuffix = "Float64"
-	case "stringSlice", "stringslice":
-		funcSuffix = "StringSlice"
-	case "stringArray", "stringarray":
-		funcSuffix = "StringArray"
-	case "intSlice", "intslice":
-		funcSuffix = "IntSlice"
-	case "int64":
-		funcSuffix = "Int64"
-	case "duration":
-		funcSuffix = "Duration"
-	}
+	funcSuffix := specFor(flag.Type).pflag
 
 	g.If(
 		jen.List(jen.Id("v"), jen.Id("err")).Op(":=").Id("cmd").Dot("Flags").Call().Dot("Get"+funcSuffix).Call(jen.Lit(flag.Name)),
@@ -658,29 +615,7 @@ func getFlagFunctionAndDefault(flag CommandFlag) (string, jen.Code) {
 }
 
 func getFlagFuncName(flagType string) string {
-	if fn, ok := flagFuncMap[flagType]; ok {
-		return fn
-	}
-
-	return "StringVar"
-}
-
-var flagFuncMap = map[string]string{
-	"bool":        "BoolVar",
-	"int":         "IntVar",
-	"float64":     "Float64Var",
-	"stringSlice": "StringSliceVar",
-	"stringslice": "StringSliceVar",
-	"stringArray": "StringArrayVar",
-	"stringarray": "StringArrayVar",
-	"intSlice":    "IntSliceVar",
-	"intslice":    "IntSliceVar",
-	"int32":       "Int32Var",
-	"int64":       "Int64Var",
-	"uint":        "UintVar",
-	"uint32":      "Uint32Var",
-	"uint64":      "Uint64Var",
-	"duration":    "DurationVar",
+	return specFor(flagType).pflag + "Var"
 }
 
 func getFlagDefaultValue(flag CommandFlag) jen.Code {
@@ -697,37 +632,38 @@ func getFlagDefaultValue(flag CommandFlag) jen.Code {
 		return jen.Id(flag.Default)
 	}
 
-	switch flag.Type {
-	case "bool":
+	switch specFor(flag.Type).kind {
+	case kindBool:
 		if flag.Default == "true" {
 			return jen.True()
 		}
 
 		return jen.False()
-	case "stringSlice", "stringslice", "stringArray", "stringarray":
+	case kindStringSlice:
 		return getStringSliceDefault(flag.Default)
-	case "intSlice", "intslice":
+	case kindIntSlice:
 		return getIntSliceDefault(flag.Default)
-	case "int", "float64", "int32", "int64", "uint", "uint32", "uint64", "duration":
+	case kindInteger, kindFloat, kindDuration:
 		return jen.Id("default" + pascalCase(flag.Name))
+	case kindString:
 	}
 
-	// Default to string literal
 	return jen.Lit(flag.Default)
 }
 
 func getZeroValue(flagType string) jen.Code {
-	switch flagType {
-	case "bool":
+	switch specFor(flagType).kind {
+	case kindBool:
 		return jen.False()
-	case "int", "int32", "int64", "uint", "uint32", "uint64", "duration":
+	case kindInteger, kindDuration:
 		return jen.Lit(0)
-	case "float64":
+	case kindFloat:
 		return jen.Lit(0.0)
-	case "stringSlice", "stringslice", "stringArray", "stringarray":
+	case kindStringSlice:
 		return jen.Index().String().Values()
-	case "intSlice", "intslice":
+	case kindIntSlice:
 		return jen.Index().Int().Values()
+	case kindString:
 	}
 
 	return jen.Lit("")
