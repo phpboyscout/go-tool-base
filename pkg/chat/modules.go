@@ -62,24 +62,6 @@ func IsLocalCLI(provider gochat.Provider) bool {
 	}
 }
 
-// ConfigurableProviders returns the providers this adapter can resolve into a
-// working client from configuration: the three with a credential root, the
-// openai-compatible name that shares openai's, and the three local CLIs, which
-// need none. It is the set the generator offers (spec 0194 D5); the providers
-// that authenticate through a credential chain or a deployment endpoint
-// (gemini-vertex, bedrock, azure-openai) are the provider-mapping spec's work.
-func ConfigurableProviders() []gochat.Provider {
-	return []gochat.Provider{
-		gochat.ProviderClaude,
-		gochat.ProviderClaudeLocal,
-		gochat.ProviderOpenAI,
-		gochat.ProviderOpenAICompatible,
-		gochat.ProviderCodexLocal,
-		gochat.ProviderGemini,
-		gochat.ProviderAgyLocal,
-	}
-}
-
 // unsupportedProviderWording is go/chat's registry-miss message. Matched as text
 // because the module exports no sentinel for it yet (go/chat#23);
 // TestUnsupportedProviderWording fails the day the wording moves.

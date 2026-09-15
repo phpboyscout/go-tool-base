@@ -40,31 +40,8 @@ type DoctorReport struct {
 	Checks  []CheckResult `json:"checks"`
 }
 
-// cmdSettings holds what the doctor command needs injected.
-type cmdSettings struct {
-	ci func() bool
-}
-
-// CmdOption configures [NewCmdDoctor].
-type CmdOption func(*cmdSettings)
-
-// WithCI fixes whether this is an automated run, instead of reading it from the
-// environment.
-//
-// Tests need this. The default threshold differs under CI, so a test asserting
-// on the exit behaviour otherwise passes or fails on whether CI happens to be
-// set where it runs.
-func WithCI(ci bool) CmdOption {
-	return func(s *cmdSettings) { s.ci = func() bool { return ci } }
-}
-
 // NewCmdDoctor creates the doctor command.
-func NewCmdDoctor(props *p.Props, options ...CmdOption) *setup.Command {
-	settings := cmdSettings{ci: credentials.IsCI}
-	for _, o := range options {
-		o(&settings)
-	}
-
+func NewCmdDoctor(props *p.Props) *setup.Command {
 	var failOnFlag string
 
 	cmd := &cobra.Command{
@@ -75,7 +52,7 @@ credentials, Git availability, and feature-specific health, then print a
 per-check pass/warn/fail/skip report. Run it when a tool misbehaves to
 pinpoint a misconfigured or missing dependency.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			threshold := DefaultFailThreshold(settings.ci())
+			threshold := DefaultFailThreshold(credentials.IsCI())
 
 			if failOnFlag != "" {
 				parsed, err := ParseFailThreshold(failOnFlag)

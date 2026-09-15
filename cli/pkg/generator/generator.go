@@ -127,7 +127,7 @@ type Generator struct {
 	// (offline): a cold cache for a git source then errors clearly rather
 	// than silently restoring a suppressed embedded scaffold. Tests inject a
 	// local-remote/fake; production wires the real provider-aware clone via
-	// WithTemplateClone / EnableRealTemplateClone.
+	// withTemplateClone / EnableRealTemplateClone.
 	cloneTemplate templateCloneFunc
 	// rules caches the project's .gtb/ignore for the run, so both write paths
 	// resolve against the same set. Loaded lazily by ignoreRules.
@@ -137,13 +137,11 @@ type Generator struct {
 	conflicts conflictLog
 }
 
-// WithTemplateClone injects the git template-source clone implementation.
+// withTemplateClone injects the git template-source clone implementation.
 // Primarily for tests (a local bare remote or a fake); production code calls
 // EnableRealTemplateClone to wire the provider-aware pkg/vcs/repo clone.
-func (g *Generator) WithTemplateClone(fn templateCloneFunc) *Generator {
+func (g *Generator) withTemplateClone(fn templateCloneFunc) {
 	g.cloneTemplate = fn
-
-	return g
 }
 
 func New(p *props.Props, cfg *Config) *Generator {

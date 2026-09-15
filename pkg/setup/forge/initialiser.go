@@ -55,13 +55,6 @@ func WithProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provi
 	return func(i *Initialiser) { i.providerFactory = fn }
 }
 
-// WithPrompter overrides the [forgeapi.Prompter] that renders the device-code
-// step. Tests pass a no-op prompter; production callers omit it to get the
-// default CLI prompter.
-func WithPrompter(p forgeapi.Prompter) InitialiserOption {
-	return func(i *Initialiser) { i.prompter = p }
-}
-
 // WithAuthForms propagates [AuthFormOption]s into the single-token wizard.
 // Tests use this to inject deterministic form creators via [WithAuthForm].
 func WithAuthForms(opts ...AuthFormOption) InitialiserOption {

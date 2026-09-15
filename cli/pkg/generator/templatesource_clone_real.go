@@ -21,7 +21,7 @@ import (
 
 // EnableRealTemplateClone wires the production provider-aware git clone for
 // custom template sources. Call this on a Generator before resolving git
-// sources in production paths; tests inject a fake via WithTemplateClone
+// sources in production paths; tests inject a fake via withTemplateClone
 // instead. Returns the Generator for chaining.
 func (g *Generator) EnableRealTemplateClone() *Generator {
 	g.cloneTemplate = g.realCloneTemplate

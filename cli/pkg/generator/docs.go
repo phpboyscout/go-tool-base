@@ -1365,10 +1365,6 @@ func freshCommandsIndex(table string) string {
 	return commandsIndexHeader + "\n\n" + commandsIndexMarkerStart + "\n" + table + commandsIndexMarkerEnd + "\n"
 }
 
-func (g *Generator) buildCommandsIndexContent(commands []ManifestCommand, diataxis bool) string {
-	return freshCommandsIndex(g.buildCommandsIndexTable(commands, diataxis))
-}
-
 func (g *Generator) buildCommandsIndexTable(commands []ManifestCommand, diataxis bool) string {
 	var content strings.Builder
 	content.WriteString("| Command | Description |\n")

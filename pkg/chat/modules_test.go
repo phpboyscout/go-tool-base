@@ -105,27 +105,6 @@ func TestUnsupportedProviderWording(t *testing.T) {
 	assert.Contains(t, err.Error(), unsupportedProviderWording)
 }
 
-func TestConfigurableProviders(t *testing.T) {
-	t.Parallel()
-
-	got := ConfigurableProviders()
-
-	assert.Equal(t, []gochat.Provider{
-		gochat.ProviderClaude,
-		gochat.ProviderClaudeLocal,
-		gochat.ProviderOpenAI,
-		gochat.ProviderOpenAICompatible,
-		gochat.ProviderCodexLocal,
-		gochat.ProviderGemini,
-		gochat.ProviderAgyLocal,
-	}, got)
-
-	for _, p := range got {
-		_, ok := ProviderModule(p)
-		assert.True(t, ok, "%s is configurable but has no module", p)
-	}
-}
-
 func TestIsLocalCLI(t *testing.T) {
 	t.Parallel()
 

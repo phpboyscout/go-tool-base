@@ -34,27 +34,6 @@ func TestCommandDocRelPath(t *testing.T) {
 	}
 }
 
-// TestBuildCommandsIndexContent_Diataxis guards HIGH-2: leaf commands must link to
-// <name>.md, not <name>/index.md, in the Diátaxis layout.
-func TestBuildCommandsIndexContent_Diataxis(t *testing.T) {
-	t.Parallel()
-
-	g := newPromptGenerator(t, "", false)
-	cmds := []ManifestCommand{
-		{Name: "deploy", Description: "Deploy it"},
-		{Name: "a", Commands: []ManifestCommand{{Name: "run"}}},
-	}
-
-	out := g.buildCommandsIndexContent(cmds, true)
-	assert.Contains(t, out, "(deploy.md)", "leaf links to flat <name>.md")
-	assert.Contains(t, out, "(a/index.md)", "parent links to subsection index")
-	assert.Contains(t, out, "(a/run.md)", "nested leaf links to flat file")
-	assert.NotContains(t, out, "deploy/index.md", "leaf must NOT use the directory form (HIGH-2)")
-
-	flat := g.buildCommandsIndexContent(cmds, false)
-	assert.Contains(t, flat, "(deploy/index.md)", "flat layout keeps the directory form")
-}
-
 // TestGenerateCommandsIndex_Diataxis exercises the full index writer end-to-end.
 func TestGenerateCommandsIndex_Diataxis(t *testing.T) {
 	t.Parallel()

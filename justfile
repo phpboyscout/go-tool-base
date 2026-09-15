@@ -113,7 +113,7 @@ coverage-policy *args:
 
 # Find unreachable exported symbols
 deadcode:
-    deadcode ./... ./cli/...
+    go run golang.org/x/tools/cmd/deadcode@latest -test ./... ./cli/...
 
 # Install the gtb binary to $GOPATH/bin
 install:

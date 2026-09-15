@@ -17,11 +17,11 @@ threat model**. Now lives at:
 
 > **[tls.go.phpboyscout.uk](https://tls.go.phpboyscout.uk)**
 
-Unlike the pure-repoint extractions, `pkg/tls` **remains** in go-tool-base as a thin
-**facade**: it re-exports the module's core (so `gtbtls.Pair`, `gtbtls.DefaultConfig`,
-`gtbtls.ClientConfig`, `gtbtls.CertPool` are unchanged) and keeps the one piece that
-belongs to the framework, the config-key adapter `Resolve`. See the
-[migration note](../../reference/migration/v0.x-tls-extracted.md).
+`pkg/tls` **remains** in go-tool-base for the one piece that belongs to the framework,
+the config-key adapter `Resolve`, and the `Pair` alias it returns. The hardened
+`DefaultConfig`, `ClientConfig` and `CertPool` are used straight from the module; the
+re-exports that once shadowed them had no callers and were removed on 2026-09-15. See
+the [migration notes](../../reference/migration/v0.x-facades-removed.md).
 
 ## What go-tool-base adds: config resolution
 

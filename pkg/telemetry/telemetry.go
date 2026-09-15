@@ -111,8 +111,6 @@ func (c *Collector) Enabled() bool {
 	return c.config.Enabled
 }
 
-// Track records a telemetry event. No-op when collector is disabled.
-// When the in-memory buffer reaches maxBuffer, events are spilled to disk.
 // mergeMetadata combines collector metadata with per-event extras and redacts
 // every value at the ingest boundary. Metadata is operator-supplied free-form
 // text (endpoints, identifiers) and is the last place to catch a stray
@@ -167,6 +165,8 @@ func (c *Collector) record(evt Event, extra map[string]string) {
 	}
 }
 
+// Track records a telemetry event. No-op when collector is disabled.
+// When the in-memory buffer reaches maxBuffer, events are spilled to disk.
 func (c *Collector) Track(eventType telemetrytypes.EventType, name string, extra map[string]string) {
 	c.record(Event{
 		Type: eventType,

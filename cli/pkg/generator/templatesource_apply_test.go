@@ -126,7 +126,7 @@ func TestGitSource_PinsSHAAndRegenerateReproducesFromCache(t *testing.T) {
 	const sha = "a1b2c3d4e5f600112233445566778899aabbccdd"
 
 	cloneCalls := 0
-	g.WithTemplateClone(func(req cloneRequest) (cloneResult, error) {
+	g.withTemplateClone(func(req cloneRequest) (cloneResult, error) {
 		cloneCalls++
 		// Populate the staging dir with a template tree.
 		writeLocalSource(t, fs, req.TargetDir, map[string]string{

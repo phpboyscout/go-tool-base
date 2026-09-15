@@ -64,7 +64,7 @@ func TestGitTemplateSource_OverlayAndOfflineRegenerate(t *testing.T) {
 	g := New(p, &Config{Path: projectDir, Overwrite: "allow"})
 	// Fake clone delegates to a real clone of the local repo, so the cache is
 	// populated exactly as production would, without an https transport.
-	g.WithTemplateClone(func(req cloneRequest) (cloneResult, error) {
+	g.withTemplateClone(func(req cloneRequest) (cloneResult, error) {
 		real := New(p, &Config{}).EnableRealTemplateClone()
 
 		return real.cloneTemplate(cloneRequest{URL: srcRepo, Ref: req.Ref, TargetDir: req.TargetDir})

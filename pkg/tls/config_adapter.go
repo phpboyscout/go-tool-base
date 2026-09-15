@@ -1,6 +1,9 @@
 package tls
 
-import "gitlab.com/phpboyscout/go/config"
+import (
+	"gitlab.com/phpboyscout/go/config"
+	gtls "gitlab.com/phpboyscout/go/tls"
+)
 
 // Resolve resolves the TLS settings for a transport from GTB config. It starts
 // from the shared SharedPrefix ("server.tls") and overrides each field
@@ -14,7 +17,7 @@ func Resolve(cfg config.Reader, transportPrefix string) Pair {
 	shared := pairFromConfig(cfg, SharedPrefix)
 	transport := pairFromConfig(cfg, transportPrefix)
 
-	return ResolvePair(shared, transport, PairOverrides{
+	return gtls.ResolvePair(shared, transport, gtls.PairOverrides{
 		Enabled: cfg.IsSet(transportPrefix + ".enabled"),
 		Cert:    cfg.IsSet(transportPrefix + ".cert"),
 		Key:     cfg.IsSet(transportPrefix + ".key"),
