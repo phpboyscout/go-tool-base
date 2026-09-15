@@ -209,8 +209,18 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   checksum and signature templates, version format and key, pinned version
   optional).
 
-**Chat providers** *(the `ai` feature selected)*
-: Which providers the tool links; see the [generate reference](../../reference/cli/generate.md#adapters).
+**AI Chat** *(the `ai` feature selected)*
+: Which providers the tool links (per module: `codex-local` links `chat-openai`,
+  which registers `openai` and `openai-compatible` too), which is the default,
+  and optionally a model. One linked provider is its own default; between
+  several you choose, the wizard never does. The default select narrows to
+  what is ticked. See [chat defaults](../../reference/cli/generate.md#chat-defaults).
+
+**AI endpoint** *(the default is `openai-compatible` or `azure-openai`)*
+: The API endpoint (HTTPS), and for Azure the dated API version.
+
+**AI cloud addressing** *(the default is `gemini-vertex` or `bedrock`)*
+: Optional project and region; the modules fall back to the platform's environment.
 
 **Help channel** *(Slack or Teams chosen)*
 : Slack channel and team, or Teams channel and team.

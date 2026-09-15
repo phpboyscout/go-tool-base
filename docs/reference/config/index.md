@@ -254,7 +254,7 @@ See [Configure self-updating](../../how-to/configure-self-updating.md) and
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `ai.provider` | string | `claude` | Active provider. |
+| `ai.provider` | string | *(none; the tool's author sets one)* | Active provider. |
 | `ai.model` | string | *(the provider module's default)* | Model for `ai.provider`. Blank means the module's choice, which favours capability over cost. |
 | `ai.base_url` | string | *(none)* | API endpoint. Required by `openai-compatible` and `azure-openai`; must be HTTPS with no userinfo (see `chat.ValidateBaseURL`). |
 | `ai.api_version` | string | *(none)* | Dated API version. Required by `azure-openai`, which has no default. Quote it (`"2024-10-21"`): unquoted, YAML reads a date as a timestamp, which the framework tolerates but other tools may not. |
@@ -276,9 +276,14 @@ unregistered-provider error.
 apply to `ai.provider` only. A fallback member resolves its own model and
 endpoint; a model name is provider-specific and an endpoint doubly so.
 
-When `ai.provider` is unset, the framework uses the `AI_PROVIDER` environment
-variable if present, and otherwise defaults to `claude`. `AI_PROVIDER` is read
-directly, without the tool's config prefix.
+When `ai.provider` is unset in every config layer, the framework reads the
+`AI_PROVIDER` environment variable (directly, without the tool's config
+prefix). When that is unset too, constructing a chat client fails with
+`no AI provider is configured` and a hint naming `ai.provider` and `init ai`.
+The framework names no vendor as a default: a generated tool ships its
+author's default as its lowest config layer (see the
+[generate reference](../cli/generate.md#chat-defaults)), and an end user
+overrides it in their own file.
 
 When `ai.fallback.enabled` is true and `ai.fallback.providers` is non-empty, the
 first entry becomes the primary. If that disagrees with an explicitly configured

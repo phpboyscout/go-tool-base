@@ -88,24 +88,44 @@ func ValidateChatDefault(d ManifestChatDefault, providers []string, features []M
 		return nil
 	}
 
-	if d.Provider == "" {
-		switch len(providers) {
-		case 0:
-			return nil
-		case 1:
-			// One provider is its own default, and its endpoint rules apply.
-			d.Provider = providers[0]
-		default:
-			return errors.WithHint(ErrChatDefaultRequired,
-				"Pass --chat-default-provider with one of "+strings.Join(providers, ", ")+".")
-		}
+	if err := ValidateChatDefaultProvider(d.Provider, providers, features); err != nil {
+		return err
 	}
 
-	if !slices.Contains(providers, d.Provider) {
-		return errors.Wrapf(ErrChatDefaultNotLinked, "%q (linked: %s)", d.Provider, strings.Join(providers, ", "))
+	if d.Provider == "" {
+		if len(providers) != 1 {
+			return nil
+		}
+
+		// One provider is its own default, and its endpoint rules apply.
+		d.Provider = providers[0]
 	}
 
 	return validateChatEndpoint(d)
+}
+
+// ValidateChatDefaultProvider is the provider half of ValidateChatDefault, for
+// the wizard's select: required between several providers, and one of them.
+// The endpoint half is a later page's.
+func ValidateChatDefaultProvider(provider string, providers []string, features []ManifestFeature) error {
+	if !featureEnabledIn(features, string(props.AiCmd)) {
+		return nil
+	}
+
+	if provider == "" {
+		if len(providers) > 1 {
+			return errors.WithHint(ErrChatDefaultRequired,
+				"Pass --chat-default-provider with one of "+strings.Join(providers, ", ")+".")
+		}
+
+		return nil
+	}
+
+	if !slices.Contains(providers, provider) {
+		return errors.Wrapf(ErrChatDefaultNotLinked, "%q (linked: %s)", provider, strings.Join(providers, ", "))
+	}
+
+	return nil
 }
 
 func validateChatEndpoint(d ManifestChatDefault) error {

@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
@@ -783,6 +785,18 @@ func (o *SkeletonOptions) afterWizard() error {
 		o.SigningKeyID = ""
 	}
 
+	if !o.aiSelected() {
+		o.ChatDefault = generator.ManifestChatDefault{}
+	} else {
+		if !chatDefaultNeedsEndpoint(o.ChatDefault.Provider) {
+			o.ChatDefault.BaseURL, o.ChatDefault.APIVersion = "", ""
+		}
+
+		if !chatDefaultUsesCloudAddressing(o.ChatDefault.Provider) {
+			o.ChatDefault.Project, o.ChatDefault.Location = "", ""
+		}
+	}
+
 	if o.HelpType != "slack" {
 		o.SlackChannel, o.SlackTeam = "", ""
 	}
@@ -861,6 +875,8 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.selfUpdateGroup(),
 		o.directSourceGroup(),
 		o.chatProvidersGroup(),
+		o.chatEndpointGroup(),
+		o.chatCloudGroup(),
 		o.slackGroup(),
 		o.teamsGroup(),
 		o.signingEnableGroup(),
@@ -983,14 +999,23 @@ func (o *SkeletonOptions) directSourceGroup() *huh.Group {
 		})
 }
 
-// chatProvidersGroup picks the chat providers the tool links. Shown only when
+// chatProvidersGroup is the AI page (spec 0196 D1): which providers the tool
+// links, which is the default, and optionally which model. Shown only when
 // the ai feature is selected; every configurable provider is pre-selected,
 // because a generated tool is configured by its consumers the way gtb itself
 // is (spec 0194 OQ4).
+//
+// The default select is fed twice. Static options from the current selection
+// are what the field shows before huh runs its option command, and what a
+// test harness that never runs commands sees; OptionsFunc bound to the
+// providers is what the live program shows once the user ticks or unticks a
+// provider on the same page. Between several providers the first option is a
+// placeholder the validator refuses, so Enter cannot pick a default on the
+// author's behalf (OQ5); a single provider is offered alone and accepted.
 func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 	return huh.NewGroup(
 		newMultiSelect("Chat providers",
-			"Each one is a module linked into the binary; untick what this tool will never use.",
+			"Each one is a module linked into the binary; untick what this tool will never use. Linking is per module: codex-local links chat-openai, which registers openai and openai-compatible too.",
 			chatProviderOptions(o.ChatProviders)).
 			Key("chat-providers").
 			Value(&o.ChatProviders).
@@ -999,10 +1024,95 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 				// with every answer gone (#48).
 				return hintedValidation(generator.ValidateChatProviders(selected, o.resolveFeatures()))
 			}),
+		huh.NewSelect[string]().Key("chat-default").Title("Default provider").
+			Description("Shipped as the tool's default; an end user overrides it in their own config.").
+			Options(chatDefaultOptions(o.ChatProviders)...).
+			OptionsFunc(func() []huh.Option[string] { return chatDefaultOptions(o.ChatProviders) }, &o.ChatProviders).
+			Value(&o.ChatDefault.Provider).
+			Validate(func(provider string) error {
+				return hintedValidation(generator.ValidateChatDefaultProvider(provider, o.ChatProviders, o.resolveFeatures()))
+			}),
+		huh.NewInput().Key("chat-model").Title("Default model (optional)").
+			Description("Blank means the provider module's choice, which favours capability over cost.").
+			Value(&o.ChatDefault.Model),
 	).
 		Title("AI Chat").
 		Description("The ai feature needs at least one provider.\n").
 		WithHideFunc(func() bool { return !slices.Contains(o.Features, string(props.AiCmd)) })
+}
+
+// chatDefaultOptions offers the linked providers as the default. Between
+// several, a placeholder leads so that nothing is chosen until the author
+// moves; the empty value is what ValidateChatDefault refuses.
+func chatDefaultOptions(providers []string) []huh.Option[string] {
+	opts := make([]huh.Option[string], 0, len(providers)+1)
+
+	if len(providers) > 1 {
+		opts = append(opts, huh.NewOption("Choose the default provider", ""))
+	}
+
+	for _, name := range providers {
+		opts = append(opts, huh.NewOption(name, name))
+	}
+
+	return opts
+}
+
+// chatEndpointGroup asks for the endpoint the default provider refuses to
+// construct without (spec 0196 D2): a base URL for openai-compatible and
+// azure-openai, and the dated API version for azure-openai. huh hides groups,
+// not fields, so this is its own page shown only for those providers.
+func (o *SkeletonOptions) chatEndpointGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().Key("chat-base-url").Title("API endpoint").
+			Description("HTTPS, no credentials in the URL. Ollama: https://host:11434/v1; Azure: the deployment endpoint.").
+			Placeholder("https://llm.example.internal/v1").
+			Value(&o.ChatDefault.BaseURL).
+			Validate(func(string) error { return o.validateChatEndpointField() }),
+		huh.NewInput().Key("chat-api-version").Title("API version").
+			Description("Required by azure-openai (dated, e.g. 2024-10-21); ignored by other providers.").
+			Value(&o.ChatDefault.APIVersion).
+			Validate(func(string) error { return o.validateChatEndpointField() }),
+	).
+		Title("AI endpoint").
+		Description("Recorded under chat.default in the manifest.\n").
+		WithHideFunc(func() bool { return !o.aiSelected() || !chatDefaultNeedsEndpoint(o.ChatDefault.Provider) })
+}
+
+// chatCloudGroup asks for the cloud addressing gemini-vertex and bedrock use
+// (spec 0196 D2). Both are optional: the modules fall back to the platform's
+// environment for them.
+func (o *SkeletonOptions) chatCloudGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().Key("chat-project").Title("Cloud project (optional)").
+			Description("gemini-vertex; falls back to GOOGLE_CLOUD_PROJECT.").
+			Value(&o.ChatDefault.Project),
+		huh.NewInput().Key("chat-location").Title("Region (optional)").
+			Description("gemini-vertex falls back to GOOGLE_CLOUD_LOCATION; bedrock to the AWS chain.").
+			Value(&o.ChatDefault.Location),
+	).
+		Title("AI cloud addressing").
+		Description("Recorded under chat.default in the manifest.\n").
+		WithHideFunc(func() bool { return !o.aiSelected() || !chatDefaultUsesCloudAddressing(o.ChatDefault.Provider) })
+}
+
+func (o *SkeletonOptions) aiSelected() bool {
+	return slices.Contains(o.Features, string(props.AiCmd))
+}
+
+// validateChatEndpointField validates the endpoint page as a whole from
+// either field: huh binds an Input's value on Blur, which precedes Validate,
+// so the struct already carries what was typed.
+func (o *SkeletonOptions) validateChatEndpointField() error {
+	return hintedValidation(generator.ValidateChatDefault(o.ChatDefault, o.ChatProviders, o.resolveFeatures()))
+}
+
+func chatDefaultNeedsEndpoint(provider string) bool {
+	return provider == string(gochat.ProviderOpenAICompatible) || provider == string(gochat.ProviderAzureOpenAI)
+}
+
+func chatDefaultUsesCloudAddressing(provider string) bool {
+	return provider == string(gochat.ProviderGeminiVertex) || provider == string(gochat.ProviderBedrock)
 }
 
 func chatProviderOptions(selected []string) []huh.Option[string] {
