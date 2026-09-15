@@ -134,10 +134,12 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return err
 	}
 
-	// Skip-not-abort (spec D1/O3): drop invalid commands and an invalid
-	// signing block from the in-memory manifest with an ERROR log, so the
-	// valid entries still regenerate while the traversal/injection sinks
-	// are foreclosed. Structural fields then remain a hard error below.
+	// Skip-not-abort (spec D1/O3): drop invalid commands from the in-memory
+	// manifest with an ERROR log, so the valid entries still regenerate while
+	// the traversal sink is foreclosed. The signing block is not skipped: for
+	// trust configuration "skip" would mean rendering the disabled state and
+	// removing enforcement the author declared (#40), so ValidateManifest
+	// below treats it as structural and nothing is written.
 	g.sanitiseManifest(m)
 
 	if err := ValidateManifest(m); err != nil {
@@ -176,21 +178,14 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	return g.syncAdapterFiles(m)
 }
 
-// sanitiseManifest removes manifest entries that fail validation so the
+// sanitiseManifest removes manifest commands that fail validation so the
 // remaining valid entries can still regenerate (skip-not-abort, spec D1/O3).
-// Each skipped entry is surfaced with an ERROR-level log naming the entry
-// and the rule it failed; a skipped command is never acted on, so the
-// filepath.Join / RemoveAll traversal sink is foreclosed. The manifest is
-// only modified in memory — the on-disk file is left for the user to fix.
+// Each skipped command is surfaced with an ERROR-level log naming the entry
+// and the rule it failed and is never acted on, so the filepath.Join /
+// RemoveAll traversal sink is foreclosed. The manifest is only modified in
+// memory; the on-disk file is left for the user to fix.
 func (g *Generator) sanitiseManifest(m *Manifest) {
 	m.Commands = g.sanitiseManifestCommands(m.Commands)
-
-	if err := validateManifestSigning(&m.Properties.Signing); err != nil {
-		g.props.Logger.Error("Skipping signing-block rendering: invalid signing configuration in manifest",
-			"reason", validationReason(err))
-
-		m.Properties.Signing = ManifestSigning{}
-	}
 }
 
 // sanitiseManifestCommands returns the commands whose names pass

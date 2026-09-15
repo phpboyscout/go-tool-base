@@ -7,7 +7,7 @@ package generator
 //     filepath.Join / RemoveAll sink (skip + ERROR log, valid commands
 //     still regenerate);
 //   - a tampered ManifestSigning field must never render into the
-//     CI-executed .goreleaser.yaml (signing skipped + ERROR log);
+//     CI-executed .goreleaser.yaml (regeneration refused, nothing written);
 //   - the AI doc tools must not read or list outside the project root;
 //   - ErrNotGoToolBaseProject must be a matchable, placeholder-free
 //     sentinel.
@@ -17,6 +17,8 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"testing"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -102,10 +104,13 @@ func TestRegenerateProject_SkipsTraversalCommandName(t *testing.T) {
 	assert.NotContains(t, string(rootCmd), "evil")
 }
 
-// TestRegenerateProject_SkipsInvalidSigning proves a tampered signing block
-// cannot inject YAML into the CI-executed .goreleaser.yaml: signing-block
-// rendering is skipped with an ERROR log and the rest still regenerates.
-func TestRegenerateProject_SkipsInvalidSigning(t *testing.T) {
+// TestRegenerateProject_RefusesInvalidSigning proves a tampered or invalid
+// signing block stops regeneration before anything is written: the signs
+// block cannot reach the CI-executed .goreleaser.yaml, and an author's
+// existing signing.go and trust wiring are not removed under the guise of
+// "skipping" the block (#40). Trust configuration is structural, not an
+// entry to drop.
+func TestRegenerateProject_RefusesInvalidSigning(t *testing.T) {
 	t.Parallel()
 
 	manifest := "properties:\n  name: mytool\n  signing:\n    enabled: true\n" +
@@ -113,20 +118,22 @@ func TestRegenerateProject_SkipsInvalidSigning(t *testing.T) {
 		"    key_id: \"x\\\"\\n  - artifact: pwned\"\n" +
 		"version:\n  gtb: v1.0.0\ncommands:\n  - name: good\n"
 
-	g, fs, buf := newPerimeterTestProject(t, manifest)
+	g, fs, _ := newPerimeterTestProject(t, manifest)
+	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/root/signing.go", []byte("package root\n// enforcement\n"), 0o644))
 
-	require.NoError(t, g.RegenerateProject(context.Background()))
+	err := g.RegenerateProject(context.Background())
+	require.Error(t, err, "an invalid signing block must fail regeneration")
+	assert.Contains(t, errors.FlattenHints(err), "Signing", "the hint must name the field at fault")
 
-	out, err := afero.ReadFile(fs, "/work/.goreleaser.yaml")
-	require.NoError(t, err)
-	assert.NotContains(t, string(out), "signs:", "invalid signing must skip the signs block")
-	assert.NotContains(t, string(out), "artifact: pwned")
+	exists, _ := afero.Exists(fs, "/work/.goreleaser.yaml")
+	assert.False(t, exists, "nothing is rendered when the manifest fails validation")
 
-	assert.True(t, buf.ContainsLevel(logger.ErrorLevel, "signing"),
-		"expected an ERROR-level signing skip log, got: %v", buf.Messages())
+	kept, err := afero.ReadFile(fs, "/work/pkg/cmd/root/signing.go")
+	require.NoError(t, err, "the existing signing.go must be left in place")
+	assert.Contains(t, string(kept), "enforcement")
 
-	exists, _ := afero.Exists(fs, "/work/pkg/cmd/good/cmd.go")
-	assert.True(t, exists, "valid commands must still regenerate when signing is skipped")
+	exists, _ = afero.Exists(fs, "/work/pkg/cmd/good/cmd.go")
+	assert.False(t, exists, "no command regenerates either: the tree is untouched")
 }
 
 // TestGetCommandPath_ContainedUnderPkgCmd proves the join sink itself rejects

@@ -57,3 +57,15 @@ Spec: [`0077-generator-validation-perimeter`](https://gitlab.com/phpboyscout/go-
 5. **Skip log shape**: ERROR level, message `Skipping command with invalid name in manifest` / `Skipping signing-block rendering: invalid signing configuration in manifest`, with `command` (truncated to 32 runes) and `reason` (the validator hint) attributes. Note the hint includes the truncated offending value, which slightly relaxes validate.go's "never echo the offending value above DEBUG" doc comment: the spec explicitly asked for the ERROR log to name the command. OK?
 6. **Stricter command-name rule vs existing manifests**: `ValidateCommandName` rejects names with dots or uppercase that the old (`no spaces`, not-`options`/`root`) checks allowed. Any pre-existing project whose manifest has such a command will now see that command skipped on regenerate (with an ERROR log) and a hard error if re-typed at the CLI. No manifest in this repo or its test fixtures is affected. Does this need a migration note in the changelog?
 7. **`ExternalKeyEmail` is not validated**: it renders only into generated Go source via jennifer (`jen.Lit`, auto-escaped) and was out of the spec's four fields. Confirm leaving it.
+
+---
+
+**Addendum, 2026-09-15.** The signing half of skip-not-abort was reversed
+([#40](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/40)). Skipping an
+invalid command leaves it alone; skipping an invalid signing block rendered the
+disabled state, removed `signing.go` and the root's trust wiring, and reported
+success, turning an author's `require_signature: true` into a binary without
+enforcement. `sanitiseManifest` now sanitises commands only, and
+`ValidateManifest` treats the signing block as structural: an invalid block fails
+`regenerate` before anything is written. The injection sink this note was written
+for stays closed, by refusal rather than by omission.
