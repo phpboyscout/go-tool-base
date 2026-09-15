@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.42.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.42.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.41.2...v0.42.0)
+
+### Features
+
+- **generator**: explain each wizard option, and offer every chat provider a module registers ([7fd9df6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7fd9df6a50590dae68123b299e9406da3f5da560))
+- **generator**: emit a tool's chat providers and forge adapters from its manifest ([d571684](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d57168441a9bd045501bcb20346a2d9e77aea153))
+
+### Bug Fixes
+
+- **cli**: build the generator against framework v0.41.0 ([2e1cbc2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2e1cbc24994055eaae6964640d92bac3408b2121))
+- **generator**: write the chat block into a new project's manifest ([612d686](https://gitlab.com/phpboyscout/go-tool-base/-/commit/612d686379da63b075bded640c8b6e47e7f83703))
+
 ## [v0.41.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.2)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.41.1...v0.41.2)
