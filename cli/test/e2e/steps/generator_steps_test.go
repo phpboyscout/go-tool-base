@@ -102,7 +102,7 @@ var sharedCaches = sync.OnceValue(func() map[string]string {
 	resolved := map[string]string{}
 
 	for _, name := range []string{"GOMODCACHE", "GOCACHE"} {
-		out, err := exec.Command("go", "env", name).Output() //nolint:gosec // test-only: name is a package constant
+		out, err := exec.Command("go", "env", name).Output()
 		if err != nil {
 			continue
 		}
@@ -419,7 +419,7 @@ func scaffoldProject(ctx context.Context, dirPattern string, extraArgs ...string
 		"--ci",
 	}, extraArgs...)
 
-	cmd := exec.CommandContext(ctx, path, args...) //nolint:gosec // test-only: args from Gherkin steps
+	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Dir = dir
 	cmd.Env = w.isolatedEnv()
 
@@ -529,7 +529,7 @@ func iHandEditTheGeneratedFile(ctx context.Context, relPath string) error {
 
 	full := filepath.Join(w.projectDir, relPath)
 
-	content, err := os.ReadFile(full) //nolint:gosec // test-only: path from a Gherkin step
+	content, err := os.ReadFile(full)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", relPath, err)
 	}
@@ -551,7 +551,7 @@ func iGiveTheCommandAHandWrittenRunBody(ctx context.Context, command string) err
 	relPath := filepath.Join("pkg", "cmd", command, "main.go")
 	full := filepath.Join(w.projectDir, relPath)
 
-	content, err := os.ReadFile(full) //nolint:gosec // test-only: path from a Gherkin step
+	content, err := os.ReadFile(full)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", relPath, err)
 	}

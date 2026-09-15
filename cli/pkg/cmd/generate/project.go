@@ -437,7 +437,7 @@ var scaffoldableBackends = map[props.FeatureID]bool{
 // featureLabels are the human-facing names for the features the wizard offers.
 // Forge labels are not listed: they come from the forge registry via
 // forge.DisplayFor, so a new forge needs no entry here.
-var featureLabels = map[string]string{ //nolint:gochecknoglobals // static presentation table
+var featureLabels = map[string]string{
 	"init":      "Initialization",
 	"update":    "Self-Update",
 	"mcp":       "MCP Server",
@@ -455,7 +455,7 @@ var featureLabels = map[string]string{ //nolint:gochecknoglobals // static prese
 // featureGlosses are the one-line explanations shown beside each feature in
 // the wizard. huh has no per-option description, so the gloss rides in the
 // option label as a second column (optionLabel). Forges get a generated gloss.
-var featureGlosses = map[string]string{ //nolint:gochecknoglobals // static presentation table
+var featureGlosses = map[string]string{
 	"init":      "first-run setup wizard: config file, credentials, SSH keys",
 	"update":    "self-update from the release source, with signature checks",
 	"mcp":       "serve the tool's commands to AI agents over MCP",
@@ -472,7 +472,7 @@ var featureGlosses = map[string]string{ //nolint:gochecknoglobals // static pres
 
 // providerGlosses explain each chat provider the wizard offers, in the same
 // second-column form as the features.
-var providerGlosses = map[string]string{ //nolint:gochecknoglobals // static presentation table
+var providerGlosses = map[string]string{
 	"claude":            "Anthropic API; needs an API key",
 	"claude-local":      "the claude CLI on this machine; no API key",
 	"openai":            "OpenAI API; needs an API key",

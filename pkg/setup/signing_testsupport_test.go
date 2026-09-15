@@ -28,7 +28,6 @@ type testSigningKey struct {
 	armoredPub []byte
 }
 
-//nolint:gochecknoglobals // once-initialised test fixtures shared across the package's tests
 var (
 	testKeysOnce sync.Once
 	testKeysErr  error

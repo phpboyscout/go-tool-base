@@ -17,8 +17,6 @@ import (
 //
 // A downstream tool built on GTB registers its own credentials the same way, so
 // its secrets are reported rather than silently unexamined.
-//
-//nolint:gochecknoglobals // process-wide registry, guarded below
 var (
 	registryMu  sync.RWMutex
 	registry    = map[string]Descriptor{}

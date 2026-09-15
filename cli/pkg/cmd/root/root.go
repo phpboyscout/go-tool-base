@@ -39,8 +39,6 @@ const otelInstanceID = "1576673"
 // otelAuth is injected at compile time via ldflags as a pre-encoded
 // base64("<instanceID>:<token>") string. For local development, the
 // OTEL_API_KEY env var can supply the raw token — init() encodes it.
-//
-//nolint:gochecknoglobals // ldflags injection target (-X ...root.otelAuth); the linker can only set package-level vars
 var otelAuth string
 
 func init() {

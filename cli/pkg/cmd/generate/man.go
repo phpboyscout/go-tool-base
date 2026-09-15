@@ -107,7 +107,7 @@ func (o *ManOptions) Run(cmd *cobra.Command, p *props.Props) error {
 // yields nil, which GenerateManTree treats as reproducible-no-date.
 func parseManDate(val string) (*time.Time, error) {
 	if val == "" {
-		return nil, nil //nolint:nilnil // (nil, nil) is the documented "no date" signal.
+		return nil, nil
 	}
 
 	for _, layout := range []string{time.DateOnly, time.RFC3339} {

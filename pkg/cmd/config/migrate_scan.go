@@ -64,8 +64,6 @@ type credentialDescriptor struct {
 // literal credential. Kept in sync with doctor's literalCredentialKeys
 // — adding a new entry here also warrants a corresponding doctor
 // check entry so the no-literal warning fires for it.
-//
-//nolint:gochecknoglobals // lookup table consumed read-only
 var knownCredentials = []credentialDescriptor{
 	{
 		key:               chat.ConfigKeyClaudeKey,
@@ -121,8 +119,6 @@ var knownCredentials = []credentialDescriptor{
 // credential pair. Split out so the scanner can detect and pair both
 // halves; the keychain target is the shared `bitbucket.keychain`
 // entry that holds a JSON blob.
-//
-//nolint:gochecknoglobals // lookup constants
 var (
 	bitbucketPrimary = credentialDescriptor{
 		key:               "bitbucket.username",

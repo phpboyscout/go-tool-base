@@ -79,8 +79,6 @@ const unknownKeyMessage = "unknown configuration key"
 // configuration key, not a typo the base schema simply does not enumerate — the
 // schema cannot list every feature, credential, and resilience key without
 // duplicating each one as a struct-tag literal.
-//
-//nolint:gochecknoglobals // read-only lookup table
 var frameworkConfigSections = map[string]bool{
 	"log": true, "update": true, "server": true, "telemetry": true,
 	"ai": true, "anthropic": true, "openai": true, "gemini": true, "chat": true,

@@ -99,7 +99,7 @@ func TestCmdSet_HardensPreexistingFilePerms(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("log:\n  level: info\n"), 0o644)) //nolint:gosec // deliberately loose: the test asserts the write tightens it
+	require.NoError(t, os.WriteFile(path, []byte("log:\n  level: info\n"), 0o644))
 
 	fs := afero.NewOsFs()
 	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), path))

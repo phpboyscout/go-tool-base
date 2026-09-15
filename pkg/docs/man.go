@@ -64,7 +64,6 @@ func GenerateManTree(root *cobra.Command, opts ManOptions) error {
 	// directory we hand it but does not create it.
 	manDir := filepath.Join(opts.Dir, "man"+header.Section)
 
-	//nolint:gosec // G301: man pages are a world-readable packaging artefact installed under /usr/share/man.
 	if err := os.MkdirAll(manDir, manDirPerm); err != nil {
 		return errors.Wrapf(err, "creating man output directory %q", manDir)
 	}

@@ -86,7 +86,7 @@ func (h *presentingHandler) Handle(ctx context.Context, r slog.Record) error {
 		out.AddAttrs(slog.String(hintsKey, hints))
 	}
 
-	return h.inner.Handle(ctx, out) //nolint:wrapcheck // the inner handler's error passes through untouched
+	return h.inner.Handle(ctx, out)
 }
 
 func (h *presentingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

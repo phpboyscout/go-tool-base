@@ -25,7 +25,7 @@ func Version() string {
 func readProcVersion() (string, error) {
 	b, err := os.ReadFile("/proc/version")
 
-	return string(b), err //nolint:wrapcheck // surfaced only as a fallback signal, never to the user.
+	return string(b), err
 }
 
 // version is the pure core of Version, with the OS name and the /proc reader

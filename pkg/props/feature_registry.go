@@ -76,7 +76,6 @@ var (
 	ErrPluginDefaultOn = errors.NewSentinel("gtb.props.plugin_default_on", "props: only builtin features may be default-enabled")
 )
 
-//nolint:gochecknoglobals // process-wide registry, the point of the blank-import pattern
 var (
 	featureMu       sync.RWMutex
 	featureRegistry []FeatureDescriptor
@@ -227,8 +226,6 @@ func DescriptorFor(id FeatureID) (FeatureDescriptor, bool) {
 // builtinOrder fixes the enumeration order of the built-in features, preserving
 // the sequence the constant block and the historical AllFeatures var declared.
 // Anything absent sorts after every built-in.
-//
-//nolint:gochecknoglobals // ordering table for the seeded built-ins
 var builtinOrder = []FeatureID{
 	UpdateCmd, InitCmd, McpCmd, DocsCmd, AiCmd, DoctorCmd,
 	ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
@@ -249,7 +246,6 @@ func isDefaultEnabled(id FeatureID) bool {
 	return ok && d.Default
 }
 
-//nolint:gochecknoinits // seeding the built-ins is what makes the registry the single source of truth
 func init() {
 	for _, d := range []struct {
 		id        FeatureID

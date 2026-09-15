@@ -17,8 +17,6 @@ type ProviderModuleEntry struct {
 // providerModules is the one table the generator, doctor and hints read. A
 // blank import is per module, so selecting one provider a module registers
 // links the others it registers too.
-//
-//nolint:gochecknoglobals // static table
 var providerModules = []ProviderModuleEntry{
 	{gochat.ProviderClaude, "gitlab.com/phpboyscout/go/chat-anthropic"},
 	{gochat.ProviderClaudeLocal, "gitlab.com/phpboyscout/go/chat-anthropic"},

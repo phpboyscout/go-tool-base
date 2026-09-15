@@ -76,8 +76,6 @@ const gitLabAPIHost = "gitlab.com"
 //
 // Neither may be default-enabled: a blank import changes what is available,
 // never what is on (props.ErrPluginDefaultOn).
-//
-//nolint:gochecknoinits // blank-import registration is the mechanism
 func init() {
 	props.RegisterFeature(props.FeatureDescriptor{
 		ID:           GithubFeature,

@@ -48,7 +48,7 @@ func TestCheckForgeAdapters(t *testing.T) {
 		t.Parallel()
 
 		err := forgeapi.Register("gitlab", func(context.Context, forgeapi.Endpoint, forgeapi.Config, ...forgeapi.Option) (forgeapi.Provider, error) {
-			return nil, nil //nolint:nilnil // never called: the check only asks whether the type is registered
+			return nil, nil
 		})
 		if err != nil && !errors.Is(err, forgeapi.ErrAlreadyRegistered) {
 			t.Fatal(err)

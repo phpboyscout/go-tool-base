@@ -10,8 +10,6 @@ import "gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 // close that, and they live here rather than in doctor because this package owns
 // the keys — a fourth hand-maintained list somewhere else is the problem, not
 // the fix.
-//
-//nolint:gochecknoinits // registration at import, the pattern used for features and signing backends
 func init() {
 	for _, d := range providerCredentials() {
 		credentialposture.Register(d)

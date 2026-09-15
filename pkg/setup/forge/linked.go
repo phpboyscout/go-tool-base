@@ -17,8 +17,6 @@ var ErrForgeNotLinked = errors.NewSentinel("gtb.setup.forge.not_linked", "forge 
 
 // modulesByProvider names the module that registers each forge type. Codeberg
 // is a Forgejo instance that forge-gitea serves under its own type.
-//
-//nolint:gochecknoglobals // static table
 var modulesByProvider = map[string]string{
 	"github":    "gitlab.com/phpboyscout/go/forge-github",
 	"gitlab":    "gitlab.com/phpboyscout/go/forge-gitlab",

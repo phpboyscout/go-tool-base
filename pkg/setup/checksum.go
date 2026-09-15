@@ -48,8 +48,6 @@ const requireChecksumDefault = false
 // ErrChecksumAssetNotFound is returned when the target filename is
 // not listed in the checksums manifest. The release may have been
 // created without GoReleaser or with a non-default checksums layout.
-//
-//nolint:gochecknoglobals // sentinel error
 var ErrChecksumAssetNotFound = errors.NewSentinel("gtb.setup.checksum_asset_not_found", "asset not found in checksums manifest")
 
 // ErrChecksumManifestMalformed is returned when the checksums
@@ -57,8 +55,6 @@ var ErrChecksumAssetNotFound = errors.NewSentinel("gtb.setup.checksum_asset_not_
 // (`<sha256-hex>  <filename>` per line). Rather than silently skip
 // malformed lines, the parser rejects the entire manifest so a
 // truncated or corrupted download never produces a false pass.
-//
-//nolint:gochecknoglobals // sentinel error
 var ErrChecksumManifestMalformed = errors.NewSentinel("gtb.setup.checksum_manifest_malformed", "checksums manifest is malformed")
 
 // ErrChecksumManifestDuplicate is returned when a filename appears more
@@ -66,15 +62,11 @@ var ErrChecksumManifestMalformed = errors.NewSentinel("gtb.setup.checksum_manife
 // silently letting the last one win would let a tampered manifest shadow
 // the genuine hash with an attacker-chosen one — so the whole manifest is
 // rejected.
-//
-//nolint:gochecknoglobals // sentinel error
 var ErrChecksumManifestDuplicate = errors.NewSentinel("gtb.setup.checksum_manifest_duplicate", "checksums manifest contains a duplicate filename")
 
 // ErrChecksumTooLarge is returned when either the checksums manifest
 // or the binary download exceeds its configured size bound. Indicates
 // a hostile or misbehaving server; the update aborts before hashing.
-//
-//nolint:gochecknoglobals // sentinel error
 var ErrChecksumTooLarge = errors.NewSentinel("gtb.setup.checksum_too_large", "download exceeds maximum size")
 
 // ErrBinaryTooLarge is returned when a downloaded release binary exceeds
@@ -89,8 +81,6 @@ var ErrBinaryNotInArchive = errors.NewSentinel("gtb.setup.binary_not_in_archive"
 // checksumLinePattern matches a single GoReleaser manifest entry:
 // 64 hex chars, any whitespace run, then a non-whitespace filename.
 // Compiled once at package init.
-//
-//nolint:gochecknoglobals // compiled regex, constant pattern
 var checksumLinePattern = regexp.MustCompile(`^([0-9a-fA-F]{64})\s+(\S+)$`)
 
 // manifestScannerMaxLineBytes caps a single manifest line to guard

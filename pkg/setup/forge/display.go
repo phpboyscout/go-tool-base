@@ -32,11 +32,8 @@ type Display struct {
 // profilesByFeature indexes every profile this package registers. It is built
 // once at init from the same values the initialisers use, so a forge cannot
 // appear in a chooser with display data that disagrees with its wizard.
-//
-//nolint:gochecknoglobals // the profile set is fixed at build time
 var profilesByFeature = map[props.FeatureID]Profile{}
 
-//nolint:gochecknoinits // index the profiles the other init registers
 func init() {
 	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, codebergProfile, bitbucketProfile} {
 		profilesByFeature[p.Feature] = p

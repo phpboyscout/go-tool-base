@@ -76,7 +76,6 @@ type Editor interface {
 }
 
 type storeEditor struct {
-	//nolint:containedctx // scoped to one init run; threading it through every
 	// wizard Set call site would churn the whole Initialiser surface for no
 	// cancellation gain — the viper-backed flow it replaces had none either.
 	ctx   context.Context

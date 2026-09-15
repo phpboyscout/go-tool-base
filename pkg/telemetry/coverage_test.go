@@ -348,7 +348,7 @@ func TestSpillToDisk_SplitsAcrossFiles(t *testing.T) {
 	var total int
 
 	for _, f := range files {
-		data, readErr := os.ReadFile(f) //nolint:gosec // test-controlled temp path
+		data, readErr := os.ReadFile(f)
 		require.NoError(t, readErr)
 
 		var evts []Event

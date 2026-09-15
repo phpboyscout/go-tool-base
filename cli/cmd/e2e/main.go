@@ -57,7 +57,6 @@ var assets embed.FS
 
 const otelInstanceID = "1576673"
 
-//nolint:gochecknoglobals // compile-time injection requires package-level var
 var otelAuth string
 
 func init() {

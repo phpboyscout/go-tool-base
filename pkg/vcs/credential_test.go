@@ -238,7 +238,7 @@ func TestConfigCredentialIsNotUsed(t *testing.T) {
 
 	require.NoError(t, filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err //nolint:wrapcheck // walk error is returned verbatim by contract
+			return err
 		}
 
 		if d.IsDir() {

@@ -106,7 +106,7 @@ func SettingsFromReader(
 		// TokenSource also cannot report an error, so a resolution failure is
 		// logged and reported as "no token" — the caller then fails at the
 		// operation that needed it, with this line explaining why.
-		token, err := credential(context.Background()) //nolint:contextcheck // repo.TokenSource takes no ctx and resolves after construction
+		token, err := credential(context.Background())
 		if err != nil {
 			log.Warn("could not resolve forge credential", "forge", forgeName, "error", err)
 

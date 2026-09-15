@@ -163,7 +163,7 @@ func TestProfileWithoutSSHNeverConstructsAKeyManager(t *testing.T) {
 			WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
 				factoryCalled = true
 
-				return nil, nil //nolint:nilnil // unreachable; the assertion is that it is never called
+				return nil, nil
 			}),
 		)),
 	)
