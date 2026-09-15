@@ -140,7 +140,9 @@ configuration underneath a working environment reference" read identically,
 while being an active exposure and a tidy-up respectively.
 
 `pkg/credentialposture` reports all three, for every declared credential rather
-than forges alone:
+than forges alone. A descriptor names the feature that consumes it, and `doctor`
+reports only the credentials of enabled features (`ReportEnabled`), so a tool
+without `ai` is not told about five API keys it can never use:
 
 ```text
 [!!] Credential resolution: 1 of 3 credential(s) have shadowed copies still in config

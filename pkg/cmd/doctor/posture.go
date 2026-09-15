@@ -32,7 +32,11 @@ func checkCredentialResolution(ctx context.Context, props *p.Props) CheckResult 
 		return CheckResult{Name: credentialResolutionCheck, Status: CheckSkip, Message: "no configuration loaded"}
 	}
 
-	results := credentialposture.ReportAll(ctx, props.Config.View())
+	// Only the credentials of enabled features: a tool with no forge and no
+	// ai has nothing to say about GitHub tokens or Anthropic keys (#55).
+	results := credentialposture.ReportEnabled(ctx, props.Config.View(), func(feature string) bool {
+		return props.Tool.IsEnabled(p.FeatureID(feature))
+	})
 	if len(results) == 0 {
 		return CheckResult{Name: credentialResolutionCheck, Status: CheckSkip, Message: "no credentials declared"}
 	}

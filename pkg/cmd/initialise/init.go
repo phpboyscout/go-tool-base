@@ -33,9 +33,9 @@ func NewCmdInit(props *p.Props, opts ...InitOption) *setup.Command {
 		Use:   "init",
 		Short: "Initialise configuration and bootstrap subsystems",
 		Long: `Write the tool's configuration file and run the interactive first-run
-bootstrap. Discovered subcommands offer guided setup of optional
-subsystems such as AI providers, GitHub, and Bitbucket. Re-run it any
-time to reconfigure; use --clean to reset to defaults.
+bootstrap. Each enabled feature that needs setup (an AI provider, a
+forge's credentials) contributes a subcommand. Re-run it any time to
+reconfigure; use --clean to reset to defaults.
 
 Without an interactive terminal (piped stdin, CI, or a test harness) the
 credential wizards are skipped and only the base configuration is written;
@@ -69,7 +69,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 	wrapped := setup.Wrap(p.InitCmd, initCmd)
 
 	// Dynamic Discovery of Flags
-	registerFeatureFlags(initCmd)
+	registerFeatureFlags(props, initCmd)
 
 	// Dynamic Discovery of Subcommands
 	registerSubcommands(props, wrapped)
@@ -93,8 +93,22 @@ func discoverInitialisers(props *p.Props) []setup.Initialiser {
 	return initialisers
 }
 
-func registerFeatureFlags(cmd *cobra.Command) {
-	for _, providers := range setup.GetFeatureFlags() {
+// registerFeatureFlags attaches each enabled feature's init flags, gated the
+// way registerSubcommands gates its subcommands; a tool with no forge feature
+// used to advertise every forge's --skip flag (#55).
+func registerFeatureFlags(props *p.Props, cmd *cobra.Command) {
+	registerFeatureFlagsWhere(cmd, props.Tool.IsEnabled)
+}
+
+// registerFeatureFlagsWhere attaches the init flags of every feature for
+// which include reports true. Tests use it with an always-true predicate to
+// reset the package-level flag targets.
+func registerFeatureFlagsWhere(cmd *cobra.Command, include func(p.FeatureID) bool) {
+	for feature, providers := range setup.GetFeatureFlags() {
+		if !include(feature) {
+			continue
+		}
+
 		for _, provider := range providers {
 			provider(cmd)
 		}

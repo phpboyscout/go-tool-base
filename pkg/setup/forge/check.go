@@ -62,6 +62,7 @@ func declareCredentials(profile Profile) {
 	if profile.Credential == SingleToken {
 		credentialposture.Register(credentialposture.Descriptor{
 			Owner:       "forge:" + profile.Provider,
+			Feature:     string(profile.Feature),
 			Label:       profile.Label + " credential",
 			EnvKey:      profile.ConfigPrefix + ".auth.env",
 			KeychainKey: profile.ConfigPrefix + ".auth.keychain",
@@ -77,6 +78,7 @@ func declareCredentials(profile Profile) {
 	// alone.
 	credentialposture.Register(credentialposture.Descriptor{
 		Owner:       "forge:" + profile.Provider,
+		Feature:     string(profile.Feature),
 		Label:       profile.Label + " username",
 		EnvKey:      profile.ConfigPrefix + ".username.env",
 		LiteralKey:  profile.ConfigPrefix + ".username",
@@ -84,6 +86,7 @@ func declareCredentials(profile Profile) {
 	})
 	credentialposture.Register(credentialposture.Descriptor{
 		Owner:       "forge:" + profile.Provider,
+		Feature:     string(profile.Feature),
 		Label:       profile.Label + " app password",
 		EnvKey:      profile.ConfigPrefix + ".app_password.env",
 		LiteralKey:  profile.ConfigPrefix + ".app_password",
