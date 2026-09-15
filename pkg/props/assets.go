@@ -40,24 +40,10 @@ const FrameworkBundle = "framework"
 //go:embed assets/*
 var frameworkAssets embed.FS
 
-// Assets is an interface that wraps a map of fs.FS pointers and implements the standard fs interfaces.
-type Assets interface {
-	fs.FS
-	fs.ReadDirFS
-	fs.GlobFS
-	fs.StatFS
-
-	Slice() []fs.FS
-	Names() []string
-	Get(name string) fs.FS
-	Register(name string, fs fs.FS)
-	For(names ...string) Assets
-	Merge(others ...Assets) Assets
-	Exists(name string) (fs.FS, error)
-	Mount(f fs.FS, prefix string)
-}
-
-type embeddedAssets struct {
+// Assets is a named set of fs.FS bundles that reads as one filesystem:
+// static files shadow by registration order, structured config files merge.
+// It implements fs.FS, fs.ReadDirFS, fs.GlobFS and fs.StatFS.
+type Assets struct {
 	embedded map[string]fs.FS
 	order    []string
 	// log, when set, receives a WARN when a bundle contributing to a merged
@@ -71,7 +57,7 @@ type embeddedAssets struct {
 // of vanishing silently. It is deliberately not part of the Assets interface —
 // the framework wires it during root construction via a type assertion, and a
 // nil logger simply keeps the previous silent behaviour.
-func (a *embeddedAssets) SetLogger(l logger.Logger) {
+func (a *Assets) SetLogger(l logger.Logger) {
 	if a != nil {
 		a.log = l
 	}
@@ -79,8 +65,8 @@ func (a *embeddedAssets) SetLogger(l logger.Logger) {
 
 // newEmbeddedAssets returns an empty wrapper with no implicit bundles —
 // the internal constructor subset operations (For) build their results with.
-func newEmbeddedAssets() *embeddedAssets {
-	return &embeddedAssets{
+func newAssets() *Assets {
+	return &Assets{
 		embedded: make(map[string]fs.FS),
 		order:    make([]string, 0),
 	}
@@ -90,8 +76,8 @@ func newEmbeddedAssets() *embeddedAssets {
 // The framework's baseline bundle registers first, so every later bundle —
 // the tool's own, feature bundles applied at root construction — overrides
 // it in the merged structured reads.
-func NewAssets(assets ...AssetMap) Assets {
-	a := newEmbeddedAssets()
+func NewAssets(assets ...AssetMap) *Assets {
+	a := newAssets()
 
 	a.Register(FrameworkBundle, &frameworkAssets)
 
@@ -111,7 +97,7 @@ func NewAssets(assets ...AssetMap) Assets {
 	return a
 }
 
-func (a *embeddedAssets) Names() []string {
+func (a *Assets) Names() []string {
 	if a == nil {
 		return nil
 	}
@@ -119,7 +105,7 @@ func (a *embeddedAssets) Names() []string {
 	return a.order
 }
 
-func (a *embeddedAssets) Exists(name string) (fs.FS, error) {
+func (a *Assets) Exists(name string) (fs.FS, error) {
 	if a == nil {
 		return nil, fs.ErrNotExist
 	}
@@ -141,7 +127,7 @@ func (a *embeddedAssets) Exists(name string) (fs.FS, error) {
 }
 
 // Open implements the fs.FS interface.
-func (a *embeddedAssets) Open(name string) (fs.File, error) {
+func (a *Assets) Open(name string) (fs.File, error) {
 	if a == nil {
 		return nil, fs.ErrNotExist
 	}
@@ -170,7 +156,7 @@ func (a *embeddedAssets) Open(name string) (fs.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-func (a *embeddedAssets) openMergedStructured(name, ext string) (fs.File, error) {
+func (a *Assets) openMergedStructured(name, ext string) (fs.File, error) {
 	var merged map[string]any
 
 	found := false
@@ -234,7 +220,7 @@ func marshalStructuredData(merged map[string]any, ext string) ([]byte, error) {
 	return output, err
 }
 
-func (a *embeddedAssets) processAssetFile(fsName, name, ext string) (map[string]any, error) {
+func (a *Assets) processAssetFile(fsName, name, ext string) (map[string]any, error) {
 	ef := a.embedded[fsName]
 	if ef == nil {
 		return nil, fs.ErrNotExist
@@ -278,7 +264,7 @@ func unmarshalStructuredData(data []byte, ext string) (map[string]any, error) {
 
 // readCSVFromFS reads all CSV rows from a single filesystem.
 // The file is closed before this function returns.
-func (a *embeddedAssets) readCSVFromFS(ef fs.FS, name string) ([][]string, error) {
+func (a *Assets) readCSVFromFS(ef fs.FS, name string) ([][]string, error) {
 	f, err := ef.Open(name)
 	if err != nil {
 		return nil, err
@@ -291,7 +277,7 @@ func (a *embeddedAssets) readCSVFromFS(ef fs.FS, name string) ([][]string, error
 	return reader.ReadAll()
 }
 
-func (a *embeddedAssets) openMergedCSV(name string) (fs.File, error) {
+func (a *Assets) openMergedCSV(name string) (fs.File, error) {
 	var allRows [][]string
 
 	found := false
@@ -365,7 +351,7 @@ func formatFlatKV(m map[string]any) string {
 }
 
 // Stat implements fs.StatFS.
-func (a *embeddedAssets) Stat(name string) (fs.FileInfo, error) {
+func (a *Assets) Stat(name string) (fs.FileInfo, error) {
 	if a == nil {
 		return nil, fs.ErrNotExist
 	}
@@ -386,7 +372,7 @@ func (a *embeddedAssets) Stat(name string) (fs.FileInfo, error) {
 }
 
 // ReadDir implements fs.ReadDirFS.
-func (a *embeddedAssets) ReadDir(name string) ([]fs.DirEntry, error) {
+func (a *Assets) ReadDir(name string) ([]fs.DirEntry, error) {
 	if a == nil {
 		return nil, fs.ErrNotExist
 	}
@@ -431,7 +417,7 @@ func (a *embeddedAssets) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 // Glob implements fs.GlobFS.
-func (a *embeddedAssets) Glob(pattern string) ([]string, error) {
+func (a *Assets) Glob(pattern string) ([]string, error) {
 	if a == nil {
 		return nil, fs.ErrNotExist
 	}
@@ -465,7 +451,7 @@ func (a *embeddedAssets) Glob(pattern string) ([]string, error) {
 }
 
 // Mount attaches a filesystem at a specific prefix.
-func (a *embeddedAssets) Mount(f fs.FS, prefix string) {
+func (a *Assets) Mount(f fs.FS, prefix string) {
 	if a == nil || f == nil {
 		return
 	}
@@ -497,7 +483,7 @@ func (m *mountedFS) Open(name string) (fs.File, error) {
 }
 
 // Slice returns the internal slice of fs.FS pointers in order.
-func (a *embeddedAssets) Slice() []fs.FS {
+func (a *Assets) Slice() []fs.FS {
 	if a == nil {
 		return nil
 	}
@@ -511,7 +497,7 @@ func (a *embeddedAssets) Slice() []fs.FS {
 }
 
 // Register adds the given filesystem to the wrapper with a name.
-func (a *embeddedAssets) Register(name string, fs fs.FS) {
+func (a *Assets) Register(name string, fs fs.FS) {
 	if a == nil {
 		return
 	}
@@ -524,7 +510,7 @@ func (a *embeddedAssets) Register(name string, fs fs.FS) {
 }
 
 // Get returns the filesystem registered with the given name.
-func (a *embeddedAssets) Get(name string) fs.FS {
+func (a *Assets) Get(name string) fs.FS {
 	if a == nil {
 		return nil
 	}
@@ -534,8 +520,8 @@ func (a *embeddedAssets) Get(name string) fs.FS {
 
 // For returns a subset of assets identified by the given names — exactly
 // those, with no implicit framework bundle.
-func (a *embeddedAssets) For(names ...string) Assets {
-	res := newEmbeddedAssets()
+func (a *Assets) For(names ...string) *Assets {
+	res := newAssets()
 
 	for _, name := range names {
 		if fs, ok := a.embedded[name]; ok {
@@ -547,7 +533,7 @@ func (a *embeddedAssets) For(names ...string) Assets {
 }
 
 // Merge appends the internal filesystems of the given Assets to the current wrapper and returns it.
-func (a *embeddedAssets) Merge(others ...Assets) Assets {
+func (a *Assets) Merge(others ...*Assets) *Assets {
 	if a == nil {
 		return nil
 	}

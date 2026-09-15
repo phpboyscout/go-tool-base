@@ -28,9 +28,9 @@ type Props struct {
 	// values must agree with each other, use Config.With so they all resolve
 	// against the same snapshot rather than straddling a reload.
 	Config       *config.Store
-	Assets       Assets
+	Assets       *Assets
 	FS           afero.Fs
-	Version      version.Version
+	Version      version.Info
 	ErrorHandler errorhandling.ErrorHandler
 	// Collector is always non-nil once the root command tree is built: the
 	// bootstrap defaults it to a NoopCollector and later replaces it with the
@@ -109,13 +109,13 @@ func SlogLogger(p *Props) *slog.Logger {
 func (p *Props) GetConfigFS() config.FS { return configafero.Wrap(p.FS) }
 
 // GetAssets returns the embedded assets.
-func (p *Props) GetAssets() Assets { return p.Assets }
+func (p *Props) GetAssets() *Assets { return p.Assets }
 
 // GetFS returns the application filesystem.
 func (p *Props) GetFS() afero.Fs { return p.FS }
 
 // GetVersion returns the version information.
-func (p *Props) GetVersion() version.Version { return p.Version }
+func (p *Props) GetVersion() version.Info { return p.Version }
 
 // GetErrorHandler returns the error handler.
 func (p *Props) GetErrorHandler() errorhandling.ErrorHandler { return p.ErrorHandler }

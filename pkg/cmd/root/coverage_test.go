@@ -550,10 +550,10 @@ func TestResolveVersionString(t *testing.T) {
 	t.Parallel()
 
 	withVersion := &p.Props{Version: ver.NewInfo("v1.2.3", "", "")}
-	assert.Equal(t, "v1.2.3", resolveVersionString(withVersion))
+	assert.Equal(t, "v1.2.3", withVersion.Version.GetVersion())
 
-	nilVersion := &p.Props{}
-	assert.Empty(t, resolveVersionString(nilVersion))
+	unset := &p.Props{}
+	assert.Empty(t, unset.Version.GetVersion(), "a zero Info reads as no version, no nil check needed")
 }
 
 // --- telemetry consent persistence -----------------------------------------

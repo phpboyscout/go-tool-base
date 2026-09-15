@@ -608,7 +608,7 @@ func isCIEnvironment(view *config.View) bool {
 func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) bool {
 	// Skip update checks in various conditions
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
-		(props.Version != nil && props.Version.IsDevelopment()) ||
+		props.Version.IsDevelopment() ||
 		state.redirectingToUpdate ||
 		isCIEnvironment(view) {
 		return true
@@ -751,7 +751,7 @@ func performUpdate(ctx context.Context, props *p.Props, result *UpdateCheckResul
 // persistent reminder for users who declined an update or run a disabled-policy
 // tool — and costs no network call. Skipped for development builds.
 func warnIfBehindCached(props *p.Props) {
-	if props.Version == nil || props.Version.IsDevelopment() {
+	if props.Version.IsDevelopment() {
 		return
 	}
 
@@ -851,9 +851,7 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 
 	// Wire the logger into Assets so a malformed embedded bundle surfaces as a
 	// WARN during merged structured reads instead of vanishing silently.
-	if setter, ok := any(props.Assets).(interface{ SetLogger(logger.Logger) }); ok {
-		setter.SetLogger(props.Logger)
-	}
+	props.Assets.SetLogger(props.Logger)
 
 	// Feature-gated asset bundles: apply every enabled feature's registered
 	// bundle before the command tree is built, so the merged defaults and
@@ -1453,16 +1451,6 @@ func promptTelemetryConsent(ctx context.Context, props *p.Props, opts ...Consent
 	}
 }
 
-// resolveVersionString returns the tool version, or "" when Props was built
-// without a Version (the interface field is nilable on hand-constructed Props).
-func resolveVersionString(props *p.Props) string {
-	if props.Version == nil {
-		return ""
-	}
-
-	return props.Version.GetVersion()
-}
-
 // buildTelemetryCollector creates the appropriate telemetry collector based on
 // feature flags, user config, environment variables, and tool-author settings.
 func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Collector {
@@ -1471,7 +1459,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 	// Version is an interface and may be nil on a hand-constructed Props (the
 	// scaffold always sets it, but downstream tools need not). Resolve it once
 	// with a nil guard, mirroring shouldSkipUpdateCheck and the doctor command.
-	version := resolveVersionString(props)
+	version := props.Version.GetVersion()
 
 	if props.Tool.IsDisabled(p.TelemetryCmd) {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
@@ -1536,7 +1524,7 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 	case props.Tool.Telemetry.OTelEndpoint != "":
 		opts := []telemetry.OTelOption{
 			telemetry.WithOTelLogger(logger.ToSlog(props.Logger)),
-			telemetry.WithOTelService(props.Tool.Name, resolveVersionString(props)),
+			telemetry.WithOTelService(props.Tool.Name, props.Version.GetVersion()),
 		}
 
 		if props.Tool.Telemetry.OTelInsecure {

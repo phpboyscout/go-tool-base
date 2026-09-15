@@ -181,8 +181,7 @@ var (
 func main() {
     p := &props.Props{
         Tool: tool,
-        // Props.Version is the version.Version interface; use the concrete
-        // version.Info (or version.NewInfo(version, commit, date)).
+        // Props.Version is a version.Info; NewInfo normalises the v prefix.
         Version: version.NewInfo(version, commit, ""),
     }
     // ...

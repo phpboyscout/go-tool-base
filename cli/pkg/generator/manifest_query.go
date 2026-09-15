@@ -249,9 +249,7 @@ func (g *Generator) removeFromManifest() error {
 		return errors.Newf("command %s not found in manifest", g.config.Name)
 	}
 
-	if g.props.Version != nil {
-		m.Version.GoToolBase = g.props.Version.GetVersion()
-	}
+	m.Version.GoToolBase = g.props.Version.GetVersion()
 
 	return g.marshalManifestFile(manifestPath, m)
 }

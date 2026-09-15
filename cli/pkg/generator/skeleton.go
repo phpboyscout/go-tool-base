@@ -136,11 +136,7 @@ func extractReleaseProvider(data any) string {
 }
 
 func (g *Generator) currentVersion() string {
-	if g.props.Version != nil {
-		return g.props.Version.GetVersion()
-	}
-
-	return ""
+	return g.props.Version.GetVersion()
 }
 
 func resolveGoVersion(configured string) string {
@@ -1008,13 +1004,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 			Private: config.Private,
 		},
 		Version: ManifestVersion{
-			GoToolBase: func() string {
-				if g.props.Version != nil {
-					return g.props.Version.GetVersion()
-				}
-
-				return ""
-			}(),
+			GoToolBase: g.props.Version.GetVersion(),
 		},
 		Hashes: fileHashes,
 	}

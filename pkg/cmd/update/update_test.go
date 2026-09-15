@@ -29,7 +29,7 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 	props := &p.Props{
 		Logger:  logger.NewNoop(),
 		FS:      afero.NewMemMapFs(),
-		Version: &mockVersion{version: "v1.0.0"},
+		Version: version.NewInfo("v1.0.0", "head", "now"),
 	}
 
 	cmd := update.NewCmdUpdate(props, update.WithUpdater(
@@ -180,12 +180,10 @@ func TestUpdate(t *testing.T) {
 	t.Parallel()
 
 	props := &p.Props{
-		FS:     afero.NewMemMapFs(),
-		Tool:   p.Tool{Name: "test-tool"},
-		Logger: logger.NewNoop(),
-		Version: func() version.Version {
-			return &mockVersion{version: "v1.0.0"}
-		}(),
+		FS:      afero.NewMemMapFs(),
+		Tool:    p.Tool{Name: "test-tool"},
+		Logger:  logger.NewNoop(),
+		Version: version.NewInfo("v1.0.0", "head", "now"),
 	}
 
 	t.Run("successful_update", func(t *testing.T) {
@@ -248,7 +246,7 @@ func TestUpdate_WithUpdaterOption(t *testing.T) {
 		FS:      afero.NewMemMapFs(),
 		Tool:    p.Tool{Name: "test-tool"},
 		Logger:  logger.NewNoop(),
-		Version: &mockVersion{version: "v1.0.0"},
+		Version: version.NewInfo("v1.0.0", "head", "now"),
 	}
 
 	mu := &mockUpdater{latestVersion: "v1.2.0", binPath: "/tmp/new-bin"}
@@ -274,7 +272,7 @@ func TestUpdateFromFile_WithOfflineUpdaterOption(t *testing.T) {
 		FS:      afero.NewMemMapFs(),
 		Tool:    p.Tool{Name: "test-tool"},
 		Logger:  logger.NewNoop(),
-		Version: &mockVersion{version: "v1.0.0"},
+		Version: version.NewInfo("v1.0.0", "head", "now"),
 	}
 
 	called := false
@@ -290,17 +288,6 @@ func TestUpdateFromFile_WithOfflineUpdaterOption(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	assert.True(t, called, "injected offline updater factory must be consulted")
 }
-
-type mockVersion struct {
-	version string
-}
-
-func (m *mockVersion) GetVersion() string       { return m.version }
-func (m *mockVersion) GetCommit() string        { return "head" }
-func (m *mockVersion) GetDate() string          { return "now" }
-func (m *mockVersion) String() string           { return m.version }
-func (m *mockVersion) Compare(other string) int { return version.CompareVersions(m.version, other) }
-func (m *mockVersion) IsDevelopment() bool      { return false }
 
 func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
 	t.Parallel()

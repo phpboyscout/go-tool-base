@@ -16,7 +16,7 @@ import (
 func TestSetLogger_NilReceiverSafe(t *testing.T) {
 	t.Parallel()
 
-	var a *embeddedAssets
+	var a *Assets
 	assert.NotPanics(t, func() { a.SetLogger(logger.NewNoop()) })
 }
 
@@ -29,7 +29,7 @@ func TestOpenMerged_MalformedBundleWarns(t *testing.T) {
 	good := fstest.MapFS{"conf/app.yaml": &fstest.MapFile{Data: []byte("log:\n  level: info\n")}}
 	broken := fstest.MapFS{"conf/app.yaml": &fstest.MapFile{Data: []byte("log: [unterminated\n")}}
 
-	a := newEmbeddedAssets()
+	a := newAssets()
 	a.Register("good", good)
 	a.Register("broken", broken)
 
@@ -73,7 +73,7 @@ func TestOpenMerged_MissingFileNotWarned(t *testing.T) {
 	present := fstest.MapFS{"conf/app.yaml": &fstest.MapFile{Data: []byte("a: 1\n")}}
 	absent := fstest.MapFS{"other.yaml": &fstest.MapFile{Data: []byte("b: 2\n")}}
 
-	a := newEmbeddedAssets()
+	a := newAssets()
 	a.Register("present", present)
 	a.Register("absent", absent)
 

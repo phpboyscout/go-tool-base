@@ -131,7 +131,7 @@ func ManPagePaths(root *cobra.Command, opts ManOptions) []string {
 // build-time "generate man" and runtime "man" commands so both emit an
 // identical footer.
 func ManSource(name string, p *props.Props) string {
-	if p != nil && p.Version != nil {
+	if p != nil {
 		if v := p.Version.GetVersion(); v != "" {
 			return name + " " + v
 		}

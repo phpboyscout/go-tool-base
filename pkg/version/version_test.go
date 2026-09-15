@@ -107,6 +107,3 @@ func TestCompareVersions(t *testing.T) {
 		})
 	}
 }
-
-// Compile-time interface satisfaction check.
-var _ Version = Info{}

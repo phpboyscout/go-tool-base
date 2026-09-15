@@ -312,7 +312,7 @@ p.Tool.Help = props.SlackHelp{
 
 ### Version Information
 
-Version tracking for updates and display. The `Version` field on `Props` uses the `version.Version` interface from `pkg/version`:
+Version tracking for updates and display. The `Version` field on `Props` is a `version.Info` value from `pkg/version`; its zero value means the binary was not stamped (`IsZero()`), and reads as a development build:
 
 
 > [!NOTE]

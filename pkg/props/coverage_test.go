@@ -19,7 +19,7 @@ import (
 
 // newTestProps wires a *Props with hermetic, valid defaults for accessor and
 // provider-dispatch tests.
-func newTestProps(t *testing.T) (*Props, logger.Logger, *config.Store, Assets, afero.Fs, version.Version, errorhandling.ErrorHandler, Tool, NoopCollector) {
+func newTestProps(t *testing.T) (*Props, logger.Logger, *config.Store, *Assets, afero.Fs, version.Info, errorhandling.ErrorHandler, Tool, NoopCollector) {
 	log := logger.NewNoop()
 	memFS := afero.NewMemMapFs()
 	cfg, err := config.NewStore(t.Context(),
@@ -90,9 +90,9 @@ func TestProps_SatisfiesProviders(t *testing.T) {
 	assert.NotNil(t, p.GetCollector())
 }
 
-// nilAssets returns a typed-nil *embeddedAssets exercising the nil-receiver
+// nilAssets returns a typed-nil *Assets exercising the nil-receiver
 // defensive guards on the unexported implementation.
-func nilAssets() *embeddedAssets { return nil }
+func nilAssets() *Assets { return nil }
 
 // TestEmbeddedAssets_NilReceiverGuards drives every method's `a == nil` branch.
 func TestEmbeddedAssets_NilReceiverGuards(t *testing.T) {
@@ -131,7 +131,7 @@ func TestEmbeddedAssets_NilReceiverGuards(t *testing.T) {
 func TestEmbeddedAssets_NilEntriesSkipped(t *testing.T) {
 	t.Parallel()
 
-	a := &embeddedAssets{
+	a := &Assets{
 		embedded: map[string]fs.FS{
 			"nilfs": nil,
 			"real":  fstest.MapFS{"file.txt": &fstest.MapFile{Data: []byte("hi")}},
@@ -153,7 +153,7 @@ func TestEmbeddedAssets_NilEntriesSkipped(t *testing.T) {
 	assert.Equal(t, "file.txt", info.Name())
 
 	// ReadDir / Glob skip nil entries (and a directory listing must still work).
-	dirA := &embeddedAssets{
+	dirA := &Assets{
 		embedded: map[string]fs.FS{
 			"nilfs": nil,
 			"real":  fstest.MapFS{"d/x.txt": &fstest.MapFile{}},
@@ -249,7 +249,7 @@ func TestUnmarshalStructuredData_Unsupported(t *testing.T) {
 func TestProcessAssetFile_OpenError(t *testing.T) {
 	t.Parallel()
 
-	a := &embeddedAssets{
+	a := &Assets{
 		embedded: map[string]fs.FS{"a": fstest.MapFS{}},
 		order:    []string{"a"},
 	}
@@ -263,7 +263,7 @@ func TestProcessAssetFile_OpenError(t *testing.T) {
 func TestProcessAssetFile_NilFS(t *testing.T) {
 	t.Parallel()
 
-	a := &embeddedAssets{
+	a := &Assets{
 		embedded: map[string]fs.FS{"a": nil},
 		order:    []string{"a"},
 	}

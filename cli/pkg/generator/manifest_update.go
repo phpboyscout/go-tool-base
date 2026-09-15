@@ -46,9 +46,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 	pathParts := g.getParentPathParts()
 
 	// Update version
-	if g.props.Version != nil {
-		m.Version.GoToolBase = g.props.Version.GetVersion()
-	}
+	m.Version.GoToolBase = g.props.Version.GetVersion()
 
 	g.props.Logger.Debug("manifest update", "parent", pathParts, "flags", len(mFlags), "hashes", len(hashes))
 

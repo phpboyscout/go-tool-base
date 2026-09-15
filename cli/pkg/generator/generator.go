@@ -247,13 +247,10 @@ func (g *Generator) verifyProject() error {
 }
 
 func (g *Generator) checkManifestVersion(m *Manifest) error {
-	cliVer := ""
-	if g.props.Version != nil {
-		cliVer = g.props.Version.GetVersion()
-	}
+	cliVer := g.props.Version.GetVersion()
 
 	// Dev builds bypass checks
-	if g.props.Version == nil || g.props.Version.IsDevelopment() || cliVer == "" {
+	if cliVer == "" || g.props.Version.IsDevelopment() {
 		return nil
 	}
 

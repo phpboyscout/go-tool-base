@@ -14,7 +14,7 @@ GTB's `Assets` system lets you bundle files (YAML configs, templates, CSV data, 
 
 ## How Merging Works
 
-The `Assets` interface maintains a named, ordered registry of `fs.FS` values:
+The `Assets` type maintains a named, ordered registry of `fs.FS` values:
 
 - **Structured files** (`.yaml`, `.yml`, `.json`, `.toml`, `.csv`, etc.): merged in registration order, with later registrations overriding earlier ones (forward merge).
 - **Static files** (everything else): last registered wins (shadowing).

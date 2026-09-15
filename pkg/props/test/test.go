@@ -47,8 +47,8 @@ type options struct {
 	logger     logger.Logger
 	fs         afero.Fs
 	collector  props.TelemetryCollector
-	version    version.Version
-	assets     props.Assets
+	version    version.Info
+	assets     *props.Assets
 	config     *config.Store
 	errHandler errorhandling.ErrorHandler
 }
@@ -77,12 +77,12 @@ func WithCollector(c props.TelemetryCollector) Option {
 }
 
 // WithVersion overrides the default deterministic test version.
-func WithVersion(v version.Version) Option {
+func WithVersion(v version.Info) Option {
 	return func(o *options) { o.version = v }
 }
 
 // WithAssets overrides the default empty Assets container.
-func WithAssets(a props.Assets) Option {
+func WithAssets(a *props.Assets) Option {
 	return func(o *options) { o.assets = a }
 }
 
@@ -175,7 +175,7 @@ func New(opts ...Option) *props.Props {
 		o.collector = props.NoopCollector{}
 	}
 
-	if o.version == nil {
+	if o.version.IsZero() {
 		o.version = version.NewInfo("v0.0.0-test", "test", "1970-01-01T00:00:00Z")
 	}
 

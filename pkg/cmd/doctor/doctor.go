@@ -114,9 +114,7 @@ func RunChecks(ctx context.Context, props *p.Props) *DoctorReport {
 		Tool: props.Tool.Name,
 	}
 
-	if props.Version != nil {
-		report.Version = props.Version.GetVersion()
-	}
+	report.Version = props.Version.GetVersion()
 
 	// Run built-in checks
 	for _, check := range DefaultChecks(props) {

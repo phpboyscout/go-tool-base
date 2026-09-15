@@ -15,10 +15,10 @@ import (
 type Option func(*Props)
 
 // WithAssets sets the embedded assets bundle.
-func WithAssets(a Assets) Option { return func(p *Props) { p.Assets = a } }
+func WithAssets(a *Assets) Option { return func(p *Props) { p.Assets = a } }
 
 // WithVersion sets the runtime/ldflags version info.
-func WithVersion(v version.Version) Option { return func(p *Props) { p.Version = v } }
+func WithVersion(v version.Info) Option { return func(p *Props) { p.Version = v } }
 
 // WithErrorHandler sets the structured error handler. When omitted, New
 // defaults one built from the logger and Tool.Help.
@@ -79,10 +79,6 @@ func (p *Props) ApplyDefaults() {
 
 	if p.ErrorHandler == nil && p.Logger != nil {
 		p.ErrorHandler = errorhandling.New(logger.ToSlog(p.Logger), p.Tool.Help)
-	}
-
-	if p.Version == nil {
-		p.Version = version.NewInfo("", "", "")
 	}
 }
 

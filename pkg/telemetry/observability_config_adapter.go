@@ -28,9 +28,7 @@ func ObservabilitySettingsFromProps(p *props.Props) ObservabilitySettings {
 	settings.ServiceName = p.Tool.Name
 
 	settings.Logger = props.SlogLogger(p)
-	if p.Version != nil {
-		settings.Version = p.Version.GetVersion()
-	}
+	settings.Version = p.Version.GetVersion()
 
 	// One pinned view for every read below, so the per-signal sections and the
 	// tuning keys resolve against the same snapshot.

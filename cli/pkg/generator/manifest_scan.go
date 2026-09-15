@@ -60,9 +60,7 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	// them (keryx defect B; and the diataxis docs_layout regression).
 	g.applyRecoveredProperties(&m, manifestExisted)
 
-	if g.props.Version != nil {
-		m.Version.GoToolBase = g.props.Version.GetVersion()
-	}
+	m.Version.GoToolBase = g.props.Version.GetVersion()
 
 	if g.config.DryRun {
 		return g.previewManifest(manifestPath, m)

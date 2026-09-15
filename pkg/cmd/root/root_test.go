@@ -9,6 +9,8 @@ import (
 	"testing/fstest"
 	"time"
 
+	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
+
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -725,6 +727,9 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 				},
 				Config: mockCfg,
 				FS:     afero.NewMemMapFs(),
+				// A release version: an unstamped (zero) Version is a
+				// development build and skips the check on its own.
+				Version: ver.NewInfo("v1.0.0", "", ""),
 			}
 
 			// Create command, with the exempting metadata under test: a

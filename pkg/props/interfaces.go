@@ -32,7 +32,7 @@ type ConfigProvider interface {
 
 // AssetProvider provides access to embedded assets.
 type AssetProvider interface {
-	GetAssets() Assets
+	GetAssets() *Assets
 }
 
 // ToolMetadataProvider provides access to tool configuration and metadata.

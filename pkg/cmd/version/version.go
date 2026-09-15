@@ -45,10 +45,6 @@ func NewCmdVersion(props *p.Props) *setup.Command {
 	// Version is a nilable interface field. The root defaults it, but guard here
 	// too (belt-and-braces) so a downstream constructing the version command
 	// from a hand-built Props does not panic dereferencing a nil Version.
-	if props.Version == nil {
-		props.Version = ver.NewInfo("", "", "")
-	}
-
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version, commit, and build date",

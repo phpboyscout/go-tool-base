@@ -374,9 +374,9 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 	}
 
 	// Version may be unset in tests that only exercise release-client
-	// resolution; guard rather than dereference a nil provider.
+	// resolution; a zero Info formats to "" rather than a stray "v".
 	currentVersion := ""
-	if p.Version != nil {
+	if !p.Version.IsZero() {
 		currentVersion = ver.FormatVersionString(p.Version.GetVersion(), true)
 	}
 

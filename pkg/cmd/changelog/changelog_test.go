@@ -18,7 +18,7 @@ import (
 
 // assetsWith builds a props.Assets exposing a CHANGELOG.md at the path the
 // command reads (assets/CHANGELOG.md) with the given content.
-func assetsWith(content string) props.Assets {
+func assetsWith(content string) *props.Assets {
 	return props.NewAssets(props.AssetMap{
 		"test": fstest.MapFS{
 			changelogAssetPath: &fstest.MapFile{Data: []byte(content)},

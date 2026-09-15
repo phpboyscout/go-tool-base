@@ -393,7 +393,7 @@ func TestOpenMergedCSV_FilesClosedPromptly(t *testing.T) {
 		"data.csv": &fstest.MapFile{Data: []byte("3,carol")},
 	}}
 
-	a := &embeddedAssets{
+	a := &Assets{
 		embedded: map[string]fs.FS{"a": spy1, "b": spy2, "c": spy3},
 		order:    []string{"a", "b", "c"},
 	}

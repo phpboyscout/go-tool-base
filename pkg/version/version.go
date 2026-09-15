@@ -7,22 +7,16 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// Version defines the interface for project version information.
-type Version interface {
-	GetVersion() string
-	GetCommit() string
-	GetDate() string
-	String() string
-	Compare(other string) int
-	IsDevelopment() bool
-}
-
-// Info holds the concrete version information.
+// Info holds a build's version information. Its zero value means the
+// binary was not stamped; see IsZero.
 type Info struct {
 	Version string `json:"version" yaml:"version"`
 	Commit  string `json:"commit" yaml:"commit"`
 	Date    string `json:"date" yaml:"date"`
 }
+
+// IsZero reports whether no version was stamped into the binary.
+func (i Info) IsZero() bool { return i == Info{} }
 
 // NewInfo creates a new Info instance.
 func NewInfo(v, c, d string) Info {

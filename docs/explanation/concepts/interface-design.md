@@ -196,21 +196,20 @@ store.AddObserver(&ConfigReloader{service: myService})
 **Purpose:** Unified access to embedded filesystems with automatic merging.
 
 ```go
-type Assets interface {
-    fs.FS
-    fs.ReadDirFS
-    fs.GlobFS
-    fs.StatFS
-    
-    Slice() []fs.FS
-    Names() []string
-    Get(name string) fs.FS
-    Register(name string, fs fs.FS)
-    For(names ...string) Assets
-    Merge(others ...Assets) Assets
-    Exists(name string) (fs.FS, error)
-    Mount(f fs.FS, prefix string)
-}
+// Assets is a concrete type: one implementation, so no interface stands in
+// front of it. It satisfies fs.FS, fs.ReadDirFS, fs.GlobFS and fs.StatFS.
+type Assets struct { /* named, ordered fs.FS bundles */ }
+
+func NewAssets(assets ...AssetMap) *Assets
+func (a *Assets) Slice() []fs.FS
+func (a *Assets) Names() []string
+func (a *Assets) Get(name string) fs.FS
+func (a *Assets) Register(name string, fs fs.FS)
+func (a *Assets) For(names ...string) *Assets
+func (a *Assets) Merge(others ...*Assets) *Assets
+func (a *Assets) Exists(name string) (fs.FS, error)
+func (a *Assets) Mount(f fs.FS, prefix string)
+func (a *Assets) SetLogger(l logger.Logger)
 ```
 
 **Primary Implementation:** `*embeddedAssets`
