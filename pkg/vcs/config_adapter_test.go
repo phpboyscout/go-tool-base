@@ -1,7 +1,10 @@
 package vcs
 
 import (
+	"context"
 	"testing"
+
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -118,4 +121,40 @@ func TestEndpointSectionResolvesTheTypeSubtree(t *testing.T) {
 		require.Error(t, forge.Endpoint{}.Validate(),
 			"Validate is the guard that keeps this endpoint away from a provider")
 	})
+}
+
+// TestConfigFromReader_HidesTheKeysGTBDereferences pins #76. GTB reads
+// auth.env and auth.keychain itself (they are pointers the ForgeCredential
+// chain dereferences); go/forge no longer reads them and reports a config
+// carrying them as stale when auth.value yields nothing. The adapter GTB hands
+// to a provider factory therefore presents the resolved credential as
+// auth.value and shows the pointer keys as unset.
+func TestConfigFromReader_HidesTheKeysGTBDereferences(t *testing.T) {
+	t.Setenv("MY_DEPLOYMENT_TOKEN", "tok-from-env")
+
+	cfg := ConfigFromReader(testutil.ViewFromYAML(t, "gitlab:\n  auth:\n    env: MY_DEPLOYMENT_TOKEN\n"))
+	sub := cfg.Sub("gitlab")
+	require.NotNil(t, sub)
+
+	assert.Equal(t, "tok-from-env", sub.GetString("auth.value"), "auth.value is the credential GTB's chain resolves")
+	assert.Empty(t, sub.GetString("auth.env"), "the pointer GTB already followed is not forge's to read")
+	assert.Empty(t, sub.GetString("auth.keychain"))
+	assert.Equal(t, "MY_DEPLOYMENT_TOKEN", testutil.ViewFromYAML(t, "gitlab:\n  auth:\n    env: MY_DEPLOYMENT_TOKEN\n").GetString("gitlab.auth.env"),
+		"the underlying config is untouched; only the forge-facing view hides it")
+}
+
+// TestConfigFromReader_FactoryChainDoesNotReportTheShippedDefaultAsStale is the
+// CI failure from #76 at the seam the provider factories use: every registered
+// factory composes forge.ConfigCredential(section, auth.value) first, and with
+// GTB's shipped `<forge>.auth.env: <FORGE>_TOKEN` default and no token in the
+// environment it returned ErrStaleAuthKeys, which fails provider construction
+// and with it the update check.
+func TestConfigFromReader_FactoryChainDoesNotReportTheShippedDefaultAsStale(t *testing.T) {
+	t.Setenv("GITLAB_TOKEN", "")
+
+	cfg := ConfigFromReader(testutil.ViewFromYAML(t, "gitlab:\n  auth:\n    env: GITLAB_TOKEN\n"))
+
+	token, err := forge.ConfigCredential(cfg.Sub("gitlab"), forge.DefaultAuthKey)(context.Background())
+	require.NoError(t, err, "an absent credential is absent, not stale")
+	assert.Empty(t, token)
 }
