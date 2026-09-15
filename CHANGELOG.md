@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.41.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.41.0...v0.41.1)
+
+### Bug Fixes
+
+- **release**: give the cask a download URL, and fan out on root tags only ([2e77b2d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2e77b2ddbae9e091d9f971c2fda9519f5b6a09b6))
+
 ## [v0.41.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.40.0...v0.41.0)
