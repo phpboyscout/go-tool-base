@@ -1,8 +1,11 @@
 package generate
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -60,7 +63,7 @@ flag to an existing command, and "docs" writes command documentation.`,
 		RunE: setup.GroupRunE,
 	}
 
-	cmd.PersistentFlags().StringVar(&shared.AIProvider, "provider", "", "AI provider to use (openai/gemini/claude)")
+	cmd.PersistentFlags().StringVar(&shared.AIProvider, "provider", "", "AI provider to use ("+strings.Join(generator.KnownChatProviders(), ", ")+")")
 	cmd.PersistentFlags().StringVar(&shared.AIModel, "model", "", "AI model to use (defaults: claude-opus-4-8, gemini-3.5-flash, gpt-5.4)")
 	cmd.PersistentFlags().BoolVar(&shared.DryRun, "dry-run", false, "preview changes without writing files")
 

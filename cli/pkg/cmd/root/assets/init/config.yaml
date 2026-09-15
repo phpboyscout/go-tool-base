@@ -9,3 +9,7 @@ github:
   ssh:
     key:
       env: GITHUB_KEY
+# gtb's own default chat provider; the framework names none (spec 0196 D5).
+# init ai or a hand edit changes it; a credential is configured separately.
+ai:
+  provider: claude

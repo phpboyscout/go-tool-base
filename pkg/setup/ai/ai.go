@@ -5,7 +5,6 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -119,44 +118,66 @@ func formAtIndex(creator func(*AIConfig) []*huh.Form, i int) func(*AIConfig) *hu
 	}
 }
 
-// providerLabel returns a human-friendly label for the provider.
+// providerLabel returns the framework's label for the provider, or the name
+// itself for one the framework does not know.
 func providerLabel(provider string) string {
-	switch provider {
-	case string(gochat.ProviderClaude):
-		return "Anthropic (Claude)"
-	case string(gochat.ProviderOpenAI):
-		return "OpenAI"
-	case string(gochat.ProviderGemini):
-		return "Google Gemini"
-	default:
-		return provider
+	if d, ok := chat.DisplayFor(gochat.Provider(provider)); ok {
+		return d.Label
 	}
+
+	return provider
+}
+
+// providerOptions offers every provider the framework knows, labelled and
+// glossed from the one display table (spec 0196 D7). Whether the running
+// binary links a given provider is a later refinement.
+func providerOptions() []huh.Option[string] {
+	displays := chat.ProviderDisplays()
+	opts := make([]huh.Option[string], 0, len(displays))
+
+	for _, d := range displays {
+		opts = append(opts, huh.NewOption(d.Label+"  ("+d.Gloss+")", string(d.ID)))
+	}
+
+	return opts
+}
+
+// envOverrideNote describes what AI_PROVIDER does when it is set: it is read
+// only when ai.provider is unset, so the provider chosen here (which is
+// written to config) wins over it. Empty when the variable is unset.
+func envOverrideNote() string {
+	envProvider := os.Getenv(chat.EnvAIProvider)
+	if envProvider == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"AI\\_PROVIDER is set to %q. It is used only when ai.provider is unset, so the provider chosen "+
+			"below takes effect once written. To override per shell, set the tool's prefixed variable instead.",
+		envProvider,
+	)
 }
 
 func defaultProviderForm(cfg *AIConfig) *huh.Form {
-	// Build provider selection fields
+	// huh sizes an auto-height select to its options and then subtracts the
+	// title and description lines, so the last options render off-screen
+	// until the cursor reaches them (#43); the height is set explicitly.
+	const titleAndDescriptionLines = 2
+
+	options := providerOptions()
+
 	providerFields := []huh.Field{
 		huh.NewSelect[string]().
 			Title("Select AI Provider").
 			Description("Choose the default AI provider for this tool").
-			Options(
-				huh.NewOption("Claude (Anthropic)", string(gochat.ProviderClaude)),
-				huh.NewOption("OpenAI", string(gochat.ProviderOpenAI)),
-				huh.NewOption("Gemini (Google)", string(gochat.ProviderGemini)),
-			).
+			Options(options...).
+			Height(len(options) + titleAndDescriptionLines).
 			Value(&cfg.Provider),
 	}
 
-	// Warn if AI_PROVIDER env var is set — it takes precedence over the config file
-	if envProvider := os.Getenv(chat.EnvAIProvider); envProvider != "" {
+	if note := envOverrideNote(); note != "" {
 		providerFields = append([]huh.Field{
-			huh.NewNote().
-				Title("⚠ Environment Override Detected").
-				Description(fmt.Sprintf(
-					"AI\\_PROVIDER is set to %q. This environment variable takes precedence over the config file. "+
-						"Changes to the provider below will only take effect when AI\\_PROVIDER is unset.",
-					envProvider,
-				)),
+			huh.NewNote().Title("AI_PROVIDER is set").Description(note),
 		}, providerFields...)
 	}
 
@@ -278,16 +299,9 @@ func defaultKeyForm(cfg *AIConfig) *huh.Form {
 
 // providerEnvVar returns the environment variable name for the provider's API key.
 func providerEnvVar(provider string) string {
-	switch provider {
-	case string(gochat.ProviderClaude):
-		return chat.EnvClaudeKey
-	case string(gochat.ProviderOpenAI):
-		return chat.EnvOpenAIKey
-	case string(gochat.ProviderGemini):
-		return chat.EnvGeminiKey
-	default:
-		return ""
-	}
+	keys, _ := chat.CredentialKeysFor(gochat.Provider(provider))
+
+	return keys.FallbackEnv
 }
 
 // maskKey returns a masked version of the key showing only the last 4 characters.
@@ -326,9 +340,18 @@ func (a *AIInitialiser) IsConfigured(cfg config.Reader) bool {
 		return false
 	}
 
-	keyPath := providerConfigKey(provider)
+	keys, needs := chat.CredentialKeysFor(gochat.Provider(provider))
+	if !needs {
+		return true
+	}
 
-	return keyPath != "" && cfg.GetString(keyPath) != ""
+	for _, key := range []string{keys.Env, keys.Keychain, keys.Literal} {
+		if cfg.GetString(key) != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Configure runs the interactive AI configuration forms and writes the
@@ -519,6 +542,12 @@ func runAIForms(existingCfg config.Reader, opts ...FormOption) (*AIConfig, error
 		return nil, err
 	}
 
+	// A local CLI or bedrock authenticates on its own: the provider is the
+	// whole answer, and the storage and key forms have nothing to ask.
+	if !chat.NeedsCredential(gochat.Provider(aiCfg.Provider)) {
+		return aiCfg, nil
+	}
+
 	aiCfg.ExistingKey = existingCfg.GetString(providerConfigKey(aiCfg.Provider))
 
 	if err := runFormStage(fCfg.storageModeFormCreator, aiCfg); err != nil {
@@ -587,81 +616,47 @@ func runAICredentialStage(fCfg *formConfig, aiCfg *AIConfig) (*AIConfig, error) 
 	return aiCfg, nil
 }
 
-// providerConfigKey returns the config key for the provider's literal API key.
+// providerConfigKey returns the config key for the provider's literal API
+// key, empty for a provider that carries no GTB credential.
 func providerConfigKey(provider string) string {
-	switch provider {
-	case string(gochat.ProviderClaude):
-		return chat.ConfigKeyClaudeKey
-	case string(gochat.ProviderOpenAI):
-		return chat.ConfigKeyOpenAIKey
-	case string(gochat.ProviderGemini):
-		return chat.ConfigKeyGeminiKey
-	default:
-		return ""
-	}
+	keys, _ := chat.CredentialKeysFor(gochat.Provider(provider))
+
+	return keys.Literal
 }
 
-// providerEnvConfigKey returns the config key that records the
-// env var NAME (not value) for the provider's API key when stored
-// in [credentials.ModeEnvVar].
+// providerEnvConfigKey returns the config key that records the env var NAME
+// (not value) for the provider's API key when stored in
+// [credentials.ModeEnvVar].
 func providerEnvConfigKey(provider string) string {
-	switch provider {
-	case string(gochat.ProviderClaude):
-		return chat.ConfigKeyClaudeEnv
-	case string(gochat.ProviderOpenAI):
-		return chat.ConfigKeyOpenAIEnv
-	case string(gochat.ProviderGemini):
-		return chat.ConfigKeyGeminiEnv
-	default:
-		return ""
-	}
+	keys, _ := chat.CredentialKeysFor(gochat.Provider(provider))
+
+	return keys.Env
 }
 
-// providerKeychainConfigKey returns the config key that records
-// the "<service>/<account>" reference for the provider's API key
-// when stored in [credentials.ModeKeychain].
+// providerKeychainConfigKey returns the config key that records the
+// "<service>/<account>" reference for the provider's API key when stored in
+// [credentials.ModeKeychain].
 func providerKeychainConfigKey(provider string) string {
-	switch provider {
-	case string(gochat.ProviderClaude):
-		return chat.ConfigKeyClaudeKeychain
-	case string(gochat.ProviderOpenAI):
-		return chat.ConfigKeyOpenAIKeychain
-	case string(gochat.ProviderGemini):
-		return chat.ConfigKeyGeminiKeychain
-	default:
-		return ""
-	}
+	keys, _ := chat.CredentialKeysFor(gochat.Provider(provider))
+
+	return keys.Keychain
 }
 
-// providerKeychainAccount returns the keychain account name under
-// which the provider's API key is stored. The service portion is the
-// tool name so the keychain UI labels entries clearly
-// ("<tool>/anthropic.api", "<tool>/openai.api", …). Changing these
-// values would strand existing keychain entries on user machines;
-// evolve with care.
+// providerKeychainAccount returns the keychain account name under which the
+// provider's API key is stored: the credential root, so the keychain UI
+// labels entries "<tool>/anthropic.api". Changing it would strand existing
+// keychain entries on user machines.
 func providerKeychainAccount(provider string) string {
-	switch provider {
-	case string(gochat.ProviderClaude):
-		return "anthropic.api"
-	case string(gochat.ProviderOpenAI):
-		return "openai.api"
-	case string(gochat.ProviderGemini):
-		return "gemini.api"
-	default:
-		return ""
-	}
+	keys, _ := chat.CredentialKeysFor(gochat.Provider(provider))
+
+	return keys.Root
 }
 
-// validProviders is the set of permitted AI provider identifiers.
-var validProviders = []string{
-	string(gochat.ProviderClaude),
-	string(gochat.ProviderOpenAI),
-	string(gochat.ProviderGemini),
-}
-
-// isValidProvider returns true if the provider is one of the permitted values.
+// isValidProvider reports whether a known module registers the provider.
 func isValidProvider(provider string) bool {
-	return slices.Contains(validProviders, provider)
+	_, ok := chat.ProviderModule(gochat.Provider(provider))
+
+	return ok
 }
 
 // IsAIConfigured checks if the AI provider and its corresponding key are configured.
@@ -678,9 +673,18 @@ func IsAIConfigured(p props.ConfigProvider) bool {
 		return false
 	}
 
-	keyPath := providerConfigKey(provider)
+	keys, needs := chat.CredentialKeysFor(gochat.Provider(provider))
+	if !needs {
+		return true
+	}
 
-	return keyPath != "" && cfg.GetString(keyPath) != ""
+	for _, key := range []string{keys.Env, keys.Keychain, keys.Literal} {
+		if cfg.GetString(key) != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // NewCmdInitAI creates the `init ai` subcommand.

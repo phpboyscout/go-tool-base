@@ -144,17 +144,13 @@ The GitHub profile manages two distinct configuration areas: **Authentication** 
 The AI initialiser abstracts over multiple LLM providers, normalizing their configuration into a common structure.
 
 #### Configuration Keys
-*   `ai.provider`: The selected provider identifier (`openai`, `claude`, `gemini`).
-*   `ai.claude.key`: Anthropic API key.
-*   `ai.openai.key`: OpenAI API key.
-*   `ai.gemini.key`: Google Gemini API key.
+*   `ai.provider`: The selected provider identifier, any of `chat.ProviderModules()`.
+*   `<root>.api.{env,keychain,key}`: the provider's credential, under its root (`anthropic`, `openai`, `gemini` or `azure`), derived by `chat.CredentialKeysFor`. The local CLIs and `bedrock` have none.
 
 #### Technical Workflow
-1.  **Provider Selection**: User selects a provider from a list.
-2.  **Key Input**: User inputs the API key.
-    *   *Security Note*: The input field is masked (echo mode password).
-3.  **Env Var Detection**: The initialiser checks for standard environment variables (e.g., `OPENAI_API_KEY`) corresponding to the selected provider.
-    *   It displays a **warning note** in the UI if an env var is detected, informing the user that the env var will take precedence over the config file value they are about to set.
+1.  **Provider Selection**: User selects a provider from the framework's display table (`chat.ProviderDisplays`). A provider that carries no GTB credential ends the wizard here.
+2.  **Storage mode and key input**: the three-mode selector, then the env-var name or the masked key.
+3.  **`AI_PROVIDER` note**: when the variable is exported, a note says it is read only when `ai.provider` is unset, so the choice being written wins.
 4.  **Persistence**: The provider choice and the specific key are written to the config file.
 
 ## Security Features

@@ -504,9 +504,9 @@ func TestProviderLabel(t *testing.T) {
 		provider string
 		label    string
 	}{
-		{string(gochat.ProviderClaude), "Anthropic (Claude)"},
+		{string(gochat.ProviderClaude), "Claude (Anthropic)"},
 		{string(gochat.ProviderOpenAI), "OpenAI"},
-		{string(gochat.ProviderGemini), "Google Gemini"},
+		{string(gochat.ProviderGemini), "Gemini (Google)"},
 		{"custom-provider", "custom-provider"},
 	}
 

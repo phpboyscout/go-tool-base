@@ -129,7 +129,9 @@ mytool init ai
 ```
 
 **Description:**
-Configures the AI provider and API keys used by AI-powered features. Presents an interactive form to select a provider and enter API keys for **Claude**, **OpenAI**, and **Gemini**.
+Configures the AI provider and its credential. The provider select offers every provider the framework knows (`claude`, `claude-local`, `openai`, `openai-compatible`, `codex-local`, `gemini`, `gemini-vertex`, `agy-local`, `bedrock`, `azure-openai`), labelled and glossed from one table. A provider that carries no GTB credential (the local CLIs, `bedrock`) is written as `ai.provider` and the storage and key forms are skipped; an API provider goes on to the three-mode selector for its key (`anthropic.api.*`, `openai.api.*`, `gemini.api.*` or `azure.api.*`).
+
+If `AI_PROVIDER` is exported, a note says it is read only when `ai.provider` is unset, so the provider chosen here takes effect once written. An end user's choice here overrides the author's default the tool ships with.
 
 ## Implementation
 
