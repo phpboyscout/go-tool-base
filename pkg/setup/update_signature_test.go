@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -122,14 +124,6 @@ func TestVerifyManifestSignature_FetchError(t *testing.T) {
 	require.NoError(t, newSigningUpdater(provider, resolver, false).
 		verifyManifestSignature(context.Background(), rel, manifest))
 }
-
-type fakeStringConfig struct {
-	set  map[string]bool
-	strs map[string]string
-}
-
-func (c *fakeStringConfig) IsSet(key string) bool       { return c.set[key] }
-func (c *fakeStringConfig) GetString(key string) string { return c.strs[key] }
 
 func TestBuildKeyResolver(t *testing.T) {
 	t.Parallel()
@@ -254,48 +248,36 @@ func TestResolveSigningConfig_Precedence(t *testing.T) {
 		assert.True(t, resolveRequireSignature(nil))
 
 		verify.DefaultRequireSignature = false
-		assert.False(t, resolveRequireSignature(&fakeBoolConfig{}))
+		assert.False(t, resolveRequireSignature(testutil.ViewFromYAML(t, "update: {}")))
 	})
 
 	t.Run("require_signature_explicit_wins", func(t *testing.T) {
 		verify.DefaultRequireSignature = false
-		cfg := &fakeBoolConfig{
-			set:  map[string]bool{"update.require_signature": true},
-			vals: map[string]bool{"update.require_signature": true},
-		}
+		cfg := testutil.ViewFromYAML(t, "update:\n  require_signature: true")
 		assert.True(t, resolveRequireSignature(cfg))
 	})
 
 	t.Run("key_source_default_and_explicit", func(t *testing.T) {
 		verify.DefaultKeySource = "both"
-		assert.Equal(t, "both", resolveKeySource(&fakeStringConfig{}))
+		assert.Equal(t, "both", resolveKeySource(testutil.ViewFromYAML(t, "update: {}")))
 
-		cfg := &fakeStringConfig{
-			set:  map[string]bool{"update.key_source": true},
-			strs: map[string]string{"update.key_source": "embedded"},
-		}
+		cfg := testutil.ViewFromYAML(t, "update:\n  key_source: embedded")
 		assert.Equal(t, "embedded", resolveKeySource(cfg))
 	})
 
 	t.Run("external_key_email_default_and_explicit", func(t *testing.T) {
 		verify.DefaultExternalKeyEmail = "fallback@example.com"
-		assert.Equal(t, "fallback@example.com", resolveExternalKeyEmail(&fakeStringConfig{}))
+		assert.Equal(t, "fallback@example.com", resolveExternalKeyEmail(testutil.ViewFromYAML(t, "update: {}")))
 
-		cfg := &fakeStringConfig{
-			set:  map[string]bool{"update.external_key_email": true},
-			strs: map[string]string{"update.external_key_email": "release@phpboyscout.uk"},
-		}
+		cfg := testutil.ViewFromYAML(t, "update:\n  external_key_email: release@phpboyscout.uk")
 		assert.Equal(t, "release@phpboyscout.uk", resolveExternalKeyEmail(cfg))
 	})
 
 	t.Run("require_external_crosscheck_default_and_explicit", func(t *testing.T) {
 		verify.DefaultRequireExternalCrosscheck = true
-		assert.True(t, resolveRequireExternalCrosscheck(&fakeBoolConfig{}))
+		assert.True(t, resolveRequireExternalCrosscheck(testutil.ViewFromYAML(t, "update: {}")))
 
-		cfg := &fakeBoolConfig{
-			set:  map[string]bool{"update.require_external_crosscheck": true},
-			vals: map[string]bool{"update.require_external_crosscheck": false},
-		}
+		cfg := testutil.ViewFromYAML(t, "update:\n  require_external_crosscheck: false")
 		assert.False(t, resolveRequireExternalCrosscheck(cfg))
 	})
 }

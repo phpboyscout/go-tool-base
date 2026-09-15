@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -314,17 +316,6 @@ func TestVerifyAssetChecksum_ChecksumProviderOtherErrorAborts(t *testing.T) {
 	assert.Contains(t, err.Error(), "transient HTTP 500")
 }
 
-// fakeBoolConfig implements the narrow boolConfig interface used by
-// resolveRequireChecksum, without pulling in the full
-// config.Containable surface.
-type fakeBoolConfig struct {
-	set  map[string]bool
-	vals map[string]bool
-}
-
-func (c *fakeBoolConfig) IsSet(key string) bool   { return c.set[key] }
-func (c *fakeBoolConfig) GetBool(key string) bool { return c.vals[key] }
-
 // TestResolveRequireChecksum_Precedence runs in parallel.
 //
 // It could not before: every subtest mutated a package-level
@@ -350,22 +341,10 @@ func TestResolveRequireChecksum_Precedence(t *testing.T) {
 			"a nil tool baseline must fall through to the framework default")
 	})
 
-	t.Run("interface_typed_nil_pointer_returns_default", func(t *testing.T) {
-		t.Parallel()
-
-		// An interface containing a typed nil must not panic on method calls.
-		// A plain `cfg == nil` check fails here because the interface itself
-		// is non-nil.
-		var typedNil *fakeBoolConfig
-
-		assert.True(t, resolveRequireChecksum(typedNil, &yes),
-			"typed-nil interface must fall through to the default, not panic")
-	})
-
 	t.Run("config_unset_falls_back_to_tool_default", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := &fakeBoolConfig{}
+		cfg := testutil.ViewFromYAML(t, "update: {}")
 
 		assert.True(t, resolveRequireChecksum(cfg, &yes))
 		assert.False(t, resolveRequireChecksum(cfg, &no))
@@ -375,17 +354,11 @@ func TestResolveRequireChecksum_Precedence(t *testing.T) {
 		t.Parallel()
 
 		// Tool says require, config explicitly disables.
-		cfg := &fakeBoolConfig{
-			set:  map[string]bool{"update.require_checksum": true},
-			vals: map[string]bool{"update.require_checksum": false},
-		}
+		cfg := testutil.ViewFromYAML(t, "update:\n  require_checksum: false")
 		assert.False(t, resolveRequireChecksum(cfg, &yes))
 
 		// Tool says permissive, config explicitly requires.
-		cfg = &fakeBoolConfig{
-			set:  map[string]bool{"update.require_checksum": true},
-			vals: map[string]bool{"update.require_checksum": true},
-		}
+		cfg = testutil.ViewFromYAML(t, "update:\n  require_checksum: true")
 		assert.True(t, resolveRequireChecksum(cfg, &no))
 	})
 }

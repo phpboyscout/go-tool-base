@@ -11,11 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"slices"
 	"strings"
 	"time"
+
+	"gitlab.com/phpboyscout/go/config"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -531,22 +532,10 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 	return nil
 }
 
-// boolConfig is the narrow subset of [config.Reader] that
-// [resolveRequireChecksum] depends on. Declared here so tests can
-// pass a two-method fake without stubbing the full interface.
-type boolConfig interface {
-	IsSet(key string) bool
-	GetBool(key string) bool
-}
-
-// resolveRequireChecksum applies the precedence specified by the
-// update trust model: explicit config value first (which the store's
-// env layer supplies from a prefixed env var too),
-// otherwise the compile-time [DefaultRequireChecksum] sentinel. Tool
-// authors flip the default at link time for security-critical tools.
-// resolveRequireChecksum applies the precedence: runtime config, then the tool
+// resolveRequireChecksum applies the precedence: runtime config (which the
+// store's env layer supplies from a prefixed env var too), then the tool
 // author's baseline from props, then the framework default.
-func resolveRequireChecksum(cfg boolConfig, toolDefault *bool) bool {
+func resolveRequireChecksum(cfg config.Reader, toolDefault *bool) bool {
 	fallback := requireChecksumDefault
 	if toolDefault != nil {
 		fallback = *toolDefault
@@ -556,32 +545,11 @@ func resolveRequireChecksum(cfg boolConfig, toolDefault *bool) bool {
 		return fallback
 	}
 
-	// Interface typed nil (e.g. a nil *config.View wrapped in boolConfig)
-	// must not panic on IsSet. Protect the call with a reflective check.
-	if reflectIsNil(cfg) {
-		return fallback
-	}
-
 	if cfg.IsSet(ConfigKeyUpdateRequireChecksum) {
 		return cfg.GetBool(ConfigKeyUpdateRequireChecksum)
 	}
 
 	return fallback
-}
-
-// reflectIsNil detects the interface-typed-nil case (an interface
-// value whose concrete type is non-nil but whose value is the nil
-// pointer for that type). A plain `cfg == nil` check does not catch
-// this case; call sites that construct the interface from a pointer
-// can pass through a nil pointer wrapped in a non-nil interface.
-func reflectIsNil(i any) bool {
-	if i == nil {
-		return true
-	}
-
-	rv := reflect.ValueOf(i)
-
-	return rv.Kind() == reflect.Pointer && rv.IsNil()
 }
 
 // requireReleaseToken returns an error if no authentication token is available

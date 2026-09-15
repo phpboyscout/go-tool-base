@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/signing/verify"
 
@@ -42,19 +44,11 @@ func (s *SelfUpdater) SignatureAssetName() string {
 	return signatureDefaultAssetName
 }
 
-// stringConfig is the narrow subset of [config.Reader] the
-// string-valued signing resolvers depend on, declared so tests can
-// pass a small fake.
-type stringConfig interface {
-	IsSet(key string) bool
-	GetString(key string) string
-}
-
 // resolveRequireSignature mirrors [resolveRequireChecksum]: explicit
 // config (which Viper AutomaticEnv also pulls from a prefixed env var)
 // first, otherwise the compile-time [verify.DefaultRequireSignature].
-func resolveRequireSignature(cfg boolConfig) bool {
-	if cfg == nil || reflectIsNil(cfg) {
+func resolveRequireSignature(cfg config.Reader) bool {
+	if cfg == nil {
 		return verify.DefaultRequireSignature
 	}
 
@@ -67,8 +61,8 @@ func resolveRequireSignature(cfg boolConfig) bool {
 
 // resolveRequireExternalCrosscheck applies the same precedence for the
 // WKD cross-check enforcement flag.
-func resolveRequireExternalCrosscheck(cfg boolConfig) bool {
-	if cfg == nil || reflectIsNil(cfg) {
+func resolveRequireExternalCrosscheck(cfg config.Reader) bool {
+	if cfg == nil {
 		return verify.DefaultRequireExternalCrosscheck
 	}
 
@@ -81,8 +75,8 @@ func resolveRequireExternalCrosscheck(cfg boolConfig) bool {
 
 // resolveKeySource resolves update.key_source, defaulting to
 // [verify.DefaultKeySource].
-func resolveKeySource(cfg stringConfig) string {
-	if cfg == nil || reflectIsNil(cfg) {
+func resolveKeySource(cfg config.Reader) string {
+	if cfg == nil {
 		return verify.DefaultKeySource
 	}
 
@@ -97,8 +91,8 @@ func resolveKeySource(cfg stringConfig) string {
 
 // resolveExternalKeyEmail resolves update.external_key_email, defaulting
 // to [verify.DefaultExternalKeyEmail].
-func resolveExternalKeyEmail(cfg stringConfig) string {
-	if cfg == nil || reflectIsNil(cfg) {
+func resolveExternalKeyEmail(cfg config.Reader) string {
+	if cfg == nil {
 		return verify.DefaultExternalKeyEmail
 	}
 
