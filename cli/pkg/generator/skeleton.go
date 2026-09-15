@@ -585,7 +585,7 @@ func (g *Generator) loadProjectFileHashes(projectPath string) map[string]string 
 func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTemplateData) error {
 	goFiles := map[string]*jen.File{
 		filepath.Join("cmd", data.Name, "main.go"): templates.SkeletonMain(data.ModulePath),
-		"internal/version/version.go":              templates.SkeletonInternalVersion(data.ModulePath),
+		"internal/version/version.go":              templates.SkeletonInternalVersion(),
 		"pkg/cmd/root/generate.go":                 skeletonGenerateFile(data.DisabledFeatures),
 		"pkg/cmd/root/cmd.go": templates.SkeletonRoot(templates.SkeletonRootData{
 			Name:                  data.Name,

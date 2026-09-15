@@ -15,6 +15,10 @@ import (
 )
 
 func (g *Generator) RegenerateManifest(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	g.props.Logger.Info("Scanning project for commands to rebuild manifest...")
 
 	cmdRoot := filepath.Join(g.config.Path, "pkg", "cmd")

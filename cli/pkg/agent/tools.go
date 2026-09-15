@@ -268,7 +268,7 @@ func ReadFileTool(afs afero.Fs, basePath string) gochat.Tool {
 		Parameters: jsonschema.Reflect(struct {
 			Path string `json:"path" jsonschema:"description=The absolute path to the file to read"`
 		}{}),
-		Handler: func(ctx context.Context, args json.RawMessage) (any, error) {
+		Handler: func(_ context.Context, args json.RawMessage) (any, error) {
 			var params struct {
 				Path string `json:"path"`
 			}
@@ -300,7 +300,7 @@ func WriteFileTool(afs afero.Fs, basePath string) gochat.Tool {
 			Path    string `json:"path" jsonschema:"description=The absolute path to the file"`
 			Content string `json:"content" jsonschema:"description=The content to write"`
 		}{}),
-		Handler: func(ctx context.Context, args json.RawMessage) (any, error) {
+		Handler: func(_ context.Context, args json.RawMessage) (any, error) {
 			var params struct {
 				Path    string `json:"path"`
 				Content string `json:"content"`
@@ -332,7 +332,7 @@ func ListDirTool(afs afero.Fs, basePath string) gochat.Tool {
 		Parameters: jsonschema.Reflect(struct {
 			Path string `json:"path" jsonschema:"description=The absolute path to the directory"`
 		}{}),
-		Handler: func(ctx context.Context, args json.RawMessage) (any, error) {
+		Handler: func(_ context.Context, args json.RawMessage) (any, error) {
 			var params struct {
 				Path string `json:"path"`
 			}

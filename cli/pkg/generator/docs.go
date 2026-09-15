@@ -953,7 +953,7 @@ func (g *Generator) containedProjectPath(rel string) (string, error) {
 	return target, nil
 }
 
-func (g *Generator) handleReadFileTool(ctx context.Context, args json.RawMessage) (any, error) {
+func (g *Generator) handleReadFileTool(_ context.Context, args json.RawMessage) (any, error) {
 	var params struct {
 		Path string `json:"path"`
 	}
@@ -974,7 +974,7 @@ func (g *Generator) handleReadFileTool(ctx context.Context, args json.RawMessage
 	return string(data), nil
 }
 
-func (g *Generator) handleListDirTool(ctx context.Context, args json.RawMessage) (any, error) {
+func (g *Generator) handleListDirTool(_ context.Context, args json.RawMessage) (any, error) {
 	var params struct {
 		Path string `json:"path"`
 	}

@@ -67,8 +67,11 @@ linters:
       allow-time-local: true
     revive:
       rules:
+        # cobra's RunE(cmd, args) signature is fixed, so those two names are
+        # allowed unused; every other unused parameter is a vestige.
         - name: unused-parameter
-          disabled: true
+          arguments:
+            - allowRegex: "^(cmd|args)$"
   exclusions:
     generated: lax
     presets:
@@ -92,6 +95,11 @@ linters:
         text: "G102|G112|G306"
         linters:
           - gosec
+      # A test fake implements a signature and rarely reads every parameter.
+      - path: _test\.go
+        text: "unused-parameter"
+        linters:
+          - revive
     paths:
       - third_party$
       - builtin$

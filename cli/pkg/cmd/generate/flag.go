@@ -57,7 +57,7 @@ Examples:
   gtb generate add-flag -c deploy -n output -t string -d "Output path" -s o
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.ValidateOrPrompt(p); err != nil {
+			if err := opts.ValidateOrPrompt(); err != nil {
 				return err
 			}
 
@@ -76,7 +76,7 @@ Examples:
 	return cmd
 }
 
-func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
+func (o *AddFlagOptions) ValidateOrPrompt() error {
 	if o.CommandName != "" && o.FlagName != "" {
 		return o.validateNonInteractive()
 	}

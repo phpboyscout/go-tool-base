@@ -90,7 +90,7 @@ func huhFreeText(question string) (string, error) {
 }
 
 // VerifyAndFix runs the agentic verification loop.
-func (v *AgentVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir string, data *templates.CommandData, aiClient gochat.ChatClient, genFunc GeneratorFunc) error {
+func (v *AgentVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir string, _ *templates.CommandData, aiClient gochat.ChatClient, _ GeneratorFunc) error {
 	v.props.Logger.Info("Starting autonomous agentic verification and repair loop...")
 
 	// 1. Register tools

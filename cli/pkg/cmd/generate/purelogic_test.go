@@ -383,8 +383,7 @@ func TestResolveFeatures_Partial(t *testing.T) {
 func TestAddFlagOptions_ValidateOrPrompt_BothSet(t *testing.T) {
 	t.Parallel()
 	o := &AddFlagOptions{CommandName: "deploy", FlagName: "env"}
-	p := &props.Props{Logger: logger.NewNoop()}
-	err := o.ValidateOrPrompt(p)
+	err := o.ValidateOrPrompt()
 	assert.NoError(t, err)
 }
 
@@ -394,8 +393,6 @@ func TestAddFlagOptions_ValidateOrPrompt_BothSet(t *testing.T) {
 // relies on, so a bad value can't corrupt the manifest.
 func TestAddFlagOptions_ValidateOrPrompt_NonInteractiveValidation(t *testing.T) {
 	t.Parallel()
-
-	p := &props.Props{Logger: logger.NewNoop()}
 
 	cases := []struct {
 		name    string
@@ -439,7 +436,7 @@ func TestAddFlagOptions_ValidateOrPrompt_NonInteractiveValidation(t *testing.T) 
 			t.Parallel()
 
 			o := tc.opts
-			err := o.ValidateOrPrompt(p)
+			err := o.ValidateOrPrompt()
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -541,7 +538,7 @@ func TestSaveManifest_Success(t *testing.T) {
 func TestSkeletonValidateOrPrompt_Valid(t *testing.T) {
 	t.Parallel()
 	o := &SkeletonOptions{Name: "mytool", Repo: "org/mytool"}
-	err := o.ValidateOrPrompt(&props.Props{Logger: logger.NewNoop()})
+	err := o.ValidateOrPrompt()
 	assert.NoError(t, err)
 }
 

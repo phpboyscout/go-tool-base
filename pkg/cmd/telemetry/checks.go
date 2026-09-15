@@ -15,7 +15,7 @@ const checkTimeout = 5 * time.Second
 func init() {
 	setup.RegisterChecks(props.TelemetryCmd,
 		[]setup.CheckProvider{
-			func(p *props.Props) []setup.CheckFunc {
+			func(_ *props.Props) []setup.CheckFunc {
 				return []setup.CheckFunc{checkTelemetryStatus, checkTelemetryConnectivity}
 			},
 		},

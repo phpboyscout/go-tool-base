@@ -656,7 +656,7 @@ func (m *Model) handleAskInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			askCmd := func() tea.Msg {
 				ans, err := m.askFunc(
 					question,
-					func(s string, level logger.Level) { logCh <- s },
+					func(s string, _ logger.Level) { logCh <- s },
 					func(delta string) { deltaCh <- delta },
 				)
 

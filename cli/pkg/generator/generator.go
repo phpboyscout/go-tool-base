@@ -152,6 +152,10 @@ func New(p *props.Props, cfg *Config) *Generator {
 }
 
 func (g *Generator) SetProtection(ctx context.Context, commandName string, protected bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	pathParts := strings.Split(commandName, "/")
 	name := pathParts[len(pathParts)-1]
 

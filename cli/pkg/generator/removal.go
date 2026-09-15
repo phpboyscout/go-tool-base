@@ -10,6 +10,10 @@ import (
 )
 
 func (g *Generator) Remove(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	if err := g.verifyProject(); err != nil {
 		return err
 	}
