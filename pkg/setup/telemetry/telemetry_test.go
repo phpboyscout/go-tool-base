@@ -3,6 +3,8 @@ package telemetry
 import (
 	"testing"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 
 	"charm.land/huh/v2"
@@ -10,17 +12,13 @@ import (
 
 	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func newTestProps(t *testing.T) *props.Props {
 	t.Helper()
 
-	return &props.Props{
-		Tool:   props.Tool{Name: "test-tool"},
-		Logger: logger.NewNoop(),
-	}
+	return propstest.New(propstest.WithTool(props.Tool{Name: "test-tool"}))
 }
 
 func TestTelemetryInitialiser_Name(t *testing.T) {

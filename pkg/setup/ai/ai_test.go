@@ -5,19 +5,17 @@ import (
 	"strings"
 	"testing"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-
 	gochat "gitlab.com/phpboyscout/go/chat"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
-
-	"gitlab.com/phpboyscout/go/errorhandling"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
@@ -29,16 +27,7 @@ import (
 func newTestProps(t *testing.T) *p.Props {
 	t.Helper()
 
-	fs := afero.NewMemMapFs()
-
-	return &p.Props{
-		Tool: p.Tool{
-			Name: "test-tool",
-		},
-		Logger:       logger.NewNoop(),
-		FS:           fs,
-		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
-	}
+	return propstest.New(propstest.WithTool(p.Tool{Name: "test-tool"}))
 }
 
 // withNoCI clears the CI env var for the duration of a test so

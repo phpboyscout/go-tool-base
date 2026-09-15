@@ -6,19 +6,20 @@ import (
 	"strings"
 	"testing"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func newTestProps(fs afero.Fs) *props.Props {
-	return &props.Props{FS: fs, Logger: logger.NewNoop(), Version: version.NewInfo("v1.0.0", "", "")}
+	return propstest.New(propstest.WithFS(fs), propstest.WithVersion(version.NewInfo("v1.0.0", "", "")))
 }
 
 func runSub(t *testing.T, cmd *setup.Command, root string, args ...string) string {

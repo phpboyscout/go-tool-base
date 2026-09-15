@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"github.com/charmbracelet/keygen"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	gossh "golang.org/x/crypto/ssh"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -23,12 +24,7 @@ import (
 func newTestProps(t *testing.T) *props.Props {
 	t.Helper()
 
-	return &props.Props{
-		FS:     afero.NewMemMapFs(),
-		Logger: logger.NewNoop(),
-		Assets: props.NewAssets(),
-		Tool:   props.Tool{Name: "testtool"},
-	}
+	return propstest.New(propstest.WithTool(props.Tool{Name: "testtool"}))
 }
 
 // newTestEditor materialises a config file under /cfgdir on p.FS (seeded with

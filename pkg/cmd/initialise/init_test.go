@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"gitlab.com/phpboyscout/go/errorhandling"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -17,13 +19,7 @@ import (
 )
 
 func newTestProps() *p.Props {
-	return &p.Props{
-		Tool:         p.Tool{Name: "test-tool"},
-		Logger:       logger.NewNoop(),
-		FS:           afero.NewMemMapFs(),
-		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
-	}
+	return propstest.New(propstest.WithTool(p.Tool{Name: "test-tool"}))
 }
 
 // resetSkipFlags re-parses the registered feature flags with explicit false

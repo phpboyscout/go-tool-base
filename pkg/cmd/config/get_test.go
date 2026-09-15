@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +20,7 @@ import (
 func newTestProps(t *testing.T, yaml string) *props.Props {
 	t.Helper()
 
-	return &props.Props{Config: testutil.StoreFromYAML(t, yaml)}
+	return propstest.New(propstest.WithConfig(testutil.StoreFromYAML(t, yaml)))
 }
 
 func TestCmdGet_ValueFound(t *testing.T) {

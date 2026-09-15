@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"gitlab.com/phpboyscout/go/config"
 
 	"github.com/spf13/afero"
@@ -36,16 +38,10 @@ func commandNames(cmd *cobra.Command) map[string]bool {
 }
 
 func newTestProps(features ...p.FeatureState) *p.Props {
-	return &p.Props{
-		Tool: p.Tool{
-			Name:     "test-tool",
-			Features: p.SetFeatures(features...),
-		},
-		Logger:       logger.NewNoop(),
-		FS:           afero.NewMemMapFs(),
-		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
-	}
+	return propstest.New(propstest.WithTool(p.Tool{
+		Name:     "test-tool",
+		Features: p.SetFeatures(features...),
+	}))
 }
 
 func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {

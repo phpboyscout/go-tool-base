@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/afero"
+	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -25,11 +26,9 @@ func newTestProps(t *testing.T, provider forge.Provider) *p.Props {
 	t.Helper()
 
 	l := logger.NewBuffer()
-	memFS := afero.NewMemMapFs()
-	cfgContainer := testutil.StoreFromYAML(t, testConfig)
 
-	return &p.Props{
-		Tool: p.Tool{
+	return propstest.New(
+		propstest.WithTool(p.Tool{
 			Name: "test-tool",
 			ReleaseSource: p.ReleaseSource{
 				Type:  "github",
@@ -37,13 +36,12 @@ func newTestProps(t *testing.T, provider forge.Provider) *p.Props {
 				Repo:  "repo",
 			},
 			ReleaseProvider: provider,
-		},
-		Logger:       l,
-		FS:           memFS,
-		Config:       cfgContainer,
-		Version:      ver.NewInfo("v1.0.0", "abc123", "2026-06-20"),
-		ErrorHandler: errorhandling.New(logger.ToSlog(l), nil),
-	}
+		}),
+		propstest.WithLogger(l),
+		propstest.WithConfig(testutil.StoreFromYAML(t, testConfig)),
+		propstest.WithVersion(ver.NewInfo("v1.0.0", "abc123", "2026-06-20")),
+		propstest.WithErrorHandler(errorhandling.New(logger.ToSlog(l), nil)),
+	)
 }
 
 // runVersionCmd executes the wrapped version command with the given extra
