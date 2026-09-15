@@ -80,3 +80,18 @@ func TestWizard_AcceptingDefaultsCompletesAndDerivesHost(t *testing.T) {
 	assert.Equal(t, "my-app", o.Name)
 	assert.Equal(t, "github.com", o.resolvedHost(), "an empty host resolves from the chosen backend")
 }
+
+// TestWizard_KeepsExplicitFeatureSelection pins #42: option state is
+// initialised from the current selection, so a narrow --features passed
+// before the wizard opens is not widened back to the defaults when the user
+// accepts the page.
+func TestWizard_KeepsExplicitFeatureSelection(t *testing.T) {
+	t.Parallel()
+
+	o := &SkeletonOptions{Features: []string{"ai"}, ChatProviders: []string{"codex-local"}}
+	f := driveToCompletion(t, o)
+
+	require.Equal(t, huh.StateCompleted, f.State)
+	assert.Equal(t, []string{"ai"}, o.Features, "the wizard must not add the default features back")
+	assert.Equal(t, []string{"codex-local"}, o.ChatProviders, "the wizard must not add every provider back")
+}

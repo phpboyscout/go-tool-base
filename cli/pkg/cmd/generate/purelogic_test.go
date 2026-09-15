@@ -308,7 +308,7 @@ func TestHostForBackend_GitLab(t *testing.T) {
 func TestFeatureOptions_MatchesTheFlag(t *testing.T) {
 	t.Parallel()
 
-	opts := featureOptions()
+	opts := featureOptions(generator.DefaultSelectedFeatures)
 	require.Len(t, opts, len(generator.SelectableFeatures))
 
 	offered := make(map[string]string, len(opts))
