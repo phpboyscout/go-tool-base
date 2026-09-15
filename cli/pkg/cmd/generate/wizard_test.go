@@ -10,11 +10,11 @@ import (
 
 // -- reactive-text / seed helpers ---------------------------------------------
 //
-// These pure helpers back the wizard's reactive field content (DescriptionFunc /
-// PlaceholderFunc) and its seeded defaults (the name→env-prefix and
-// backend→host validators). Testing them directly covers that logic without a
-// terminal; the seed *wiring* on the real form is covered by the tea.Model drive
-// below, and the interactive event loop by the @generator BDD suite.
+// These pure helpers back the wizard's reactive field content (DescriptionFunc,
+// PlaceholderFunc, SuggestionsFunc). Testing them directly covers that logic
+// without a terminal; the wiring on the real form is covered by the tea.Model
+// drive in wizard_bindings_test.go, and the interactive event loop by the
+// generator BDD suite.
 
 func TestBackendLabel(t *testing.T) {
 	t.Parallel()
@@ -46,10 +46,9 @@ func TestDeriveEnvPrefix(t *testing.T) {
 // -- tea.Model drive of the real wizard form ----------------------------------
 //
 // huh forms are Bubble Tea models, so a test can feed synthetic key events and
-// assert on the bound options struct — no TTY, no global stdin, parallel-safe.
+// assert on the bound options struct: no TTY, no global stdin, parallel-safe.
 // This is how huh tests itself (see docs/development/testing/huh-form-testing.md,
-// Approach C). Here it proves the migration's key subtlety: the name field's
-// validator seeds the env-prefix default on the real form built by wizardForm.
+// Approach C). The full drive lives in wizard_bindings_test.go.
 
 func keypress(r rune) tea.KeyPressMsg {
 	return tea.KeyPressMsg(tea.Key{Text: string(r), Code: r, ShiftedCode: r})
@@ -59,7 +58,9 @@ func codeKeypress(code rune) tea.KeyPressMsg {
 	return tea.KeyPressMsg(tea.Key{Code: code})
 }
 
-func TestWizardForm_NameSeedsEnvPrefix(t *testing.T) {
+// TestWizardForm_NameIsBound pins the plain binding the drive relies on: text
+// typed into the first field reaches the options struct on Enter.
+func TestWizardForm_NameIsBound(t *testing.T) {
 	t.Parallel()
 
 	o := &SkeletonOptions{}
@@ -71,10 +72,8 @@ func TestWizardForm_NameSeedsEnvPrefix(t *testing.T) {
 		m, _ = m.Update(keypress(r))
 	}
 
-	// Advancing past the name field runs its validator, which seeds the prefix
-	// on o via the closure — the returned model is not needed.
 	_, _ = m.Update(codeKeypress(tea.KeyEnter))
 
-	assert.Equal(t, "MY_APP", o.EnvPrefix, "the name field's validator should seed the env-prefix default")
 	assert.Equal(t, "my-app", o.Name)
+	assert.Empty(t, o.EnvPrefix, "nothing seeds the prefix any more; the field offers it as a suggestion")
 }

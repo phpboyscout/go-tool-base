@@ -8,7 +8,6 @@ var (
 	ErrNameRequired            = errors.NewSentinel("gtb.generate.name_required", "name is required")
 	ErrRepositoryRequired      = errors.NewSentinel("gtb.generate.repository_required", "repository is required")
 	ErrRepositoryInvalidFormat = errors.NewSentinel("gtb.generate.repository_invalid_format", "repository must contain at least one '/' (e.g. org/repo)")
-	ErrHostRequired            = errors.NewSentinel("gtb.generate.host_required", "host is required")
 	ErrEmptyCommandPath        = errors.NewSentinel("gtb.generate.empty_command_path", "empty command path")
 	ErrCommandNotFound         = errors.NewSentinel("gtb.generate.command_not_found", "command not found in manifest")
 	ErrUpdateManifestFailed    = errors.NewSentinel("gtb.generate.update_manifest_failed", "failed to update manifest")

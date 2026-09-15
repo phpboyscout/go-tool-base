@@ -408,6 +408,16 @@ func backendLabel(backend string) string { return backendDisplay(backend).Label 
 // hostForBackend is the default host for a git backend value.
 func hostForBackend(backend string) string { return backendDisplay(backend).Host }
 
+// resolvedHost is the host the project is generated against: the one the user
+// gave, or the backend's canonical host when they left it empty.
+func (o *SkeletonOptions) resolvedHost() string {
+	if o.Host != "" {
+		return o.Host
+	}
+
+	return hostForBackend(o.GitBackend)
+}
+
 // repoDescription is the repository-field help text for a git backend.
 func repoDescription(backend string) string { return backendDisplay(backend).RepoDescription }
 
@@ -605,9 +615,10 @@ func (o *SkeletonOptions) runWizard() error {
 }
 
 // basicsGroup is the entry group: project basics plus the backend and help-type
-// selections that drive later groups. The name field seeds the env-prefix
-// default and the backend field seeds the host default (both once, if unset), so
-// the later groups pick those values up pre-filled.
+// selections that drive later groups. Nothing here writes into a later field:
+// huh copies a bound value into its Input once, at construction, so a value
+// seeded after the form is built never renders and is overwritten on blur
+// (#41). Later fields derive from these through reactive binders instead.
 func (o *SkeletonOptions) basicsGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewInput().
@@ -616,10 +627,6 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Validate(func(s string) error {
 				if s == "" {
 					return ErrNameRequired
-				}
-
-				if o.EnvPrefix == "" {
-					o.EnvPrefix = deriveEnvPrefix(s)
 				}
 
 				return nil
@@ -639,14 +646,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Title("Git Backend").
 			Description("Where the repository will be hosted.").
 			Options(gitBackendOptions()...).
-			Value(&o.GitBackend).
-			Validate(func(s string) error {
-				if o.Host == "" {
-					o.Host = hostForBackend(s)
-				}
-
-				return nil
-			}),
+			Value(&o.GitBackend),
 		huh.NewSelect[string]().
 			Title("Help Channel").
 			Description("Where users should ask for help — shown in error messages.").
@@ -720,16 +720,20 @@ func chatProviderOptions() []huh.Option[string] {
 	return opts
 }
 
-// envPrefixGroup collects the config env-var prefix. Its value is pre-seeded
-// from the project name (see the name field's validator); the placeholder
-// reactively shows that suggestion if the user clears the field.
+// envPrefixGroup collects the config env-var prefix. The derived prefix is
+// offered as a suggestion (accepted with tab or the right arrow), not written
+// into the field, because huh binds an Input's value once (#41); empty means
+// no prefix, the same as the flag.
 func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewInput().
 			Title("Environment Variable Prefix").
-			Description("Prefix for config env var overrides (e.g. MY_APP → MY_APP_LOG_LEVEL). Leave empty to disable.").
-			PlaceholderFunc(func() string {
-				return deriveEnvPrefix(o.Name)
+			DescriptionFunc(func() string {
+				return fmt.Sprintf("Prefix for config env var overrides (e.g. %[1]s → %[1]s_LOG_LEVEL). Tab accepts the suggestion; leave empty to disable.", deriveEnvPrefix(o.Name))
+			}, &o.Name).
+			Placeholder("e.g. MY_APP").
+			SuggestionsFunc(func() []string {
+				return []string{deriveEnvPrefix(o.Name)}
 			}, &o.Name).
 			Value(&o.EnvPrefix).
 			Validate(func(s string) error {
@@ -789,17 +793,13 @@ func (o *SkeletonOptions) gitGroup() *huh.Group {
 		huh.NewInput().
 			Title("Git Host").
 			DescriptionFunc(func() string {
-				return fmt.Sprintf("The %s host. Change this only if you use a self-hosted instance.", backendLabel(o.GitBackend))
+				return fmt.Sprintf("The %s host. Leave empty for %s; set it only for a self-hosted instance.",
+					backendLabel(o.GitBackend), hostForBackend(o.GitBackend))
 			}, &o.GitBackend).
-			Value(&o.Host).
-			Validate(func(s string) error {
-				if s == "" {
-					return ErrHostRequired
-				}
-
-				return nil
-			}),
+			PlaceholderFunc(func() string { return hostForBackend(o.GitBackend) }, &o.GitBackend).
+			Value(&o.Host),
 		huh.NewInput().
+			Key("repo").
 			Title("Repository").
 			DescriptionFunc(func() string { return repoDescription(o.GitBackend) }, &o.GitBackend).
 			PlaceholderFunc(func() string { return repoPlaceholder(o.GitBackend) }, &o.GitBackend).
@@ -994,10 +994,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		chatProviders = nil
 	}
 
-	host := o.Host
-	if host == "" {
-		host = hostForBackend(o.GitBackend)
-	}
+	host := o.resolvedHost()
 
 	helpType := o.HelpType
 	if helpType == "none" {
