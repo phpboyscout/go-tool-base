@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.41.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.2)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.41.1...v0.41.2)
+
+### Bug Fixes
+
+- **release**: publish the assets where colophon looks, SBOMs included ([a54a314](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a54a31480a01cd0787cc84bde99ab5cc63e64c39))
+
 ## [v0.41.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.41.0...v0.41.1)
