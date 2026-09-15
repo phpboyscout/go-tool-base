@@ -1280,6 +1280,16 @@ func validateManifestProperties(p *ManifestProperties) error {
 		return err
 	}
 
+	if err := validateManifestChat(p.Chat.Providers); err != nil {
+		return err
+	}
+
+	return validateManifestEndpoints(p)
+}
+
+// validateManifestEndpoints validates the outbound endpoints a manifest may
+// name, keeping validateManifestProperties under the complexity budget.
+func validateManifestEndpoints(p *ManifestProperties) error {
 	if err := ValidateTelemetryEndpoint(p.Telemetry.Endpoint); err != nil {
 		return err
 	}
@@ -1289,6 +1299,21 @@ func validateManifestProperties(p *ManifestProperties) error {
 	}
 
 	return ValidateCIComponentSource(p.CI.ComponentSource)
+}
+
+// validateManifestChat refuses a provider no module registers, the same rule
+// generation applies; an absent or empty list is allowed here (see
+// ManifestChat), so it is not ValidateChatProviders.
+func validateManifestChat(providers []string) error {
+	known := KnownChatProviders()
+
+	for _, p := range providers {
+		if !slices.Contains(known, p) {
+			return errors.Wrapf(ErrUnknownChatProvider, "%q (known: %s)", p, strings.Join(known, ", "))
+		}
+	}
+
+	return nil
 }
 
 // validateManifestHelp validates the Slack/Teams help-channel fields,

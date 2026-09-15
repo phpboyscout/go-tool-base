@@ -342,9 +342,18 @@ type ManifestCI struct {
 }
 
 // ManifestChat is the manifest's chat block: which providers the tool links.
+// An absent block (nil Providers) is a project generated before the block
+// existed and reads as the default set on regenerate (spec 0194 D7); an
+// explicit empty list means "ai enabled, link no provider" and is kept as
+// written (#45). The two must marshal differently, so the list carries no
+// omitempty and IsZero decides whether the block is emitted at all.
 type ManifestChat struct {
-	Providers []string `yaml:"providers,omitempty"`
+	Providers []string `yaml:"providers"`
 }
+
+// IsZero reports an absent block, which yaml omits; an empty non-nil list is
+// not zero and is written as `providers: []`.
+func (c ManifestChat) IsZero() bool { return c.Providers == nil }
 
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`

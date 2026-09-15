@@ -12,7 +12,7 @@ func SkeletonChatProviders(modules []string) *jen.File {
 	return blankImportFile(
 		"Registers the chat providers this tool ships, one module per line.",
 		"Generated from .gtb/manifest.yaml chat.providers; edit the manifest and",
-		"regenerate rather than this file. Delete it to ship no chat provider.",
+		"regenerate rather than this file. Set providers to [] to ship none.",
 		modules,
 	)
 }

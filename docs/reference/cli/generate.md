@@ -96,10 +96,12 @@ import; what the running tool's `init` wizard and `doctor` can set up for a
 provider is a separate, narrower question (today: the three API-key providers
 and the local CLIs, which need nothing; Vertex, Bedrock and Azure are
 configured through `go/chat`'s own settings). A name no module registers is
-refused. Both files are rewritten by `regenerate project`
-from the manifest; a project generated before the `chat:` block existed gets
-the full list written into its manifest the first time it is regenerated with
-`ai` enabled. Delete a file to ship none of that family.
+refused, at generation and at regenerate. Both files are rewritten by
+`regenerate project` from the manifest, so deleting one only lasts until the
+next regenerate; to ship no chat provider, set `chat.providers: []` in the
+manifest, which regenerate keeps as written. A project generated before the
+`chat:` block existed has no block at all, and gets the full list written into
+its manifest the first time it is regenerated with `ai` enabled.
 
 **Git lifecycle** (the new project is git-initialised with an initial commit by default):
 

@@ -175,6 +175,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project output contains "([^"]*)"$`, theProjectOutputContains)
 	ctx.Step(`^the project output does not contain "([^"]*)"$`, theProjectOutputDoesNotContain)
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
+	ctx.Step(`^I set the project manifest chat providers to none$`, iSetTheProjectManifestChatProvidersToNone)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
@@ -709,6 +710,28 @@ func theProjectManifestContains(ctx context.Context, substr string) error {
 
 func theProjectManifestDoesNotContain(ctx context.Context, substr string) error {
 	return manifestContains(ctx, substr, false)
+}
+
+// iSetTheProjectManifestChatProvidersToNone rewrites the manifest's chat
+// block to an explicit empty list, the way an author declaring "ai, but link
+// no provider" would by hand.
+func iSetTheProjectManifestChatProvidersToNone(ctx context.Context) error {
+	w := getGeneratorWorld(ctx)
+	path := filepath.Join(w.projectDir, ".gtb", "manifest.yaml")
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read manifest: %w", err)
+	}
+
+	block := regexp.MustCompile(`(?m)^  chat:\n    providers:\n(      - .*\n)+`)
+	if !block.Match(content) {
+		return fmt.Errorf("manifest has no chat.providers list to replace:\n%s", content)
+	}
+
+	rewritten := block.ReplaceAll(content, []byte("  chat:\n    providers: []\n"))
+
+	return os.WriteFile(path, rewritten, 0o600) //nolint:gosec // G703: the path is the scenario's own scratch project
 }
 
 func manifestContains(ctx context.Context, substr string, want bool) error {

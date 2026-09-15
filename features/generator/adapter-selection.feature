@@ -55,6 +55,20 @@ Feature: A generated tool links only the adapters it selects
     And the generated "cmd/feattool/chat.go" file contains "chat-openai"
     And the generated "cmd/feattool/chat.go" file contains "chat-gemini"
 
+  Scenario: An explicit empty provider list stays empty across regenerates
+    Given I generate a gtb project with features "update,init,docs,doctor,ai" and chat providers "claude"
+    Then the project exit code is 0
+    When I set the project manifest chat providers to none
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the project manifest contains "providers: []"
+    And the generated "cmd/feattool/chat.go" file does not contain "go/chat-"
+    When I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the project manifest contains "providers: []"
+    And the project manifest does not contain "- gemini"
+    And the generated "cmd/feattool/chat.go" file does not contain "go/chat-"
+
   Scenario: Disabling a forge feature removes its adapter on regenerate
     Given I generate a gtb project with features "init,update,github" and chat providers ""
     Then the project exit code is 0
