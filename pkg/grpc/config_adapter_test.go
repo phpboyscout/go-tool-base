@@ -181,6 +181,21 @@ func TestStartFromReader_ReturnsStartFunc(t *testing.T) {
 	assert.NotNil(t, start)
 }
 
+// TestStartFromReader_WarnsOnUnknownOptionType mirrors the http adapter's
+// test: StartFromReader has no error return, so an option it cannot use must
+// at least surface as a WARN naming the type rather than vanish.
+func TestStartFromReader_WarnsOnUnknownOptionType(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
+	buf := logger.NewBuffer()
+
+	_ = StartFromReader(cfg, buf, googlegrpc.NewServer(), 42)
+
+	assert.True(t, buf.Contains("unsupported server option"),
+		"StartFromReader must WARN about an unsupported option type; got %v", buf.Messages())
+}
+
 func TestDialLocalFromReader_ReturnsConnection(t *testing.T) {
 	t.Parallel()
 

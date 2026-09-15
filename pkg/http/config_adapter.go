@@ -2,9 +2,7 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"gitlab.com/phpboyscout/go/controls"
 	"gitlab.com/phpboyscout/go/errors"
@@ -31,17 +29,14 @@ type ServerOption func(*serverConfig)
 
 // serverConfig carries the GTB config-selection knobs: which config block to
 // read, and an optional explicit port override.
-type serverConfig struct {
-	prefix string
-	port   *int
-}
+type serverConfig = transportcfg.Selection
 
 // WithConfigPrefix sets the config block the server reads from (default
 // "server.http"). Use it to run a second HTTP server on its own block, e.g.
 // "server.admin".
 func WithConfigPrefix(prefix string) ServerOption {
 	return func(c *serverConfig) {
-		c.prefix = prefix
+		c.Prefix = prefix
 	}
 }
 
@@ -50,7 +45,7 @@ func WithConfigPrefix(prefix string) ServerOption {
 // server.port shared fallback.
 func WithPort(port int) ServerOption {
 	return func(c *serverConfig) {
-		c.port = &port
+		c.Port = &port
 	}
 }
 
@@ -78,7 +73,7 @@ func ObserveServerSettingsFromConfig(
 			return transporthttp.ServerSettings{}
 		}
 
-		return transporthttp.ServerSettings{Port: next.GetInt("server.port")}
+		return transporthttp.ServerSettings{Port: next.GetInt(transportcfg.SharedPortKey)}
 	}, mergeServerSettings))
 	bindingOpts = append(bindingOpts, opts...)
 
@@ -105,7 +100,7 @@ func serverSettingsFromConfig(cfg config.Reader, prefix string, includePort bool
 	if !includePort {
 		settings.Port = 0
 	} else if settings.Port == 0 {
-		settings.Port = cfg.GetInt("server.port")
+		settings.Port = cfg.GetInt(transportcfg.SharedPortKey)
 	}
 
 	return settings
@@ -138,42 +133,10 @@ func serverSettingsFromFlatKeys(cfg config.Reader, prefix string, includePort bo
 	settings.MaxHeaderBytes = cfg.GetInt(prefix + ".max_header_bytes")
 
 	if includePort && settings.Port == 0 {
-		settings.Port = cfg.GetInt("server.port")
+		settings.Port = cfg.GetInt(transportcfg.SharedPortKey)
 	}
 
 	return settings
-}
-
-// splitServerOptions partitions the variadic into GTB config-selection options
-// and transport ServerOptions, resolving the config block and port override.
-// Any value outside those two families is returned in unknown so the caller can
-// reject it (constructors with an error return) or warn (surfaces without one)
-// rather than silently discarding an option — a dropped auth/middleware chain is
-// a security footgun.
-func splitServerOptions(opts []any) (sc serverConfig, transportOpts []transporthttp.ServerOption, unknown []any) {
-	for _, o := range opts {
-		switch v := o.(type) {
-		case ServerOption:
-			v(&sc)
-		case transporthttp.ServerOption:
-			transportOpts = append(transportOpts, v)
-		default:
-			unknown = append(unknown, v)
-		}
-	}
-
-	return sc, transportOpts, unknown
-}
-
-// unknownOptionTypes formats the concrete types of unrecognised option values
-// for an error or warning message.
-func unknownOptionTypes(unknown []any) string {
-	types := make([]string, 0, len(unknown))
-	for _, u := range unknown {
-		types = append(types, fmt.Sprintf("%T", u))
-	}
-
-	return strings.Join(types, ", ")
 }
 
 // resolveSettings turns the config block into typed settings. An explicit GTB
@@ -181,23 +144,18 @@ func unknownOptionTypes(unknown []any) string {
 // transporthttp.WithPort so the transport's port-range validation fires (a
 // typo'd port must be a hard error, not a silent ephemeral bind).
 func resolveSettings(cfg config.Reader, sc serverConfig) transporthttp.ServerSettings {
-	prefix := sc.prefix
-	if prefix == "" {
-		prefix = DefaultConfigPrefix
-	}
-
-	return serverSettingsFromConfig(cfg, prefix, sc.port == nil)
+	return serverSettingsFromConfig(cfg, sc.ResolvedPrefix(DefaultConfigPrefix), sc.Port == nil)
 }
 
 // portOverrideOption forwards an explicit GTB WithPort as a transport ServerOption
 // so it flows through the transport's validated resolvePort. Returns nil when no
 // explicit port was set.
 func portOverrideOption(sc serverConfig) transporthttp.ServerOption {
-	if sc.port == nil {
+	if sc.Port == nil {
 		return nil
 	}
 
-	return transporthttp.WithPort(*sc.port)
+	return transporthttp.WithPort(*sc.Port)
 }
 
 // NewServerFromReader returns a new preconfigured http.Server. With no
@@ -205,9 +163,9 @@ func portOverrideOption(sc serverConfig) transporthttp.ServerOption {
 // WithConfigPrefix/WithPort to select the config block, and transport
 // ServerOption values (timeouts, TLS) to configure the server.
 func NewServerFromReader(ctx context.Context, cfg config.Reader, handler http.Handler, opts ...any) (*http.Server, error) {
-	sc, transportOpts, unknown := splitServerOptions(opts)
+	sc, transportOpts, unknown := transportcfg.SplitOptions[ServerOption, transporthttp.ServerOption](opts)
 	if len(unknown) > 0 {
-		return nil, errors.Newf("http: unsupported server option type(s): %s", unknownOptionTypes(unknown))
+		return nil, errors.Newf("http: unsupported server option type(s): %s", transportcfg.UnknownOptionTypes(unknown))
 	}
 
 	// An explicit port is forwarded as a transport ServerOption so the
@@ -224,17 +182,12 @@ func NewServerFromReader(ctx context.Context, cfg config.Reader, handler http.Ha
 // controls package. With no options it reads TLS from the default "server.http"
 // config prefix; pass WithConfigPrefix to match a server on a custom prefix.
 func StartFromReader(cfg config.Reader, log logger.Logger, srv *http.Server, opts ...any) controls.StartFunc {
-	sc, _, unknown := splitServerOptions(opts)
+	sc, _, unknown := transportcfg.SplitOptions[ServerOption, transporthttp.ServerOption](opts)
 	if len(unknown) > 0 {
-		log.Warn("http: ignoring unsupported server option type(s)", "types", unknownOptionTypes(unknown))
+		log.Warn("http: ignoring unsupported server option type(s)", "types", transportcfg.UnknownOptionTypes(unknown))
 	}
 
-	prefix := sc.prefix
-	if prefix == "" {
-		prefix = DefaultConfigPrefix
-	}
-
-	return transporthttp.StartWithTLSPair(logger.ToSlog(log), srv, gtbtls.Resolve(cfg, prefix+".tls"))
+	return transporthttp.StartWithTLSPair(logger.ToSlog(log), srv, gtbtls.Resolve(cfg, sc.ResolvedPrefix(DefaultConfigPrefix)+".tls"))
 }
 
 // RegisterFromReader creates a new HTTP server and registers it with the
@@ -242,25 +195,11 @@ func StartFromReader(cfg config.Reader, log logger.Logger, srv *http.Server, opt
 // options (WithConfigPrefix, WithPort) plus transport ServerOption and
 // RegisterOption values (timeouts, middleware, body limit).
 func RegisterFromReader(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, log logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
-	var sc serverConfig
-
-	var registerOpts []any
-
-	for _, o := range opts {
-		switch v := o.(type) {
-		case ServerOption:
-			v(&sc)
-		default:
-			// transport ServerOption / RegisterOption values are forwarded to
-			// the transport Register, which accepts the same `...any` families.
-			registerOpts = append(registerOpts, v)
-		}
-	}
-
-	prefix := sc.prefix
-	if prefix == "" {
-		prefix = DefaultConfigPrefix
-	}
+	// Everything that is not a GTB option is forwarded to the transport
+	// Register, which accepts the same `...any` families (ServerOption and
+	// RegisterOption), so nothing is unknown here.
+	sc, registerOpts := transportcfg.Select[ServerOption](opts)
+	prefix := sc.ResolvedPrefix(DefaultConfigPrefix)
 
 	// An explicit port is forwarded to the transport Register as a validated
 	// ServerOption — an out-of-range value is rejected there, not turned into a

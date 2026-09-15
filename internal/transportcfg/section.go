@@ -1,5 +1,6 @@
 // Package transportcfg holds config-resolution helpers shared by the pkg/grpc
-// and pkg/http server adapters.
+// and pkg/http server adapters: config-selection options, their splitting from
+// the transport's own option families, and the resilience subsections.
 //
 // Both adapters resolve the same resilience subsections — rate limiting and
 // circuit breaking — from configuration, against the per-transport go/transit

@@ -2,8 +2,6 @@ package grpc
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"google.golang.org/grpc"
 
@@ -24,7 +22,7 @@ const DefaultConfigPrefix = "server.grpc"
 
 // ConfigKeySharedPort is the shared fallback port used when the per-server port
 // key (<prefix>.port) is unset.
-const ConfigKeySharedPort = "server.port"
+const ConfigKeySharedPort = transportcfg.SharedPortKey
 
 // ServerOption selects which GTB config block (and, optionally, an explicit
 // port) the *FromReader adapters read. It is distinct from the transport's
@@ -34,33 +32,22 @@ const ConfigKeySharedPort = "server.port"
 type ServerOption func(*serverConfig)
 
 // serverConfig carries the GTB config-selection knobs.
-type serverConfig struct {
-	prefix string
-	port   *int
-}
+type serverConfig = transportcfg.Selection
 
 // WithConfigPrefix sets the config block the server reads from (default
 // "server.grpc"). Use it to run a second gRPC server on its own block, e.g.
 // "server.internal".
 func WithConfigPrefix(prefix string) ServerOption {
 	return func(c *serverConfig) {
-		c.prefix = prefix
+		c.Prefix = prefix
 	}
 }
 
 // WithPort sets the listen (or dial) port explicitly, bypassing config lookup.
 func WithPort(port int) ServerOption {
 	return func(c *serverConfig) {
-		c.port = &port
+		c.Port = &port
 	}
-}
-
-func (c serverConfig) resolvedPrefix() string {
-	if c.prefix == "" {
-		return DefaultConfigPrefix
-	}
-
-	return c.prefix
 }
 
 // ServerSettingsFromConfig resolves gRPC server settings from GTB config. It
@@ -159,42 +146,22 @@ func serverSettingsFromFlatKeys(cfg config.Reader, prefix string, includePort, i
 
 // portOverride applies an explicit WithPort onto resolved settings.
 func portOverride(settings transportgrpc.ServerSettings, sc serverConfig) transportgrpc.ServerSettings {
-	if sc.port != nil {
-		settings.Port = *sc.port
+	if sc.Port != nil {
+		settings.Port = *sc.Port
 	}
 
 	return settings
-}
-
-// unknownOptionTypes formats the concrete types of unrecognised option values
-// for a warning message.
-func unknownOptionTypes(unknown []any) string {
-	types := make([]string, 0, len(unknown))
-	for _, u := range unknown {
-		types = append(types, fmt.Sprintf("%T", u))
-	}
-
-	return strings.Join(types, ", ")
 }
 
 // NewServerFromReader returns a new preconfigured grpc.Server from config.
 // GTB config-selection options (WithConfigPrefix) select the block the
 // reflection flag is read from; grpc.ServerOption values are forwarded.
 func NewServerFromReader(cfg config.Reader, opts ...any) (*grpc.Server, error) {
-	var sc serverConfig
+	// grpc.ServerOption and transport RegisterOption values are forwarded to
+	// the transport, which accepts the same `...any` families.
+	sc, forwarded := transportcfg.Select[ServerOption](opts)
 
-	var forwarded []any
-
-	for _, o := range opts {
-		switch v := o.(type) {
-		case ServerOption:
-			v(&sc)
-		default:
-			forwarded = append(forwarded, v)
-		}
-	}
-
-	settings := serverSettingsFromConfig(cfg, sc.resolvedPrefix(), false, true)
+	settings := serverSettingsFromConfig(cfg, sc.ResolvedPrefix(DefaultConfigPrefix), false, true)
 
 	return transportgrpc.NewServer(settings, forwarded...)
 }
@@ -204,26 +171,16 @@ func NewServerFromReader(cfg config.Reader, opts ...any) (*grpc.Server, error) {
 // "server.grpc" config block; pass WithConfigPrefix/WithPort to target a custom
 // server. TLS cascades: <prefix>.tls.* overrides server.tls.* shared defaults.
 func StartFromReader(cfg config.Reader, log logger.Logger, srv *grpc.Server, opts ...any) controls.StartFunc {
-	var sc serverConfig
-
-	var unknown []any
-
-	for _, o := range opts {
-		if v, ok := o.(ServerOption); ok {
-			v(&sc)
-		} else {
-			unknown = append(unknown, o)
-		}
-	}
+	sc, unknown := transportcfg.Select[ServerOption](opts)
 
 	if len(unknown) > 0 {
 		// StartFromReader has no error return, so an unsupported option must at
 		// least surface as a WARN naming the type rather than vanishing.
-		log.Warn("grpc: ignoring unsupported server option type(s)", "types", unknownOptionTypes(unknown))
+		log.Warn("grpc: ignoring unsupported server option type(s)", "types", transportcfg.UnknownOptionTypes(unknown))
 	}
 
-	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, false), sc)
-	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
+	settings := portOverride(serverSettingsFromConfig(cfg, sc.ResolvedPrefix(DefaultConfigPrefix), sc.Port == nil, false), sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.ResolvedPrefix(DefaultConfigPrefix)+".tls")
 
 	return transportgrpc.Start(logger.ToSlog(log), srv, settings, tlsPair)
 }
@@ -234,21 +191,10 @@ func StartFromReader(cfg config.Reader, log logger.Logger, srv *grpc.Server, opt
 // such as the grpc-gateway. The opts variadic accepts GTB ServerOption values
 // (WithConfigPrefix to dial a non-default server) and grpc.DialOption values.
 func DialLocalFromReader(cfg config.Reader, opts ...any) (*grpc.ClientConn, error) {
-	var sc serverConfig
+	sc, dialOpts := transportcfg.Select[ServerOption](opts)
 
-	var dialOpts []any
-
-	for _, o := range opts {
-		switch v := o.(type) {
-		case ServerOption:
-			v(&sc)
-		default:
-			dialOpts = append(dialOpts, v)
-		}
-	}
-
-	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, false), sc)
-	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
+	settings := portOverride(serverSettingsFromConfig(cfg, sc.ResolvedPrefix(DefaultConfigPrefix), sc.Port == nil, false), sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.ResolvedPrefix(DefaultConfigPrefix)+".tls")
 
 	return transportgrpc.DialLocal(settings, tlsPair, dialOpts...)
 }
@@ -258,21 +204,12 @@ func DialLocalFromReader(cfg config.Reader, opts ...any) (*grpc.ClientConn, erro
 // ServerOption values (WithConfigPrefix, WithPort), transport RegisterOption
 // values (interceptors) and grpc.ServerOption values.
 func RegisterFromReader(_ context.Context, id string, controller controls.Controllable, cfg config.Reader, log logger.Logger, opts ...any) (*grpc.Server, error) {
-	var sc serverConfig
+	// grpc.ServerOption and transport RegisterOption values are forwarded to
+	// the transport, which accepts the same `...any` families.
+	sc, forwarded := transportcfg.Select[ServerOption](opts)
 
-	var forwarded []any
-
-	for _, o := range opts {
-		switch v := o.(type) {
-		case ServerOption:
-			v(&sc)
-		default:
-			forwarded = append(forwarded, v)
-		}
-	}
-
-	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, true), sc)
-	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
+	settings := portOverride(serverSettingsFromConfig(cfg, sc.ResolvedPrefix(DefaultConfigPrefix), sc.Port == nil, true), sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.ResolvedPrefix(DefaultConfigPrefix)+".tls")
 
 	return transportgrpc.Register(id, controller, logger.ToSlog(log), settings,
 		append(forwarded, transportgrpc.WithTLSPair(tlsPair))...)

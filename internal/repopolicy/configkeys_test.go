@@ -17,16 +17,19 @@ var keyFiles = map[string]bool{
 	"pkg/chat/constants.go":                true,
 	"pkg/setup/config_keys.go":             true,
 	"pkg/telemetrytypes/telemetrytypes.go": true,
+	"internal/transportcfg/selection.go":   true,
 }
 
-// TestConfigKeysAreDeclaredOnce fails when a telemetry.*, update.* or ai.*
+// TestConfigKeysAreDeclaredOnce fails when a telemetry.*, update.*, ai.* or server.*
 // config key appears as a string literal outside its constants file. A key
 // is part of the tool's contract; eleven copies of "telemetry.enabled" drift.
 func TestConfigKeysAreDeclaredOnce(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	keyLiteral := regexp.MustCompile(`"(telemetry|update|ai)\.[a-z_]+(\.[a-z_]+)*"`)
+	// A constant declaring the key is where the literal belongs.
+	constDecl := regexp.MustCompile(`^(const\s+)?[A-Za-z_]\w*\s*=\s*"[a-z_.]+"$`)
+	keyLiteral := regexp.MustCompile(`"(telemetry|update|ai|server)\.[a-z_]+(\.[a-z_]+)*"`)
 
 	var offenders []string
 
@@ -48,7 +51,7 @@ func TestConfigKeysAreDeclaredOnce(t *testing.T) {
 
 		for i, line := range strings.Split(string(src), "\n") {
 			code := strings.TrimSpace(line)
-			if strings.HasPrefix(code, "//") {
+			if strings.HasPrefix(code, "//") || constDecl.MatchString(code) {
 				continue
 			}
 
