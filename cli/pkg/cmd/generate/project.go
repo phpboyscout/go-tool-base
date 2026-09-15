@@ -534,16 +534,18 @@ func labelWidth(names []string, label func(string) string) int {
 
 // featureOptions builds the wizard's feature checklist from the same set the
 // --features flag accepts and defaults to, so the two entry points cannot
-// disagree about what is selectable. The hand-written list this replaced had
-// already fallen behind: it offered neither man pages nor any forge.
-func featureOptions() []huh.Option[string] {
+// disagree about what is selectable. Ticks come from the current selection
+// (the flag's value, or its default), not from the default set: huh's
+// accessor adds the bound values to whatever is already ticked and never
+// clears, so pre-ticking the defaults widened an explicit --features (#42).
+func featureOptions(selected []string) []huh.Option[string] {
 	opts := make([]huh.Option[string], 0, len(generator.SelectableFeatures))
 	width := labelWidth(generator.SelectableFeatures, featureLabel)
 
 	for _, name := range generator.SelectableFeatures {
 		opts = append(opts,
 			huh.NewOption(optionLabel(featureLabel(name), featureGloss(name), width), name).
-				Selected(slices.Contains(generator.DefaultSelectedFeatures, name)))
+				Selected(slices.Contains(selected, name)))
 	}
 
 	return opts
@@ -640,7 +642,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Value(&o.Path),
 		huh.NewMultiSelect[string]().
 			Title("Features").
-			Options(featureOptions()...).
+			Options(featureOptions(o.Features)...).
 			Value(&o.Features),
 		huh.NewSelect[string]().
 			Title("Git Backend").
@@ -697,7 +699,7 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 		huh.NewMultiSelect[string]().
 			Title("Chat providers").
 			Description("Each one is a module linked into the binary; untick what this tool will never use.").
-			Options(chatProviderOptions()...).
+			Options(chatProviderOptions(o.ChatProviders)...).
 			// huh sizes an auto-height multi-select as the options minus its
 			// title and description lines, which hid two of five providers.
 			Height(len(generator.DefaultChatProviders()) + multiSelectHeaderLines).
@@ -708,13 +710,14 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 		WithHideFunc(func() bool { return !slices.Contains(o.Features, string(props.AiCmd)) })
 }
 
-func chatProviderOptions() []huh.Option[string] {
-	defaults := generator.DefaultChatProviders()
-	opts := make([]huh.Option[string], 0, len(defaults))
-	width := labelWidth(defaults, func(s string) string { return s })
+func chatProviderOptions(selected []string) []huh.Option[string] {
+	known := generator.DefaultChatProviders()
+	opts := make([]huh.Option[string], 0, len(known))
+	width := labelWidth(known, func(s string) string { return s })
 
-	for _, name := range defaults {
-		opts = append(opts, huh.NewOption(optionLabel(name, providerGlosses[name], width), name).Selected(true))
+	for _, name := range known {
+		opts = append(opts, huh.NewOption(optionLabel(name, providerGlosses[name], width), name).
+			Selected(slices.Contains(selected, name)))
 	}
 
 	return opts
