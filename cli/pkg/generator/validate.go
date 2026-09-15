@@ -31,6 +31,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
+
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -128,30 +130,18 @@ var releaseSourceTypes = map[string]bool{
 	"gitlab": true,
 }
 
-// validFlagTypes is the set of flag types the command generator knows
-// how to render (kept in sync with templates/command.go's flagFuncMap
-// plus the empty/"string" default). A flag type outside this set would
-// silently fall back to a string flag at generation time, so the
-// non-interactive add-flag path rejects it up front.
-var validFlagTypes = map[string]bool{
-	"":            true,
-	"string":      true,
-	"bool":        true,
-	"int":         true,
-	"int32":       true,
-	"int64":       true,
-	"uint":        true,
-	"uint32":      true,
-	"uint64":      true,
-	"float64":     true,
-	"duration":    true,
-	"stringSlice": true,
-	"stringslice": true,
-	"stringArray": true,
-	"stringarray": true,
-	"intSlice":    true,
-	"intslice":    true,
-}
+// validFlagTypes is the set of flag types the command generator renders,
+// derived from the templates' one flag-type table so the two cannot drift;
+// the empty type means string. A type outside this set is refused before
+// generation rather than rendered as a string flag.
+var validFlagTypes = func() map[string]bool {
+	valid := map[string]bool{"": true}
+	for _, t := range templates.FlagTypes() {
+		valid[t] = true
+	}
+
+	return valid
+}()
 
 // reservedCommandNames are command names the generator claims for itself:
 // "root" is the scaffolded root command package and "options" collides with
