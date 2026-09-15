@@ -64,3 +64,30 @@ func TestSkeletonOptions_ForgeFlags(t *testing.T) {
 		assert.Equal(t, []props.FeatureID{forge.GithubFeature}, cfg.ForgeCredentials)
 	})
 }
+
+// The backend and the credential forges become enabled features (spec 0195
+// D1, D6); a not-hosted project enables none.
+func TestResolveFeatures_DerivesForgesFromTheBackend(t *testing.T) {
+	t.Parallel()
+
+	enabled := func(fs []generator.ManifestFeature) []string {
+		var names []string
+		for _, f := range fs {
+			if f.Enabled {
+				names = append(names, f.Name)
+			}
+		}
+
+		return names
+	}
+
+	hosted := &SkeletonOptions{Features: []string{"update", "docs"}, ForgeBackend: "gitlab", ForgeCredentials: []string{"github"}}
+	assert.ElementsMatch(t, []string{"update", "docs", "gitlab", "github"}, enabled(hosted.resolveFeatures()))
+
+	bare := &SkeletonOptions{Features: []string{"docs"}, NoForge: true}
+	assert.ElementsMatch(t, []string{"docs"}, enabled(bare.resolveFeatures()))
+
+	// A forge name in --features is refused before anything is written.
+	stale := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: []string{"update", "github"}}
+	require.Error(t, stale.validateFields())
+}

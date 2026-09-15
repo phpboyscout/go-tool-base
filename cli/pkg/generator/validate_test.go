@@ -195,7 +195,8 @@ func TestValidateOrg(t *testing.T) {
 		{name: "gitlab 5-deep rejected", input: "a/b/c/d/e", releaseProvider: "gitlab", wantErr: true},
 		{name: "gitlab bad segment", input: "group/-bad", releaseProvider: "gitlab", wantErr: true},
 
-		{name: "unknown provider", input: "myorg", releaseProvider: "bitbucket", wantErr: true},
+		{name: "bitbucket owner", input: "myorg", releaseProvider: "bitbucket", wantErr: false},
+		{name: "unknown provider", input: "myorg", releaseProvider: "sourcehut", wantErr: true},
 	}
 
 	for _, tc := range tests {

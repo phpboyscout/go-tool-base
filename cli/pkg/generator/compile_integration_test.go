@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
@@ -102,7 +103,8 @@ func runGo(t *testing.T, dir string, args ...string) {
 
 // localGoToolBasePath resolves the absolute filesystem path of the
 // go-tool-base checkout the test is running inside. It walks up from this
-// test file's location until it finds the repo's go.mod.
+// test file's location until it finds the workspace file: the first go.mod
+// above this file is cli/'s, the nested module, not the framework's.
 func localGoToolBasePath(t *testing.T) string {
 	t.Helper()
 
@@ -114,7 +116,7 @@ func localGoToolBasePath(t *testing.T) string {
 	dir := filepath.Dir(file)
 
 	for i := 0; i < 8; i++ {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
 			return dir
 		}
 
@@ -126,7 +128,7 @@ func localGoToolBasePath(t *testing.T) string {
 		dir = parent
 	}
 
-	t.Fatal("could not locate go-tool-base go.mod walking up from test file")
+	t.Fatal("could not locate go-tool-base go.work walking up from test file")
 
 	return ""
 }
@@ -148,4 +150,63 @@ func injectGoToolBaseReplace(t *testing.T, projectPath, localGoToolBase string) 
 	require.NoError(t,
 		afero.WriteFile(afero.NewOsFs(), goModPath, append(existing, []byte(replaceLine)...), 0o644),
 		"failed to append replace directive")
+}
+
+// TestGeneratedDefaultProjectCanCheckForUpdates is the contract spec 0195
+// D10 adds: a project generated with every default links its backend's
+// adapter, so the built binary, stamped with a release version, constructs
+// its updater rather than logging that no provider is registered. The
+// e2e suite cannot see this (the e2e binary embeds its own fixture and the
+// generator scenarios do not build), which is how the default project shipped
+// unable to update itself.
+func TestGeneratedDefaultProjectCanCheckForUpdates(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
+
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skipf("`go` not on PATH: %v", err)
+	}
+
+	localModule := localGoToolBasePath(t)
+	path := t.TempDir()
+
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: emptyTestStore(t)}
+	g := New(p, &Config{})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) { return nil, nil }
+
+	features := make([]ManifestFeature, 0, len(DefaultSelectedFeatures))
+	for _, name := range DefaultSelectedFeatures {
+		features = append(features, ManifestFeature{Name: name, Enabled: true})
+	}
+
+	// The backend implies its forge feature (D1); the flag path does this in
+	// SkeletonOptions.resolveFeatures, so the library caller states it.
+	features = append(features, ManifestFeature{Name: "github", Enabled: true})
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name: "updtool", Repo: "test/updtool", Host: "github.com", Path: path,
+		ForgeBackend: "github", ReleaseChannel: ReleaseChannelForge,
+		Features: features,
+	}))
+
+	injectGoToolBaseReplace(t, path, localModule)
+	runGo(t, path, "mod", "tidy")
+
+	bin := filepath.Join(t.TempDir(), "updtool")
+	runGo(t, path, "build", "-buildvcs=false",
+		"-ldflags", "-X github.com/test/updtool/internal/version.version=v1.0.0",
+		"-o", bin, "./cmd/updtool")
+
+	home := t.TempDir()
+	env := []string{"HOME=" + home, "PATH=" + os.Getenv("PATH")}
+
+	initCmd := exec.Command(bin, "init")
+	initCmd.Env = env
+	initOut, _ := initCmd.CombinedOutput()
+
+	verCmd := exec.Command(bin, "version")
+	verCmd.Env = env
+	out, _ := verCmd.CombinedOutput()
+
+	assert.NotContains(t, string(out), "No provider is registered",
+		"the default project must link its backend's adapter\ninit:\n%s\nversion:\n%s", initOut, out)
 }

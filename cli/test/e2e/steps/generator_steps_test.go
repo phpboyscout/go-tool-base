@@ -163,6 +163,8 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 		aGTBProjectWithACommandWithMetadata)
 	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)"$`, iGenerateAGTBProjectWithFeatures)
+	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" on host "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendOnHost)
+	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" and forge credentials "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendAndCredentials)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)" and chat providers "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesAndChatProviders)
 	ctx.Step(`^a gtb project with a "([^"]*)" command$`, aGTBProjectWithACommand)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
@@ -383,6 +385,14 @@ func aFreshlyGeneratedGTBProject(ctx context.Context) (context.Context, error) {
 // the exit-code assertion instead of aborting the scenario.
 func iGenerateAGTBProjectWithFeatures(ctx context.Context, features string) (context.Context, error) {
 	return ctx, scaffoldProject(ctx, "gtb-e2e-featsel-*", "--features", features)
+}
+
+func iGenerateAGTBProjectWithForgeBackendOnHost(ctx context.Context, backend, host string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-backend-*", "--forge-backend", backend, "--host", host)
+}
+
+func iGenerateAGTBProjectWithForgeBackendAndCredentials(ctx context.Context, backend, credentials string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-backend-*", "--forge-backend", backend, "--forge-credentials", credentials)
 }
 
 func iGenerateAGTBProjectWithFeaturesAndChatProviders(ctx context.Context, features, providers string) (context.Context, error) {

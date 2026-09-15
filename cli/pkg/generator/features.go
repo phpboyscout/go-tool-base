@@ -4,6 +4,8 @@ import (
 	"context"
 	"slices"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
@@ -25,11 +27,27 @@ var ToggleableFeatures = featureNamesFromCatalogue()
 // ToggleableFeatures.
 const KeychainFeature = "keychain"
 
-// SelectableFeatures is the set `gtb generate project --features` accepts — every
-// toggleable feature plus keychain. It is deliberately wider than
-// ToggleableFeatures: at generation time keychain is a real choice, whereas
-// `gtb enable`/`gtb disable` cannot flip it in an existing project.
-var SelectableFeatures = append(slices.Clone(ToggleableFeatures), KeychainFeature)
+// SelectableFeatures is the set `gtb generate project --features` accepts:
+// every toggleable feature that is not a forge, plus keychain. Keychain is a
+// real choice at generation time that `gtb enable`/`gtb disable` cannot flip
+// afterwards. A forge is not chosen here: the backend implies one and
+// --forge-credentials adds the rest (spec 0195 D1, D6), though a forge stays
+// toggleable once the project exists.
+var SelectableFeatures = append(nonForgeFeatures(), KeychainFeature)
+
+func nonForgeFeatures() []string {
+	forges := ForgeBackends()
+
+	names := make([]string, 0, len(ToggleableFeatures))
+
+	for _, name := range ToggleableFeatures {
+		if !slices.Contains(forges, props.FeatureID(name)) {
+			names = append(names, name)
+		}
+	}
+
+	return names
+}
 
 // DefaultSelectedFeatures is what `gtb generate project` selects when --features
 // is omitted: every catalogue feature that is default-enabled in the framework,

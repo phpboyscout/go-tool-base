@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	forgeapi "gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -48,6 +50,35 @@ func checkConfig(_ context.Context, props *p.Props) CheckResult {
 // checkForgeAdapters reports whether every enabled forge feature has its
 // adapter linked into the binary. Fixed at build time, so a failure names the
 // blank imports to add rather than a config key to set (spec 0194 D9).
+// checkReleaseSource asks whether the tool's release source type has a
+// registered provider, independently of forge features (spec 0195 D10): a
+// tool whose release source names github while no github adapter is linked
+// cannot build its updater, and the forge-adapters check skips it because it
+// asks only about enabled features.
+func checkReleaseSource(_ context.Context, props *p.Props) CheckResult {
+	const name = "Release source"
+
+	if props == nil || props.Tool.ReleaseSource.Type == "" {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no release source"}
+	}
+
+	if props.Tool.IsDisabled(p.UpdateCmd) {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "self-update disabled"}
+	}
+
+	sourceType := props.Tool.ReleaseSource.Type
+	if forgeapi.Registered(sourceType) {
+		return CheckResult{Name: name, Status: CheckPass, Message: sourceType + " provider linked"}
+	}
+
+	msg := fmt.Sprintf("no provider registered for release source type %q", sourceType)
+	if module, ok := forge.ModuleFor(sourceType); ok {
+		msg += fmt.Sprintf(" (import %s)", module)
+	}
+
+	return CheckResult{Name: name, Status: CheckFail, Message: msg}
+}
+
 func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 	const name = "Forge adapters"
 

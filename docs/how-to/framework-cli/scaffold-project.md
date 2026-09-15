@@ -165,7 +165,7 @@ Navigate to the directory where you want your project to live and run:
 gtb generate cli \
   --name "my-awesome-tool" \
   --repo "my-github-org/my-awesome-tool-repo" \
-  --git-backend github \
+  --forge-backend github \
   --help-type slack \
   --slack-channel "#help" \
   --slack-team "My Team"
@@ -192,7 +192,7 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | :--- | :--- | :--- | :--- |
 | `--name` | `-n` | Name of your CLI tool | — |
 | `--repo` | `-r` | Repository in `org/repo` format | — |
-| `--git-backend` | | Git backend (`github` or `gitlab`) | `github` |
+| `--forge-backend` | | Forge the project is hosted on (`github`, `gitlab`, `gitea`, `codeberg`, `bitbucket`) | `github` |
 | `--host` | | Git host (overrides backend default, for self-hosted instances) | — |
 | `--private` | | Mark the repository as private (requires a token for updates) | `false` |
 | `--description` | `-d` | Short description of the tool | `A tool built with gtb` |
@@ -238,7 +238,7 @@ gtb generate cli --name "my-tool" --repo "org/my-tool" --dry-run
 This materialises all generated files into a temporary directory, runs `go mod tidy` and `golangci-lint run --fix`, then shows a summary of files that would be created or modified along with unified diffs.
 
 !!! tip
-    The `--host` flag is only needed when using a self-hosted GitHub Enterprise or GitLab instance. For public `github.com` or `gitlab.com`, the correct host is set automatically from `--git-backend`.
+    The `--host` flag is only needed when using a self-hosted GitHub Enterprise or GitLab instance. For public `github.com` or `gitlab.com`, the correct host is set automatically from `--forge-backend`.
 
 ## Help Channel Configuration
 

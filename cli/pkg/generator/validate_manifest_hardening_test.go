@@ -215,8 +215,9 @@ func TestValidateManifestReleaseSourceType(t *testing.T) {
 		{name: "gitlab", typ: "gitlab", wantErr: false},
 
 		// Reserved until skeleton assets exist for them.
-		{name: "gitea reserved", typ: "gitea", wantErr: true},
-		{name: "bitbucket reserved", typ: "bitbucket", wantErr: true},
+		{name: "gitea", typ: "gitea", wantErr: false},
+		{name: "direct", typ: "direct", wantErr: false},
+		{name: "bitbucket", typ: "bitbucket", wantErr: false},
 		{name: "arbitrary value", typ: "evil\ninjection", wantErr: true},
 	}
 

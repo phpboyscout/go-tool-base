@@ -11,24 +11,21 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
-// TestGitBackendsAreScaffoldable is the invariant that keeps the wizard honest.
-//
-// A forge feature gates a credential wizard; a git backend selects a skeleton
-// asset set. Those are different axes, and the generator can only offer a
-// backend it has assets for. Deriving the chooser from the forge registry alone
-// would have offered Gitea and Bitbucket — which
-// generator.ValidateReleaseSourceType rejects two files away, so the project
-// would have failed to generate after the user chose it.
-func TestGitBackendsAreScaffoldable(t *testing.T) {
+// TestForgeBackendsAreValidReleaseSources keeps the chooser and the manifest
+// validator on one table: every backend the wizard offers is a release source
+// type the manifest accepts (spec 0195 D4), and every one has display data.
+func TestForgeBackendsAreValidReleaseSources(t *testing.T) {
 	t.Parallel()
 
-	names := gitBackendNames()
-	require.NotEmpty(t, names)
+	names := forgeBackendNames()
+	require.Len(t, names, len(generator.ForgeBackends()), "every backend has display data")
 
 	for _, name := range names {
-		assert.NoErrorf(t, generator.ValidateReleaseSourceType(name),
-			"the wizard offers %q as a git backend, but the generator cannot scaffold it", name)
+		require.NoErrorf(t, generator.ValidateReleaseSourceType(name),
+			"the wizard offers %q as a backend, but the manifest refuses it as a release source", name)
 	}
+
+	assert.Contains(t, names, "gitea", "a forge without a CI skeleton is still offered (D8)")
 }
 
 // TestGitBackendOptionsMatchNames pins that the flag's documented set and the
@@ -37,8 +34,8 @@ func TestGitBackendsAreScaffoldable(t *testing.T) {
 func TestGitBackendOptionsMatchNames(t *testing.T) {
 	t.Parallel()
 
-	names := gitBackendNames()
-	options := gitBackendOptions()
+	names := forgeBackendNames()
+	options := forgeBackendOptions()
 
 	require.Len(t, options, len(names),
 		"--git-backend must document exactly the set the wizard offers")
@@ -99,9 +96,11 @@ func TestBackendAccessorsMatchPreviousBehaviour(t *testing.T) {
 // unknown or empty value rendered GitHub — and the wizard relies on that while
 // the field is still being filled in.
 func TestBackendAccessorsFallBackToGitHub(t *testing.T) {
+	// Only an unknown value falls back: every registered forge resolves to
+	// itself since spec 0195 D4.
 	t.Parallel()
 
-	for _, backend := range []string{"", "bogus", "gitea", "bitbucket"} {
+	for _, backend := range []string{"", "bogus"} {
 		t.Run("backend="+backend, func(t *testing.T) {
 			t.Parallel()
 
@@ -109,17 +108,5 @@ func TestBackendAccessorsFallBackToGitHub(t *testing.T) {
 			assert.Equal(t, "github.com", hostForBackend(backend))
 			assert.Equal(t, "org/repo", repoPlaceholder(backend))
 		})
-	}
-}
-
-// TestScaffoldableBackendsAreRegisteredForges guards the other direction: an
-// entry in scaffoldableBackends that is not a registered forge would render a
-// blank option in the chooser.
-func TestScaffoldableBackendsAreRegisteredForges(t *testing.T) {
-	t.Parallel()
-
-	for id := range scaffoldableBackends {
-		_, ok := forge.DisplayFor(id)
-		assert.Truef(t, ok, "scaffoldable backend %q is not a registered forge", id)
 	}
 }

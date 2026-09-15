@@ -1084,7 +1084,7 @@ func TestValidateOrg_GitLabBranches(t *testing.T) {
 	require.Error(t, ValidateOrg("", "gitlab"))
 	require.Error(t, ValidateOrg("a/b/c/d/e", "gitlab"))              // depth > 4
 	require.Error(t, ValidateOrg("bad seg/x", "gitlab"))              // bad char class
-	require.Error(t, ValidateOrg("org", "bitbucket"))                 // unknown provider
+	require.Error(t, ValidateOrg("org", "sourcehut"))                 // unknown provider
 	require.Error(t, ValidateOrg(strings.Repeat("a", 256), "gitlab")) // too long
 }
 

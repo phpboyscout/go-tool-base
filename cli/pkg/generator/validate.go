@@ -124,11 +124,18 @@ var signingKeySources = map[string]bool{
 // releaseSourceTypes is the set of release-source providers the skeleton
 // asset sets actually support. "gitea" and "bitbucket" are reserved for
 // the forge adapters but rejected until skeleton assets exist for them.
-var releaseSourceTypes = map[string]bool{
-	"":       true,
-	"github": true,
-	"gitlab": true,
-}
+// releaseSourceTypes is every type a generated tool can release from: each
+// forge the generator can host a project on (spec 0195 D4) plus the go/forge
+// direct source (D7). Empty is a project that is not hosted and does not
+// self-update.
+var releaseSourceTypes = func() map[string]bool {
+	types := map[string]bool{"": true, ReleaseChannelDirect: true}
+	for _, id := range ForgeBackends() {
+		types[string(id)] = true
+	}
+
+	return types
+}()
 
 // validFlagTypes is the set of flag types the command generator renders,
 // derived from the templates' one flag-type table so the two cannot drift;
@@ -562,7 +569,7 @@ func ValidateSigningKeySource(source string) error {
 func ValidateReleaseSourceType(sourceType string) error {
 	if !releaseSourceTypes[norm.NFC.String(sourceType)] {
 		return rejectf("ReleaseSourceType",
-			"release source type must be github or gitlab (gitea and bitbucket are reserved until skeleton assets exist)",
+			"release source type must be a forge backend ("+joinFeatureIDs(ForgeBackends())+"), direct, or empty",
 			sourceType)
 	}
 
@@ -689,11 +696,11 @@ func validatePort(port, h string) error {
 	return nil
 }
 
-// ValidateOrg enforces GitHub-org syntax for the `github` release
-// provider and GitLab-namespace syntax for `gitlab`, including
-// `/`-separated subgroups up to a reasonable depth. CODEOWNERS
-// silently drops invalid `@`-mentions, so catching bad input early
-// prevents the scaffolded project from shipping broken ownership rules.
+// ValidateOrg enforces the owner syntax of the forge the project is hosted
+// on: GitLab allows `/`-separated nested namespaces (the one profile that
+// declares NestedNamespaces), the others a single owner segment. CODEOWNERS
+// silently drops invalid `@`-mentions, so catching bad input early prevents
+// the scaffolded project from shipping broken ownership rules.
 func ValidateOrg(org, releaseProvider string) error {
 	o := norm.NFC.String(org)
 	if o == "" {
@@ -703,7 +710,7 @@ func ValidateOrg(org, releaseProvider string) error {
 	switch releaseProvider {
 	case "gitlab":
 		return validateGitLabOrg(o)
-	case "github", "":
+	case "github", "gitea", "codeberg", "bitbucket", "":
 		return validateGitHubOrg(o)
 	default:
 		return rejectf("Org", fmt.Sprintf("unknown release provider %q", releaseProvider), o)
@@ -799,6 +806,11 @@ func ValidateFeatureName(name string) error {
 // silently dropped at emission, so the generated tool quietly lacked the feature
 // the operator asked for.
 func ValidateSelectableFeatureName(name string) error {
+	if slices.Contains(ForgeBackends(), props.FeatureID(name)) {
+		return errors.WithHint(rejectf("Feature", "a forge is not a feature to select", name),
+			"The forge is chosen with --forge-backend; credentials for further forges with --forge-credentials.")
+	}
+
 	return validateFeatureNameIn(name, SelectableFeatures)
 }
 

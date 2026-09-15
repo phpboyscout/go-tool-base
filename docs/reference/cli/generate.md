@@ -44,7 +44,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 |------|---------|-------------|
 | `--name, -n` | — | Project name (e.g. `als`). |
 | `--repo, -r` | — | Repository in `org/repo` format. |
-| `--forge-backend` | `github` | The forge the project is hosted on: `github`, `gitlab`, `gitea`, `codeberg` or `bitbucket`. Decides the release source, the host default and the CI skeleton (only GitHub and GitLab ship one; the others get no CI files and the run says so). Recorded as `release_source.backend`. `--git-backend` is accepted as a deprecated alias until spec 0195 step 2 removes it. |
+| `--forge-backend` | `github` | The forge the project is hosted on: `github`, `gitlab`, `gitea`, `codeberg` or `bitbucket`. Decides the release source, the host default and the CI skeleton (only GitHub and GitLab ship one; the others get no CI files and the run says so). Recorded as `release_source.backend` and enables the forge's feature. Replaces `--git-backend`, which is gone. |
 | `--no-forge` | `false` | The project is not hosted on a forge: no backend, no repository; requires `--module`. |
 | `--module` | *(`<host>/<org>/<repo>`)* | Go module path. Required with `--no-forge`; otherwise an override for a vanity import path. Recorded as `module_path`. |
 | `--forge-credentials` | — | Further forges to enable for credential capture (their `init <forge>` wizard and adapter), never the release source. |
@@ -52,7 +52,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 | `--host` | *(backend's canonical host)* | Git host, for a self-managed instance. |
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
-| `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. |
+| `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. A forge name is refused here; the forge is chosen with `--forge-backend`. |
 | `--chat-providers` | *(every known provider)* | Chat providers the tool links when `ai` is among its features: see [adapters](#adapters). Ignored without `ai`; empty with `ai` is refused. |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
@@ -73,7 +73,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 |-------|--------|-------|
 | Built-in commands (default on) | `update`, `init`, `mcp`, `docs`, `doctor`, `changelog` | Wired via `props.SetFeatures`. |
 | Built-in commands (opt-in) | `ai`, `config`, `telemetry`, `man` | |
-| Forges (opt-in) | `github`, `gitlab`, `gitea`, `bitbucket` | Each adds that forge's `init <forge>` credential wizard, config section and embedded asset bundle. Constants live in `pkg/setup/forge`, not `props`. |
+| Forges | *(not selectable here)* | A forge feature is implied by `--forge-backend` (one) and `--forge-credentials` (more). Each enabled forge feature adds that forge's `init <forge>` credential wizard, config section, embedded asset bundle and linked adapter. After generation `gtb enable <forge>` / `gtb disable <forge>` still toggle them. Constants live in `pkg/setup/forge`, not `props`. |
 | Build-time | `keychain` | Not a `SetFeatures` toggle: selects the `cmd/<name>/keychain.go` blank import. Cannot be flipped later by `gtb enable`/`gtb disable`. |
 
 `--features` replaces the default set rather than extending it, so a selection
@@ -91,7 +91,7 @@ manifest into two `DO NOT EDIT` files beside `keychain.go`:
 | File | Derived from | Modules |
 |------|--------------|---------|
 | `cmd/<name>/chat.go` | `chat.providers` in the manifest, only when `ai` is enabled | `claude`, `claude-local` → `go/chat-anthropic`; `openai`, `openai-compatible`, `codex-local` → `go/chat-openai`; `gemini`, `gemini-vertex`, `agy-local` → `go/chat-gemini`; `bedrock` → `go/chat-bedrock`; `azure-openai` → `go/chat-openai-azure` |
-| `cmd/<name>/forge.go` | the enabled forge features | `github` → `go/forge-github`; `gitlab` → `go/forge-gitlab`; `gitea`, `codeberg` → `go/forge-gitea`; `bitbucket` → `go/forge-bitbucket` |
+| `cmd/<name>/forge.go` | the enabled forge features, implied by `--forge-backend` and `--forge-credentials` | `github` → `go/forge-github`; `gitlab` → `go/forge-gitlab`; `gitea`, `codeberg` → `go/forge-gitea`; `bitbucket` → `go/forge-bitbucket` |
 
 Every known provider is pre-selected: a generated tool is configured by its
 consumers the way `gtb` itself is, so it ships every provider and the operator

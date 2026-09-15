@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"github.com/spf13/afero"
 
 	"github.com/stretchr/testify/assert"
@@ -183,4 +185,20 @@ func TestGenerateSkeleton_NotHosted(t *testing.T) {
 
 	_, err = fs.Stat("/proj/.github")
 	assert.Error(t, err, "not hosted: no CI skeleton")
+}
+
+// Forges leave the generate-time vocabulary (spec 0195 D1): the backend
+// chooses one and --forge-credentials the rest. enable/disable keep them,
+// because a forge feature is still a feature once the project exists (D6).
+func TestSelectableFeatures_HaveNoForge(t *testing.T) {
+	t.Parallel()
+
+	for _, id := range ForgeBackends() {
+		assert.NotContainsf(t, SelectableFeatures, string(id), "%s is chosen by --forge-backend, not --features", id)
+		assert.Containsf(t, ToggleableFeatures, string(id), "%s stays toggleable after generation", id)
+	}
+
+	err := ValidateSelectableFeatureName("github")
+	require.Error(t, err)
+	assert.Contains(t, errors.FlattenHints(err), "--forge-backend", "the refusal names the flag that chooses a forge")
 }

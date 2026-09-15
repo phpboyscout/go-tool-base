@@ -141,9 +141,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVarP(&opts.Name, "name", "n", "", "Project name (e.g. als)")
 	cmd.Flags().StringVarP(&opts.Repo, "repo", "r", "", "Repository in org/repo format")
 	cmd.Flags().StringVar(&opts.ForgeBackend, "forge-backend", defaultGitBackend,
-		"Forge the project is hosted on ("+strings.Join(gitBackendNames(), ", ")+")")
-	cmd.Flags().StringVar(&opts.ForgeBackend, "git-backend", defaultGitBackend, "Deprecated: use --forge-backend")
-	_ = cmd.Flags().MarkDeprecated("git-backend", "use --forge-backend")
+		"Forge the project is hosted on ("+strings.Join(forgeBackendNames(), ", ")+")")
 	cmd.Flags().BoolVar(&opts.NoForge, "no-forge", false, "The project is not hosted on a forge; requires --module")
 	cmd.Flags().StringVar(&opts.Module, "module", "", "Go module path (required with --no-forge; overrides <host>/<org>/<repo> otherwise)")
 	cmd.Flags().StringSliceVar(&opts.ForgeCredentials, "forge-credentials", nil,
@@ -234,7 +232,7 @@ func (o *SkeletonOptions) validateFields() error {
 		return err
 	}
 
-	return generator.ValidateChatProviders(o.ChatProviders, resolveFeatures(o.Features))
+	return generator.ValidateChatProviders(o.ChatProviders, o.resolveFeatures())
 }
 
 // validateHostingFields checks the forge half (backend, repository, host, org)
@@ -361,6 +359,17 @@ func (o *SkeletonOptions) validateSigningFields() error {
 func (o *SkeletonOptions) validateCoreFields() error {
 	if err := generator.ValidateName(o.Name); err != nil {
 		return err
+	}
+
+	// Reject unknown --features names before anything is cloned or written.
+	// Previously an unrecognised name was copied verbatim into the manifest and
+	// then silently dropped at emission, so `--features bogus` exited 0 having
+	// produced a tool that lacked the feature and recorded that it had it. A
+	// forge name is refused with the flag that chooses one (spec 0195 D1).
+	for _, f := range o.Features {
+		if err := generator.ValidateSelectableFeatureName(f); err != nil {
+			return err
+		}
 	}
 
 	if err := generator.ValidateDescription(o.Description); err != nil {
@@ -492,12 +501,10 @@ const defaultGitBackend = "github"
 // that duplication that let the wizard offer GitLab while the flag help,
 // validation and credential wizard disagreed about what existed.
 func backendDisplay(backend string) forge.Display {
-	// Only a scaffoldable backend resolves to itself. A registered-but-not-
-	// scaffoldable forge (Gitea, Bitbucket) falls back like any other unknown
-	// value, which is what the hand-written branches did — each was
-	// `if backend == "gitlab" { … } else { github }`, so everything that was
-	// not GitLab rendered GitHub.
-	if id := props.FeatureID(backend); scaffoldableBackends[id] {
+	// Every forge the generator can host on resolves to itself (spec 0195 D4);
+	// whether it has a CI skeleton is the generator's concern, not the
+	// chooser's (D8).
+	if id := props.FeatureID(backend); slices.Contains(generator.ForgeBackends(), id) {
 		if d, ok := forge.DisplayFor(id); ok {
 			return d
 		}
@@ -530,26 +537,9 @@ func repoDescription(backend string) string { return backendDisplay(backend).Rep
 // repoPlaceholder is the repository-field placeholder for a git backend.
 func repoPlaceholder(backend string) string { return backendDisplay(backend).RepoPlaceholder }
 
-// scaffoldableBackends are the forges the generator has a skeleton asset set
-// for (internal/generator/assets/skeleton-<backend>), and therefore the ones a
-// generated project's CI, release automation and repository conventions can
-// actually be written for.
-//
-// This is a narrower axis than the forge registry, and deliberately so. A forge
-// feature gates a *credential wizard*; a git backend selects a *scaffolding
-// asset set*. Gitea, Codeberg and Bitbucket have the first and not the second —
-// which is also why generator.ValidateReleaseSourceType still rejects them.
-// Offering them here would scaffold a project the generator cannot complete.
-//
-// Adding skeleton-<forge> is what widens this set.
-var scaffoldableBackends = map[props.FeatureID]bool{
-	forge.GithubFeature: true,
-	forge.GitlabFeature: true,
-}
-
-// gitBackendOptions is the wizard's backend chooser: the registered forges that
-// are also scaffoldable, so the options, the flag help and the credential
-// wizards cannot drift apart the way they had.
+// forgeBackendOptions is the wizard's backend chooser: every forge the
+// generator can host a project on (spec 0195 D4), so the options, the flag
+// help and the credential wizards cannot drift apart the way they had.
 // featureLabels are the human-facing names for the features the wizard offers.
 // Forge labels are not listed: they come from the forge registry via
 // forge.DisplayFor, so a new forge needs no entry here.
@@ -690,8 +680,8 @@ func featureLabel(name string) string {
 	return name
 }
 
-func gitBackendOptions() []huh.Option[string] {
-	displays := scaffoldableDisplays()
+func forgeBackendOptions() []huh.Option[string] {
+	displays := forgeBackendDisplays()
 	opts := make([]huh.Option[string], 0, len(displays))
 
 	for _, d := range displays {
@@ -701,14 +691,14 @@ func gitBackendOptions() []huh.Option[string] {
 	return opts
 }
 
-// scaffoldableDisplays is the forge registry filtered to what can be
-// scaffolded, in the registry's deterministic order.
-func scaffoldableDisplays() []forge.Display {
-	all := forge.Displays()
-	out := make([]forge.Display, 0, len(all))
+// forgeBackendDisplays is the display data for every backend, in catalogue
+// order.
+func forgeBackendDisplays() []forge.Display {
+	backends := generator.ForgeBackends()
+	out := make([]forge.Display, 0, len(backends))
 
-	for _, d := range all {
-		if scaffoldableBackends[d.ID] {
+	for _, id := range backends {
+		if d, ok := forge.DisplayFor(id); ok {
 			out = append(out, d)
 		}
 	}
@@ -716,11 +706,11 @@ func scaffoldableDisplays() []forge.Display {
 	return out
 }
 
-// gitBackendNames lists the accepted --git-backend values, for the flag's help
-// text and its validation. Derived from the same table as the wizard, so the
-// flag cannot document a set the wizard does not offer.
-func gitBackendNames() []string {
-	displays := scaffoldableDisplays()
+// forgeBackendNames lists the accepted --forge-backend values, for the flag's
+// help text. Derived from the same table as the wizard, so the flag cannot
+// document a set the wizard does not offer.
+func forgeBackendNames() []string {
+	displays := forgeBackendDisplays()
 	names := make([]string, 0, len(displays))
 
 	for _, d := range displays {
@@ -796,7 +786,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 		huh.NewSelect[string]().
 			Title("Git Backend").
 			Description("Where the repository will be hosted.").
-			Options(gitBackendOptions()...).
+			Options(forgeBackendOptions()...).
 			Value(&o.ForgeBackend),
 		huh.NewSelect[string]().
 			Title("Help Channel").
@@ -1084,6 +1074,43 @@ func resolveFeatures(selected []string) []generator.ManifestFeature {
 	return features
 }
 
+// resolveFeatures is the manifest feature list for the options: the selected
+// built-ins, the defaults left off as disabled, and the forge features the
+// backend and the credential forges imply (spec 0195 D1, D6). A project that
+// is not hosted enables no forge.
+func (o *SkeletonOptions) resolveFeatures() []generator.ManifestFeature {
+	features := resolveFeatures(o.Features)
+
+	if o.NoForge {
+		return features
+	}
+
+	for _, id := range o.impliedForges() {
+		if !slices.ContainsFunc(features, func(f generator.ManifestFeature) bool { return f.Name == string(id) }) {
+			features = append(features, generator.ManifestFeature{Name: string(id), Enabled: true})
+		}
+	}
+
+	return features
+}
+
+// impliedForges is the backend followed by the credential forges, deduplicated.
+func (o *SkeletonOptions) impliedForges() []props.FeatureID {
+	var ids []props.FeatureID
+
+	if o.ForgeBackend != "" {
+		ids = append(ids, props.FeatureID(o.ForgeBackend))
+	}
+
+	for _, extra := range o.ForgeCredentials {
+		if id := props.FeatureID(extra); id != "" && !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+
+	return ids
+}
+
 // preflight applies flag defaults and rejects contradictory or unknown values
 // before Run touches the filesystem, so a bad invocation fails without leaving a
 // half-scaffolded directory behind.
@@ -1099,16 +1126,6 @@ func (o *SkeletonOptions) preflight() error {
 	// contradictory, so reject the combination rather than silently dropping one.
 	if o.NoGit && o.Push {
 		return ErrGitFlagsConflict
-	}
-
-	// Reject unknown --features names before anything is cloned or written.
-	// Previously an unrecognised name was copied verbatim into the manifest and
-	// then silently dropped at emission, so `--features bogus` exited 0 having
-	// produced a tool that lacked the feature and recorded that it had it.
-	for _, f := range o.Features {
-		if err := generator.ValidateSelectableFeatureName(f); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -1138,7 +1155,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 
 // skeletonConfig assembles the generator's input from the resolved options.
 func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) generator.SkeletonConfig {
-	features := resolveFeatures(o.Features)
+	features := o.resolveFeatures()
 
 	// The chat list only means something with the ai feature; without it the
 	// manifest carries no chat block, and enabling ai later records the

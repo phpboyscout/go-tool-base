@@ -162,6 +162,7 @@ func DefaultChecks(props *p.Props) []CheckFunc {
 		checkCredentialResolution,
 		checkPermissions,
 		checkForgeAdapters,
+		checkReleaseSource,
 	}
 
 	// The AI-key check is only relevant when the AI feature is enabled — it is

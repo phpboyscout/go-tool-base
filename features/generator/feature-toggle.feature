@@ -41,8 +41,8 @@ Feature: Enable and disable built-in features post-generation
   # emitter used to hard-code the props qualifier, so a selected forge was
   # accepted, written to the manifest, and then silently dropped at emission —
   # exit 0 for a tool that did not have the feature. Covers spec 0185.
-  Scenario: A forge feature selected at generation reaches the root and survives regenerate
-    When I generate a gtb project with features "init,update,docs,gitlab"
+  Scenario: The forge backend's feature reaches the root and survives regenerate
+    When I generate a gtb project with forge backend "gitlab" on host "gitlab.com"
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "props.Enable(forge.GitlabFeature)"
     And the generated "pkg/cmd/root/cmd.go" file contains "pkg/setup/forge"
