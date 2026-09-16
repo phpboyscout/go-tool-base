@@ -154,7 +154,7 @@ For environments without network access, `UpdateFromFile` installs a binary from
 
 ```go
 updater := setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
-targetPath, err := updater.UpdateFromFile("/path/to/tool_Linux_x86_64.tar.gz")
+targetPath, err := updater.UpdateFromFile(ctx, "/path/to/tool_Linux_x86_64.tar.gz")
 ```
 
 If a `.sha256` sidecar file exists alongside the tarball (e.g., `tool_Linux_x86_64.tar.gz.sha256`), the checksum is verified automatically before extraction. If no sidecar is present, a warning is logged and installation proceeds.
