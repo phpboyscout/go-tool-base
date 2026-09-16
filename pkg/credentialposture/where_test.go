@@ -7,8 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 )
 
 // TestReportFor pins spec 0196 D12 over spec 0199 OQ5: the Set gates by

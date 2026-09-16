@@ -8,7 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

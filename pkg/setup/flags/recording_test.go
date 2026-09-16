@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
 )
 
 type recordingBackend struct {

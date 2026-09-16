@@ -8,7 +8,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/forge"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
 )
 
 // FeatureID identifies a built-in feature that can be enabled or disabled.

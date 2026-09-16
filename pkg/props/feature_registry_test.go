@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
 )
 
 // TestBuiltinsAreRegistered pins the built-in seed: every constant in the

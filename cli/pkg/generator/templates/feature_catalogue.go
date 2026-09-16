@@ -1,7 +1,8 @@
 package templates
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
 	// The catalogue is derived from what this binary declares, so the generator

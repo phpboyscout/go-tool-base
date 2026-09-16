@@ -113,6 +113,7 @@ github.com/cucumber/messages/go/v34 v34.2.0/go.mod h1:LYUPjqlTS1kS0pdkdf6sS5uirn
 github.com/cyphar/filepath-securejoin v0.6.1 h1:5CeZ1jPXEiYt3+Z6zqprSAgSWiggmpVyciv8syjIpVE=
 github.com/cyphar/filepath-securejoin v0.6.1/go.mod h1:A8hd4EnAeyujCJRrICiOWqjS1AX0a9kM5XL+NwKoYSc=
 github.com/danieljoos/wincred v1.2.3 h1:v7dZC2x32Ut3nEfRH+vhoZGvN72+dQ/snVXo/vMFLdQ=
+github.com/danieljoos/wincred v1.2.3/go.mod h1:6qqX0WNrS4RzPZ1tnroDzq9kY3fu1KwE7MRLQK4X0bs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
@@ -165,6 +166,7 @@ github.com/go-viper/mapstructure/v2 v2.5.0 h1:vM5IJoUAy3d7zRSVtIwQgBj7BiWtMPfmPE
 github.com/go-viper/mapstructure/v2 v2.5.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/godbus/dbus/v5 v5.2.2 h1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=
+github.com/godbus/dbus/v5 v5.2.2/go.mod h1:3AAv2+hPq5rdnr5txxxRwiGjPXamgoIHgz9FPBfOp3c=
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 h1:f+oWsMOmNPc8JmEHVZIycC7hBoQxHH9pNKQORJNozsQ=
@@ -361,6 +363,7 @@ github.com/yuin/goldmark-emoji v1.0.6/go.mod h1:ukxJDKFpdFb5x0a5HqbdlcKtebh086iJ
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/zalando/go-keyring v0.2.8 h1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPccHs=
+github.com/zalando/go-keyring v0.2.8/go.mod h1:tsMo+VpRq5NGyKfxoBVjCuMrG47yj8cmakZDO5QGii0=
 gitlab.com/phpboyscout/go/aferobilly v0.2.2 h1:ZNJh83V5EBR8UJq1QeKSar6cbQ55WP4xIfaspdy92Fo=
 gitlab.com/phpboyscout/go/aferobilly v0.2.2/go.mod h1:Mz6bl4CvWXvfJhVp8rN0QPSBAM2J02EO7P8Iy/f3qzI=
 gitlab.com/phpboyscout/go/authn v0.2.3 h1:b938V083Z4XZgcsL10PL0VmLwUBuFydz8CCN8C+gRGs=
@@ -383,6 +386,8 @@ gitlab.com/phpboyscout/go/errorhandling v0.5.1 h1:9w40K4aQpZd2Siqu/q/C6bBu/uAfYC
 gitlab.com/phpboyscout/go/errorhandling v0.5.1/go.mod h1:l7sAHxr0stm1FVBzFUkX5vRNIeZcPpID73KogTyq7QM=
 gitlab.com/phpboyscout/go/errors v0.3.0 h1:MNCCEGdWGj8rpaDFfcufBQZPPMqGY9HbHg8L13mfSVQ=
 gitlab.com/phpboyscout/go/errors v0.3.0/go.mod h1:Nzx3wIKEwQd5DlKGFgcFlaUptL9XTqWEFtBN1pAgi78=
+gitlab.com/phpboyscout/go/features v0.1.0 h1:yRu7XU5WnbFGZDFUdbauq9jHLig06QiofX1b9EwDvn0=
+gitlab.com/phpboyscout/go/features v0.1.0/go.mod h1:RRSyDQAFSj5qATB5vcStPYk53L6dKfCFRXPEp7zhPls=
 gitlab.com/phpboyscout/go/forge v0.27.1 h1:3YZumoVoNj7PgDAQVWt+xrxn5zfEwKA+w/F3MDUpn28=
 gitlab.com/phpboyscout/go/forge v0.27.1/go.mod h1:VgtcEUNpstAkP9yEFqezMIowxtq7AL3WmpBDKcvv/2M=
 gitlab.com/phpboyscout/go/grpcclient v0.2.2 h1:Y6qO5f1wzvjZzN0P5Euo1G+HsfF5Z2xjKcqctW8zAgs=

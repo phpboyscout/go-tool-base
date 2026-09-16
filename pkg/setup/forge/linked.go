@@ -7,7 +7,8 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

@@ -27,7 +27,7 @@ Many components began life in `pkg/` and were later extracted. The
 | Component | Package | Description |
 | :--- | :--- | :--- |
 | **[Props](props.md)** | `pkg/props` | The dependency injection container. Holds global state like configuration, logger, and filesystem interfaces. |
-| **[Features](features.md)** | `pkg/features` | The feature core: declaration at init into a registry, an immutable snapshot, a resolved set on the root, and the evaluator seam for dynamic flags. |
+| **[Features](features.md)** | `go/features` | GTB's use of the extracted feature core: declaration at init into a registry, an immutable snapshot, a resolved set on the root, and the evaluator seam for dynamic flags. |
 | **[Config](config/index.md)** | `go/config` | GTB's wiring of the standalone layered config store: embedded defaults, project-local layer, env prefix, flag binding, and masking. |
 | **[Logger](logger.md)** | `pkg/logger` | Unified logging abstraction with charmbracelet, slog, and noop backends. |
 | **[Commands](../../reference/cli/index.md)** | `cmd/` | Built-in Cobra commands for configuration (`init`), updates (`version`, `update`), interactive browser (`docs`), and agentic workflows (`mcp`). |

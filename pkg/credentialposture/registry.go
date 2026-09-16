@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
 )
 
 // SlotCredential is the feature-registry slot a credential descriptor is

@@ -13,8 +13,9 @@ import (
 	configafero "gitlab.com/phpboyscout/go/config-afero"
 	"gitlab.com/phpboyscout/go/controls"
 
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/flags"

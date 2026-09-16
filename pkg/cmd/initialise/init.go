@@ -8,7 +8,8 @@ import (
 	"gitlab.com/phpboyscout/go/output"
 	ocobra "gitlab.com/phpboyscout/go/output/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/ai"

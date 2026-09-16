@@ -8,11 +8,17 @@ description: >-
 
 # Features
 
-`pkg/features` is the feature core under `props` and `setup`
+The feature core is the extracted
+[`gitlab.com/phpboyscout/go/features`](https://features.go.phpboyscout.uk) module
+(API on [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/features)),
+which `props` and `setup` build on
 (spec [0199](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0199-features-as-a-value-and-a-root-that-owns-its-registries)).
-It answers three questions, each through an interface with one default
-implementation, and imports nothing of GTB so it can become `go/features` as a
-move rather than a redesign.
+This page is GTB's side: how the framework uses the module and what it adds.
+The module's own documentation covers the core in full; the summary below is
+the map, not the territory.
+
+The core answers three questions, each through an interface with one default
+implementation, and imports nothing of GTB.
 
 | Question | Role | Default |
 |---|---|---|

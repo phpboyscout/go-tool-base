@@ -20,6 +20,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/output"
 
+	"gitlab.com/phpboyscout/go/features"
+
 	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
 	cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/docs"
@@ -30,7 +32,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"

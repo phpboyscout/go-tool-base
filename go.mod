@@ -31,6 +31,7 @@ require (
 	gitlab.com/phpboyscout/go/credentials v0.3.2
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
+	gitlab.com/phpboyscout/go/features v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.27.1
 	gitlab.com/phpboyscout/go/httpclient v0.2.3
 	gitlab.com/phpboyscout/go/observability v0.3.2

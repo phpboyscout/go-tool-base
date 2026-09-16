@@ -466,6 +466,8 @@ gitlab.com/phpboyscout/go/errorhandling v0.5.1 h1:9w40K4aQpZd2Siqu/q/C6bBu/uAfYC
 gitlab.com/phpboyscout/go/errorhandling v0.5.1/go.mod h1:l7sAHxr0stm1FVBzFUkX5vRNIeZcPpID73KogTyq7QM=
 gitlab.com/phpboyscout/go/errors v0.3.0 h1:MNCCEGdWGj8rpaDFfcufBQZPPMqGY9HbHg8L13mfSVQ=
 gitlab.com/phpboyscout/go/errors v0.3.0/go.mod h1:Nzx3wIKEwQd5DlKGFgcFlaUptL9XTqWEFtBN1pAgi78=
+gitlab.com/phpboyscout/go/features v0.1.0 h1:yRu7XU5WnbFGZDFUdbauq9jHLig06QiofX1b9EwDvn0=
+gitlab.com/phpboyscout/go/features v0.1.0/go.mod h1:RRSyDQAFSj5qATB5vcStPYk53L6dKfCFRXPEp7zhPls=
 gitlab.com/phpboyscout/go/forge v0.27.1 h1:3YZumoVoNj7PgDAQVWt+xrxn5zfEwKA+w/F3MDUpn28=
 gitlab.com/phpboyscout/go/forge v0.27.1/go.mod h1:VgtcEUNpstAkP9yEFqezMIowxtq7AL3WmpBDKcvv/2M=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.13.0 h1:O+kGrnRk7YJTu4eA1f5PICmlXe79x/5XjTX1GfVdVqQ=

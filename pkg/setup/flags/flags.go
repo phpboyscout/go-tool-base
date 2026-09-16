@@ -12,7 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go/controls"
 	"gitlab.com/phpboyscout/go/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
 )
 
 // ErrNotABool reports a features.<id>.enabled value that is not a boolean.

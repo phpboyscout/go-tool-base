@@ -5,7 +5,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
 )
 
 // PackagePath is this package's import path, the ConstPackage every built-in

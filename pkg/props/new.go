@@ -7,7 +7,8 @@ import (
 	"gitlab.com/phpboyscout/go/errorhandling"
 	"gitlab.com/phpboyscout/go/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )

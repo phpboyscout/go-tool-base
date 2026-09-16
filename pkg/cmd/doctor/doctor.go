@@ -12,7 +12,8 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/output"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
+	"gitlab.com/phpboyscout/go/features"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
