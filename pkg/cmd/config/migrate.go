@@ -21,6 +21,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // configKeyDefaultTarget lets tool authors pin a default `--target`
@@ -379,7 +380,7 @@ func processCandidate(
 
 	switch opts.Target {
 	case credentials.ModeEnvVar:
-		return migrateToEnvVar(opts, c, plan)
+		return migrateToEnvVar(ctx, props, opts, c, plan)
 	case credentials.ModeKeychain:
 		return migrateToKeychain(ctx, props, view, opts, c, plan)
 	case credentials.ModeLiteral:
@@ -392,8 +393,8 @@ func processCandidate(
 // migrateToEnvVar stages the env-var target write and literal
 // deletion into the plan. The mutations aren't visible in
 // props.Config until applyPlan runs at the end of the migration.
-func migrateToEnvVar(opts MigrateOptions, c literalCredential, plan *rewritePlan) (MigrationAction, error) {
-	envName, err := resolveEnvVarName(opts, c)
+func migrateToEnvVar(ctx context.Context, props *p.Props, opts MigrateOptions, c literalCredential, plan *rewritePlan) (MigrationAction, error) {
+	envName, err := resolveEnvVarName(ctx, props, opts, c)
 	if err != nil {
 		return MigrationAction{}, err
 	}
@@ -401,7 +402,7 @@ func migrateToEnvVar(opts MigrateOptions, c literalCredential, plan *rewritePlan
 	verified := VerifiedNone
 
 	if !opts.AssumeYes && !opts.DryRun {
-		if err := instructAndVerifyEnvVar(envName, c, opts.SkipVerify); err != nil {
+		if err := instructAndVerifyEnvVar(ctx, props, envName, c, opts.SkipVerify); err != nil {
 			return MigrationAction{}, err
 		}
 
@@ -606,7 +607,7 @@ func alreadyMigrated(cfg *config.View, c literalCredential, target credentials.M
 // resolveEnvVarName picks the env var name for credential c, honouring
 // --env-var overrides, falling back to defaults, and prompting the
 // user in interactive mode.
-func resolveEnvVarName(opts MigrateOptions, c literalCredential) (string, error) {
+func resolveEnvVarName(ctx context.Context, props *p.Props, opts MigrateOptions, c literalCredential) (string, error) {
 	if v, ok := opts.EnvVarOverrides[c.Key]; ok && v != "" {
 		return v, nil
 	}
@@ -621,16 +622,17 @@ func resolveEnvVarName(opts MigrateOptions, c literalCredential) (string, error)
 		return envName, nil
 	}
 
-	err := huh.NewForm(
+	err := setup.RunForm(ctx, props, huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
+				Key("env-var").
 				Title(fmt.Sprintf("Env var name for %s", c.Key)).
 				Description("Credential currently stored as literal. Choose the env var that will hold it. Default is the upstream ecosystem standard.").
 				Placeholder(envName).
 				Value(&envName).
 				Validate(credentials.ValidateEnvVarName),
 		),
-	).Run()
+	))
 	if err != nil {
 		return "", errors.Wrap(err, "env var name prompt cancelled")
 	}
@@ -645,20 +647,22 @@ func resolveEnvVarName(opts MigrateOptions, c literalCredential) (string, error)
 // Verification reads the env var after the user confirms and checks
 // it matches the current literal value. Mismatch aborts the
 // migration for that credential.
-func instructAndVerifyEnvVar(envName string, c literalCredential, skipVerify bool) error {
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "Set %s in your shell profile:\n", envName)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "    export %s=<paste the current %s value>\n", envName, c.Key)
+func instructAndVerifyEnvVar(ctx context.Context, props *p.Props, envName string, c literalCredential, skipVerify bool) error {
+	out := props.GetIO().Err()
+
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintf(out, "Set %s in your shell profile:\n", envName)
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintf(out, "    export %s=<paste the current %s value>\n", envName, c.Key)
 
 	if c.PartnerKey != "" {
 		partnerEnv := defaultEnvVarName(c.PartnerKey)
-		fmt.Fprintf(os.Stderr, "    export %s=<paste the current %s value>\n", partnerEnv, c.PartnerKey)
+		_, _ = fmt.Fprintf(out, "    export %s=<paste the current %s value>\n", partnerEnv, c.PartnerKey)
 	}
 
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "The config file's literal entry will be cleared; the env var will be the single source of truth going forward.")
-	fmt.Fprintln(os.Stderr)
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "The config file's literal entry will be cleared; the env var will be the single source of truth going forward.")
+	_, _ = fmt.Fprintln(out)
 
 	if skipVerify {
 		return nil
@@ -666,15 +670,16 @@ func instructAndVerifyEnvVar(envName string, c literalCredential, skipVerify boo
 
 	var confirmed bool
 
-	err := huh.NewForm(
+	err := setup.RunForm(ctx, props, huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
+				Key("env-var-set").
 				Title("Have you set the env var?").
 				Affirmative("Yes, continue").
 				Negative("No, cancel migration").
 				Value(&confirmed),
 		),
-	).Run()
+	))
 	if err != nil {
 		return errors.Wrap(err, "env var verification cancelled")
 	}
@@ -852,7 +857,7 @@ func printAction(w io.Writer, a MigrationAction) {
 // migrateCmdSettings holds what the command needs injected. Only the
 // environment discovery so far.
 type migrateCmdSettings struct {
-	discover func(context.Context) credentialposture.ModeEnvironment
+	discover func(context.Context, p.IO) credentialposture.ModeEnvironment
 }
 
 // MigrateCmdOption configures [NewCmdMigrate].
@@ -868,7 +873,7 @@ type MigrateCmdOption func(*migrateCmdSettings)
 // green here was not there.
 func WithModeEnvironment(env credentialposture.ModeEnvironment) MigrateCmdOption {
 	return func(s *migrateCmdSettings) {
-		s.discover = func(context.Context) credentialposture.ModeEnvironment { return env }
+		s.discover = func(context.Context, p.IO) credentialposture.ModeEnvironment { return env }
 	}
 }
 
@@ -953,7 +958,7 @@ Re-running the command is safe: credentials that already have a target configura
 			// not vary with whether stdin happens to be a terminal. Bounded
 			// because the probe is a live keychain round-trip.
 			probeCtx, cancel := context.WithTimeout(cmd.Context(), credentials.KeychainOpTimeout)
-			opts.ModeEnv = settings.discover(probeCtx)
+			opts.ModeEnv = settings.discover(probeCtx, props.GetIO())
 
 			cancel()
 

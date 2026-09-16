@@ -143,11 +143,11 @@ func TestAIForm_PagesFollowTheAnswers(t *testing.T) {
 	view := testutil.ViewFromYAML(t, "")
 
 	envVar := &AIConfig{Provider: "claude", StorageMode: credentials.ModeEnvVar}
-	f := aiForm(t.Context(), envVar, view, allLinked)
+	f := aiForm(t.Context(), newTestProps(t), envVar, view, allLinked)
 	require.NotNil(t, f)
 
 	local := &AIConfig{Provider: "claude-local"}
-	assert.NotNil(t, aiForm(t.Context(), local, view, allLinked))
+	assert.NotNil(t, aiForm(t.Context(), newTestProps(t), local, view, allLinked))
 
 	assert.NotNil(t, envVarGroup(envVar, func() bool { return false }))
 	assert.NotNil(t, keyGroup(&AIConfig{Provider: "claude"}, view, func() bool { return false }))

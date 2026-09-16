@@ -43,16 +43,16 @@ type Initialiser struct {
 // InitialiserOption configures an [Initialiser].
 type InitialiserOption func(*Initialiser)
 
-// WithProviderFactory overrides the forge provider constructor used for
+// withProviderFactory overrides the forge provider constructor used for
 // interactive login. Tests pass a factory returning a fake provider (optionally
 // implementing [forgeapi.Authenticator]); production callers omit it to get the
 // registered provider.
-func WithProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provider, error)) InitialiserOption {
+func withProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provider, error)) InitialiserOption {
 	return func(i *Initialiser) { i.providerFactory = fn }
 }
 
-// WithSSHOptions propagates [ConfigureSSHKeyOption]s into the SSH stage.
-func WithSSHOptions(opts ...ConfigureSSHKeyOption) InitialiserOption {
+// withSSHOptions propagates [ConfigureSSHKeyOption]s into the SSH stage.
+func withSSHOptions(opts ...ConfigureSSHKeyOption) InitialiserOption {
 	return func(i *Initialiser) { i.sshOpts = append(i.sshOpts, opts...) }
 }
 

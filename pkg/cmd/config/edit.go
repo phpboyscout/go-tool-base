@@ -17,7 +17,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // editTempSuffix is appended to the config path to form the sibling temp file
@@ -33,14 +32,15 @@ const editFilePerm = 0o600
 // for it to exit. Injected for tests so no real editor or terminal is needed.
 type editorRunner func(ctx context.Context, argv []string, path string) error
 
-// editConfig holds the injectable seams for "config edit".
+// editConfig holds the injectable seam for "config edit". A nil runEditor is
+// the real editor on the invocation's streams, resolved at run time because
+// the root fills Props.IO after the command is built.
 type editConfig struct {
-	runEditor   editorRunner
-	interactive func() bool
+	runEditor editorRunner
 }
 
-// EditOption configures NewCmdEdit. Used by tests to inject a fake editor and
-// interactivity check; production uses the defaults.
+// EditOption configures NewCmdEdit. Used by tests to inject a fake editor;
+// production uses the default.
 type EditOption func(*editConfig)
 
 // WithEditorRunner overrides the editor-launch seam (default: a real
@@ -49,18 +49,12 @@ func WithEditorRunner(r editorRunner) EditOption {
 	return func(c *editConfig) { c.runEditor = r }
 }
 
-// WithInteractiveCheck overrides the TTY gate (default: utils.IsInteractive).
-// Tests inject a constant so the round-trip runs without a real terminal.
-func WithInteractiveCheck(fn func() bool) EditOption {
-	return func(c *editConfig) { c.interactive = fn }
-}
-
 // NewCmdEdit returns the "config edit" subcommand. It opens the writable config
 // file in the user's editor, re-validates the result on save, and persists only
 // if it is valid — aborting (and leaving the original untouched) on a non-zero
 // editor exit, a YAML syntax error, or a schema validation failure.
 func NewCmdEdit(props *p.Props, opts ...EditOption) *cobra.Command {
-	ec := &editConfig{runEditor: defaultEditorRunner, interactive: utils.IsInteractive}
+	ec := &editConfig{}
 	for _, o := range opts {
 		o(ec)
 	}
@@ -87,7 +81,7 @@ flags are not file-backed. For scripted, non-interactive changes use
 				return errors.New("no configuration loaded")
 			}
 
-			if !ec.interactive() {
+			if !props.GetIO().Interactive() {
 				return errors.WithHint(
 					errors.New("config edit requires an interactive terminal"),
 					"use `config set` / `config unset` for non-interactive or scripted changes",
@@ -130,7 +124,12 @@ func runEdit(cmd *cobra.Command, props *p.Props, ec *editConfig, editorFlag stri
 		return errors.Wrap(werr, "writing temp edit file")
 	}
 
-	if rerr := ec.runEditor(cmd.Context(), argv, tmpPath); rerr != nil {
+	runEditor := ec.runEditor
+	if runEditor == nil {
+		runEditor = defaultEditorRunner(props.GetIO())
+	}
+
+	if rerr := runEditor(cmd.Context(), argv, tmpPath); rerr != nil {
 		_ = fs.Remove(tmpPath)
 
 		return errors.Wrap(rerr, "editor exited with an error; config left unchanged")
@@ -227,19 +226,20 @@ func resolveEditor(flagVal string) string {
 	return "vi"
 }
 
-// defaultEditorRunner launches the editor as a real subprocess against path,
-// inheriting the current process's standard streams so the user interacts with
-// it directly.
-func defaultEditorRunner(ctx context.Context, argv []string, path string) error {
-	args := append(append([]string(nil), argv[1:]...), path)
+// defaultEditorRunner launches the editor as a real subprocess against path
+// on the invocation's streams, so the user interacts with it directly.
+func defaultEditorRunner(io p.IO) editorRunner {
+	return func(ctx context.Context, argv []string, path string) error {
+		args := append(append([]string(nil), argv[1:]...), path)
 
-	//nolint:gosec // G204: operator-selected editor ($VISUAL/$EDITOR/--editor) on an operator-named temp file
-	cmd := exec.CommandContext(ctx, argv[0], args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+		//nolint:gosec // G204: operator-selected editor ($VISUAL/$EDITOR/--editor) on an operator-named temp file
+		cmd := exec.CommandContext(ctx, argv[0], args...)
+		cmd.Stdin = io.In()
+		cmd.Stdout = io.Out()
+		cmd.Stderr = io.Err()
 
-	return cmd.Run()
+		return cmd.Run()
+	}
 }
 
 // writtenConfigFilePerm is the POSIX mode the rewritten config is

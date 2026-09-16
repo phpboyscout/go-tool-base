@@ -439,13 +439,9 @@ func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOp
 
 	props.Logger.Debug("No config file found; auto-initialising default configuration")
 
-	// Non-interactive, and with no Initialisers supplied the credential
-	// wizards cannot run regardless -- only the base configuration is written.
-	noInteractive := false
-	if _, err := setup.Initialise(ctx, props, setup.InitOptions{
-		Dir:         dir,
-		Interactive: &noInteractive,
-	}); err != nil {
+	// With no Initialisers supplied the credential wizards cannot run: only
+	// the base configuration is written.
+	if _, err := setup.Initialise(ctx, props, setup.InitOptions{Dir: dir}); err != nil {
 		return nil, errors.Wrap(err, "auto-initialise failed")
 	}
 
@@ -690,7 +686,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 func performUpdate(ctx context.Context, props *p.Props, result *UpdateCheckResult, state *rootState) {
 	state.redirectingToUpdate = true
 
-	if _, err := update.Update(ctx, props, "", false, os.Stdout); err != nil {
+	if _, err := update.Update(ctx, props, "", false, props.GetIO().Out()); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			result.Error = errors.WithHint(
 				errors.New("update timed out"),

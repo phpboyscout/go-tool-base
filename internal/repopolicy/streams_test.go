@@ -13,17 +13,12 @@ import (
 )
 
 // streamsAllowlist names the files that may still name the process's streams
-// directly. pkg/props/io.go is the default an IO falls back to and stays;
-// the rest are spec 0198 D6's phase 3 and leave this list as they move to
-// Props.GetIO().
+// directly: pkg/props/io.go is the default an IO falls back to, and
+// pkg/utils/main.go is the superseded IsInteractive, which goes once the gtb
+// CLI has moved off it (spec 0198 D6).
 var streamsAllowlist = map[string]bool{
-	"pkg/props/io.go":           true,
-	"pkg/cmd/config/edit.go":    true, // 0198 phase 3
-	"pkg/cmd/config/migrate.go": true, // 0198 phase 3
-	"pkg/cmd/doctor/doctor.go":  true, // 0198 phase 3
-	"pkg/cmd/root/root.go":      true, // 0198 phase 3
-	"pkg/cmd/update/update.go":  true, // 0198 phase 3
-	"pkg/utils/main.go":         true, // deprecated IsInteractive; goes with it
+	"pkg/props/io.go":   true,
+	"pkg/utils/main.go": true,
 }
 
 // TestNoProcessStreamsInPkg pins spec 0198 D6: a package under pkg/ reads

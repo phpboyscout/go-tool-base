@@ -23,8 +23,12 @@ var ErrNonInteractive = errors.NewSentinel("gtb.setup.non_interactive", "an inte
 // is neither a terminal nor in accessible mode is refused before the form
 // opens, with the non-interactive route in the hint.
 func RunForm(ctx context.Context, p *props.Props, f *huh.Form) error {
-	io := p.GetIO()
+	return RunFormOn(ctx, p.GetIO(), f)
+}
 
+// RunFormOn is RunForm for a caller that holds the streams rather than the
+// Props (the self-updater, built without them).
+func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 	if !io.Interactive() && !io.Accessible() {
 		return errors.WithHint(ErrNonInteractive,
 			"Run this from a terminal, or non-interactively: pass the answers as flags, or set GTB_ACCESSIBLE=true for line prompts on a piped stdin.")
@@ -78,11 +82,11 @@ var storageModeLabels = credentialposture.ModeLabels{
 // unless the process runs under CI. The probe takes the caller's context. The
 // current mode is left as the caller set it, or defaulted to the recommended
 // one; hide decides whether the page is asked at all.
-func StorageModeGroup(ctx context.Context, mode *credentials.Mode, hide func() bool) *huh.Group {
+func StorageModeGroup(ctx context.Context, p *props.Props, mode *credentials.Mode, hide func() bool) *huh.Group {
 	probeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
 	defer cancel()
 
-	choices, defaultMode := credentialposture.StorageModeOptions(probeCtx, storageModeLabels)
+	choices, defaultMode := credentialposture.StorageModeOptions(probeCtx, p.GetIO(), storageModeLabels)
 
 	options := make([]huh.Option[credentials.Mode], len(choices))
 	for i, c := range choices {

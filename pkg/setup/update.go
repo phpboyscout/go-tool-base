@@ -29,7 +29,6 @@ import (
 	"gitlab.com/phpboyscout/go/changelog"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
@@ -95,9 +94,9 @@ type SelfUpdater struct {
 	Fs             afero.Fs
 	osExecutable   func() (string, error)
 	execLookPath   func(string) (string, error)
-	// isInteractive reports whether an interactive terminal is available
-	// for prompts. Defaults to utils.IsInteractive; injectable for tests.
-	isInteractive func() bool
+	// io is the invocation's streams, for the prompt that picks between
+	// installations; nil is the process's.
+	io props.IO
 
 	// requireChecksum resolved from config (update.require_checksum →
 	// env-prefixed env var via the store's env layer → DefaultRequireChecksum).
@@ -296,14 +295,21 @@ func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey, body
 // UpdaterOption configures a SelfUpdater.
 type UpdaterOption func(*SelfUpdater)
 
-// WithOsExecutable overrides os.Executable for testing.
-func WithOsExecutable(fn func() (string, error)) UpdaterOption {
+// withOsExecutable overrides os.Executable for testing.
+func withOsExecutable(fn func() (string, error)) UpdaterOption {
 	return func(s *SelfUpdater) { s.osExecutable = fn }
 }
 
-// WithExecLookPath overrides exec.LookPath for testing.
-func WithExecLookPath(fn func(string) (string, error)) UpdaterOption {
+// withExecLookPath overrides exec.LookPath for testing.
+func withExecLookPath(fn func(string) (string, error)) UpdaterOption {
 	return func(s *SelfUpdater) { s.execLookPath = fn }
+}
+
+// WithIO runs the updater's prompt on io, the invocation's streams
+// (Props.GetIO()). [NewUpdater] takes them from its Props; the offline
+// updater is built without Props, so its caller passes them.
+func WithIO(io props.IO) UpdaterOption {
+	return func(s *SelfUpdater) { s.io = io }
 }
 
 // WithReleaseProvider injects the [forge.Provider] the SelfUpdater uses,
@@ -348,12 +354,11 @@ func WithReleaseProvider(p forge.Provider) UpdaterOption {
 // that do not require a VCS client or network access.
 func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...UpdaterOption) *SelfUpdater {
 	s := &SelfUpdater{
-		logger:        log,
-		Tool:          tool,
-		Fs:            fs,
-		osExecutable:  os.Executable,
-		execLookPath:  exec.LookPath,
-		isInteractive: utils.IsInteractive,
+		logger:       log,
+		Tool:         tool,
+		Fs:           fs,
+		osExecutable: os.Executable,
+		execLookPath: exec.LookPath,
 	}
 
 	for _, o := range opts {
@@ -393,7 +398,7 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		Fs:                        p.FS,
 		osExecutable:              os.Executable,
 		execLookPath:              exec.LookPath,
-		isInteractive:             utils.IsInteractive,
+		io:                        p.GetIO(),
 		requireChecksum:           resolveRequireChecksum(cfg, p.Tool.Signing.RequireChecksum),
 		checksumAssetName:         strings.TrimSpace(cfg.GetString(ConfigKeyUpdateChecksumAssetName)),
 		requireSignature:          resolveRequireSignature(cfg),
@@ -662,7 +667,7 @@ func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error)
 
 // Update installs the latest version of the binary to the resolved target path.
 func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
-	targetPath, err := s.resolveTargetPath()
+	targetPath, err := s.resolveTargetPath(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -883,8 +888,8 @@ func (s *SelfUpdater) downloadBoundedAsset(
 // UpdateFromFile installs a binary from a local .tar.gz file.
 // If a .sha256 sidecar file exists at filePath+".sha256", the checksum
 // is verified before extraction. Returns the installation target path.
-func (s *SelfUpdater) UpdateFromFile(filePath string) (string, error) {
-	targetPath, err := s.resolveTargetPath()
+func (s *SelfUpdater) UpdateFromFile(ctx context.Context, filePath string) (string, error) {
+	targetPath, err := s.resolveTargetPath(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -937,7 +942,17 @@ func (s *SelfUpdater) UpdateFromFile(filePath string) (string, error) {
 	return targetPath, nil
 }
 
-func (s *SelfUpdater) resolveTargetPath() (string, error) {
+// streams is the IO the prompt runs on: the invocation's when the updater
+// was given them, the process's otherwise.
+func (s *SelfUpdater) streams() props.IO {
+	if s.io == nil {
+		return props.StdIO{}
+	}
+
+	return s.io
+}
+
+func (s *SelfUpdater) resolveTargetPath(ctx context.Context) (string, error) {
 	targetPath, err := s.osExecutable()
 	if err != nil {
 		return "", errors.WithStack(err)
@@ -957,21 +972,26 @@ func (s *SelfUpdater) resolveTargetPath() (string, error) {
 	// Paths differ. Without an interactive terminal (cron, CI, piped stdin)
 	// we cannot prompt — default to the running executable rather than
 	// blocking on a select that can never be answered.
-	if s.isInteractive == nil || !s.isInteractive() {
+	io := s.streams()
+	if !io.Interactive() {
 		s.logger.Warn("multiple installations detected; updating the running executable",
 			"running", targetPath, "on_path", execPath)
 
 		return targetPath, nil
 	}
 
-	if err := huh.NewSelect[string]().
-		Title("Multiple installations detected, Please select which to update").
-		Options(
-			huh.NewOption(targetPath, targetPath),
-			huh.NewOption(execPath, execPath),
-		).
-		Value(&targetPath).
-		Run(); err != nil {
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().
+			Key("installation").
+			Title("Multiple installations detected, Please select which to update").
+			Options(
+				huh.NewOption(targetPath, targetPath),
+				huh.NewOption(execPath, execPath),
+			).
+			Value(&targetPath),
+	))
+
+	if err := RunFormOn(ctx, io, form); err != nil {
 		return "", errors.WithStack(err)
 	}
 

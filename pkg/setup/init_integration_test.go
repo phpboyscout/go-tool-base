@@ -3,6 +3,7 @@ package setup_test
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	configafero "gitlab.com/phpboyscout/go/config-afero"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -20,6 +22,7 @@ import (
 
 func newInitProps(fs afero.Fs) *props.Props {
 	return &props.Props{
+		IO:     formtest.AccessibleTTY(strings.NewReader("")),
 		Tool:   props.Tool{Name: "test-tool"},
 		Logger: logger.NewNoop(),
 		FS:     fs,
@@ -207,12 +210,6 @@ func (ti *testInitialiser) Configure(_ context.Context, _ *props.Props, c setup.
 // interactive returns a pointer to true so initialiser cascades exercise the
 // wizard path; without it, Initialise's non-interactive guard would skip the
 // fake initialisers under a non-terminal test runner.
-func interactive() *bool {
-	v := true
-
-	return &v
-}
-
 func TestInitialise_InitialisersCalled(t *testing.T) {
 	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "setup")
@@ -237,7 +234,6 @@ func TestInitialise_InitialisersCalled(t *testing.T) {
 	path, err := setup.Initialise(t.Context(), p, setup.InitOptions{
 		Dir:          dir,
 		Initialisers: []setup.Initialiser{init1, init2},
-		Interactive:  interactive(),
 	})
 	require.NoError(t, err)
 
@@ -265,7 +261,6 @@ func TestInitialise_AlreadyConfiguredInitialiserSkipped(t *testing.T) {
 	_, err := setup.Initialise(t.Context(), p, setup.InitOptions{
 		Dir:          dir,
 		Initialisers: []setup.Initialiser{init1, init2},
-		Interactive:  interactive(),
 	})
 	require.NoError(t, err)
 
@@ -279,12 +274,8 @@ func TestInitialise_InitialiserFailureContinues(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	log := logger.NewBuffer()
-	p := &props.Props{
-		Tool:   props.Tool{Name: "test-tool"},
-		Logger: log,
-		FS:     fs,
-		Assets: props.NewAssets(),
-	}
+	p := newInitProps(fs)
+	p.Logger = log
 	dir := "/home/testuser/.test-tool"
 
 	failing := &testInitialiser{
@@ -301,7 +292,6 @@ func TestInitialise_InitialiserFailureContinues(t *testing.T) {
 	path, err := setup.Initialise(t.Context(), p, setup.InitOptions{
 		Dir:          dir,
 		Initialisers: []setup.Initialiser{failing, passing},
-		Interactive:  interactive(),
 	})
 	require.NoError(t, err, "overall init should succeed despite initialiser failure")
 
@@ -343,7 +333,6 @@ func TestInitialise_APIKeyWarningInGitRepo(t *testing.T) {
 	_, err := setup.Initialise(t.Context(), p, setup.InitOptions{
 		Dir:          dir,
 		Initialisers: []setup.Initialiser{initWithToken},
-		Interactive:  interactive(),
 	})
 	require.NoError(t, err)
 

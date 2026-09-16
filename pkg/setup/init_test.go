@@ -3,7 +3,9 @@ package setup
 import (
 	"bytes"
 	"context"
+	"io"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -13,6 +15,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -171,17 +174,25 @@ func (r *recordingInitialiser) Configure(context.Context, *props.Props, Editor) 
 	return nil
 }
 
+// nobodyTyping is a stdin that is not a terminal.
+func nobodyTyping() props.IO {
+	return props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+}
+
+// atATerminal is a terminal (in accessible mode) with nothing typed at it.
+func atATerminal() props.IO {
+	return formtest.AccessibleTTY(strings.NewReader(""))
+}
+
 func TestInitialise_SkipsWizardsWhenNonInteractive(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs()}
+	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), IO: nobodyTyping()}
 	rec := &recordingInitialiser{}
-	notInteractive := false
 
 	_, err := Initialise(t.Context(), p, InitOptions{
 		Dir:          t.TempDir(),
 		Initialisers: []Initialiser{rec},
-		Interactive:  &notInteractive,
 	})
 	require.NoError(t, err)
 	assert.Zero(t, rec.calls, "credential wizard must not run without an interactive terminal")
@@ -190,14 +201,12 @@ func TestInitialise_SkipsWizardsWhenNonInteractive(t *testing.T) {
 func TestInitialise_RunsWizardsWhenInteractive(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs()}
+	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), IO: atATerminal()}
 	rec := &recordingInitialiser{}
-	interactive := true
 
 	_, err := Initialise(t.Context(), p, InitOptions{
 		Dir:          t.TempDir(),
 		Initialisers: []Initialiser{rec},
-		Interactive:  &interactive,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, rec.calls, "an unconfigured initialiser must run in an interactive terminal")

@@ -46,7 +46,7 @@ func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 
 	p.IO, _ = singleAuthIO(t, credentials.ModeLiteral, "", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("ghp_lit_token", nil)),
+		withProviderFactory(authProviderFactory("ghp_lit_token", nil)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -64,7 +64,7 @@ func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 
 	p.IO, _ = singleAuthIO(t, credentials.ModeEnvVar, "MYTOOL_GH_TOKEN", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(fatalOnLoginProvider(t)),
+		withProviderFactory(fatalOnLoginProvider(t)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -84,7 +84,7 @@ func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 	p.IO, shown = singleAuthIO(t, credentials.ModeEnvVar, "GITHUB_TOKEN", true)
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("ghp_envvar_token", nil)),
+		withProviderFactory(authProviderFactory("ghp_envvar_token", nil)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -106,7 +106,7 @@ func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 
 	p.IO, _ = singleAuthIO(t, credentials.ModeKeychain, "", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("ghp_kc_token", nil)),
+		withProviderFactory(authProviderFactory("ghp_kc_token", nil)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))

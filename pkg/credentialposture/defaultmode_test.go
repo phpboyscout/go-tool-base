@@ -9,6 +9,7 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestDefaultStorageMode(t *testing.T) {
@@ -84,7 +85,7 @@ func TestRecommendedLabel_FollowsTheActualDefault(t *testing.T) {
 func TestDiscoverModeEnvironment_NoKeychainBackendLinked(t *testing.T) {
 	t.Parallel()
 
-	env := credentialposture.DiscoverModeEnvironment(context.Background())
+	env := credentialposture.DiscoverModeEnvironment(context.Background(), props.StdIO{})
 
 	assert.False(t, env.KeychainUsable,
 		"Probe must report false when no backend is registered, rather than probing something")
@@ -93,7 +94,7 @@ func TestDiscoverModeEnvironment_NoKeychainBackendLinked(t *testing.T) {
 func TestStorageModeOptions_OffersAndDefaultsConsistently(t *testing.T) {
 	t.Parallel()
 
-	choices, defaultMode := credentialposture.StorageModeOptions(context.Background(),
+	choices, defaultMode := credentialposture.StorageModeOptions(context.Background(), props.StdIO{},
 		credentialposture.ModeLabels{
 			Env:      "Environment variable reference",
 			Keychain: "OS keychain",

@@ -70,7 +70,7 @@ func (o *updateConfigOptions) resolveUpdaterFactories() {
 
 	if o.newOfflineUpdater == nil {
 		o.newOfflineUpdater = func(props *p.Props) Updater {
-			return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
+			return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS, setup.WithIO(props.GetIO()))
 		}
 	}
 }
@@ -79,7 +79,7 @@ func (o *updateConfigOptions) resolveUpdaterFactories() {
 type Updater interface {
 	GetLatestVersionString(ctx context.Context) (string, error)
 	Update(ctx context.Context) (string, error)
-	UpdateFromFile(filePath string) (string, error)
+	UpdateFromFile(ctx context.Context, filePath string) (string, error)
 	GetReleaseNotes(ctx context.Context, from, to string) (string, error)
 	GetCurrentVersion() string
 }
@@ -229,7 +229,7 @@ func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ..
 
 	updater := o.newOfflineUpdater(props)
 
-	targetPath, err := updater.UpdateFromFile(filePath)
+	targetPath, err := updater.UpdateFromFile(cmd.Context(), filePath)
 	if err != nil {
 		return err
 	}
@@ -268,8 +268,8 @@ func UpdateConfig(ctx context.Context, props *p.Props, binPath string, opts ...U
 		for _, path := range updatePaths {
 			if _, err := props.FS.Stat(path); err == nil {
 				cmd := o.execCommand(ctx, binPath, "init", "--dir", path, "--skip-login", "--skip-key")
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
+				cmd.Stdout = props.GetIO().Out()
+				cmd.Stderr = props.GetIO().Err()
 
 				initErr := cmd.Run()
 				if initErr != nil {

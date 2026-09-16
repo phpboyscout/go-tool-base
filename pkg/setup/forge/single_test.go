@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,7 +55,7 @@ func TestGitHubInitialiser(t *testing.T) {
 
 	p.IO, _ = singleAuthIO(t, credentials.ModeLiteral, "", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("mock-token", nil)),
+		withProviderFactory(authProviderFactory("mock-token", nil)),
 	)
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
 
@@ -74,7 +75,7 @@ func TestGitHubInitialiser_CIRefusesOAuthLiteral(t *testing.T) {
 	cfg := newTestEditor(t, p, "")
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(fatalOnLoginProvider(t)),
+		withProviderFactory(fatalOnLoginProvider(t)),
 	)
 
 	err := init.Configure(t.Context(), p, cfg)
@@ -95,7 +96,7 @@ func TestGitHubInitialiser_SkipsOAuthWhenEnvVarConfigured(t *testing.T) {
 	cfg := newTestEditor(t, p, "")
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(fatalOnLoginProvider(t)),
+		withProviderFactory(fatalOnLoginProvider(t)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -245,7 +246,7 @@ func TestAuthForm_LiteralModeAsksNothingElse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	choices, _ := credentialposture.StorageModeOptions(ctx, credentialposture.ModeLabels{})
+	choices, _ := credentialposture.StorageModeOptions(ctx, formtest.TUI(strings.NewReader("")), credentialposture.ModeLabels{})
 	seqs := make([]string, 0, len(choices)+1)
 
 	for range len(choices) - 1 {
@@ -258,7 +259,7 @@ func TestAuthForm_LiteralModeAsksNothingElse(t *testing.T) {
 	p.IO = formtest.TUI(formtest.Keys(seqs...))
 
 	cfg := &AuthConfig{FetchToken: true}
-	require.NoError(t, setup.RunForm(ctx, p, authForm(ctx, gitHubProfile, cfg)))
+	require.NoError(t, setup.RunForm(ctx, p, authForm(ctx, p, gitHubProfile, cfg)))
 	assert.Equal(t, credentials.ModeLiteral, cfg.StorageMode)
 	assert.Empty(t, cfg.EnvVarName)
 	assert.True(t, cfg.FetchToken, "the fetch question was never shown, so the default stands")
@@ -272,7 +273,7 @@ func TestAuthForm_EnvVarModeAsksNameAndFetch(t *testing.T) {
 	p.IO = io
 
 	cfg := &AuthConfig{FetchToken: true}
-	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), gitHubProfile, cfg)))
+	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), p, gitHubProfile, cfg)))
 	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
 	assert.Equal(t, "MYTOOL_GH", cfg.EnvVarName)
 	assert.False(t, cfg.FetchToken)
@@ -289,7 +290,7 @@ func TestAuthForm_RejectsAnInvalidEnvVarName(t *testing.T) {
 	p.IO = io
 
 	cfg := &AuthConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), gitHubProfile, cfg)))
+	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), p, gitHubProfile, cfg)))
 	assert.Equal(t, "GH_OK", cfg.EnvVarName)
 	assert.True(t, cfg.FetchToken)
 	assert.Contains(t, out.String(), "env var name must match")
@@ -433,7 +434,7 @@ func TestConfigure_EnvVarFetchTokenCaptureError(t *testing.T) {
 	// mode cannot answer without a terminal, and the wizard refuses the blank.
 	p.IO, _ = singleAuthIO(t, credentials.ModeEnvVar, "GITHUB_TOKEN", true)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("", assert.AnError)),
+		withProviderFactory(authProviderFactory("", assert.AnError)),
 	)
 	require.ErrorIs(t, init.Configure(t.Context(), p, cfg), ErrNoTokenEntered)
 }
@@ -453,7 +454,7 @@ func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {
 
 	p.IO, _ = singleAuthIO(t, credentials.ModeKeychain, "", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("ghp_tok", nil)),
+		withProviderFactory(authProviderFactory("ghp_tok", nil)),
 	)
 	err := init.Configure(t.Context(), p, cfg)
 	require.Error(t, err)
@@ -469,7 +470,7 @@ func TestConfigure_RefusesANonInteractiveRun(t *testing.T) {
 	cfg := newTestEditor(t, p, "")
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("tok", nil)),
+		withProviderFactory(authProviderFactory("tok", nil)),
 	)
 	err := init.Configure(t.Context(), p, cfg)
 	require.ErrorIs(t, err, setup.ErrNonInteractive)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -12,12 +13,24 @@ import (
 	configafero "gitlab.com/phpboyscout/go/config-afero"
 	"gitlab.com/phpboyscout/go/errors"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // fileBoundProps returns Props whose store loaded path as its writable file
 // layer, so the writable-path resolution used by set/unset/edit resolves to
 // that file. The file must exist (with parseable content) on fs.
+// terminalProps is fileBoundProps run from a terminal, which config edit
+// requires.
+func terminalProps(t *testing.T, fs afero.Fs, path string) *props.Props {
+	t.Helper()
+
+	p := fileBoundProps(t, fs, path)
+	p.IO = formtest.AccessibleTTY(strings.NewReader(""))
+
+	return p
+}
+
 func fileBoundProps(t *testing.T, fs afero.Fs, path string) *props.Props {
 	t.Helper()
 
@@ -116,7 +129,7 @@ func TestSeedOrRead_EmptyToolNameFallback(t *testing.T) {
 func TestResolveEnvVarName_AssumeYes(t *testing.T) {
 	t.Parallel()
 
-	name, err := resolveEnvVarName(MigrateOptions{AssumeYes: true}, literalCredential{
+	name, err := resolveEnvVarName(t.Context(), &props.Props{}, MigrateOptions{AssumeYes: true}, literalCredential{
 		Key: "github.auth.value",
 	})
 	require.NoError(t, err)
@@ -132,9 +145,8 @@ func TestRunEdit_BadEditorShlex(t *testing.T) {
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
 
-	cmd := NewCmdEdit(fileBoundProps(t, fs, path),
+	cmd := NewCmdEdit(terminalProps(t, fs, path),
 		WithEditorRunner(func(context.Context, []string, string) error { return nil }),
-		WithInteractiveCheck(func() bool { return true }),
 	)
 	cmd.SetArgs([]string{"--editor", "'unbalanced"})
 
@@ -156,9 +168,8 @@ func TestRunEdit_ReadEditedFails(t *testing.T) {
 		return fs.Remove(tmp) // editor "succeeds" but the temp file is gone
 	}
 
-	cmd := NewCmdEdit(fileBoundProps(t, fs, path),
+	cmd := NewCmdEdit(terminalProps(t, fs, path),
 		WithEditorRunner(runner),
-		WithInteractiveCheck(func() bool { return true }),
 	)
 
 	err := cmd.Execute()

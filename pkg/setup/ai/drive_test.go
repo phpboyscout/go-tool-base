@@ -40,11 +40,12 @@ func providerNumber(t *testing.T, provider string) int {
 
 // modeChoices are the storage modes the selector offers in this environment
 // (keychain only when a backend is linked and answers; literal only outside
-// CI) and the one the cursor starts on.
-func modeChoices(t *testing.T) ([]credentials.Mode, credentials.Mode) {
+// CI) and the one the cursor starts on, which depends on whether the IO the
+// form runs on is a terminal (keychain is only recommended to a human).
+func modeChoices(t *testing.T, io props.IO) ([]credentials.Mode, credentials.Mode) {
 	t.Helper()
 
-	choices, def := credentialposture.StorageModeOptions(context.Background(), credentialposture.ModeLabels{Env: "e", Keychain: "k", Literal: "l"})
+	choices, def := credentialposture.StorageModeOptions(context.Background(), io, credentialposture.ModeLabels{Env: "e", Keychain: "k", Literal: "l"})
 
 	modes := make([]credentials.Mode, len(choices))
 	for i, c := range choices {
@@ -73,7 +74,8 @@ func indexOf(t *testing.T, modes []credentials.Mode, mode credentials.Mode) int 
 func modeNumber(t *testing.T, mode credentials.Mode) int {
 	t.Helper()
 
-	modes, _ := modeChoices(t)
+	// Accessible answers come from a reader that is not a terminal.
+	modes, _ := modeChoices(t, props.StdIO{Stdin: strings.NewReader("")})
 
 	return indexOf(t, modes, mode) + 1
 }
@@ -106,8 +108,9 @@ func keyIO(t *testing.T, provider string, mode credentials.Mode, key string) pro
 
 	seqs = append(seqs, formtest.Enter)
 
-	// The mode cursor starts on the recommended mode, not the first.
-	modes, def := modeChoices(t)
+	// The mode cursor starts on the recommended mode, not the first, and the
+	// key route is a terminal.
+	modes, def := modeChoices(t, formtest.TUI(strings.NewReader("")))
 	for delta := indexOf(t, modes, mode) - indexOf(t, modes, def); delta != 0; {
 		if delta > 0 {
 			seqs = append(seqs, formtest.Down)

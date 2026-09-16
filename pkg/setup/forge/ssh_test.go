@@ -233,7 +233,7 @@ func TestWithKeyManager(t *testing.T) {
 	t.Parallel()
 
 	c := &configureSSHKeyConfig{}
-	WithKeyManager(keyManagerFactory(&fakeKeyManager{}, nil))(c)
+	withKeyManager(keyManagerFactory(&fakeKeyManager{}, nil))(c)
 	require.NotNil(t, c.keyManagerFactory)
 }
 

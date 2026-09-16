@@ -67,7 +67,7 @@ func TestUpdateFromFile_FailedExtractDoesNotStampTimestamps(t *testing.T) {
 		execLookPath:   func(_ string) (string, error) { return currentBin, nil },
 	}
 
-	_, err := updater.UpdateFromFile(badArchive)
+	_, err := updater.UpdateFromFile(t.Context(), badArchive)
 	require.Error(t, err, "a non-gzip archive must fail extraction")
 
 	updatedMarker := filepath.Join(configDir, "last_updated")

@@ -62,7 +62,7 @@ func TestConfigureAuth_LoginNotBoundByKeychainTimeout(t *testing.T) {
 	// Literal mode: the OAuth capture path with no display-once page.
 	p.IO, _ = singleAuthIO(t, credentials.ModeLiteral, "", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(ctxCapturingProviderFactory("ghp_regression", &invoked, &hasDeadline)),
+		withProviderFactory(ctxCapturingProviderFactory("ghp_regression", &invoked, &hasDeadline)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -171,7 +171,7 @@ func TestConfigureAuth_KeychainStoreScopedPerOperation(t *testing.T) {
 
 	p.IO, _ = singleAuthIO(t, credentials.ModeKeychain, "", false)
 	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("ghp_keychain", nil)),
+		withProviderFactory(authProviderFactory("ghp_keychain", nil)),
 	)
 
 	ctx := context.WithValue(t.Context(), ctxScopeKey{}, "caller")

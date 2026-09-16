@@ -18,7 +18,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 const (
@@ -156,23 +155,6 @@ type InitOptions struct {
 	Dir          string
 	Clean        bool
 	Initialisers []Initialiser
-
-	// Interactive overrides terminal detection for the credential wizards.
-	// When nil, interactivity is detected from stdin (utils.IsInteractive).
-	// Credential initialisers drive interactive prompts that would block on a
-	// non-terminal stdin, so they are skipped when this resolves to false.
-	// Tests set it explicitly to avoid depending on the test runner's stdin.
-	Interactive *bool
-}
-
-// interactive resolves the effective interactivity for the credential wizards,
-// falling back to live stdin detection when not explicitly overridden.
-func (o InitOptions) interactive() bool {
-	if o.Interactive != nil {
-		return *o.Interactive
-	}
-
-	return utils.IsInteractive()
 }
 
 // GetDefaultConfigDir returns the default config directory for the named
@@ -225,7 +207,10 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 		return targetFile, err
 	}
 
-	interactive := opts.interactive()
+	// Credential wizards prompt on the invocation's stdin; without a terminal
+	// they would block, so they are skipped rather than hung. A test sets
+	// Props.IO to say which it is.
+	interactive := p.GetIO().Interactive()
 
 	for _, init := range opts.Initialisers {
 		if init.IsConfigured(editor.View()) {
@@ -234,10 +219,8 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 			continue
 		}
 
-		// Credential wizards prompt on stdin; without a terminal they would
-		// block indefinitely. Skip them rather than hang — the base config is
-		// still written, and the user can run the dedicated "init <provider>"
-		// subcommand interactively later.
+		// The base config is still written, and the user can run the
+		// dedicated "init <provider>" subcommand interactively later.
 		if !interactive {
 			p.Logger.Info("setup skipped: no interactive terminal", "component", init.Name())
 

@@ -3,7 +3,9 @@ package setup
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -21,8 +23,8 @@ func setupOfflineUpdater(t *testing.T, fs afero.Fs, toolName string) *SelfUpdate
 	require.NoError(t, fs.MkdirAll(filepath.Dir(currentBin), 0o755))
 
 	return NewOfflineUpdater(props.Tool{Name: toolName}, logger.NewNoop(), fs,
-		WithOsExecutable(func() (string, error) { return currentBin, nil }),
-		WithExecLookPath(func(_ string) (string, error) { return currentBin, nil }),
+		withOsExecutable(func() (string, error) { return currentBin, nil }),
+		withExecLookPath(func(_ string) (string, error) { return currentBin, nil }),
 	)
 }
 
@@ -36,7 +38,7 @@ func TestUpdateFromFile_Success(t *testing.T) {
 	tarData := createTarGz(t, toolName, "binary-content")
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 
-	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	targetPath, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.NoError(t, err)
 	assert.Equal(t, "/usr/local/bin/"+toolName, targetPath)
 
@@ -58,7 +60,7 @@ func TestUpdateFromFile_WithValidChecksum(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz.sha256", []byte(hash+"  release.tar.gz\n"), 0o644))
 
-	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	targetPath, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.NoError(t, err)
 	assert.Equal(t, "/usr/local/bin/"+toolName, targetPath)
 }
@@ -74,7 +76,7 @@ func TestUpdateFromFile_ChecksumMismatch(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz.sha256", []byte("0000000000000000000000000000000000000000000000000000000000000000  release.tar.gz\n"), 0o644))
 
-	_, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	_, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "checksum mismatch")
 }
@@ -89,7 +91,7 @@ func TestUpdateFromFile_NoSidecar(t *testing.T) {
 	tarData := createTarGz(t, toolName, "binary-content")
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 
-	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	targetPath, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.NoError(t, err)
 	assert.NotEmpty(t, targetPath)
 }
@@ -101,7 +103,7 @@ func TestUpdateFromFile_FileNotFound(t *testing.T) {
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
 
-	_, err := updater.UpdateFromFile("/nonexistent/release.tar.gz")
+	_, err := updater.UpdateFromFile(t.Context(), "/nonexistent/release.tar.gz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read update file")
 }
@@ -115,7 +117,7 @@ func TestUpdateFromFile_InvalidTarball(t *testing.T) {
 
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", []byte("not-a-tarball"), 0o644))
 
-	_, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	_, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.Error(t, err)
 }
 
@@ -131,7 +133,7 @@ func TestUpdateFromFile_BinaryNotInArchive(t *testing.T) {
 
 	// An archive missing the expected binary must fail loudly, not report a
 	// successful update while leaving the old binary in place.
-	_, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	_, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrBinaryNotInArchive)
 }
@@ -149,7 +151,7 @@ func TestUpdateFromFile_RequireChecksumNoSidecar(t *testing.T) {
 
 	// require_checksum is on but there is no .sha256 sidecar: the offline
 	// path must refuse rather than warn-and-proceed.
-	_, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	_, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "require_checksum")
 }
@@ -167,7 +169,7 @@ func TestUpdateFromFile_RequireSignatureRefused(t *testing.T) {
 
 	// The offline path cannot verify an OpenPGP signature, so a required
 	// signature must abort rather than be silently skipped.
-	_, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	_, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "require_signature")
 }
@@ -184,7 +186,7 @@ func TestUpdateFromFile_WindowsExeBinary(t *testing.T) {
 	tarData := createTarGz(t, toolName+".exe", "windows-binary")
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 
-	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
+	targetPath, err := updater.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, targetPath)
@@ -197,13 +199,13 @@ func TestResolveTargetPath_LookPathFailureFallsBack(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	u := NewOfflineUpdater(props.Tool{Name: "test-tool"}, logger.NewNoop(), fs,
-		WithOsExecutable(func() (string, error) { return "/opt/custom/test-tool", nil }),
-		WithExecLookPath(func(_ string) (string, error) { return "", assert.AnError }),
+		withOsExecutable(func() (string, error) { return "/opt/custom/test-tool", nil }),
+		withExecLookPath(func(_ string) (string, error) { return "", assert.AnError }),
 	)
 
 	// LookPath failure (tool not on PATH) must not abort — the running
 	// executable's own path is authoritative.
-	got, err := u.resolveTargetPath()
+	got, err := u.resolveTargetPath(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "/opt/custom/test-tool", got)
 }
@@ -213,14 +215,14 @@ func TestResolveTargetPath_NonInteractiveDiffersUsesExecutable(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	u := NewOfflineUpdater(props.Tool{Name: "test-tool"}, logger.NewNoop(), fs,
-		WithOsExecutable(func() (string, error) { return "/running/test-tool", nil }),
-		WithExecLookPath(func(_ string) (string, error) { return "/usr/bin/test-tool", nil }),
+		withOsExecutable(func() (string, error) { return "/running/test-tool", nil }),
+		withExecLookPath(func(_ string) (string, error) { return "/usr/bin/test-tool", nil }),
 	)
-	u.isInteractive = func() bool { return false }
+	u.io = props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
 
 	// Differing paths with no TTY must default to the running executable
 	// rather than blocking on an unanswerable prompt.
-	got, err := u.resolveTargetPath()
+	got, err := u.resolveTargetPath(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "/running/test-tool", got)
 }

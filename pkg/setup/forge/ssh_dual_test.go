@@ -24,7 +24,7 @@ import (
 // keyManager hands the SSH stage a fake key manager, so the run does not
 // depend on a forge adapter being linked.
 func keyManager(km forge.KeyManager, kmErr error) InitialiserOption {
-	return WithSSHOptions(WithKeyManager(keyManagerFactory(km, kmErr)))
+	return withSSHOptions(withKeyManager(keyManagerFactory(km, kmErr)))
 }
 
 // dualEnvThenGenerateIO drives the whole Bitbucket wizard with keys: env-var
@@ -83,7 +83,7 @@ func TestDualSSHRunsAfterCredentialCapture(t *testing.T) {
 	i := NewBitbucketInitialiser(p,
 		// The factory receives the config the stage was handed: if the
 		// credential stage ran first, its writes are visible here.
-		WithSSHOptions(WithKeyManager(func(_ context.Context, c config.Reader) (forge.KeyManager, error) {
+		withSSHOptions(withKeyManager(func(_ context.Context, c config.Reader) (forge.KeyManager, error) {
 			credentialSeenAtUpload = c.GetString("bitbucket.username.env") != ""
 
 			return km, nil
@@ -128,7 +128,7 @@ func TestProfileWithoutSSHNeverConstructsAKeyManager(t *testing.T) {
 
 	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
 	i := New(p, noSSHProfile,
-		WithSSHOptions(WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
+		withSSHOptions(withKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
 			factoryCalled = true
 
 			return nil, nil

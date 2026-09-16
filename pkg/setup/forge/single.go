@@ -106,7 +106,7 @@ func (i *Initialiser) configureAuth(ctx context.Context, p *props.Props, cfg set
 
 	authCfg := &AuthConfig{FetchToken: true}
 
-	if err := setup.RunForm(ctx, p, authForm(ctx, profile, authCfg)); err != nil {
+	if err := setup.RunForm(ctx, p, authForm(ctx, p, profile, authCfg)); err != nil {
 		return errors.Wrap(err, "auth form cancelled")
 	}
 
@@ -306,11 +306,11 @@ func writeSingleLiteral(profile Profile, cfg setup.Editor, authCfg *AuthConfig) 
 // mode, then, for env-var mode, the variable's name and whether to fetch a
 // token now. The OAuth capture and the display-once page follow it, because
 // a token has to exist before it can be shown.
-func authForm(ctx context.Context, profile Profile, cfg *AuthConfig) *huh.Form {
+func authForm(ctx context.Context, p *props.Props, profile Profile, cfg *AuthConfig) *huh.Form {
 	notEnvVar := func() bool { return cfg.StorageMode != credentials.ModeEnvVar }
 
 	return huh.NewForm(
-		setup.StorageModeGroup(ctx, &cfg.StorageMode, func() bool { return false }).
+		setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return false }).
 			Title(profile.Label+" Credential Storage"),
 		huh.NewGroup(
 			huh.NewInput().

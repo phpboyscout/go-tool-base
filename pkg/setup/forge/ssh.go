@@ -84,10 +84,10 @@ type configureSSHKeyConfig struct {
 // ConfigureSSHKeyOption is a functional option for ConfigureSSHKey.
 type ConfigureSSHKeyOption func(*configureSSHKeyConfig)
 
-// WithKeyManager overrides the [forgeapi.KeyManager] constructor used when
+// withKeyManager overrides the [forgeapi.KeyManager] constructor used when
 // uploading SSH keys. Tests pass a factory returning a fake; production callers
 // omit it to get the registered provider's key-upload capability.
-func WithKeyManager(factory func(context.Context, config.Reader) (forgeapi.KeyManager, error)) ConfigureSSHKeyOption {
+func withKeyManager(factory func(context.Context, config.Reader) (forgeapi.KeyManager, error)) ConfigureSSHKeyOption {
 	return func(c *configureSSHKeyConfig) {
 		c.keyManagerFactory = factory
 	}

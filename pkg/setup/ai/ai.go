@@ -135,12 +135,12 @@ func envOverrideNote() string {
 // storage mode, then the env var name or the key, each later page hidden
 // when the answers before it make it moot. One form means one run, back
 // navigation between pages, and a test that drives it from one stream.
-func aiForm(ctx context.Context, cfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) *huh.Form {
+func aiForm(ctx context.Context, p *props.Props, cfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) *huh.Form {
 	needsCredential := func() bool { return chat.NeedsCredential(gochat.Provider(cfg.Provider)) }
 
 	return huh.NewForm(
 		providerGroup(cfg, linked),
-		setup.StorageModeGroup(ctx, &cfg.StorageMode, func() bool { return !needsCredential() }),
+		setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return !needsCredential() }),
 		envVarGroup(cfg, func() bool { return !needsCredential() || cfg.StorageMode != credentials.ModeEnvVar }),
 		keyGroup(cfg, existing, func() bool { return !needsCredential() || cfg.StorageMode == credentials.ModeEnvVar }),
 	)
@@ -468,7 +468,7 @@ func runAIForms(ctx context.Context, p *props.Props, existing config.Reader, lin
 		aiCfg.Provider = provider
 	}
 
-	if err := setup.RunForm(ctx, p, aiForm(ctx, aiCfg, existing, linked)); err != nil {
+	if err := setup.RunForm(ctx, p, aiForm(ctx, p, aiCfg, existing, linked)); err != nil {
 		return nil, errors.Newf("AI configuration form cancelled: %w", err)
 	}
 

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -64,7 +63,7 @@ pinpoint a misconfigured or missing dependency.`,
 			}
 
 			format, _ := cmd.Flags().GetString("output")
-			out := output.New(output.WithWriter(os.Stdout), output.WithFormat(output.Format(format)))
+			out := output.New(output.WithWriter(props.GetIO().Out()), output.WithFormat(output.Format(format)))
 
 			report := RunChecks(cmd.Context(), props)
 

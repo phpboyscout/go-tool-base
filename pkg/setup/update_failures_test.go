@@ -3,6 +3,8 @@ package setup
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +37,7 @@ func TestSelfUpdater_resolveTargetPath(t *testing.T) {
 			osExecutable: func() (string, error) { return "", errors.New("no executable") },
 		}
 
-		_, err := s.resolveTargetPath()
+		_, err := s.resolveTargetPath(t.Context())
 		require.Error(t, err)
 	})
 
@@ -49,7 +51,7 @@ func TestSelfUpdater_resolveTargetPath(t *testing.T) {
 			execLookPath: func(string) (string, error) { return "/usr/local/bin/tool", nil },
 		}
 
-		got, err := s.resolveTargetPath()
+		got, err := s.resolveTargetPath(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, "/usr/local/bin/tool", got)
 	})
@@ -58,14 +60,14 @@ func TestSelfUpdater_resolveTargetPath(t *testing.T) {
 		t.Parallel()
 
 		s := &SelfUpdater{
-			logger:        logger.NewNoop(),
-			Tool:          props.Tool{Name: "tool"},
-			osExecutable:  func() (string, error) { return "/run/tool", nil },
-			execLookPath:  func(string) (string, error) { return "/on/path/tool", nil },
-			isInteractive: func() bool { return false },
+			logger:       logger.NewNoop(),
+			Tool:         props.Tool{Name: "tool"},
+			osExecutable: func() (string, error) { return "/run/tool", nil },
+			execLookPath: func(string) (string, error) { return "/on/path/tool", nil },
+			io:           props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard},
 		}
 
-		got, err := s.resolveTargetPath()
+		got, err := s.resolveTargetPath(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, "/run/tool", got, "non-interactive must update the running executable, not block on a prompt")
 	})

@@ -160,7 +160,7 @@ func (m *mockUpdater) Update(ctx context.Context) (string, error) {
 	return m.binPath, m.updateErr
 }
 
-func (m *mockUpdater) UpdateFromFile(filePath string) (string, error) {
+func (m *mockUpdater) UpdateFromFile(_ context.Context, filePath string) (string, error) {
 	if m.fromFileErr != nil {
 		return "", m.fromFileErr
 	}

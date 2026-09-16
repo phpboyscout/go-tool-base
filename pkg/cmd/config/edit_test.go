@@ -3,14 +3,17 @@ package config_test
 import (
 	"bytes"
 	"context"
+	"io"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -25,7 +28,12 @@ func fakeEditor(fs afero.Fs, newContent string) func(context.Context, []string, 
 	}
 }
 
-func alwaysInteractive() bool { return true }
+// atATerminal marks p as run from a terminal, which config edit requires.
+func atATerminal(p *props.Props) *props.Props {
+	p.IO = formtest.AccessibleTTY(strings.NewReader(""))
+
+	return p
+}
 
 func TestCmdEdit_HappyPath(t *testing.T) {
 	t.Parallel()
@@ -33,9 +41,8 @@ func TestCmdEdit_HappyPath(t *testing.T) {
 	p, fs, path := newFileConfig(t, "log:\n  level: info\n")
 	edited := "log:\n  level: debug\nfeature:\n  enabled: true\n"
 
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(fakeEditor(fs, edited)),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -55,9 +62,10 @@ func TestCmdEdit_NonInteractiveRefused(t *testing.T) {
 
 	p, _, _ := newFileConfig(t, "log:\n  level: info\n")
 
+	p.IO = props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+
 	cmd := config.NewCmdEdit(p,
 		config.WithEditorRunner(fakeEditor(nil, "")),
-		config.WithInteractiveCheck(func() bool { return false }),
 	)
 	err := cmd.Execute()
 	require.Error(t, err)
@@ -72,9 +80,8 @@ func TestCmdEdit_EditorNonZeroExit(t *testing.T) {
 		return assert.AnError
 	}
 
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(runner),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	err := cmd.Execute()
 	require.Error(t, err)
@@ -93,9 +100,8 @@ func TestCmdEdit_InvalidYAMLAborts(t *testing.T) {
 
 	p, fs, path := newFileConfig(t, "log:\n  level: info\n")
 
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(fakeEditor(fs, "log:\n  level: : : bad\n  - nope\n")),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	err := cmd.Execute()
 	require.Error(t, err)
@@ -115,9 +121,8 @@ func TestCmdEdit_SchemaInvalidAborts(t *testing.T) {
 	p, fs, path := newFileConfig(t, "log:\n  level: info\n")
 
 	// Valid YAML, but removes the required log.level key.
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(fakeEditor(fs, "feature:\n  enabled: true\n")),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	err := cmd.Execute()
 	require.Error(t, err)
@@ -136,9 +141,8 @@ func TestCmdEdit_UnchangedNoOp(t *testing.T) {
 	original := "log:\n  level: info\n"
 	p, fs, _ := newFileConfig(t, original)
 
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(fakeEditor(fs, original)),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -159,9 +163,8 @@ func TestCmdEdit_EditorArgvSplit(t *testing.T) {
 		return afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600)
 	}
 
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(runner),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	cmd.SetArgs([]string{"--editor", `myeditor --wait "/opt/My Editor/bin"`})
 
@@ -172,8 +175,7 @@ func TestCmdEdit_EditorArgvSplit(t *testing.T) {
 func TestCmdEdit_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	cmd := config.NewCmdEdit(&props.Props{Config: nil},
-		config.WithInteractiveCheck(alwaysInteractive))
+	cmd := config.NewCmdEdit(atATerminal(&props.Props{Config: nil}))
 	assert.Error(t, cmd.Execute())
 }
 
@@ -202,9 +204,8 @@ func TestCmdEdit_SeedsNewFile(t *testing.T) {
 		return afero.WriteFile(fs, path, []byte("log:\n  level: warn\n"), 0o600)
 	}
 
-	cmd := config.NewCmdEdit(p,
+	cmd := config.NewCmdEdit(atATerminal(p),
 		config.WithEditorRunner(runner),
-		config.WithInteractiveCheck(alwaysInteractive),
 	)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -232,7 +233,7 @@ func TestCmdEdit_RealEditorRunner(t *testing.T) {
 
 	// No editor runner injected — defaultEditorRunner runs `true`, which exits 0
 	// without touching the file, so the content is unchanged → no-op.
-	cmd := config.NewCmdEdit(p, config.WithInteractiveCheck(alwaysInteractive))
+	cmd := config.NewCmdEdit(atATerminal(p))
 	cmd.SetArgs([]string{"--editor", "true"})
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -255,9 +256,9 @@ func TestResolveEditor_Precedence(t *testing.T) {
 	}
 
 	run := func() []string {
-		cmd := config.NewCmdEdit(p,
+		cmd := config.NewCmdEdit(atATerminal(p),
 			config.WithEditorRunner(runner),
-			config.WithInteractiveCheck(alwaysInteractive))
+		)
 		require.NoError(t, cmd.Execute())
 
 		return gotArgv

@@ -104,7 +104,7 @@ func TestMigrate_InteractiveBitbucketSkipVerify(t *testing.T) {
 func TestResolveEnvVarName_DryRunInteractive(t *testing.T) {
 	t.Parallel()
 
-	name, err := resolveEnvVarName(MigrateOptions{DryRun: true}, literalCredential{
+	name, err := resolveEnvVarName(t.Context(), &props.Props{}, MigrateOptions{DryRun: true}, literalCredential{
 		Key: "github.auth.value",
 	})
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestResolveEnvVarName_DryRunInteractive(t *testing.T) {
 func TestResolveEnvVarName_OverrideWins(t *testing.T) {
 	t.Parallel()
 
-	name, err := resolveEnvVarName(MigrateOptions{
+	name, err := resolveEnvVarName(t.Context(), &props.Props{}, MigrateOptions{
 		EnvVarOverrides: map[string]string{"github.auth.value": "CUSTOM"},
 	}, literalCredential{Key: "github.auth.value"})
 	require.NoError(t, err)

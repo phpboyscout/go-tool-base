@@ -38,7 +38,7 @@ type DualConfig struct {
 func (i *Initialiser) configureDual(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	bbCfg := &DualConfig{}
 
-	if err := setup.RunForm(ctx, p, dualForm(ctx, i.profile, bbCfg)); err != nil {
+	if err := setup.RunForm(ctx, p, dualForm(ctx, p, i.profile, bbCfg)); err != nil {
 		return errors.Wrap(err, "auth form cancelled")
 	}
 
@@ -60,12 +60,12 @@ func (i *Initialiser) configureDual(ctx context.Context, p *props.Props, cfg set
 // mode, then the page that mode needs. Env-var mode names the two variables
 // (blank keeps the profile's fallback); keychain and literal modes take the
 // username and app password themselves.
-func dualForm(ctx context.Context, profile Profile, cfg *DualConfig) *huh.Form {
+func dualForm(ctx context.Context, p *props.Props, profile Profile, cfg *DualConfig) *huh.Form {
 	notEnvVar := func() bool { return cfg.StorageMode != credentials.ModeEnvVar }
 	envVar := func() bool { return cfg.StorageMode == credentials.ModeEnvVar }
 
 	return huh.NewForm(
-		setup.StorageModeGroup(ctx, &cfg.StorageMode, func() bool { return false }).
+		setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return false }).
 			Title(profile.Label+" Credential Storage"),
 		huh.NewGroup(
 			huh.NewInput().

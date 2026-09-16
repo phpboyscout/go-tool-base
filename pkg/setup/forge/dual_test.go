@@ -243,7 +243,7 @@ func TestDualForm_EnvVarModeAsksTheTwoNames(t *testing.T) {
 	p.IO = io
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), bitbucketProfile, cfg)))
+	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), p, bitbucketProfile, cfg)))
 	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
 	assert.Equal(t, "U_VAR", cfg.UsernameEnvName)
 	assert.Equal(t, "P_VAR", cfg.AppPasswordEnvName)
@@ -260,7 +260,7 @@ func TestDualForm_RejectsAnInvalidEnvVarName(t *testing.T) {
 	p.IO = io
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), bitbucketProfile, cfg)))
+	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), p, bitbucketProfile, cfg)))
 	assert.Empty(t, cfg.UsernameEnvName)
 	assert.Equal(t, "P_VAR", cfg.AppPasswordEnvName)
 	assert.Contains(t, out.String(), "env var name must match")
@@ -278,7 +278,7 @@ func TestDualForm_LiteralModeTakesTheCredentials(t *testing.T) {
 	p.IO = dualCredentialIO(t, credentials.ModeLiteral, "alice", "s3cret")
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(ctx, p, dualForm(ctx, bitbucketProfile, cfg)))
+	require.NoError(t, setup.RunForm(ctx, p, dualForm(ctx, p, bitbucketProfile, cfg)))
 	assert.Equal(t, credentials.ModeLiteral, cfg.StorageMode)
 	assert.Equal(t, "alice", cfg.Username)
 	assert.Equal(t, "s3cret", cfg.AppPassword)
@@ -641,7 +641,7 @@ func TestDualForm_UsernameIsRequired(t *testing.T) {
 	p.IO = io
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), bitbucketProfile, cfg)))
+	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), p, bitbucketProfile, cfg)))
 	assert.Equal(t, "alice", cfg.Username)
 	assert.Contains(t, out.String(), "username is required")
 }

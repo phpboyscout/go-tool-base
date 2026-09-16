@@ -23,7 +23,7 @@ func (f fakeAuthProvider) Login(_ context.Context, _ forgeapi.Prompter) (string,
 	return f.token, f.err
 }
 
-// authProviderFactory builds a WithProviderFactory input yielding a
+// authProviderFactory builds a withProviderFactory input yielding a
 // fakeAuthProvider with the given Login result.
 func authProviderFactory(token string, err error) func(context.Context, config.Reader) (forgeapi.Provider, error) {
 	return func(context.Context, config.Reader) (forgeapi.Provider, error) {
@@ -50,7 +50,7 @@ func (f fatalAuthProvider) Login(context.Context, forgeapi.Prompter) (string, er
 	return "", nil
 }
 
-// fatalOnLoginProvider builds a WithProviderFactory input whose Login fails the
+// fatalOnLoginProvider builds a withProviderFactory input whose Login fails the
 // test if invoked.
 func fatalOnLoginProvider(t *testing.T) func(context.Context, config.Reader) (forgeapi.Provider, error) {
 	t.Helper()
@@ -100,7 +100,7 @@ func registerTestForge(t *testing.T, sourceType string, provider forgeapi.Provid
 	}
 }
 
-// keyManagerFactory builds a WithKeyManager input yielding km.
+// keyManagerFactory builds a withKeyManager input yielding km.
 func keyManagerFactory(km forgeapi.KeyManager, err error) func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
 	return func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
 		return km, err

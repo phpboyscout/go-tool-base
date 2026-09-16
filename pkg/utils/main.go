@@ -5,7 +5,14 @@ import (
 	"os"
 )
 
-// IsInteractive returns true if stdin is a terminal (not piped or redirected).
+// IsInteractive returns true if the process's stdin is a terminal (not piped
+// or redirected).
+//
+// Superseded by the invocation's own streams, p.GetIO().Interactive() (spec
+// 0198): this reads the process's stdin, which is not the same thing under a
+// test or an embedding. Nothing in pkg/ calls it any more; it carries the
+// Deprecated marker once the gtb CLI has moved off it, which waits on a
+// framework release, and goes after that.
 func IsInteractive() bool {
 	return isCharDevice(os.Stdin.Stat())
 }

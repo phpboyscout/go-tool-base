@@ -5,7 +5,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/credentials"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // ModeEnvironment describes the facts that decide the default storage mode.
@@ -98,8 +98,8 @@ type ModeLabels struct {
 //
 // The probe is a live round-trip and the caller's context should be bounded;
 // credentials.KeychainOpTimeout is the bound the wizards already use.
-func StorageModeOptions(ctx context.Context, labels ModeLabels) ([]credentials.ModeChoice, credentials.Mode) {
-	env := DiscoverModeEnvironment(ctx)
+func StorageModeOptions(ctx context.Context, io props.IO, labels ModeLabels) ([]credentials.ModeChoice, credentials.Mode) {
+	env := DiscoverModeEnvironment(ctx, io)
 
 	choices := credentials.ModeChoices(
 		credentials.IsCI(),
@@ -120,11 +120,13 @@ func StorageModeOptions(ctx context.Context, labels ModeLabels) ([]credentials.M
 // probed for itself would behave differently under `go test`, under a pipe and
 // under a terminal — and would be untestable without faking the world.
 //
-// The caller should bound ctx: the probe is a live keychain round-trip.
-func DiscoverModeEnvironment(ctx context.Context) ModeEnvironment {
+// The caller should bound ctx: the probe is a live keychain round-trip. io is
+// the invocation's streams (Props.GetIO()): a human is present when its
+// stdin is a terminal.
+func DiscoverModeEnvironment(ctx context.Context, io props.IO) ModeEnvironment {
 	return ModeEnvironment{
 		CI:             credentials.IsCI(),
-		Interactive:    utils.IsInteractive(),
+		Interactive:    io.Interactive(),
 		KeychainUsable: credentials.Probe(ctx),
 	}
 }
