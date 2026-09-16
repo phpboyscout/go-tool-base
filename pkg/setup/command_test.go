@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -106,18 +107,37 @@ func TestFeatureOf_IdentifiesByAnnotationNotUseString(t *testing.T) {
 	}
 }
 
+// chainFor resolves a registry with every named feature enabled into a chain
+// with no built-ins, so only the contributions show in the order.
+func chainFor(t *testing.T, r features.Registry, enabled ...props.FeatureID) *MiddlewareChain {
+	t.Helper()
+
+	states := make([]features.State, 0, len(enabled))
+	for _, id := range enabled {
+		require.NoError(t, r.Declare(props.FeatureDescriptor{ID: id, ConstName: "X", ConstPackage: "example.com/x", Kind: "test"}))
+		states = append(states, features.State{ID: id, Enabled: true})
+	}
+
+	set, err := features.Resolve(r.Snapshot(), states)
+	require.NoError(t, err)
+
+	return NewMiddlewareChain(nil, set)
+}
+
 func TestRegister_WiresChildOwnFeatureMiddleware(t *testing.T) {
 	t.Parallel()
 
 	var order []string
 
-	RegisterMiddleware(childFeature, testMiddleware("child-mw", &order))
+	r := features.NewRegistry()
+	r.Contribute(childFeature, SlotMiddleware, testMiddleware("child-mw", &order))
 	// Middleware registered against the parent's feature must NOT run on
-	// the child — Register wires each child with its OWN feature, not the
+	// the child: Register wires each child with its OWN feature, not the
 	// parent's. This is the regression we fixed by construction.
-	RegisterMiddleware(parentFeature, testMiddleware("parent-mw", &order))
+	r.Contribute(parentFeature, SlotMiddleware, testMiddleware("parent-mw", &order))
 
 	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
+	parent.UseChain(chainFor(t, r, childFeature, parentFeature))
 	child := Wrap(childFeature, &cobra.Command{
 		Use: "child",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -133,61 +153,22 @@ func TestRegister_WiresChildOwnFeatureMiddleware(t *testing.T) {
 	assert.Equal(t,
 		[]string{"child-mw:before", "child-runE", "child-mw:after"},
 		order,
-		"child must run only its own feature's middleware")
+		"child must be wrapped with its own feature's middleware only")
 }
 
-func TestRegister_AddsChildToCobraTree(t *testing.T) {
-	t.Parallel()
-
-	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
-	child := Wrap(childFeature, &cobra.Command{Use: "child"})
-
-	parent.Register(child)
-
-	cmds := parent.Commands()
-	require.Len(t, cmds, 1)
-	assert.Equal(t, "child", cmds[0].Use)
-	assert.Same(t, child.Command, cmds[0])
-}
-
-func TestRegister_MultipleChildren(t *testing.T) {
-	t.Parallel()
-
-	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
-	a := Wrap(childFeature, &cobra.Command{Use: "a"})
-	b := Wrap(grandFeature, &cobra.Command{Use: "b"})
-
-	parent.Register(a, b)
-
-	assert.Len(t, parent.Commands(), 2)
-}
-
-func TestRegister_NilRunE_StillAttaches(t *testing.T) {
-	t.Parallel()
-
-	// A command-group with no RunE (just children) must register cleanly.
-	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
-	group := Wrap(childFeature, &cobra.Command{Use: "group"}) // RunE == nil
-
-	parent.Register(group)
-
-	assert.Len(t, parent.Commands(), 1)
-	assert.Nil(t, group.RunE, "no RunE -> nothing to wrap, no change")
-}
-
-func TestRegister_DoesNotRewrapDescendants(t *testing.T) {
+// TestRegister_WrapsASubtreeBuiltBeforeItJoined is the per-root chain's
+// wrinkle (spec 0199 D3): a feature package builds its subtree bottom-up
+// before the root registers it, so the grandchild is wrapped when the child
+// joins the root, under the grandchild's own feature, and exactly once.
+func TestRegister_WrapsASubtreeBuiltBeforeItJoined(t *testing.T) {
 	t.Parallel()
 
 	var order []string
 
-	RegisterMiddleware(childFeature, testMiddleware("child-mw", &order))
-	RegisterMiddleware(grandFeature, testMiddleware("grand-mw", &order))
+	r := features.NewRegistry()
+	r.Contribute(childFeature, SlotMiddleware, testMiddleware("child-mw", &order))
+	r.Contribute(grandFeature, SlotMiddleware, testMiddleware("grand-mw", &order))
 
-	// Build the tree bottom-up: the grandchild is registered to its
-	// parent (the child) first, then the child is registered to the root.
-	// After the root's Register, the grandchild's RunE must still carry
-	// only its own (grand) middleware — not the child's — proving
-	// Register does not re-wrap descendants.
 	grandchild := Wrap(grandFeature, &cobra.Command{
 		Use: "grand",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -198,9 +179,15 @@ func TestRegister_DoesNotRewrapDescendants(t *testing.T) {
 	})
 	child := Wrap(childFeature, &cobra.Command{Use: "child"})
 
+	// No chain yet: the subtree is assembled before it has a root.
 	child.Register(grandchild)
+	require.NoError(t, grandchild.RunE(grandchild.Command, nil))
+	assert.Equal(t, []string{"grand-runE"}, order, "unwrapped until a root with a chain takes the subtree")
+
+	order = nil
 
 	root := Wrap(parentFeature, &cobra.Command{Use: "root"})
+	root.UseChain(chainFor(t, r, childFeature, grandFeature, parentFeature))
 	root.Register(child)
 
 	require.NoError(t, grandchild.RunE(grandchild.Command, nil))
@@ -208,6 +195,12 @@ func TestRegister_DoesNotRewrapDescendants(t *testing.T) {
 		[]string{"grand-mw:before", "grand-runE", "grand-mw:after"},
 		order,
 		"grandchild RunE must be wrapped exactly once, with the grandchild's feature")
+
+	// Registering the child again must not wrap the grandchild a second time.
+	order = nil
+	root.Register(child)
+	require.NoError(t, grandchild.RunE(grandchild.Command, nil))
+	assert.Equal(t, []string{"grand-mw:before", "grand-runE", "grand-mw:after"}, order)
 }
 
 func TestRegister_SkipsNilCommandEmbedded(t *testing.T) {

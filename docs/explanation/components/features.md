@@ -52,7 +52,23 @@ core knows a slot is a name and a value; `setup` defines GTB's slots
 `SlotAssets`, `SlotMiddleware`) and asserts the types on the way out.
 `features.Global` is the ID for a contribution that applies to every feature,
 which is how global middleware is registered. A `Set` hands out only the
-contributions of enabled features; `ContributionsOf[T]` does the typed read.
+contributions of enabled features; `ContributionsOf[T]` does the typed read,
+and that is how `init`, `doctor` and the root find their initialisers,
+checks, asset bundles and middleware.
+
+## The set on Props, and the root that owns the rest
+
+`props.New` snapshots the default registry and resolves `Props.Features`
+from `Tool.Features`; `p.GetFeatures()` is the nil-safe read (a literal
+`Props` resolves on first read). Every static decision asks it:
+`p.GetFeatures().Enabled(props.AiCmd)`. `Props.Flags` is the request-time
+`Evaluator`, defaulting to the set. The root builds its own middleware chain
+(`setup.MiddlewareChain`) from the set and hands it down the tree, and the
+init command binds each enabled feature's flags on itself and hands the run's
+flags to the initialiser providers, so two roots in one process share nothing
+(D3). `root.WithRegistry`, `WithResolver` and `WithChain`, and
+`props.WithFeatures`, `WithSet` and `WithFlags`, are the doors through which a
+test or a consumer replaces any of those parts (D12).
 
 ## Resolving a set
 

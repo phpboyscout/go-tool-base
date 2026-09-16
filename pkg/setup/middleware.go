@@ -7,13 +7,17 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
+// RunE is cobra's run signature, the thing a Middleware wraps.
+type RunE = func(cmd *cobra.Command, args []string) error
+
 // Middleware wraps a cobra RunE function with additional behaviour.
 // The middleware receives the next handler in the chain and returns
 // a new handler that may execute logic before and/or after calling next.
-type Middleware func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error
+type Middleware func(next RunE) RunE
 
 // RegisterMiddleware contributes middleware for the commands of one feature to
-// the default registry. Middleware is applied in registration order.
+// the default registry. Middleware is applied in registration order. Call it
+// at init; the root snapshots the registry when it builds its chain.
 func RegisterMiddleware(feature props.FeatureID, mw ...Middleware) {
 	for _, m := range mw {
 		features.Default().Contribute(feature, SlotMiddleware, m)
@@ -28,20 +32,40 @@ func RegisterGlobalMiddleware(mw ...Middleware) {
 	}
 }
 
-// Chain applies the default registry's middleware (global, then the feature's)
-// to runE and returns the wrapped function.
-func Chain(feature props.FeatureID, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
-	return ChainIn(features.Default().Snapshot(), feature, runE)
+// Chainer wraps a command's RunE with the middleware that applies to its
+// feature. The root owns one (spec 0199 D3); a test or a consumer hands in
+// its own through root.WithChain.
+type Chainer interface {
+	Chain(feature props.FeatureID, runE RunE) RunE
 }
 
-// ChainIn is Chain over a snapshot.
-func ChainIn(s features.Snapshot, feature props.FeatureID, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+// MiddlewareChain is the default Chainer: the root's built-in middleware
+// first, then the Set's global contributions, then the feature's own, each in
+// registration order. It is exported so a consumer can embed it.
+type MiddlewareChain struct {
+	builtin []Middleware
+	set     features.Set
+}
+
+// NewMiddlewareChain builds a chain from the root's built-in middleware and
+// the contributions of the enabled features in set.
+func NewMiddlewareChain(builtin []Middleware, set features.Set) *MiddlewareChain {
+	return &MiddlewareChain{builtin: builtin, set: set}
+}
+
+// Chain wraps runE. A nil runE stays nil: a pure command group has nothing to
+// wrap.
+func (c *MiddlewareChain) Chain(feature props.FeatureID, runE RunE) RunE {
 	if runE == nil {
 		return nil
 	}
 
-	chain := middlewareIn(s, features.Global)
-	chain = append(chain, middlewareIn(s, feature)...)
+	chain := append([]Middleware(nil), c.builtin...)
+	chain = append(chain, middlewareOf(c.set, features.Global)...)
+
+	if feature != "" {
+		chain = append(chain, middlewareOf(c.set, feature)...)
+	}
 
 	// Apply in reverse order so that the first registered middleware
 	// is the outermost wrapper (executes first).
@@ -53,15 +77,12 @@ func ChainIn(s features.Snapshot, feature props.FeatureID, runE func(cmd *cobra.
 	return wrapped
 }
 
-func middlewareIn(s features.Snapshot, id features.ID) []Middleware {
-	values := s.Contributions(id, SlotMiddleware)
-	out := make([]Middleware, 0, len(values))
-
-	for _, v := range values {
-		if m, ok := v.(Middleware); ok {
-			out = append(out, m)
-		}
+func middlewareOf(set features.Set, id features.ID) []Middleware {
+	if set == nil {
+		return nil
 	}
 
-	return out
+	mws, _ := features.ContributionsOf[Middleware](set, id, SlotMiddleware)
+
+	return mws
 }

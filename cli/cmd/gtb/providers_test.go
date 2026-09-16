@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
@@ -17,10 +18,13 @@ import (
 func TestEveryForgeIsLinked(t *testing.T) {
 	t.Parallel()
 
-	tool := props.Tool{}
+	var states []features.State
 	for _, d := range forge.Displays() {
-		tool.Features = append(tool.Features, props.Feature{ID: d.ID, Enabled: true})
+		states = append(states, features.State{ID: d.ID, Enabled: true})
 	}
 
-	assert.Empty(t, forge.Unlinked(tool), "gtb enables every forge; providers.go must link every adapter")
+	set, err := features.Resolve(features.Default().Snapshot(), states)
+	require.NoError(t, err)
+
+	assert.Empty(t, forge.Unlinked(set), "gtb enables every forge; providers.go must link every adapter")
 }

@@ -133,7 +133,12 @@ import (
 )
 
 func main() {
-    rootCmd, p := root.NewCmdRoot(version.Get())
+    rootCmd, p, err := root.NewCmdRoot(version.Get())
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(errorhandling.ExitCodeUsage)
+    }
+
     pkgRoot.Execute(rootCmd, p)
 }
 ```

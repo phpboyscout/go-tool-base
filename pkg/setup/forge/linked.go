@@ -7,6 +7,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -44,13 +45,13 @@ type UnlinkedForge struct {
 // Unlinked reports every forge feature the tool enables whose forge type has no
 // registered provider, which means the adapter module is not linked into the
 // binary.
-func Unlinked(tool props.Tool) []UnlinkedForge {
+func Unlinked(set features.Set) []UnlinkedForge {
 	profiles := make([]Profile, 0, len(profilesByFeature))
 	for _, profile := range profilesByFeature {
 		profiles = append(profiles, profile)
 	}
 
-	return unlinked(profiles, tool.IsEnabled, forgeapi.Registered)
+	return unlinked(profiles, set.Enabled, forgeapi.Registered)
 }
 
 func unlinked(profiles []Profile, enabled func(props.FeatureID) bool, registered func(string) bool) []UnlinkedForge {

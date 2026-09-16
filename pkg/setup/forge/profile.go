@@ -5,10 +5,10 @@ import (
 	"embed"
 	"io/fs"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
@@ -525,45 +525,37 @@ func bundleFor(name string) fs.FS {
 	return sub
 }
 
-var (
-	skipLogin     bool
-	skipKey       bool
-	skipBitbucket bool
-	skipGitlab    bool
-	skipGitea     bool
-	skipCodeberg  bool
-)
-
 func init() {
 	registerGitHub()
-	registerSingleTokenForge(gitLabProfile, &skipGitlab, "skip-gitlab", "skip configuring GitLab credentials")
-	registerSingleTokenForge(giteaProfile, &skipGitea, "skip-gitea", "skip configuring Gitea credentials")
-	registerSingleTokenForge(codebergProfile, &skipCodeberg, "skip-codeberg", "skip configuring Codeberg credentials")
+	registerSingleTokenForge(gitLabProfile, "skip-gitlab", "skip configuring GitLab credentials")
+	registerSingleTokenForge(giteaProfile, "skip-gitea", "skip configuring Gitea credentials")
+	registerSingleTokenForge(codebergProfile, "skip-codeberg", "skip configuring Codeberg credentials")
 	registerBitbucket()
 }
 
 // registerSingleTokenForge wires a single-token forge's initialiser, its
 // `init <forge>` subcommand, its skip flag and its embedded config bundle.
+// The skip flag is bound on the init command and read back from the run's
+// flags, so two roots never share a target (spec 0199 D3, #37).
 //
 // GitHub keeps its own registration function rather than routing through here:
-// it carries two flags of its own (--skip-login / --skip-key) whose names and
-// shorthands are established CLI surface, and spec 0185 D7 holds its behaviour
-// fixed.
-func registerSingleTokenForge(profile Profile, skip *bool, flagName, flagUsage string) {
+// it carries a flag of its own (--skip-login) whose name and shorthand are
+// established CLI surface, and spec 0185 D7 holds its behaviour fixed.
+func registerSingleTokenForge(profile Profile, flagName, flagUsage string) {
 	setup.RegisterAssets(profile.Feature, profile.ConfigPrefix, bundleFor(profile.ConfigPrefix))
 	registerCredentialCheck(profile)
 	setup.Register(profile.Feature,
 		[]setup.InitialiserProvider{
-			func(p *props.Props) setup.Initialiser {
-				if *skip {
+			func(p *props.Props, flags *pflag.FlagSet) setup.Initialiser {
+				skips := setup.FlagSkips(flags, flagName, setup.SkipKeyFlag)
+				if skips[flagName] {
 					return nil
 				}
 
 				init := New(p, profile)
-				// --skip-key is a global init flag, so it must reach every
-				// profile that offers SSH — not just GitHub, which was the
-				// only one wired to it while the stage was single-token only.
-				init.SkipKey = skipKey
+				// --skip-key is the init command's own flag, so it reaches every
+				// profile that offers SSH whichever forges are linked.
+				init.SkipKey = skips[setup.SkipKeyFlag]
 
 				return init
 			},
@@ -575,25 +567,27 @@ func registerSingleTokenForge(profile Profile, skip *bool, flagName, flagUsage s
 		},
 		[]setup.FeatureFlag{
 			func(cmd *cobra.Command) {
-				cmd.Flags().BoolVar(skip, flagName, os.Getenv("CI") == "true", flagUsage)
+				cmd.Flags().Bool(flagName, setup.CIDefault(), flagUsage)
 			},
 		},
 	)
 }
 
 // registerGitHub wires the GitHub initialiser, its `init github` subcommand,
-// the --skip-login / --skip-key flags, and its embedded asset bundle.
+// the --skip-login flag, and its embedded asset bundle. --skip-key is the init
+// command's own flag.
 func registerGitHub() {
 	setup.RegisterAssets(gitHubProfile.Feature, "github", bundleFor("github"))
 	registerCredentialCheck(gitHubProfile)
 	setup.Register(gitHubProfile.Feature,
 		[]setup.InitialiserProvider{
-			func(p *props.Props) setup.Initialiser {
-				if skipLogin && skipKey {
+			func(p *props.Props, flags *pflag.FlagSet) setup.Initialiser {
+				skips := setup.FlagSkips(flags, "skip-login", setup.SkipKeyFlag)
+				if skips["skip-login"] && skips[setup.SkipKeyFlag] {
 					return nil
 				}
 
-				return NewGitHubInitialiser(p, skipLogin, skipKey)
+				return NewGitHubInitialiser(p, skips["skip-login"], skips[setup.SkipKeyFlag])
 			},
 		},
 		[]setup.SubcommandProvider{
@@ -603,9 +597,7 @@ func registerGitHub() {
 		},
 		[]setup.FeatureFlag{
 			func(cmd *cobra.Command) {
-				isCI := (os.Getenv("CI") == "true")
-				cmd.Flags().BoolVarP(&skipLogin, "skip-login", "l", isCI, "skip the login to github")
-				cmd.Flags().BoolVarP(&skipKey, "skip-key", "k", isCI, "skip configuring ssh key")
+				cmd.Flags().BoolP("skip-login", "l", setup.CIDefault(), "skip the login to github")
 			},
 		},
 	)
@@ -617,20 +609,21 @@ func registerBitbucket() {
 	setup.RegisterAssets(bitbucketProfile.Feature, "bitbucket", bundleFor("bitbucket"))
 	// Bitbucket does not route through registerCredentialCheck (its dual shape
 	// has no single-token resolution check), so it declares its credentials
-	// here — otherwise its username and app password would be the one pair no
+	// here; otherwise its username and app password would be the one pair no
 	// reporting surface knows about.
 	declareCredentials(bitbucketProfile)
 	setup.Register(bitbucketProfile.Feature,
 		[]setup.InitialiserProvider{
-			func(p *props.Props) setup.Initialiser {
-				if skipBitbucket {
+			func(p *props.Props, flags *pflag.FlagSet) setup.Initialiser {
+				skips := setup.FlagSkips(flags, "skip-bitbucket", setup.SkipKeyFlag)
+				if skips["skip-bitbucket"] {
 					return nil
 				}
 
 				i := NewBitbucketInitialiser(p)
 				// Bitbucket reaches the SSH stage now (0186 D1), so it honours
 				// --skip-key like every other profile that offers SSH.
-				i.SkipKey = skipKey
+				i.SkipKey = skips[setup.SkipKeyFlag]
 
 				return i
 			},
@@ -642,8 +635,7 @@ func registerBitbucket() {
 		},
 		[]setup.FeatureFlag{
 			func(cmd *cobra.Command) {
-				isCI := (os.Getenv("CI") == "true")
-				cmd.Flags().BoolVar(&skipBitbucket, "skip-bitbucket", isCI, "skip configuring Bitbucket credentials")
+				cmd.Flags().Bool("skip-bitbucket", setup.CIDefault(), "skip configuring Bitbucket credentials")
 			},
 		},
 	)

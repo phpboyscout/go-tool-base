@@ -12,6 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/output"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -128,15 +129,15 @@ func RunChecks(ctx context.Context, props *p.Props) *DoctorReport {
 	return report
 }
 
-// discoverChecks returns all registered check functions for enabled features.
+// discoverChecks returns the check functions the enabled features contributed,
+// in feature order.
 func discoverChecks(props *p.Props) []CheckFunc {
 	var checks []CheckFunc
 
-	for feature, providers := range setup.GetChecks() {
-		if props.Tool.IsEnabled(feature) {
-			for _, provider := range providers {
-				checks = append(checks, provider(props)...)
-			}
+	for _, d := range props.GetFeatures().EnabledDescriptors() {
+		providers, _ := features.ContributionsOf[setup.CheckProvider](props.GetFeatures(), d.FeatureID(), setup.SlotCheck)
+		for _, provider := range providers {
+			checks = append(checks, provider(props)...)
 		}
 	}
 

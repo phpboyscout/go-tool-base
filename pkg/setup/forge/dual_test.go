@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +18,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -472,7 +474,6 @@ func TestConfigureDual_RefusesANonInteractiveRun(t *testing.T) {
 // --- registration ---
 
 func TestInitRegistry(t *testing.T) {
-	preserveSkipFlags(t)
 
 	feature := props.FeatureID("bitbucket")
 
@@ -482,39 +483,39 @@ func TestInitRegistry(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
+	snapshot := features.Default().Snapshot()
+
+	// FeatureFlag binds --skip-bitbucket on the init command; the provider
+	// reads it back from those flags, never from package state (#37).
+	fps := setup.FeatureFlagsIn(snapshot)[feature]
+	require.NotEmpty(t, fps)
+
+	target := &cobra.Command{Use: "init"}
+	fps[0](target)
+	require.NotNil(t, target.Flags().Lookup("skip-bitbucket"))
+
+	// The flag defaults on under CI=true; pin the unskipped case explicitly.
+	require.NoError(t, target.Flags().Set("skip-bitbucket", "false"))
+
 	// InitialiserProvider: non-skip branch returns a live initialiser.
-	ips := setup.GetInitialisers()[feature]
+	ips := setup.InitialisersIn(snapshot)[feature]
 	require.NotEmpty(t, ips)
 
-	skipBitbucket = false
-
-	init0 := ips[0](p)
+	init0 := ips[0](p, target.Flags())
 	require.NotNil(t, init0)
 	assert.Equal(t, "Bitbucket authentication", init0.Name())
 
 	// InitialiserProvider: skip branch returns nil.
-	skipBitbucket = true
-
-	skipped := ips[0](p)
-	assert.Nil(t, skipped)
-
-	skipBitbucket = false
+	require.NoError(t, target.Flags().Set("skip-bitbucket", "true"))
+	assert.Nil(t, ips[0](p, target.Flags()))
 
 	// SubcommandProvider yields the init bitbucket command.
-	sps := setup.GetSubcommands()[feature]
+	sps := setup.SubcommandsIn(snapshot)[feature]
 	require.NotEmpty(t, sps)
 
 	cmds := sps[0](p)
 	require.Len(t, cmds, 1)
 	assert.Equal(t, "bitbucket", cmds[0].Use)
-
-	// FeatureFlag registers the --skip-bitbucket flag on a command.
-	fps := setup.GetFeatureFlags()[feature]
-	require.NotEmpty(t, fps)
-
-	target := cmds[0]
-	fps[0](target)
-	assert.NotNil(t, target.Flags().Lookup("skip-bitbucket"))
 }
 
 func TestNewCmdInitBitbucket(t *testing.T) {

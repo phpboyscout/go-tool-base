@@ -126,7 +126,7 @@ const (
 
 ### The feature registry
 
-Features are **registered**, not listed. `AllFeatures()` and `DefaultFeatures()` are derived from the registry, so a feature declares its identity, its kind and its default in one place and the two cannot drift.
+Features are **registered**, not listed. The snapshot's enumeration and `DefaultFeatures()` are derived from the registry, so a feature declares its identity, its kind and its default in one place and the two cannot drift.
 
 ```go
 type FeatureDescriptor struct {
@@ -158,21 +158,23 @@ func init() {
 
 #### Querying by kind
 
-`FeaturesOfKind` turns "what forges are there?" into a question with one answer, rather than a list duplicated across the generator wizard, config validation and the doctor report:
+A snapshot's `OfKind` turns "what forges are there?" into a question with one answer, rather than a list duplicated across the generator wizard, config validation and the doctor report:
 
 ```go
-for _, id := range props.FeaturesOfKind(props.KindForge) {
-    // ...
+for _, d := range features.Default().Snapshot().OfKind(props.KindForge) {
+    // d.FeatureID() ...
 }
 ```
+
+With a `Props` in hand, `p.GetFeatures().Descriptors()` is the same enumeration and `props.DescriptorsIn(set)` narrows it to GTB's descriptors.
 
 #### Ordering and snapshots
 
 Enumeration order never consults `init()` sequencing: built-ins hold their declared order and everything else sorts by `(kind, id)`. Go runs `init` in dependency-then-filename order, which is stable for one build but shifts with the import graph, and both the doctor report and the generator's golden files depend on this order.
 
-The registry is `features.Default()`, the core in `pkg/features`: `RegisterFeature` declares on it, and every reader (`FeatureDescriptors`, `AllFeatures`, `FeaturesOfKind`, `DescriptorFor`) takes an immutable **snapshot**. A registration after a snapshot is simply not in that snapshot; nothing seals, and nothing after `main` begins panics (spec 0199 D1). A test that needs a feature of its own declares it on `features.NewRegistry()`, never on the default.
+The registry is `features.Default()`, the core in `pkg/features`: `RegisterFeature` declares on it, and every reader takes an immutable **snapshot** (`features.Default().Snapshot()`, or the `Set` on `Props` that `props.New` resolves from one). A registration after a snapshot is simply not in that snapshot; nothing seals, and nothing after `main` begins panics (spec 0199 D1). A test that needs a feature of its own declares it on `features.NewRegistry()`, never on the default.
 
-!!! info "`AllFeatures()` reflects what this binary linked"
+!!! info "The snapshot reflects what this binary linked"
     A tool that blank-imports fewer providers enumerates fewer features. That is the correct *runtime* answer. The generator needs the complete **possible** set instead. Every feature a scaffolded project could choose, including adapters the generator itself does not link, and takes it from its own catalogue rather than from this registry.
 
 The following features are **opt-in** (disabled by default):
@@ -205,8 +207,9 @@ Features: props.SetFeatures(
     ),
     ```
 
-    You can check feature status using the helper methods:
-    `props.Tool.IsEnabled(props.AiCmd)` or `props.Tool.IsDisabled(props.InitCmd)`.
+    At runtime the resolved set lives on `Props`: `p.GetFeatures().Enabled(props.AiCmd)`.
+    `props.New` resolves it from a snapshot of the registry and `Tool.Features`; a literal
+    `Props` resolves the same way on first read. `Tool.IsEnabled` is gone (spec 0199 D3).
 
 ## Narrow Interfaces
 

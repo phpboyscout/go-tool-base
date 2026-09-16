@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -108,7 +109,7 @@ func TestCheckForgeCredential_NoConfigIsSkipped(t *testing.T) {
 func TestCredentialCheckRegisteredForEverySingleTokenForge(t *testing.T) {
 	t.Parallel()
 
-	checks := setup.GetChecks()
+	checks := setup.ChecksIn(features.Default().Snapshot())
 
 	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, codebergProfile} {
 		require.NotEmptyf(t, checks[p.Feature],

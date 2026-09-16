@@ -10,6 +10,7 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/errors"
@@ -23,14 +24,12 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-var skipAI bool
-
 func init() {
 	setup.RegisterAssets(props.AiCmd, "ai", &assets)
 	setup.Register(props.AiCmd,
 		[]setup.InitialiserProvider{
-			func(p *props.Props) setup.Initialiser {
-				if skipAI {
+			func(p *props.Props, flags *pflag.FlagSet) setup.Initialiser {
+				if setup.FlagSkips(flags, "skip-ai")["skip-ai"] {
 					return nil
 				}
 
@@ -44,8 +43,7 @@ func init() {
 		},
 		[]setup.FeatureFlag{
 			func(cmd *cobra.Command) {
-				is_ci := (os.Getenv("CI") == "true")
-				cmd.Flags().BoolVarP(&skipAI, "skip-ai", "a", is_ci, "skip configuring AI tokens")
+				cmd.Flags().BoolP("skip-ai", "a", setup.CIDefault(), "skip configuring AI tokens")
 			},
 		},
 	)

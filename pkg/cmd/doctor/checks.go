@@ -66,7 +66,7 @@ func checkReleaseSource(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: name, Status: CheckSkip, Message: "no release source"}
 	}
 
-	if props.Tool.IsDisabled(p.UpdateCmd) {
+	if !props.GetFeatures().Enabled(p.UpdateCmd) {
 		return CheckResult{Name: name, Status: CheckSkip, Message: "self-update disabled"}
 	}
 
@@ -92,7 +92,7 @@ func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 
 	enabled := make([]string, 0, len(forge.Displays()))
 	for _, d := range forge.Displays() {
-		if props.Tool.IsEnabled(d.ID) {
+		if props.GetFeatures().Enabled(d.ID) {
 			enabled = append(enabled, d.Label)
 		}
 	}
@@ -101,7 +101,7 @@ func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: name, Status: CheckSkip, Message: "no forge feature enabled"}
 	}
 
-	missing := forge.Unlinked(props.Tool)
+	missing := forge.Unlinked(props.GetFeatures())
 	if len(missing) == 0 {
 		return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(enabled, ", ") + " linked"}
 	}
@@ -126,7 +126,7 @@ func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 	const name = "Chat providers"
 
-	if props == nil || !props.Tool.IsEnabled(p.AiCmd) {
+	if props == nil || !props.GetFeatures().Enabled(p.AiCmd) {
 		return CheckResult{Name: name, Status: CheckSkip, Message: "ai feature not enabled"}
 	}
 

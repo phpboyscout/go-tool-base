@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -52,18 +53,24 @@ func TestNewCmdDocsServe_HostFlagDefaultsToLoopback(t *testing.T) {
 // command used Run instead of RunE the wrapping would be skipped and the
 // sentinel never fire.
 func TestNewCmdDocsServe_RoutesThroughMiddleware(t *testing.T) {
+	t.Parallel()
 
 	called := false
 
-	setup.RegisterGlobalMiddleware(func(next func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	sentinel := func(next func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
 		return func(cmd *cobra.Command, args []string) error {
 			called = true
 
 			return next(cmd, args)
 		}
-	})
+	}
+
+	// The parent carries the chain, the way the root does (spec 0199 D3).
+	set, err := features.Resolve(features.Default().Snapshot(), nil)
+	require.NoError(t, err)
 
 	parent := setup.Wrap(props.DocsCmd, &cobra.Command{Use: "docs"})
+	parent.UseChain(setup.NewMiddlewareChain([]setup.Middleware{sentinel}, set))
 	serve := NewCmdDocsServe(&props.Props{}, newTestServeFS(t))
 	parent.Register(setup.Wrap(props.DocsCmd, serve))
 

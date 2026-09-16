@@ -23,6 +23,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -879,8 +880,7 @@ func TestHandleOutdatedVersion_Policies(t *testing.T) {
 }
 
 func TestRootState_Isolation(t *testing.T) {
-	// Not parallel: calls NewCmdRoot twice, each of which seals the middleware
-	// registry. Reset between calls to prevent the second from panicking.
+	t.Parallel()
 
 	// Two independent root commands should have independent state
 	props1 := &p.Props{
@@ -913,7 +913,7 @@ func TestRootState_Isolation(t *testing.T) {
 // non-nil, disabled noop collector once the root command tree is built — before
 // the PersistentPreRunE ever runs.
 func TestNewCmdRoot_DefaultsCollector(t *testing.T) {
-	// Not parallel: NewCmdRoot seals the process-global middleware registry.
+	t.Parallel()
 
 	props := &p.Props{
 		Logger: logger.NewNoop(),
@@ -1251,8 +1251,7 @@ func TestExecute_FatalError(t *testing.T) {
 }
 
 func TestMiddleware_IntegrationWithCobra(t *testing.T) {
-	// Not parallel: registers on the process-global middleware registry, which
-	// a parallel NewCmdRoot elsewhere seals (the register-after-seal panic).
+	t.Parallel()
 
 	var executed bool
 	cmd := &cobra.Command{
@@ -1263,16 +1262,19 @@ func TestMiddleware_IntegrationWithCobra(t *testing.T) {
 		},
 	}
 
-	setup.RegisterGlobalMiddleware(setup.WithRecovery(logger.NewNoop()))
+	set, err := features.Resolve(features.Default().Snapshot(), nil)
+	require.NoError(t, err)
 
-	cmd.RunE = setup.Chain(p.UpdateCmd, cmd.RunE)
-	err := cmd.RunE(cmd, nil)
+	chain := setup.NewMiddlewareChain([]setup.Middleware{setup.WithRecovery(logger.NewNoop())}, set)
+	cmd.RunE = chain.Chain(p.UpdateCmd, cmd.RunE)
+	err = cmd.RunE(cmd, nil)
 
 	require.NoError(t, err)
 	assert.True(t, executed)
 }
 
 func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
+	t.Parallel()
 
 	var middlewareExecuted bool
 	mw := func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
@@ -1281,9 +1283,6 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 			return next(cmd, args)
 		}
 	}
-
-	// 1. Register global middleware
-	setup.RegisterGlobalMiddleware(mw)
 
 	var subcommandExecuted bool
 	subcmd := &cobra.Command{
@@ -1303,12 +1302,18 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 		},
 	}
 
-	// 2. Create root with subcommand - this calls registerFeatureCommands which seals the registry
-	// and should now correctly wrap the passed subcommands.
-	rootCmd := NewCmdRoot(props, setup.Wrap("", subcmd))
+	// 1. The root's own chain (spec 0199 D3) carries the middleware; nothing is
+	// written to the process, so this test cannot reach another root.
+	set, err := features.Resolve(features.Default().Snapshot(), nil)
+	require.NoError(t, err)
+
+	chain := setup.NewMiddlewareChain([]setup.Middleware{mw}, set)
+
+	// 2. Create root with subcommand: the chain wraps the passed subcommands.
+	rootCmd := NewCmdRootWithOptions(props, WithSubcommands(setup.Wrap("", subcmd)), WithChain(chain))
 
 	// 3. Execute the subcommand directly via RunE
-	err := subcmd.RunE(subcmd, nil)
+	err = subcmd.RunE(subcmd, nil)
 
 	require.NoError(t, err)
 	assert.True(t, subcommandExecuted, "subcommand should have executed")
@@ -1370,8 +1375,8 @@ func bootstrapTestProps(t *testing.T) (*p.Props, string) {
 // fix the child hook shadows the root hook, props.Config / props.Collector are
 // never populated, and bootstrap is silently skipped.
 func TestBootstrapRunsDespiteChildPersistentPreRunE(t *testing.T) {
-	// Not parallel: NewCmdRoot seals the process-global middleware registry,
-	// and the test relies on cobra's process-global EnableTraverseRunHooks.
+	// Not parallel: the test relies on cobra's process-global
+	// EnableTraverseRunHooks.
 
 	props, cfgPath := bootstrapTestProps(t)
 

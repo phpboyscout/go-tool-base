@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
@@ -21,7 +22,10 @@ import (
 func TestForgeFeaturesAreEnumerable(t *testing.T) {
 	t.Parallel()
 
-	all := props.AllFeatures()
+	var all []props.FeatureID
+	for _, d := range features.Default().Snapshot().Descriptors() {
+		all = append(all, d.FeatureID())
+	}
 
 	assert.Contains(t, all, forge.GithubFeature,
 		"github must appear in the feature enumeration; doctor's report ranges over it")
@@ -34,7 +38,10 @@ func TestForgeFeaturesAreEnumerable(t *testing.T) {
 func TestForgeFeaturesAreForgeKind(t *testing.T) {
 	t.Parallel()
 
-	forges := props.FeaturesOfKind(props.KindForge)
+	var forges []props.FeatureID
+	for _, d := range features.Default().Snapshot().OfKind(props.KindForge) {
+		forges = append(forges, d.FeatureID())
+	}
 
 	assert.Contains(t, forges, forge.GithubFeature)
 	assert.Contains(t, forges, forge.BitbucketFeature)
@@ -47,12 +54,14 @@ func TestForgeFeaturesAreForgeKind(t *testing.T) {
 func TestForgeFeaturesAreNotDefaultOn(t *testing.T) {
 	t.Parallel()
 
-	for _, id := range []props.FeatureID{forge.GithubFeature, forge.BitbucketFeature} {
-		d, ok := props.DescriptorFor(id)
-		require.Truef(t, ok, "%q must be registered", id)
-		assert.Falsef(t, d.Default, "%q must not be default-enabled", id)
+	snapshot := features.Default().Snapshot()
+	set, err := features.Resolve(snapshot, nil)
+	require.NoError(t, err)
 
-		var tool props.Tool
-		assert.Falsef(t, tool.IsEnabled(id), "%q must be off unless a tool enables it", id)
+	for _, id := range []props.FeatureID{forge.GithubFeature, forge.BitbucketFeature} {
+		d, ok := snapshot.Lookup(id)
+		require.Truef(t, ok, "%q must be registered", id)
+		assert.Falsef(t, d.DefaultOn(), "%q must not be default-enabled", id)
+		assert.Falsef(t, set.Enabled(id), "%q must be off unless a tool enables it", id)
 	}
 }

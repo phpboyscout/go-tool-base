@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/njayp/ophis"
@@ -32,6 +30,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
@@ -392,7 +391,7 @@ func embeddedSources(opts ConfigLoadOptions) []config.NamedSource {
 // itself — only the missing-config outcome changes, preserving the
 // "bootstrap always runs" invariant (2026-06-12-bootstrap-prerun-traversal).
 func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string, boundFlags map[string]*pflag.Flag) (*config.Store, error) {
-	initEnabled := props.Tool.IsEnabled(p.InitCmd)
+	initEnabled := props.GetFeatures().Enabled(p.InitCmd)
 	skipConfigCheck := setup.SkipsConfigCheck(cmd) ||
 		props.Tool.Bootstrap.MatchesSkipList(cmd.Name(), cmd.CommandPath())
 
@@ -601,7 +600,7 @@ func isCIEnvironment(view *config.View) bool {
 
 func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) bool {
 	// Skip update checks in various conditions
-	if props.Tool.IsDisabled(p.UpdateCmd) ||
+	if !props.GetFeatures().Enabled(p.UpdateCmd) ||
 		props.Version.IsDevelopment() ||
 		state.redirectingToUpdate ||
 		isCIEnvironment(view) {
@@ -795,20 +794,17 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 		props.FS = afero.NewOsFs()
 	}
 
-	// Fill the optional invariants: Collector (NoopCollector), ErrorHandler,
-	// and Version. The real *telemetry.Collector is resolved later in the
-	// PersistentPreRunE; ErrorHandler and Version must be non-nil before then
-	// because the init/help paths return early and the update-check path
-	// dereferences Version unconditionally. ApplyDefaults is the same routine
-	// props.New uses, so struct-literal and New-built Props converge here.
+	// Resolve the feature set for a literal Props (props.New has already done
+	// it for one built the blessed way), from the registry and resolver the
+	// options name, then fill the optional invariants: Collector
+	// (NoopCollector), ErrorHandler, Version and Flags. The real
+	// *telemetry.Collector is resolved later in the PersistentPreRunE;
+	// ErrorHandler and Version must be non-nil before then because the
+	// init/help paths return early and the update-check path dereferences
+	// Version unconditionally. ApplyDefaults is the same routine props.New
+	// uses, so struct-literal and New-built Props converge here (spec 0199 D4).
+	resolveRootFeatures(props, o)
 	props.ApplyDefaults()
-
-	// Surface a contract violation the defaults cannot fix (an unnamed Tool)
-	// instead of failing obscurely later. Non-fatal: the root cannot return an
-	// error, so it warns rather than aborting.
-	if err := props.Validate(); err != nil {
-		props.Logger.Warn("props contract violation at root construction", "error", err)
-	}
 
 	// Wire the logger into Assets so a malformed embedded bundle surfaces as a
 	// WARN during merged structured reads instead of vanishing silently.
@@ -843,6 +839,7 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 	}
 
 	wrapped := setup.Wrap("", rootCmd)
+	wrapped.UseChain(rootChain(props, o))
 	registerFeatureCommands(wrapped, props, mcpLogLevel)
 
 	wrapped.Register(o.subcommands...)
@@ -928,7 +925,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// A forge feature enabled without its adapter linked is a build
 		// mistake, not a configuration one, so it is reported before any
 		// configuration is read (spec 0194 D9).
-		if err := forge.UnlinkedError(forge.Unlinked(props.Tool)); err != nil {
+		if err := forge.UnlinkedError(forge.Unlinked(props.GetFeatures())); err != nil {
 			return err
 		}
 
@@ -975,7 +972,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		props.Collector = buildTelemetryCollector(cmd.Context(), props)
 
 		// Check for updates
-		if props.Tool.IsDisabled(p.UpdateCmd) {
+		if !props.GetFeatures().Enabled(p.UpdateCmd) {
 			return nil
 		}
 
@@ -1000,7 +997,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 func configLoadError(props *p.Props, err error) error {
 	err = errors.Wrap(err, "failed to load configuration")
 
-	if errors.Is(err, ErrNoConfigFile) && props.Tool.IsEnabled(p.InitCmd) {
+	if errors.Is(err, ErrNoConfigFile) && props.GetFeatures().Enabled(p.InitCmd) {
 		err = errors.WithHintf(err, "Run '%s init' to create a configuration.", props.Tool.Name)
 	}
 
@@ -1184,22 +1181,51 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	rootCmd.PersistentFlags().String("output", "text", "output format (text, json)")
 }
 
-// builtinMiddlewareOnce guards the one-per-process contribution of the
-// built-in global middleware. The registry is append-only, so a second
-// NewCmdRoot would otherwise contribute a second copy. This is phase 1 of
-// spec 0199; phase 2 gives each root its own chain and removes the Once (and
-// with it the defect that every root's telemetry middleware closes over the
-// first root's Props).
-var builtinMiddlewareOnce sync.Once
+// resolveRootFeatures resolves a literal Props' feature set from the
+// registry and resolver the root was given, so root.WithRegistry and
+// WithResolver reach a Props that skipped props.New. A Props that already
+// carries a set (built by New, or handed one through props.WithSet) is left
+// alone: the option was the caller's to give New.
+func resolveRootFeatures(props *p.Props, o *rootOptions) {
+	if props.Features != nil || (o.registry == nil && o.resolver == nil) {
+		return
+	}
 
-func registerGlobalMiddlewareOnce(props *p.Props) {
-	builtinMiddlewareOnce.Do(func() {
-		setup.RegisterGlobalMiddleware(
-			setup.WithRecovery(props.Logger),
-			setup.WithTiming(props.Logger),
-			setup.WithTelemetry(props),
-		)
-	})
+	registry := o.registry
+	if registry == nil {
+		registry = features.Default()
+	}
+
+	resolver := o.resolver
+	if resolver == nil {
+		resolver = features.DefaultResolver()
+	}
+
+	set, err := resolver.Resolve(registry.Snapshot(), p.StatesOf(props.Tool.Features))
+	if err != nil {
+		props.Logger.Warn("feature set could not be resolved; enabling nothing beyond the defaults", "error", err)
+
+		set, _ = resolver.Resolve(registry.Snapshot(), nil)
+	}
+
+	props.Features = set
+}
+
+// rootChain is this root's middleware chain (spec 0199 D3): the built-in
+// recovery, timing and telemetry middleware closing over this root's Props,
+// then the enabled features' contributions. Each root has its own, so two
+// roots in one process share nothing and a second root's telemetry reports
+// to its own collector.
+func rootChain(props *p.Props, o *rootOptions) setup.Chainer {
+	if o.chain != nil {
+		return o.chain
+	}
+
+	return setup.NewMiddlewareChain([]setup.Middleware{
+		setup.WithRecovery(props.Logger),
+		setup.WithTiming(props.Logger),
+		setup.WithTelemetry(props),
+	}, props.Features)
 }
 
 // registerFeatureAssets applies the asset bundles of enabled features onto
@@ -1212,22 +1238,15 @@ func registerFeatureAssets(props *p.Props) {
 		return
 	}
 
-	registered := setup.GetAssets()
-
-	for _, feature := range slices.Sorted(maps.Keys(registered)) {
-		if !props.Tool.IsEnabled(feature) {
-			continue
-		}
-
-		for _, bundle := range registered[feature] {
+	for _, d := range props.GetFeatures().EnabledDescriptors() {
+		bundles, _ := features.ContributionsOf[setup.AssetBundle](props.GetFeatures(), d.FeatureID(), setup.SlotAssets)
+		for _, bundle := range bundles {
 			props.Assets.Register(bundle.Name, bundle.Bundle)
 		}
 	}
 }
 
 func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
-	registerGlobalMiddlewareOnce(props)
-
 	// version produces its output from build-time ldflags and embedded assets,
 	// so it must run on a fresh install with no config file yet. Relaxing the
 	// missing-config gate (rather than erroring) is what lets it.
@@ -1251,7 +1270,7 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 		{p.ManCmd, func() *setup.Command { return cmdman.NewCmdMan(props) }, true},
 	}
 	for _, c := range simple {
-		if props.Tool.IsEnabled(c.feature) {
+		if props.GetFeatures().Enabled(c.feature) {
 			cmd := c.build()
 			if c.skipGate {
 				skipConfigGate(cmd)
@@ -1261,7 +1280,7 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 		}
 	}
 
-	if props.Tool.IsEnabled(p.McpCmd) {
+	if props.GetFeatures().Enabled(p.McpCmd) {
 		mcpCmd := ophis.Command(&ophis.Config{
 			SloggerOptions: &slog.HandlerOptions{
 				Level: mcpLogLevel,
@@ -1275,7 +1294,7 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 		rootCmd.Register(setup.Wrap(p.McpCmd, mcpCmd))
 	}
 
-	if props.Tool.IsEnabled(p.DocsCmd) {
+	if props.GetFeatures().Enabled(p.DocsCmd) {
 		if docsCmd := docs.NewCmdDocs(props); docsCmd != nil {
 			rootCmd.Register(skipConfigGate(docsCmd))
 		}
@@ -1323,7 +1342,7 @@ func consentPromptDeferred(props *p.Props, view *config.View) bool {
 	_, telemetryEnvSet := os.LookupEnv("TELEMETRY_ENABLED")
 
 	switch {
-	case props.Tool.IsDisabled(p.TelemetryCmd):
+	case !props.GetFeatures().Enabled(p.TelemetryCmd):
 		return true
 	case props.Tool.Telemetry.ForceEnabled:
 		// Tool author has force-enabled telemetry — no prompt, always on.
@@ -1400,7 +1419,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 	// with a nil guard, mirroring shouldSkipUpdateCheck and the doctor command.
 	version := props.Version.GetVersion()
 
-	if props.Tool.IsDisabled(p.TelemetryCmd) {
+	if !props.GetFeatures().Enabled(p.TelemetryCmd) {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
 			props.Tool.Name, version, nil, logger.ToSlog(props.Logger), dataDir, p.DeliveryAtLeastOnce, false)
 	}

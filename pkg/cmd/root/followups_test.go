@@ -21,10 +21,7 @@ import (
 // default is an empty, development-flavoured Version, so the update check is
 // safely skipped rather than dereferencing nil.
 func TestNewCmdRoot_DefaultsNilVersion(t *testing.T) {
-	// Not parallel: NewCmdRoot seals the process-global middleware registry, so
-	// it must not run concurrently with the parallel registry-resetting tests
-	// (TestMiddleware_IntegrationWithCobra). Reset + cleanup mirrors the sibling
-	// NewCmdRoot tests.
+	t.Parallel()
 
 	props := &p.Props{
 		Tool:   p.Tool{Name: "t"},

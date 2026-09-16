@@ -119,8 +119,10 @@ func TestNewCmdVersion_UpdateDisabledSkipsCheck(t *testing.T) {
 	for _, args := range [][]string{nil, {"--check"}} {
 		props := newTestProps(t, failingReleaseProvider())
 		props.Tool.Features = p.SetFeatures(p.Disable(p.UpdateCmd))
+		props.Features = nil // re-resolve from the changed Tool.Features
+		props.ApplyDefaults()
 
-		require.True(t, props.Tool.IsDisabled(p.UpdateCmd))
+		require.False(t, props.Features.Enabled(p.UpdateCmd))
 
 		out, err := runVersionCmd(t, props, "text", args...)
 		require.NoError(t, err)

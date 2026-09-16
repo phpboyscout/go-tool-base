@@ -118,10 +118,10 @@ func CollectBundle(ctx context.Context, props *p.Props) *SupportBundle {
 		}
 	}
 
-	for _, cmd := range p.AllFeatures() {
+	for _, d := range props.GetFeatures().Descriptors() {
 		bundle.Features = append(bundle.Features, FeatureFlag{
-			Cmd:     cmd,
-			Enabled: props.Tool.IsEnabled(cmd),
+			Cmd:     d.FeatureID(),
+			Enabled: props.GetFeatures().Enabled(d.FeatureID()),
 		})
 	}
 

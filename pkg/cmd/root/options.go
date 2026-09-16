@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -20,6 +21,11 @@ type RootOption func(*rootOptions)
 type rootOptions struct {
 	configPaths []string
 	subcommands []*setup.Command
+	// registry, resolver and chain replace the root's defaults (spec 0199
+	// D3, D12): a test or a host hands in its own features and middleware.
+	registry features.Registry
+	resolver features.Resolver
+	chain    setup.Chainer
 	// boundFlags maps a config key to the persistent/root flag that should
 	// override it. Applied once at the root during config load.
 	boundFlags map[string]*pflag.Flag
@@ -50,6 +56,25 @@ func WithConfigPaths(paths ...string) RootOption {
 	return func(o *rootOptions) {
 		o.configPaths = append(o.configPaths, paths...)
 	}
+}
+
+// WithRegistry names the feature registry the root snapshots when the Props
+// carries no resolved set. Default: features.Default().
+func WithRegistry(r features.Registry) RootOption {
+	return func(o *rootOptions) { o.registry = r }
+}
+
+// WithResolver replaces the default Resolver used when the root resolves the
+// Props' set from its snapshot.
+func WithResolver(r features.Resolver) RootOption {
+	return func(o *rootOptions) { o.resolver = r }
+}
+
+// WithChain replaces the root's middleware chain. Default: the built-in
+// recovery, timing and telemetry middleware, then the enabled features'
+// contributions.
+func WithChain(c setup.Chainer) RootOption {
+	return func(o *rootOptions) { o.chain = c }
 }
 
 // WithSubcommands registers subcommands on the root command.

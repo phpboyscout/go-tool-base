@@ -49,7 +49,11 @@ In your `main.go`, pass the command to `root.NewCmdRoot` as a variadic argument:
 
 ```go
 func main() {
-    rootCmd, p := localroot.NewCmdRoot(version.Get())
+    rootCmd, p, err := localroot.NewCmdRoot(version.Get())
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(errorhandling.ExitCodeUsage)
+    }
 
     rootCmd.Register(greet.NewCmdGreet(p))
 

@@ -72,7 +72,7 @@ builds.`,
 			// --check bypasses the development-build skip so maintainers
 			// can probe the release source from a dev build; the
 			// disabled-update fast path always skips the network.
-			if props.Tool.IsDisabled(p.UpdateCmd) || (props.Version.IsDevelopment() && !check) {
+			if !props.GetFeatures().Enabled(p.UpdateCmd) || (props.Version.IsDevelopment() && !check) {
 				return writeVersion(out, info)
 			}
 

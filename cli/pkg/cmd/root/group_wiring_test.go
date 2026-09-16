@@ -56,20 +56,17 @@ var foreignGroups = map[string]string{
 	"gtb mcp vscode": "ophis",
 }
 
-// Not t.Parallel(), and neither are the two below: NewCmdRoot cannot safely be
-// called concurrently.
-//
-// The first reason is fixed — generate and regenerate used to bind their
-// persistent flags to package-level variables, so two goroutines building a root
-// wrote the same addresses and -race said so. They inject a *SharedFlags now.
-//
-// The second is not. pkg/setup keeps the middleware registry in package state
-// behind a `sealed` flag, and a second concurrent build panics with "cannot
-// register global middleware after command registration is complete". That is a
-// design question about a public package rather than a test concern, so these
-// stay sequential — which costs nothing, the file being three tree walks.
+// These three build the real tree in parallel. That used to be impossible:
+// generate and regenerate bound persistent flags to package variables (fixed
+// by injecting a *SharedFlags), and pkg/setup kept the middleware registry in
+// package state behind a seal that a second concurrent build tripped. Spec
+// 0199 gave each root its own chain and flag targets, and this file is the
+// proof that two roots now share nothing.
 func TestEveryCommandGroupWiresARunE(t *testing.T) {
-	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
+	t.Parallel()
+
+	rootCmd, _, err := root.NewCmdRoot(ver.Info{Version: "test"})
+	require.NoError(t, err)
 	require.NotNil(t, rootCmd)
 
 	var offenders []string
@@ -100,7 +97,10 @@ func TestEveryCommandGroupWiresARunE(t *testing.T) {
 // decision rather than an accident. This fails when a new group is added without
 // either wiring GroupRunE or being declared as a working group above.
 func TestEveryCommandGroupIsAccountedFor(t *testing.T) {
-	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
+	t.Parallel()
+
+	rootCmd, _, err := root.NewCmdRoot(ver.Info{Version: "test"})
+	require.NoError(t, err)
 
 	var undeclared []string
 
@@ -155,7 +155,10 @@ func walk(cmd *cobra.Command, visit func(*cobra.Command)) {
 // as a covered case while covering nothing. If ophis renames or drops one of
 // these, this fails and the entry should go.
 func TestForeignGroupExemptionsStillMatchSomething(t *testing.T) {
-	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
+	t.Parallel()
+
+	rootCmd, _, err := root.NewCmdRoot(ver.Info{Version: "test"})
+	require.NoError(t, err)
 
 	present := map[string]bool{}
 

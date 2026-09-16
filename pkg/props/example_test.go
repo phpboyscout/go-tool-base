@@ -3,6 +3,9 @@ package props_test
 import (
 	"fmt"
 
+	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -20,7 +23,7 @@ func ExampleSetFeatures() {
 	}
 }
 
-func ExampleTool_IsEnabled() {
+func ExampleNew_features() {
 	tool := props.Tool{
 		Name: "mytool",
 		Features: props.SetFeatures(
@@ -28,8 +31,13 @@ func ExampleTool_IsEnabled() {
 		),
 	}
 
-	fmt.Println("AI:", tool.IsEnabled(props.AiCmd))
-	fmt.Println("Init:", tool.IsEnabled(props.InitCmd))
+	p, err := props.New(tool, logger.NewNoop(), afero.NewMemMapFs())
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("AI:", p.Features.Enabled(props.AiCmd))
+	fmt.Println("Init:", p.Features.Enabled(props.InitCmd))
 	// Output:
 	// AI: true
 	// Init: true

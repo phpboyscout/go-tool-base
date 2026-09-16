@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/afero"
 
-	"gitlab.com/phpboyscout/go/errorhandling"
 	signingcli "gitlab.com/phpboyscout/go/signing-cli"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
@@ -54,58 +53,61 @@ func init() {
 	// our signing posture into downstream tools.
 }
 
-func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
+// NewCmdRoot builds gtb's own root through props.New, the one construction
+// path (spec 0199 D4). The error is a contract violation in this file (an
+// unnamed tool, an undeclared feature enabled) and main exits 2 on it.
+func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props, error) {
 	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
 	// Addressable so SigningConfig can distinguish "unset" from "false".
 	requireChecksum := true
 
-	p := &props.Props{
-		Tool: props.Tool{
-			Name:        "gtb",
-			Summary:     "The gtb CLI",
-			Description: "A CLI tool for managing and generating gtb projects.",
-			ReleaseSource: props.ReleaseSource{
-				Type:  "gitlab",
-				Owner: "phpboyscout",
-				Repo:  "go-tool-base",
-			},
-			Features: props.SetFeatures(
-				props.Disable(props.InitCmd),
-				props.Enable(props.AiCmd),
-				props.Enable(props.TelemetryCmd),
-			),
-			// The framework default is disabled (opt-in); the gtb CLI itself
-			// prompts so its users are nudged to upgrade without being blocked.
-			UpdatePolicy: props.UpdatePolicyPrompt,
-			EnvPrefix:    "GTB",
-			Telemetry: props.TelemetryConfig{
-				OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
-				OTelHeaders: map[string]string{
-					"Authorization": "Basic " + otelAuth,
-				},
-			},
-			// Embedded release public key(s) for self-update signature
-			// verification. Empty until a key is added under
-			// internal/trustkeys/keys/*.asc — see phase2-signing-prep.md.
-			Signing: props.SigningConfig{
-				EmbeddedKeys: trustkeys.Keys(),
-
-				// GoReleaser has always produced checksums.txt on every
-				// release, so gtb fails closed: a future release with a
-				// broken pipeline aborts the update with an actionable
-				// error rather than quietly installing an unverified
-				// binary. Runtime `update.require_checksum` still wins.
-				RequireChecksum: &requireChecksum,
+	tool := props.Tool{
+		Name:        "gtb",
+		Summary:     "The gtb CLI",
+		Description: "A CLI tool for managing and generating gtb projects.",
+		ReleaseSource: props.ReleaseSource{
+			Type:  "gitlab",
+			Owner: "phpboyscout",
+			Repo:  "go-tool-base",
+		},
+		Features: props.SetFeatures(
+			props.Disable(props.InitCmd),
+			props.Enable(props.AiCmd),
+			props.Enable(props.TelemetryCmd),
+		),
+		// The framework default is disabled (opt-in); the gtb CLI itself
+		// prompts so its users are nudged to upgrade without being blocked.
+		UpdatePolicy: props.UpdatePolicyPrompt,
+		EnvPrefix:    "GTB",
+		Telemetry: props.TelemetryConfig{
+			OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
+			OTelHeaders: map[string]string{
+				"Authorization": "Basic " + otelAuth,
 			},
 		},
-		Logger:  l,
-		FS:      afero.NewOsFs(),
-		Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
-		Version: v,
+		// Embedded release public key(s) for self-update signature
+		// verification. Empty until a key is added under
+		// internal/trustkeys/keys/*.asc — see phase2-signing-prep.md.
+		Signing: props.SigningConfig{
+			EmbeddedKeys: trustkeys.Keys(),
+
+			// GoReleaser has always produced checksums.txt on every
+			// release, so gtb fails closed: a future release with a
+			// broken pipeline aborts the update with an actionable
+			// error rather than quietly installing an unverified
+			// binary. Runtime `update.require_checksum` still wins.
+			RequireChecksum: &requireChecksum,
+		},
 	}
 
-	p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
+	p, err := props.New(tool, l, afero.NewOsFs(),
+		props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})),
+		props.WithVersion(v),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Create root command using the library functionality, with gtb-specific
 	// subcommands registered through the new composed Register pipeline so they
@@ -128,5 +130,5 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		ignorecmd.NewCmdIgnore(p),
 	)
 
-	return rootCmd, p
+	return rootCmd, p, nil
 }

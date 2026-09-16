@@ -1037,8 +1037,11 @@ func findFuncDecl(f *dst.File, name string) *dst.FuncDecl {
 	return nil
 }
 
-// findPropsLiteralInFunc walks assignment statements in fn looking for a
-// &props.Props{...} composite literal and extracts project properties from it.
+// findPropsLiteralInFunc walks assignment statements in fn looking for the
+// tool's properties: a props.Tool{...} composite literal (the shape the
+// skeleton emits since spec 0199 D4, feeding props.New) or a &props.Props{...}
+// literal with a Tool field (the shape before it), and extracts project
+// properties from whichever it finds.
 func findPropsLiteralInFunc(fn *dst.FuncDecl) (*ManifestProperties, *ManifestReleaseSource, error) {
 	for _, stmt := range fn.Body.List {
 		assign, ok := stmt.(*dst.AssignStmt)
@@ -1047,6 +1050,10 @@ func findPropsLiteralInFunc(fn *dst.FuncDecl) (*ManifestProperties, *ManifestRel
 		}
 
 		for _, rhs := range assign.Rhs {
+			if comp, ok := rhs.(*dst.CompositeLit); ok && isTypeName(comp.Type, "Tool") {
+				return extractFromToolLiteral(comp)
+			}
+
 			mp, rs, err := tryExtractPropsLiteral(rhs)
 			if err == nil && mp != nil {
 				return mp, rs, nil
@@ -1054,7 +1061,7 @@ func findPropsLiteralInFunc(fn *dst.FuncDecl) (*ManifestProperties, *ManifestRel
 		}
 	}
 
-	return nil, nil, errors.New("props.Props literal not found in NewCmdRoot")
+	return nil, nil, errors.New("props.Tool literal not found in NewCmdRoot")
 }
 
 // tryExtractPropsLiteral attempts to pull ManifestProperties and ManifestReleaseSource

@@ -132,7 +132,7 @@ props.SetFeatures(
     props.Enable(props.AiCmd),
 )
 ```
-Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`, `ChangelogCmd`.
+Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`, `ChangelogCmd`. At runtime the resolved set is `p.GetFeatures()` (a `features.Set` on `Props`, filled by `props.New`): gate with `p.GetFeatures().Enabled(id)`, never a process-wide lookup. `props.New` is the construction path for a tool's `Props` (the skeleton, `gtb` and the e2e binary all use it) and returns an error for a contract violation; the root's middleware chain and init flag targets are per root, so two roots in one process share nothing (spec 0199).
 
 ### API Stability (pre-1.0)
 

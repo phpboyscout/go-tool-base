@@ -532,7 +532,7 @@ func TestPromptTelemetryConsent_NoConfigDirDoesNotWrite(t *testing.T) {
 // --- NewCmdRootWithConfig --------------------------------------------------
 
 func TestNewCmdRootWithConfig(t *testing.T) {
-	// Not parallel: NewCmdRoot seals the process-global middleware registry.
+	t.Parallel()
 
 	props := &p.Props{
 		Logger: logger.NewNoop(),
@@ -684,7 +684,7 @@ func TestPromptTelemetryConsent_CIFlagSkips(t *testing.T) {
 // --- registerFeatureCommands: ConfigCmd + TelemetryCmd enabled --------------
 
 func TestRegisterFeatureCommands_ConfigAndTelemetryEnabled(t *testing.T) {
-	// Not parallel: seals the process-global middleware registry.
+	t.Parallel()
 
 	props := &p.Props{
 		Logger: logger.NewNoop(),
