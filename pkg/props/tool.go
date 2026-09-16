@@ -155,6 +155,12 @@ type SigningConfig struct {
 	RequireChecksum *bool `json:"-" yaml:"-"`
 }
 
+// BoolPtr returns a pointer to v, for the tri-state baselines on Tool
+// (RequireChecksum) that distinguish unset from explicitly false. A generated
+// root command uses it in a struct literal, where a variable would need a
+// package-level declaration.
+func BoolPtr(v bool) *bool { return &v }
+
 // BootstrapPolicy governs how the framework treats configuration bootstrap and
 // the missing-config gate in the root pre-run. The zero value reproduces the
 // historical behaviour: a missing config file is a hard error when the init
