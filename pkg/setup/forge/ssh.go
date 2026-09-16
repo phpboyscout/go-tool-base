@@ -70,94 +70,117 @@ func defaultKeyManager(profile Profile) func(context.Context, config.Reader) (fo
 	}
 }
 
+// Choices the key selector adds after the discovered keys.
+const (
+	sshChoiceGenerate = "generate"
+	sshChoiceAgent    = "agent"
+	sshChoiceOther    = "other"
+)
+
 type configureSSHKeyConfig struct {
-	sshKeySelectFormCreator func(*string, []huh.Option[string]) *huh.Form
-	sshKeyPathFormCreator   func(*string) *huh.Form
-	generateKeyOpts         []GenerateKeyOption
+	keyManagerFactory func(context.Context, config.Reader) (forgeapi.KeyManager, error)
 }
 
 // ConfigureSSHKeyOption is a functional option for ConfigureSSHKey.
 type ConfigureSSHKeyOption func(*configureSSHKeyConfig)
 
-// WithSSHKeySelectForm overrides the SSH key selection form (for testing).
-func WithSSHKeySelectForm(creator func(*string, []huh.Option[string]) *huh.Form) ConfigureSSHKeyOption {
+// WithKeyManager overrides the [forgeapi.KeyManager] constructor used when
+// uploading SSH keys. Tests pass a factory returning a fake; production callers
+// omit it to get the registered provider's key-upload capability.
+func WithKeyManager(factory func(context.Context, config.Reader) (forgeapi.KeyManager, error)) ConfigureSSHKeyOption {
 	return func(c *configureSSHKeyConfig) {
-		c.sshKeySelectFormCreator = creator
+		c.keyManagerFactory = factory
 	}
 }
 
-// WithSSHKeyPathForm overrides the SSH key path input form (for testing).
-func WithSSHKeyPathForm(creator func(*string) *huh.Form) ConfigureSSHKeyOption {
-	return func(c *configureSSHKeyConfig) {
-		c.sshKeyPathFormCreator = creator
-	}
+// sshKeyConfig is what the SSH form collects.
+type sshKeyConfig struct {
+	// Choice is a discovered key's path or one of the sshChoice* sentinels.
+	Choice string
+	// Path is the key the user names when Choice is sshChoiceOther.
+	Path string
+	// Passphrase protects the key generated when Choice is sshChoiceGenerate.
+	Passphrase string
 }
 
-// WithGenerateKeyOptions passes options through to the key generation step.
-func WithGenerateKeyOptions(opts ...GenerateKeyOption) ConfigureSSHKeyOption {
-	return func(c *configureSSHKeyConfig) {
-		c.generateKeyOpts = opts
-	}
-}
-
-func defaultSSHKeySelectFormCreator(targetKey *string, options []huh.Option[string]) *huh.Form {
+// sshForm is the SSH stage's one form (spec 0198): the key selector, then
+// the page the choice needs. The upload question is asked afterwards,
+// because whether an upload is possible is only known once the key manager
+// resolves (spec 0186 D7).
+func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
+				Key("ssh-key").
 				Title("Select SSH key").
 				Description("pick a private key from the list, enter a path to a key manually or generate a new key").
 				Options(options...).
-				Value(targetKey),
+				Value(&cfg.Choice),
 		),
-	)
-}
-
-func defaultSSHKeyPathFormCreator(targetKey *string) *huh.Form {
-	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewText().
+				Key("ssh-key-path").
 				Title("Enter path to SSH key").
-				Value(targetKey),
-		),
+				Value(&cfg.Path),
+		).WithHideFunc(func() bool { return cfg.Choice != sshChoiceOther }),
+		huh.NewGroup(
+			huh.NewInput().
+				Key("passphrase").
+				Title("Enter passphrase for new SSH key").
+				Description(fmt.Sprintf("should be a minimum of %d characters long", minPassphraseLength)).
+				EchoMode(huh.EchoModePassword).
+				Validate(validatePassphrase).
+				Value(&cfg.Passphrase),
+		).WithHideFunc(func() bool { return cfg.Choice != sshChoiceGenerate }),
 	)
 }
 
-// ConfigureSSHKey runs the interactive SSH key configuration flow.
-func ConfigureSSHKey(profile Profile, props *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error) {
-	props.Logger.Info("Configuring SSH key", "provider", profile.Label)
-
-	optsConfig := &configureSSHKeyConfig{
-		sshKeySelectFormCreator: defaultSSHKeySelectFormCreator,
-		sshKeyPathFormCreator:   defaultSSHKeyPathFormCreator,
+func validatePassphrase(s string) error {
+	if len(s) < minPassphraseLength {
+		return errors.Wrapf(ErrPassphraseTooShort, "%d characters", minPassphraseLength)
 	}
+
+	return nil
+}
+
+// ErrPassphraseTooShort is returned when a generated key's passphrase is
+// shorter than minPassphraseLength, including when huh's accessible mode
+// could not read one at all (no terminal) and left it blank.
+var ErrPassphraseTooShort = errors.NewSentinel("gtb.setup.forge.passphrase_too_short",
+	"passphrase must be at least")
+
+// ConfigureSSHKey runs the interactive SSH key configuration flow on p's IO
+// and returns the key type ("file" or "agent") and path.
+func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error) {
+	p.Logger.Info("Configuring SSH key", "provider", profile.Label)
+
+	optsConfig := &configureSSHKeyConfig{keyManagerFactory: defaultKeyManager(profile)}
 
 	for _, opt := range opts {
 		opt(optsConfig)
 	}
 
-	potentialKeys, err := discoverSSHKeys(props)
+	potentialKeys, err := discoverSSHKeys(p)
 	if err != nil {
 		return "", "", err
 	}
 
-	// Add additional options
-	potentialKeys = append(potentialKeys, huh.NewOption("Generate a new SSH key", "generate"))
-	potentialKeys = append(potentialKeys, huh.NewOption("I use ssh-agent to handle my keys", "agent"))
-	potentialKeys = append(potentialKeys, huh.NewOption("Enter path to key manually", "other"))
+	potentialKeys = append(potentialKeys,
+		huh.NewOption("Generate a new SSH key", sshChoiceGenerate),
+		huh.NewOption("I use ssh-agent to handle my keys", sshChoiceAgent),
+		huh.NewOption("Enter path to key manually", sshChoiceOther),
+	)
 
-	var targetKey string
+	keyCfg := &sshKeyConfig{}
 	if cfg.IsSet(profile.sshKeyPathKey()) {
-		targetKey = cfg.GetString(profile.sshKeyPathKey())
+		keyCfg.Choice = cfg.GetString(profile.sshKeyPathKey())
 	}
 
-	form := optsConfig.sshKeySelectFormCreator(&targetKey, potentialKeys)
-	if form != nil {
-		if err := form.Run(); err != nil {
-			return "", "", err
-		}
+	if err := setup.RunForm(ctx, p, sshForm(keyCfg, potentialKeys)); err != nil {
+		return "", "", err
 	}
 
-	return handleSSHKeySelection(profile, props, cfg, targetKey, optsConfig)
+	return handleSSHKeySelection(ctx, profile, p, cfg, keyCfg, optsConfig)
 }
 
 func discoverSSHKeys(props *props.Props) ([]huh.Option[string], error) {
@@ -217,54 +240,40 @@ func isValidSSHKey(fs afero.Fs, path string) bool {
 	return true
 }
 
-func handleSSHKeySelection(profile Profile, props *props.Props, cfg config.Reader, targetKey string, optsConfig *configureSSHKeyConfig) (string, string, error) {
+func handleSSHKeySelection(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, keyCfg *sshKeyConfig, optsConfig *configureSSHKeyConfig) (string, string, error) {
 	keyType := "file"
 
-	switch targetKey {
-	case "generate":
-		key, err := generateKey(profile, props, cfg, optsConfig.generateKeyOpts...)
+	switch keyCfg.Choice {
+	case sshChoiceGenerate:
+		key, err := generateKey(ctx, profile, p, cfg, keyCfg.Passphrase, optsConfig)
 		if err != nil {
 			return "", "", errors.Wrap(err, "failed to generate SSH key")
 		}
 
 		return keyType, key, nil
 
-	case "agent":
-		return "agent", "", nil
+	case sshChoiceAgent:
+		return sshChoiceAgent, "", nil
 
-	case "other":
-		key, err := promptAndValidateSSHKey(props, optsConfig)
-		if err != nil {
+	case sshChoiceOther:
+		if err := validateSSHKeyFile(p, keyCfg.Path); err != nil {
 			return "", "", err
 		}
 
-		return keyType, key, nil
+		return keyType, keyCfg.Path, nil
 
 	default:
-		return keyType, targetKey, nil
+		return keyType, keyCfg.Choice, nil
 	}
 }
 
-func promptAndValidateSSHKey(props *props.Props, optsConfig *configureSSHKeyConfig) (string, error) {
-	var targetKey string
-
-	form := optsConfig.sshKeyPathFormCreator(&targetKey)
-	if form != nil {
-		if err := form.Run(); err != nil {
-			return "", err
-		}
-	}
-
-	contents, err := afero.ReadFile(props.FS, targetKey)
+func validateSSHKeyFile(p *props.Props, path string) error {
+	contents, err := afero.ReadFile(p.FS, path)
 	if err != nil {
-		return "", errors.Newf("could not read file: %w", err)
+		return errors.Newf("could not read file: %w", err)
 	}
 
-	if err := validateSSHKey(contents, props); err != nil {
-		return "", err
-	}
-
-	return targetKey, nil
+	return validateSSHKey(contents, p)
 }
 
 func validateSSHKey(contents []byte, p props.LoggerProvider) error {
@@ -286,61 +295,11 @@ func validateSSHKey(contents []byte, p props.LoggerProvider) error {
 	return nil
 }
 
-type generateKeyConfig struct {
-	passphraseFormCreator    func(*string) *huh.Form
-	uploadConfirmFormCreator func(*bool) *huh.Form
-	keyManagerFactory        func(context.Context, config.Reader) (forgeapi.KeyManager, error)
-}
-
-// GenerateKeyOption is a functional option for SSH key generation.
-type GenerateKeyOption func(*generateKeyConfig)
-
-// WithPassphraseForm overrides the passphrase input form (for testing).
-func WithPassphraseForm(creator func(*string) *huh.Form) GenerateKeyOption {
-	return func(c *generateKeyConfig) {
-		c.passphraseFormCreator = creator
-	}
-}
-
-// WithUploadConfirmForm overrides the upload confirmation form (for testing).
-func WithUploadConfirmForm(creator func(*bool) *huh.Form) GenerateKeyOption {
-	return func(c *generateKeyConfig) {
-		c.uploadConfirmFormCreator = creator
-	}
-}
-
-// WithKeyManager overrides the [forgeapi.KeyManager] constructor used when
-// uploading SSH keys. Tests pass a factory returning a fake; production callers
-// omit it to get the registered provider's key-upload capability.
-func WithKeyManager(factory func(context.Context, config.Reader) (forgeapi.KeyManager, error)) GenerateKeyOption {
-	return func(c *generateKeyConfig) {
-		c.keyManagerFactory = factory
-	}
-}
-
-func defaultPassphraseFormCreator(passphrase *string) *huh.Form {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Enter passphrase for new SSH key").
-				Description(fmt.Sprintf("should be a minimum of %d characters long", minPassphraseLength)).
-				EchoMode(huh.EchoModePassword).
-				Validate(func(s string) error {
-					if len(s) < minPassphraseLength {
-						return errors.Newf("passphrase must be at least %d characters long", minPassphraseLength)
-					}
-
-					return nil
-				}).
-				Value(passphrase),
-		),
-	)
-}
-
-func defaultUploadConfirmFormCreator(upload *bool) *huh.Form {
+func uploadConfirmForm(upload *bool) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
+				Key("upload").
 				Title("Upload SSH key to the forge?").
 				Affirmative("Yes!").
 				Negative("No.").
@@ -349,19 +308,17 @@ func defaultUploadConfirmFormCreator(upload *bool) *huh.Form {
 	)
 }
 
-func generateKey(profile Profile, props *props.Props, cfg config.Reader, opts ...GenerateKeyOption) (string, error) {
-	optsConfig := &generateKeyConfig{
-		passphraseFormCreator:    defaultPassphraseFormCreator,
-		uploadConfirmFormCreator: defaultUploadConfirmFormCreator,
-		keyManagerFactory:        defaultKeyManager(profile),
-	}
-
-	for _, opt := range opts {
-		opt(optsConfig)
+// generateKey writes a new ed25519 key protected by passphrase under ~/.ssh
+// and offers to upload it. The passphrase is checked again here because
+// huh's accessible mode cannot read one without a terminal and leaves it
+// blank without error.
+func generateKey(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, passphrase string, optsConfig *configureSSHKeyConfig) (string, error) {
+	if err := validatePassphrase(passphrase); err != nil {
+		return "", err
 	}
 
 	now := time.Now()
-	keyname := fmt.Sprintf("id_%s_%s", props.Tool.Name, now.Format("20060102150405"))
+	keyname := fmt.Sprintf("id_%s_%s", p.Tool.Name, now.Format("20060102150405"))
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -369,30 +326,20 @@ func generateKey(profile Profile, props *props.Props, cfg config.Reader, opts ..
 	}
 
 	keypath := filepath.Join(homeDir, ".ssh", keyname)
-	// Ensure .ssh directory exists in props.FS
+	// Ensure .ssh directory exists in p.FS
 	sshDir := filepath.Dir(keypath)
-	if err := props.FS.MkdirAll(sshDir, dirPermSSH); err != nil {
+	if err := p.FS.MkdirAll(sshDir, dirPermSSH); err != nil {
 		return keyname, errors.Newf("failed to create ssh directory: %w", err)
 	}
 
-	var passphrase string
+	p.Logger.Info("Generating new SSH key with passphrase", "path", keypath)
 
-	if err := runForm(optsConfig.passphraseFormCreator(&passphrase)); err != nil {
-		return keypath, errors.WithStack(err)
-	}
-
-	props.Logger.Info("Generating new SSH key with passphrase", "path", keypath)
-
-	publicKeyBytes, err := generateAndSaveSSHKey(props.FS, keypath, passphrase)
+	publicKeyBytes, err := generateAndSaveSSHKey(p.FS, keypath, passphrase)
 	if err != nil {
 		return keypath, err
 	}
 
-	// The SSH stage is ctx-free by design — its upload bounds itself, and
-	// plumbing a context through it is tracked in the forge-repo-setup
-	// follow-ups spec. maybeUploadKey takes one so it is ready when that lands;
-	// until then this is the same Background the upload already used.
-	return keypath, maybeUploadKey(context.Background(), profile, props, cfg, optsConfig, keyname, publicKeyBytes)
+	return keypath, maybeUploadKey(ctx, profile, p, cfg, optsConfig, keyname, publicKeyBytes)
 }
 
 // maybeUploadKey resolves the key manager, asks whether to upload only when an
@@ -411,7 +358,7 @@ func maybeUploadKey(
 	profile Profile,
 	p *props.Props,
 	cfg config.Reader,
-	optsConfig *generateKeyConfig,
+	optsConfig *configureSSHKeyConfig,
 	keyname string,
 	publicKey []byte,
 ) error {
@@ -429,7 +376,7 @@ func maybeUploadKey(
 
 	var upload bool
 
-	if err := runForm(optsConfig.uploadConfirmFormCreator(&upload)); err != nil {
+	if err := setup.RunForm(ctx, p, uploadConfirmForm(&upload)); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -486,18 +433,10 @@ func generateAndSaveSSHKey(fs afero.Fs, keypath, passphrase string) ([]byte, err
 	return publicKeyBytes, nil
 }
 
-func runForm(form *huh.Form) error {
-	if form == nil {
-		return nil
-	}
-
-	return form.Run()
-}
-
 // configureSSH runs the SSH key configuration stage and records the selected
 // key type and path under the profile's SSH config keys.
-func (i *Initialiser) configureSSH(p *props.Props, cfg setup.Editor) error {
-	keyType, keyPath, err := ConfigureSSHKey(i.profile, p, cfg.View(), i.sshOpts...)
+func (i *Initialiser) configureSSH(ctx context.Context, p *props.Props, cfg setup.Editor) error {
+	keyType, keyPath, err := ConfigureSSHKey(ctx, i.profile, p, cfg.View(), i.sshOpts...)
 	if err != nil {
 		return err
 	}

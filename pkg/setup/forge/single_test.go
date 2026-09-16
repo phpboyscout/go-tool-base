@@ -160,7 +160,7 @@ func TestConfigureSSH_FormError(t *testing.T) {
 	cfg := newTestEditor(t, p, "")
 	g := &Initialiser{profile: gitHubProfile}
 
-	require.Error(t, g.configureSSH(p, cfg))
+	require.Error(t, g.configureSSH(t.Context(), p, cfg))
 }
 
 // --- IsConfigured ---

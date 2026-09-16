@@ -58,6 +58,12 @@ together) and `TUI` is an IO that reports interactive so the form runs
 headless with no renderer. Slower (tens of milliseconds a key), so reach for it
 only when the accessible route cannot express the behaviour.
 
+A wizard that runs several forms in turn (the Bitbucket credentials, then the
+SSH key, then the upload question) takes `formtest.TUIForms(script1, script2,
+...)`, one script per form. A form's program reads ahead of the keys it has
+handled and keeps the surplus when it quits, so a later form's keys on a
+shared reader are lost.
+
 Three facts about accessible mode decide which route a test takes (huh
 v2.0.3, `form.go` `runAccessible`):
 

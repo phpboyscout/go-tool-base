@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"io"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -29,10 +30,13 @@ func RunForm(ctx context.Context, p *props.Props, f *huh.Form) error {
 			"Run this from a terminal, or non-interactively: pass the answers as flags, or set GTB_ACCESSIBLE=true for line prompts on a piped stdin.")
 	}
 
-	f = f.WithInput(io.In()).WithOutput(io.Err()).WithAccessible(io.Accessible())
+	// Read once: an IO may hand each form its own input (formtest.TUIForms).
+	in, out := io.In(), io.Err()
+
+	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible())
 
 	if !io.Accessible() {
-		f = f.WithProgramOptions(programOptions(io)...)
+		f = f.WithProgramOptions(programOptions(in, out)...)
 	}
 
 	return f.RunWithContext(ctx)
@@ -47,10 +51,10 @@ const (
 // streams, and no renderer when the output is not a terminal, so a test's
 // discard writer does not receive escape sequences and a form on a piped
 // output does not paint.
-func programOptions(io props.IO) []tea.ProgramOption {
-	opts := []tea.ProgramOption{tea.WithInput(io.In()), tea.WithOutput(io.Err())}
+func programOptions(in io.Reader, out io.Writer) []tea.ProgramOption {
+	opts := []tea.ProgramOption{tea.WithInput(in), tea.WithOutput(out)}
 
-	if _, isTerminal := io.Err().(interface{ Fd() uintptr }); !isTerminal {
+	if _, isTerminal := out.(interface{ Fd() uintptr }); !isTerminal {
 		// No renderer means no WindowSizeMsg, and a field with a placeholder
 		// panics on the negative width that leaves; give the form a size.
 		opts = append(opts, tea.WithoutRenderer(), tea.WithWindowSize(headlessWidth, headlessHeight),

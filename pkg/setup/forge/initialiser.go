@@ -36,8 +36,7 @@ type Initialiser struct {
 	// Login flow. Presentation lives here in the CLI, never in the forge module.
 	prompter forgeapi.Prompter
 
-	// sshOpts injects deterministic form creators for the SSH stage. It
-	// leaves with spec 0198.
+	// sshOpts reaches the SSH stage's key-manager factory.
 	sshOpts []ConfigureSSHKeyOption
 }
 
@@ -52,11 +51,8 @@ func WithProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provi
 	return func(i *Initialiser) { i.providerFactory = fn }
 }
 
-// WithSSHForms propagates [ConfigureSSHKeyOption]s into the SSH stage. The
-// stage's form creators and key-manager factory were already injectable, but
-// unreachable from Configure — so the stage could only be driven directly, not
-// as part of the wizard it actually runs in.
-func WithSSHForms(opts ...ConfigureSSHKeyOption) InitialiserOption {
+// WithSSHOptions propagates [ConfigureSSHKeyOption]s into the SSH stage.
+func WithSSHOptions(opts ...ConfigureSSHKeyOption) InitialiserOption {
 	return func(i *Initialiser) { i.sshOpts = append(i.sshOpts, opts...) }
 }
 
@@ -125,10 +121,7 @@ func (i *Initialiser) Configure(ctx context.Context, p *props.Props, cfg setup.E
 		return err
 	}
 
-	// configureSSH stays ctx-free for now: its upload path bounds itself and is
-	// outside the credential-stage scoping fix (see the forge-repo-setup
-	// follow-ups spec).
-	return i.maybeConfigureSSH(p, cfg) //nolint:contextcheck // SSH stage deliberately ctx-free; upload bounds itself
+	return i.maybeConfigureSSH(ctx, p, cfg)
 }
 
 // configureCredential dispatches to the wizard for the profile's credential
@@ -146,7 +139,7 @@ func (i *Initialiser) configureCredential(ctx context.Context, p *props.Props, c
 //
 // The config is re-read here rather than reusing an earlier view: the credential
 // stage may have written keys this must observe.
-func (i *Initialiser) maybeConfigureSSH(p *props.Props, cfg setup.Editor) error {
+func (i *Initialiser) maybeConfigureSSH(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	if !i.profile.OffersSSH || i.SkipKey {
 		return nil
 	}
@@ -157,7 +150,7 @@ func (i *Initialiser) maybeConfigureSSH(p *props.Props, cfg setup.Editor) error 
 		return nil
 	}
 
-	return i.configureSSH(p, cfg)
+	return i.configureSSH(ctx, p, cfg)
 }
 
 func (i *Initialiser) isSingleConfigured(cfg config.Reader) bool {

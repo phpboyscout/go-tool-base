@@ -22,7 +22,7 @@ func RunGitHubInit(ctx context.Context, p *props.Props, cfg setup.Editor) error 
 		return err
 	}
 
-	return g.configureSSH(p, cfg) //nolint:contextcheck // SSH stage deliberately ctx-free; upload bounds itself, plumbing tracked in the forge-repo-setup follow-ups spec
+	return g.configureSSH(ctx, p, cfg)
 }
 
 // NewCmdInitGitHub creates the `init github` subcommand.

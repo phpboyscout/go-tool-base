@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
@@ -15,9 +16,11 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // --- discoverSSHKeys ---
@@ -108,6 +111,12 @@ func TestDiscoverSSHKeys_MkdirError(t *testing.T) {
 
 // --- generateKey / discovery ---
 
+// noUpload is a key manager that cannot upload: the stage generates the key
+// and never asks about uploading it.
+func noUpload() *configureSSHKeyConfig {
+	return &configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))}
+}
+
 func TestGenerateAndDiscoverKey(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	homeDir := "/home/testuser"
@@ -119,24 +128,9 @@ func TestGenerateAndDiscoverKey(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	mockPassphraseForm := func(s *string) *huh.Form {
-		*s = ""
-
-		return nil
-	}
-	mockUploadForm := func(b *bool) *huh.Form {
-		*b = false
-
-		return nil
-	}
-
 	// The key manager is injected so the test does not depend on a forge
 	// adapter being linked; this test is about generation and discovery.
-	keyPath, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
-		WithPassphraseForm(mockPassphraseForm),
-		WithUploadConfirmForm(mockUploadForm),
-		WithKeyManager(keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))),
-	)
+	keyPath, err := generateKey(t.Context(), gitHubProfile, p, testutil.ViewFromYAML(t, ""), testPassphrase, noUpload())
 	require.NoError(t, err)
 	assert.Contains(t, keyPath, ".ssh/id_testtool_")
 
@@ -172,23 +166,13 @@ func TestGenerateKey_Upload(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
+	p.IO, _ = answersIO("y")
 	cfg := testutil.ViewFromYAML(t, "github:\n  token: dummy-token\n")
 
 	km := &fakeKeyManager{}
 
-	keyPath, err := generateKey(gitHubProfile, p, cfg,
-		WithPassphraseForm(func(s *string) *huh.Form {
-			*s = ""
-
-			return nil
-		}),
-		WithUploadConfirmForm(func(b *bool) *huh.Form {
-			*b = true
-
-			return nil
-		}),
-		WithKeyManager(keyManagerFactory(km, nil)),
-	)
+	keyPath, err := generateKey(t.Context(), gitHubProfile, p, cfg, testPassphrase,
+		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(km, nil)})
 	require.NoError(t, err)
 	assert.True(t, km.uploaded, "SSH key should be uploaded via the KeyManager")
 
@@ -205,132 +189,110 @@ func TestGenerateKey_UploadError(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
+	p.IO, _ = answersIO("y")
 	cfg := testutil.ViewFromYAML(t, "")
 
 	km := &fakeKeyManager{err: assert.AnError}
 
-	_, err := generateKey(gitHubProfile, p, cfg,
-		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-		WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
-		WithKeyManager(keyManagerFactory(km, nil)),
-	)
+	_, err := generateKey(t.Context(), gitHubProfile, p, cfg, testPassphrase,
+		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(km, nil)})
 	require.Error(t, err)
 }
 
-func TestGenerateKey_PassphraseFormError(t *testing.T) {
+// A passphrase the form did not collect (accessible mode with no terminal
+// leaves it blank) is refused before any key is written.
+func TestGenerateKey_RefusesAShortPassphrase(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
 
-	var v string
+	_, err := generateKey(t.Context(), gitHubProfile, p, cfg, "", noUpload())
+	require.ErrorIs(t, err, ErrPassphraseTooShort)
 
-	_, err := generateKey(gitHubProfile, p, cfg,
-		WithPassphraseForm(func(_ *string) *huh.Form {
-			return huh.NewForm(huh.NewGroup(huh.NewInput().Value(&v)))
-		}),
-	)
-	require.Error(t, err)
+	keys, derr := discoverSSHKeys(p)
+	require.NoError(t, derr)
+	assert.Empty(t, keys, "no key is written without a passphrase")
 }
 
-func TestGenerateKey_UploadFormError(t *testing.T) {
+func TestGenerateKey_UploadFormRefusesANonInteractiveRun(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
+	p.IO = nonInteractiveIO()
 	cfg := testutil.ViewFromYAML(t, "")
 
-	var v bool
+	_, err := generateKey(t.Context(), gitHubProfile, p, cfg, testPassphrase,
+		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(&fakeKeyManager{}, nil)})
+	require.ErrorIs(t, err, setup.ErrNonInteractive)
+}
 
-	_, err := generateKey(gitHubProfile, p, cfg,
-		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-		WithUploadConfirmForm(func(_ *bool) *huh.Form {
-			return huh.NewForm(huh.NewGroup(huh.NewConfirm().Value(&v)))
-		}),
+// --- options ---
+
+func TestWithKeyManager(t *testing.T) {
+	t.Parallel()
+
+	c := &configureSSHKeyConfig{}
+	WithKeyManager(keyManagerFactory(&fakeKeyManager{}, nil))(c)
+	require.NotNil(t, c.keyManagerFactory)
+}
+
+// --- sshForm: the selector, then the page the choice needs ---
+
+// Only the TUI honours a hide function, so the pages are proved with keys:
+// "other" opens the path page and nothing else.
+func TestSSHForm_OtherAsksForThePath(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	p := newTestProps(t)
+	keys, err := discoverSSHKeys(p)
+	require.NoError(t, err)
+
+	options := keys
+	options = append(options,
+		huh.NewOption("Generate a new SSH key", sshChoiceGenerate),
+		huh.NewOption("I use ssh-agent to handle my keys", sshChoiceAgent),
+		huh.NewOption("Enter path to key manually", sshChoiceOther),
 	)
-	require.Error(t, err)
+
+	seqs := append(sshChoiceKeys(t, p, sshChoiceOther), "/keys/id_x", formtest.Enter)
+	p.IO = formtest.TUI(formtest.Keys(seqs...))
+
+	cfg := &sshKeyConfig{}
+	require.NoError(t, setup.RunForm(ctx, p, sshForm(cfg, options)))
+	assert.Equal(t, sshChoiceOther, cfg.Choice)
+	assert.Equal(t, "/keys/id_x", cfg.Path)
+	assert.Empty(t, cfg.Passphrase)
 }
 
-// --- SSH option funcs ---
+func TestSSHForm_AgentAtAccessiblePrompts(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
 
-func TestWithSSHKeySelectForm(t *testing.T) {
-	t.Parallel()
+	p := newTestProps(t)
+	options := []huh.Option[string]{
+		huh.NewOption("Generate a new SSH key", sshChoiceGenerate),
+		huh.NewOption("I use ssh-agent to handle my keys", sshChoiceAgent),
+		huh.NewOption("Enter path to key manually", sshChoiceOther),
+	}
 
-	called := false
-	opt := WithSSHKeySelectForm(func(_ *string, _ []huh.Option[string]) *huh.Form {
-		called = true
+	// Accessible mode asks the hidden pages too; blank answers leave them be.
+	io, out := answersIO(sshChoiceNumber(t, p, sshChoiceAgent), "")
+	p.IO = io
 
-		return nil
-	})
-	c := &configureSSHKeyConfig{}
-	opt(c)
-	require.NotNil(t, c.sshKeySelectFormCreator)
-	c.sshKeySelectFormCreator(nil, nil)
-	assert.True(t, called)
+	cfg := &sshKeyConfig{}
+	require.NoError(t, setup.RunForm(t.Context(), p, sshForm(cfg, options)))
+	assert.Equal(t, sshChoiceAgent, cfg.Choice)
+	assert.Contains(t, out.String(), "Select SSH key")
 }
 
-func TestWithSSHKeyPathForm(t *testing.T) {
+func TestValidatePassphrase(t *testing.T) {
 	t.Parallel()
 
-	called := false
-	opt := WithSSHKeyPathForm(func(_ *string) *huh.Form {
-		called = true
-
-		return nil
-	})
-	c := &configureSSHKeyConfig{}
-	opt(c)
-	require.NotNil(t, c.sshKeyPathFormCreator)
-	c.sshKeyPathFormCreator(nil)
-	assert.True(t, called)
-}
-
-func TestWithGenerateKeyOptions(t *testing.T) {
-	t.Parallel()
-
-	noop := func(_ *generateKeyConfig) {}
-	opt := WithGenerateKeyOptions(noop)
-	c := &configureSSHKeyConfig{}
-	opt(c)
-	assert.Len(t, c.generateKeyOpts, 1)
-}
-
-// --- default form creators (construction only) ---
-
-func TestDefaultSSHKeySelectFormCreator(t *testing.T) {
-	t.Parallel()
-
-	var target string
-
-	opts := []huh.Option[string]{huh.NewOption("a", "a")}
-	form := defaultSSHKeySelectFormCreator(&target, opts)
-	assert.NotNil(t, form)
-}
-
-func TestDefaultSSHKeyPathFormCreator(t *testing.T) {
-	t.Parallel()
-
-	var target string
-
-	form := defaultSSHKeyPathFormCreator(&target)
-	assert.NotNil(t, form)
-}
-
-func TestDefaultPassphraseFormCreator(t *testing.T) {
-	t.Parallel()
-
-	var pass string
-
-	form := defaultPassphraseFormCreator(&pass)
-	assert.NotNil(t, form)
-}
-
-func TestDefaultUploadConfirmFormCreator(t *testing.T) {
-	t.Parallel()
-
-	var upload bool
-
-	form := defaultUploadConfirmFormCreator(&upload)
-	assert.NotNil(t, form)
+	require.ErrorIs(t, validatePassphrase("short"), ErrPassphraseTooShort)
+	require.NoError(t, validatePassphrase(testPassphrase))
 }
 
 // --- defaultKeyManager ---
@@ -427,7 +389,7 @@ func TestHandleSSHKeySelection_Agent(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	keyType, keyPath, err := handleSSHKeySelection(gitHubProfile, p, cfg, "agent", &configureSSHKeyConfig{})
+	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceAgent}, &configureSSHKeyConfig{})
 	require.NoError(t, err)
 	assert.Equal(t, "agent", keyType)
 	assert.Empty(t, keyPath)
@@ -438,7 +400,7 @@ func TestHandleSSHKeySelection_Default(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	keyType, keyPath, err := handleSSHKeySelection(gitHubProfile, p, cfg, "/home/user/.ssh/id_ed25519", &configureSSHKeyConfig{})
+	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: "/home/user/.ssh/id_ed25519"}, &configureSSHKeyConfig{})
 	require.NoError(t, err)
 	assert.Equal(t, "file", keyType)
 	assert.Equal(t, "/home/user/.ssh/id_ed25519", keyPath)
@@ -449,14 +411,7 @@ func TestHandleSSHKeySelection_Other_Error(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	opts := &configureSSHKeyConfig{
-		sshKeyPathFormCreator: func(s *string) *huh.Form {
-			*s = "/nonexistent/id_rsa"
-
-			return nil
-		},
-	}
-	_, _, err := handleSSHKeySelection(gitHubProfile, p, cfg, "other", opts)
+	_, _, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/nonexistent/id_rsa"}, &configureSSHKeyConfig{})
 	require.Error(t, err)
 }
 
@@ -468,14 +423,7 @@ func TestHandleSSHKeySelection_Other_ValidKey(t *testing.T) {
 	keyPEM := generateUnencryptedKeyPEM(t)
 	require.NoError(t, afero.WriteFile(p.FS, "/test.key", keyPEM, 0o600))
 
-	opts := &configureSSHKeyConfig{
-		sshKeyPathFormCreator: func(s *string) *huh.Form {
-			*s = "/test.key"
-
-			return nil
-		},
-	}
-	keyType, keyPath, err := handleSSHKeySelection(gitHubProfile, p, cfg, "other", opts)
+	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/test.key"}, &configureSSHKeyConfig{})
 	require.NoError(t, err)
 	assert.Equal(t, "file", keyType)
 	assert.Equal(t, "/test.key", keyPath)
@@ -486,34 +434,9 @@ func TestHandleSSHKeySelection_Other_InvalidKeyContent(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	require.NoError(t, afero.WriteFile(p.FS, "/garbage.key", []byte("not-a-key"), 0o600))
+	require.NoError(t, afero.WriteFile(p.FS, "/bad.key", []byte("not a key"), 0o600))
 
-	opts := &configureSSHKeyConfig{
-		sshKeyPathFormCreator: func(s *string) *huh.Form {
-			*s = "/garbage.key"
-
-			return nil
-		},
-	}
-	_, _, err := handleSSHKeySelection(gitHubProfile, p, cfg, "other", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a valid private key")
-}
-
-func TestHandleSSHKeySelection_Other_FormError(t *testing.T) {
-	t.Parallel()
-
-	p := newTestProps(t)
-	cfg := testutil.ViewFromYAML(t, "")
-
-	var v string
-
-	opts := &configureSSHKeyConfig{
-		sshKeyPathFormCreator: func(_ *string) *huh.Form {
-			return huh.NewForm(huh.NewGroup(huh.NewText().Value(&v)))
-		},
-	}
-	_, _, err := handleSSHKeySelection(gitHubProfile, p, cfg, "other", opts)
+	_, _, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/bad.key"}, &configureSSHKeyConfig{})
 	require.Error(t, err)
 }
 
@@ -521,24 +444,12 @@ func TestHandleSSHKeySelection_Generate(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
+	p.IO, _ = answersIO("n")
 	cfg := testutil.ViewFromYAML(t, "")
 
-	opts := &configureSSHKeyConfig{
-		generateKeyOpts: []GenerateKeyOption{
-			WithPassphraseForm(func(s *string) *huh.Form {
-				*s = ""
-
-				return nil
-			}),
-			WithUploadConfirmForm(func(b *bool) *huh.Form {
-				*b = false
-
-				return nil
-			}),
-			WithKeyManager(keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))),
-		},
-	}
-	keyType, keyPath, err := handleSSHKeySelection(gitHubProfile, p, cfg, "generate", opts)
+	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg,
+		&sshKeyConfig{Choice: sshChoiceGenerate, Passphrase: testPassphrase},
+		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(&fakeKeyManager{}, nil)})
 	require.NoError(t, err)
 	assert.Equal(t, "file", keyType)
 	assert.Contains(t, keyPath, ".ssh/id_testtool_")
@@ -547,21 +458,12 @@ func TestHandleSSHKeySelection_Generate(t *testing.T) {
 func TestHandleSSHKeySelection_Generate_Error(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
-	roFS := afero.NewReadOnlyFs(afero.NewMemMapFs())
-	p := &props.Props{
-		FS:     roFS,
-		Logger: logger.NewNoop(),
-		Tool:   props.Tool{Name: "testtool"},
-	}
+	p := newTestProps(t)
+	p.FS = afero.NewReadOnlyFs(afero.NewMemMapFs())
 	cfg := testutil.ViewFromYAML(t, "")
 
-	opts := &configureSSHKeyConfig{
-		generateKeyOpts: []GenerateKeyOption{
-			WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-			WithUploadConfirmForm(func(b *bool) *huh.Form { *b = false; return nil }),
-		},
-	}
-	_, _, err := handleSSHKeySelection(gitHubProfile, p, cfg, "generate", opts)
+	_, _, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg,
+		&sshKeyConfig{Choice: sshChoiceGenerate, Passphrase: testPassphrase}, noUpload())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to generate SSH key")
 }
@@ -572,66 +474,53 @@ func TestConfigureSSHKey_Agent(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
+	p.IO, _ = answersIO(sshChoiceNumber(t, p, sshChoiceAgent), "")
 	cfg := testutil.ViewFromYAML(t, "")
 
-	keyType, keyPath, err := ConfigureSSHKey(gitHubProfile, p, cfg,
-		WithSSHKeySelectForm(func(s *string, _ []huh.Option[string]) *huh.Form {
-			*s = "agent"
-
-			return nil
-		}),
-	)
+	keyType, keyPath, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "agent", keyType)
 	assert.Empty(t, keyPath)
 }
 
+// A recorded key is the selector's default: a blank answer keeps it.
 func TestConfigureSSHKey_ExistingPath(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
-	cfg := testutil.ViewFromYAML(t, "github:\n  ssh:\n    key:\n      path: /home/testuser/.ssh/existing_key\n")
+	keyPEM := generateUnencryptedKeyPEM(t)
+	require.NoError(t, p.FS.MkdirAll("/home/testuser/.ssh", 0o700))
+	require.NoError(t, afero.WriteFile(p.FS, "/home/testuser/.ssh/id_existing", keyPEM, 0o600))
 
-	keyType, keyPath, err := ConfigureSSHKey(gitHubProfile, p, cfg,
-		WithSSHKeySelectForm(func(_ *string, _ []huh.Option[string]) *huh.Form {
-			return nil
-		}),
-	)
+	p.IO, _ = answersIO("", "")
+	cfg := testutil.ViewFromYAML(t, "github:\n  ssh:\n    key:\n      path: /home/testuser/.ssh/id_existing\n")
+
+	keyType, keyPath, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "file", keyType)
-	assert.Equal(t, "/home/testuser/.ssh/existing_key", keyPath)
+	assert.Equal(t, "/home/testuser/.ssh/id_existing", keyPath)
 }
 
-func TestConfigureSSHKey_SelectFormError(t *testing.T) {
+func TestConfigureSSHKey_RefusesANonInteractiveRun(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
+	p.IO = nonInteractiveIO()
 	cfg := testutil.ViewFromYAML(t, "")
 
-	var v string
-
-	_, _, err := ConfigureSSHKey(gitHubProfile, p, cfg,
-		WithSSHKeySelectForm(func(_ *string, _ []huh.Option[string]) *huh.Form {
-			return huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().Options(huh.NewOption("a", "a")).Value(&v),
-			))
-		}),
-	)
-	require.Error(t, err)
+	_, _, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
+	require.ErrorIs(t, err, setup.ErrNonInteractive)
 }
 
 func TestConfigureSSHKey_DiscoverError(t *testing.T) {
-	t.Setenv("HOME", "/home/rohome2")
+	t.Setenv("HOME", "/home/testuser")
 
-	roFS := afero.NewReadOnlyFs(afero.NewMemMapFs())
-	p := &props.Props{
-		FS:     roFS,
-		Logger: logger.NewNoop(),
-		Tool:   props.Tool{Name: "testtool"},
-	}
+	p := newTestProps(t)
+	// A read-only FS makes MkdirAll of ~/.ssh fail in discoverSSHKeys.
+	p.FS = afero.NewReadOnlyFs(afero.NewMemMapFs())
 	cfg := testutil.ViewFromYAML(t, "")
 
-	_, _, err := ConfigureSSHKey(gitHubProfile, p, cfg)
+	_, _, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.Error(t, err)
 }
 
@@ -664,21 +553,13 @@ func TestGenerateKey_NotSupported_SkipsTheUploadPrompt(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	promptShown := false
+	// Nobody is at the terminal: were the upload prompt shown, RunForm would
+	// refuse the run.
+	p.IO = nonInteractiveIO()
 
-	keyPath, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
-		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-		WithUploadConfirmForm(func(b *bool) *huh.Form {
-			promptShown = true
-			*b = true
-
-			return nil
-		}),
-		WithKeyManager(keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))),
-	)
+	keyPath, err := generateKey(t.Context(), gitHubProfile, p, testutil.ViewFromYAML(t, ""), testPassphrase, noUpload())
 
 	require.NoError(t, err, "an unsupported upload is not a hard failure")
-	assert.False(t, promptShown, "the upload prompt must not be shown when upload cannot work")
 
 	exists, _ := afero.Exists(fs, keyPath)
 	assert.True(t, exists, "the key is still generated and saved")
@@ -695,20 +576,13 @@ func TestGenerateKey_KeyManagerError_IsFatal(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	promptShown := false
+	p.IO = nonInteractiveIO()
 
-	_, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
-		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-		WithUploadConfirmForm(func(b *bool) *huh.Form {
-			promptShown = true
-
-			return nil
-		}),
-		WithKeyManager(keyManagerFactory(nil, assert.AnError)),
-	)
+	_, err := generateKey(t.Context(), gitHubProfile, p, testutil.ViewFromYAML(t, ""), testPassphrase,
+		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(nil, assert.AnError)})
 
 	require.Error(t, err)
-	assert.False(t, promptShown, "a failed resolution must not reach the prompt either")
+	require.NotErrorIs(t, err, setup.ErrNonInteractive, "a failed resolution must not reach the prompt either")
 }
 
 // TestGenerateKey_ResolvesTheKeyManagerOnce pins the other half of D7: the
@@ -726,15 +600,14 @@ func TestGenerateKey_ResolvesTheKeyManagerOnce(t *testing.T) {
 	km := &fakeKeyManager{}
 	calls := 0
 
-	_, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
-		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-		WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
-		WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
+	p.IO, _ = answersIO("y")
+
+	_, err := generateKey(t.Context(), gitHubProfile, p, testutil.ViewFromYAML(t, ""), testPassphrase,
+		&configureSSHKeyConfig{keyManagerFactory: func(context.Context, config.Reader) (forge.KeyManager, error) {
 			calls++
 
 			return km, nil
-		}),
-	)
+		}})
 
 	require.NoError(t, err)
 	assert.True(t, km.uploaded)
@@ -799,19 +672,3 @@ func TestGenerateAndSaveSSHKey_Success(t *testing.T) {
 }
 
 // --- runForm ---
-
-func TestRunForm_Nil(t *testing.T) {
-	t.Parallel()
-	require.NoError(t, runForm(nil))
-}
-
-func TestRunForm_NonNilErrors(t *testing.T) {
-	t.Parallel()
-
-	var v string
-
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Options(huh.NewOption("a", "a")).Value(&v),
-	))
-	require.Error(t, runForm(form))
-}

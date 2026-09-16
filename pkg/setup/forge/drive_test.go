@@ -143,3 +143,80 @@ func dualCredentialIO(t *testing.T, mode credentials.Mode, username, password st
 
 	return formtest.TUI(formtest.Keys(seqs...))
 }
+
+// testPassphrase is long enough for the generated key's passphrase rule.
+const testPassphrase = "correct-horse-battery-staple"
+
+// sshChoiceIndex is choice's position in the key selector, after the keys
+// discovered under p's ~/.ssh.
+func sshChoiceIndex(t *testing.T, p *props.Props, choice string) int {
+	t.Helper()
+
+	keys, err := discoverSSHKeys(p)
+	if err != nil {
+		t.Fatalf("discovering keys: %v", err)
+	}
+
+	for i, k := range keys {
+		if k.Value == choice {
+			return i
+		}
+	}
+
+	sentinels := map[string]int{sshChoiceGenerate: 0, sshChoiceAgent: 1, sshChoiceOther: 2}
+
+	offset, ok := sentinels[choice]
+	if !ok {
+		t.Fatalf("choice %q is neither a discovered key nor a sentinel", choice)
+	}
+
+	return len(keys) + offset
+}
+
+// sshChoiceNumber is what an accessible prompt takes for choice.
+func sshChoiceNumber(t *testing.T, p *props.Props, choice string) string {
+	t.Helper()
+
+	return strconv.Itoa(sshChoiceIndex(t, p, choice) + 1)
+}
+
+// sshChoiceKeys move the selector's cursor from the first option to choice,
+// then Enter.
+func sshChoiceKeys(t *testing.T, p *props.Props, choice string) []string {
+	t.Helper()
+
+	var seqs []string
+
+	for range sshChoiceIndex(t, p, choice) {
+		seqs = append(seqs, formtest.Down)
+	}
+
+	return append(seqs, formtest.Enter)
+}
+
+// sshGenerateScripts drive the SSH stage to generate a key, one script per
+// form it runs: the selector and the passphrase (a password field, so keys
+// not answers), then the upload question. Paced by time, so a test using
+// them does not call t.Parallel.
+func sshGenerateScripts(t *testing.T, p *props.Props, upload bool) []io.Reader {
+	t.Helper()
+
+	seqs := sshChoiceKeys(t, p, sshChoiceGenerate)
+	seqs = append(seqs, testPassphrase, formtest.Enter)
+
+	answer := formtest.No
+	if upload {
+		answer = formtest.Yes
+	}
+
+	return []io.Reader{formtest.Keys(seqs...), formtest.Keys(answer)}
+}
+
+// dualEnvKeys drive the dual-credential form for env-var mode with the
+// fallback names: the cursor starts on env-var (the recommended mode) and two
+// blank names take the defaults.
+func dualEnvKeys(t *testing.T) []string {
+	t.Helper()
+
+	return append(modeKeys(t, credentials.ModeEnvVar), formtest.Enter, formtest.Enter)
+}

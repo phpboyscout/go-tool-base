@@ -10,6 +10,8 @@ package formtest
 
 import (
 	"io"
+	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -103,7 +105,7 @@ func Keys(seqs ...string) io.Reader {
 // concerned, with the program running headless. The form's own
 // WithProgramOptions receive ProgramOptions.
 func TUI(keys io.Reader) props.IO {
-	return tuiIO{in: keys}
+	return &tuiIO{in: keys}
 }
 
 // ProgramOptions are the bubbletea options a form on the key route needs:
@@ -125,10 +127,41 @@ const (
 	headlessHeight = 40
 )
 
-type tuiIO struct{ in io.Reader }
+// TUIForms is TUI for a wizard that runs several forms in turn: each In()
+// hands the next script to the next form. A form's program reads its input
+// ahead of the keys it has handled and does not give the surplus back when
+// the form completes, so a later form's keys left on a shared reader are
+// lost with the program that read them. One script per form, in the order
+// the forms run; a form past the last script reads nothing.
+func TUIForms(scripts ...io.Reader) props.IO {
+	return &tuiIO{scripts: scripts}
+}
 
-func (t tuiIO) In() io.Reader   { return t.in }
-func (tuiIO) Out() io.Writer    { return io.Discard }
-func (tuiIO) Err() io.Writer    { return io.Discard }
-func (tuiIO) Interactive() bool { return true }
-func (tuiIO) Accessible() bool  { return false }
+type tuiIO struct {
+	in      io.Reader
+	mu      sync.Mutex
+	scripts []io.Reader
+}
+
+func (t *tuiIO) In() io.Reader {
+	if t.in != nil {
+		return t.in
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if len(t.scripts) == 0 {
+		return strings.NewReader("")
+	}
+
+	next := t.scripts[0]
+	t.scripts = t.scripts[1:]
+
+	return next
+}
+
+func (*tuiIO) Out() io.Writer    { return io.Discard }
+func (*tuiIO) Err() io.Writer    { return io.Discard }
+func (*tuiIO) Interactive() bool { return true }
+func (*tuiIO) Accessible() bool  { return false }

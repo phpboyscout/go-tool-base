@@ -64,3 +64,16 @@ func TestTUI(t *testing.T) {
 
 	assert.Len(t, formtest.ProgramOptions(in), 5)
 }
+
+func TestTUIForms_HandsEachFormItsOwnScript(t *testing.T) {
+	t.Parallel()
+
+	io := formtest.TUIForms(formtest.Keys("a"), formtest.Keys("b"))
+
+	assert.Equal(t, []string{"a"}, readAll(t, io.In()))
+	assert.Equal(t, []string{"b"}, readAll(t, io.In()))
+	assert.Empty(t, readAll(t, io.In()), "a form past the last script reads nothing")
+
+	assert.True(t, io.Interactive())
+	assert.False(t, io.Accessible())
+}

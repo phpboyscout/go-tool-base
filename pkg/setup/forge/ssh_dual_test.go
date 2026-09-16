@@ -2,9 +2,9 @@ package forge
 
 import (
 	"context"
+	"io"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,6 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -20,27 +21,22 @@ import (
 // These cover the stage being *reached* and *ordered*; ssh_test.go covers what
 // the stage does once it runs.
 
-// noSSHPrompts drives the whole SSH stage headlessly: no key is discovered, so
-// the flow generates one, and every form is answered without a TTY.
-func noSSHPrompts(upload bool, km forge.KeyManager, kmErr error) InitialiserOption {
-	return WithSSHForms(
-		selectGenerateNewKey(),
-		WithGenerateKeyOptions(
-			WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-			WithUploadConfirmForm(func(b *bool) *huh.Form { *b = upload; return nil }),
-			WithKeyManager(keyManagerFactory(km, kmErr)),
-		),
-	)
+// keyManager hands the SSH stage a fake key manager, so the run does not
+// depend on a forge adapter being linked.
+func keyManager(km forge.KeyManager, kmErr error) InitialiserOption {
+	return WithSSHOptions(WithKeyManager(keyManagerFactory(km, kmErr)))
 }
 
-// selectGenerateNewKey answers the key-selection form with the "generate a new
-// key" sentinel, so the stage runs end to end without a TTY.
-func selectGenerateNewKey() ConfigureSSHKeyOption {
-	return WithSSHKeySelectForm(func(s *string, _ []huh.Option[string]) *huh.Form {
-		*s = "generate"
+// dualEnvThenGenerateIO drives the whole Bitbucket wizard with keys: env-var
+// credentials with the fallback names, then a generated SSH key and the
+// upload answer. Keys rather than answers because the passphrase is a
+// password field. Paced by time, so callers do not call t.Parallel.
+func dualEnvThenGenerateIO(t *testing.T, p *props.Props, upload bool) props.IO {
+	t.Helper()
 
-		return nil
-	})
+	scripts := append([]io.Reader{formtest.Keys(dualEnvKeys(t)...)}, sshGenerateScripts(t, p, upload)...)
+
+	return formtest.TUIForms(scripts...)
 }
 
 func dualSSHProps(t *testing.T) *props.Props {
@@ -60,8 +56,8 @@ func TestDualProfileReachesTheSSHStage(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
-	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
-	i := NewBitbucketInitialiser(p, noSSHPrompts(true, km, nil))
+	p.IO = dualEnvThenGenerateIO(t, p, true)
+	i := NewBitbucketInitialiser(p, keyManager(km, nil))
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
 
@@ -83,22 +79,15 @@ func TestDualSSHRunsAfterCredentialCapture(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
-	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
+	p.IO = dualEnvThenGenerateIO(t, p, true)
 	i := NewBitbucketInitialiser(p,
-		WithSSHForms(
-			selectGenerateNewKey(),
-			WithGenerateKeyOptions(
-				WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
-				WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
-				// The factory receives the config the stage was handed: if the
-				// credential stage ran first, its writes are visible here.
-				WithKeyManager(func(_ context.Context, c config.Reader) (forge.KeyManager, error) {
-					credentialSeenAtUpload = c.GetString("bitbucket.username.env") != ""
+		// The factory receives the config the stage was handed: if the
+		// credential stage ran first, its writes are visible here.
+		WithSSHOptions(WithKeyManager(func(_ context.Context, c config.Reader) (forge.KeyManager, error) {
+			credentialSeenAtUpload = c.GetString("bitbucket.username.env") != ""
 
-					return km, nil
-				}),
-			),
-		),
+			return km, nil
+		})),
 	)
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
@@ -114,8 +103,9 @@ func TestDualSkipKeySuppressesTheStage(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
+	// The SSH stage is skipped, so only the credential form runs.
 	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
-	i := NewBitbucketInitialiser(p, noSSHPrompts(true, km, nil))
+	i := NewBitbucketInitialiser(p, keyManager(km, nil))
 	i.SkipKey = true
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
@@ -138,13 +128,11 @@ func TestProfileWithoutSSHNeverConstructsAKeyManager(t *testing.T) {
 
 	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
 	i := New(p, noSSHProfile,
-		WithSSHForms(WithGenerateKeyOptions(
-			WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
-				factoryCalled = true
+		WithSSHOptions(WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
+			factoryCalled = true
 
-				return nil, nil
-			}),
-		)),
+			return nil, nil
+		})),
 	)
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
@@ -173,7 +161,8 @@ func TestSingleTokenSSHStillRuns(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
-	i := New(p, gitHubProfile, noSSHPrompts(true, km, nil))
+	p.IO = formtest.TUIForms(sshGenerateScripts(t, p, true)...)
+	i := New(p, gitHubProfile, keyManager(km, nil))
 	i.SkipLogin = true
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
