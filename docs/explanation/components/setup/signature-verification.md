@@ -29,9 +29,8 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
     / `DefaultRequireExternalCrosscheck` package variables. Now lives in the
     standalone, independently-versioned **signing** module at
     **`gitlab.com/phpboyscout/go/signing/verify`** (v0.1.0). Those symbols are
-    shown below with the `verify.` prefix; the `SelfUpdater` constructor and
-    options (`setup.NewUpdater`, `setup.WithEmbeddedKeys`,
-    `setup.WithKeyResolver`) remain in `pkg/setup`.
+    shown below with the `verify.` prefix; the `SelfUpdater` constructor
+    (`setup.NewUpdater`) remains in `pkg/setup`.
 
     go-tool-base's `SelfUpdater` (still in `pkg/setup`) **consumes**
     `signing/verify`, injecting its own dependencies through the module's
@@ -288,12 +287,11 @@ All exported as package variables on `gitlab.com/phpboyscout/go/signing/verify` 
 //go:embed keys/release.asc
 var releaseKey []byte
 
-updater, err := setup.NewUpdater(ctx, props, version, force,
-    setup.WithEmbeddedKeys(releaseKey),
-)
+props.Tool.Signing.EmbeddedKeys = [][]byte{releaseKey}
+updater, err := setup.NewUpdater(ctx, props, version, force)
 ```
 
-`WithEmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`verify.BuildKeyResolver`](#buildkeyresolver) (in `signing/verify`) with the resolved `update.key_source` family to produce the resolver. For full control (a custom resolver chain, a DNS resolver, or Sigstore in a later phase) build it yourself and pass `setup.WithKeyResolver(r)`, which bypasses the config-driven default entirely.
+`Tool.Signing.EmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`verify.BuildKeyResolver`](#buildkeyresolver) (in `signing/verify`) with the resolved `update.key_source` family to produce the resolver. The resolver chain is not pluggable from outside the framework: a further source (a DNS resolver, Sigstore) is a `Tool.Signing` field when a tool asks for one.
 
 ### BuildKeyResolver
 

@@ -29,7 +29,7 @@ func injectProps(t *testing.T, tool props.Tool) *props.Props {
 func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 	t.Parallel()
 
-	t.Run("WithReleaseProvider option injects the client and skips the registry", func(t *testing.T) {
+	t.Run("withReleaseProvider option injects the client and skips the registry", func(t *testing.T) {
 		t.Parallel()
 
 		src := forgetest.New(forgetest.WithRelease("v1.0.0"))
@@ -37,7 +37,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 		// option short-circuits it when resolution succeeds anyway.
 		p := injectProps(t, props.Tool{ReleaseSource: props.ReleaseSource{Type: "no-such-provider"}})
 
-		u, err := NewUpdater(context.Background(), p, "", false, WithReleaseProvider(src))
+		u, err := NewUpdater(context.Background(), p, "", false, withReleaseProvider(src))
 		require.NoError(t, err)
 		assert.Same(t, src, u.releaseClient)
 	})
@@ -63,9 +63,9 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 		option := forgetest.New(forgetest.WithRelease("v2.0.0"))
 		p := injectProps(t, props.Tool{ReleaseProvider: field})
 
-		u, err := NewUpdater(context.Background(), p, "", false, WithReleaseProvider(option))
+		u, err := NewUpdater(context.Background(), p, "", false, withReleaseProvider(option))
 		require.NoError(t, err)
-		assert.Same(t, option, u.releaseClient, "WithReleaseProvider must win over the field")
+		assert.Same(t, option, u.releaseClient, "withReleaseProvider must win over the field")
 	})
 
 	t.Run("no injection falls through to the registry lookup", func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestNewUpdater_InjectedProviderSkipsTokenGate(t *testing.T) {
 		ReleaseSource: props.ReleaseSource{Type: "github", Owner: "o", Repo: "r", Private: true},
 	})
 
-	u, err := NewUpdater(context.Background(), p, "", false, WithReleaseProvider(src))
+	u, err := NewUpdater(context.Background(), p, "", false, withReleaseProvider(src))
 	require.NoError(t, err, "an injected provider must skip the private-repo token gate")
 	assert.Same(t, src, u.releaseClient)
 }

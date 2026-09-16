@@ -16,15 +16,12 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 )
 
-// Default size bounds on untrusted inputs. Generous, but they stop a hostile
-// server streaming an unbounded response into memory.
+// Size bounds on untrusted inputs. Generous, but they stop a hostile server
+// streaming an unbounded response into memory.
 //
-// These are constants, and a tool with an exceptional release layout raises
-// them per-updater with [WithMaxChecksumsSize] or [WithMaxBinaryDownloadSize]
-// rather than by reassigning a package variable. That is a deliberate change:
-// the previous mutable globals raced under t.Parallel — which is why the
-// oversized-response test could not run in parallel — and scoped a bound to
-// the whole process rather than to the updater that needed it.
+// These are constants rather than package variables: the previous mutable
+// globals raced under t.Parallel and scoped a bound to the whole process. No
+// tool has needed a different bound; one that does asks for a Tool field.
 const (
 	// DefaultMaxChecksumsSize caps a downloaded checksums manifest. A
 	// GoReleaser manifest for a typical multi-OS release is ~1 KiB, so 1 MiB
@@ -39,10 +36,10 @@ const (
 // requireChecksumDefault is the fallback for checksum enforcement when neither
 // config nor environment provides one.
 //
-// A tool wanting fail-closed verification from day one passes
-// [WithRequireChecksum] when constructing its updater, rather than mutating a
-// package variable at init. Same reasoning as the size bounds above: process-
-// wide mutable state is not a configuration mechanism.
+// A tool wanting fail-closed verification from day one sets
+// props.Tool.Signing.RequireChecksum, rather than mutating a package variable
+// at init. Same reasoning as the size bounds above: process-wide mutable
+// state is not a configuration mechanism.
 const requireChecksumDefault = false
 
 // ErrChecksumAssetNotFound is returned when the target filename is

@@ -43,9 +43,24 @@ import (
 
 func init() {
     // This middleware ONLY runs for commands wrapped with FeatureID("chat").
-    setup.RegisterMiddleware(props.FeatureID("chat"),
-        setup.WithAuthCheck("chat.api_key", "chat.model"),
-    )
+    setup.RegisterMiddleware(props.FeatureID("chat"), requireKeys(p, "chat.api_key", "chat.model"))
+}
+
+// requireKeys is a Middleware: it refuses the command when any of the keys is
+// unset in the live config, before the command runs.
+func requireKeys(p *props.Props, keys ...string) setup.Middleware {
+    return func(next func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+        return func(cmd *cobra.Command, args []string) error {
+            view := p.Config.View()
+            for _, k := range keys {
+                if view.GetString(k) == "" {
+                    return fmt.Errorf("%s is not configured", k)
+                }
+            }
+
+            return next(cmd, args)
+        }
+    }
 }
 ```
 
@@ -71,13 +86,6 @@ Logs the wall-clock duration of every command at `INFO` level.
 
 ```go
 setup.WithTiming(logger)
-```
-
-### `WithAuthCheck`
-Validates that required configuration keys are non-empty before running the command: short-circuiting with a useful error instead of failing partway through.
-
-```go
-setup.WithAuthCheck("github.token")
 ```
 
 ### `WithTelemetry`

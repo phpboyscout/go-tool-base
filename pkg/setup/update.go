@@ -120,9 +120,9 @@ type SelfUpdater struct {
 	// keyResolver resolves the trust set used to verify the manifest
 	// signature. nil when signature verification is not configured.
 	keyResolver verify.KeyResolver
-	// embeddedKeys are armored public keys supplied via WithEmbeddedKeys;
+	// embeddedKeys are armored public keys, props.Tool.Signing.EmbeddedKeys;
 	// consumed in NewUpdater to build keyResolver when one was not
-	// supplied explicitly via WithKeyResolver.
+	// supplied explicitly via withKeyResolver.
 	embeddedKeys [][]byte
 	// keySource / externalKeyEmail / requireExternalCrosscheck are the
 	// resolved update.* config values used to build the default
@@ -312,41 +312,14 @@ func WithIO(io props.IO) UpdaterOption {
 	return func(s *SelfUpdater) { s.io = io }
 }
 
-// WithReleaseProvider injects the [forge.Provider] the SelfUpdater uses,
+// withReleaseProvider injects the [forge.Provider] the SelfUpdater uses,
 // bypassing the ReleaseSource.Type registry lookup (and, with it, the
-// private-repository token gate that precedes the lookup — an injected
+// private-repository token gate that precedes the lookup: an injected
 // provider is self-contained and owns its own auth). Parallel-safe: each call
 // site receives its own provider, with no global registry mutation. Takes
-// precedence over a props.Tool.ReleaseProvider field.
-// WithRequireChecksum sets checksum enforcement for this updater when neither
-// config nor environment provides a value.
-//
-// Replaces the former package-level DefaultRequireChecksum: a tool wanting
-// fail-closed verification states it where it builds its updater, rather than
-// mutating shared state at init.
-func WithRequireChecksum(require bool) UpdaterOption {
-	return func(s *SelfUpdater) {
-		s.requireChecksum = require
-	}
-}
-
-// WithMaxChecksumsSize raises the bound on a downloaded checksums manifest.
-// Zero or negative keeps [DefaultMaxChecksumsSize].
-func WithMaxChecksumsSize(maxBytes int64) UpdaterOption {
-	return func(s *SelfUpdater) {
-		s.maxChecksumsSize = maxBytes
-	}
-}
-
-// WithMaxBinaryDownloadSize raises the bound on a downloaded binary asset.
-// Zero or negative keeps [DefaultMaxBinaryDownloadSize].
-func WithMaxBinaryDownloadSize(maxBytes int64) UpdaterOption {
-	return func(s *SelfUpdater) {
-		s.maxBinaryDownloadSize = maxBytes
-	}
-}
-
-func WithReleaseProvider(p forge.Provider) UpdaterOption {
+// precedence over a props.Tool.ReleaseProvider field, which is how a tool
+// supplies one; this is the in-package test's route.
+func withReleaseProvider(p forge.Provider) UpdaterOption {
 	return func(s *SelfUpdater) { s.releaseClient = p }
 }
 
@@ -410,12 +383,12 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		// compile-time keys (e.g. an internal trustkeys //go:embed). All
 		// library command call sites (version/update/root) thus pick up
 		// the embedded keys without passing options. An explicit
-		// WithEmbeddedKeys/WithKeyResolver option below still overrides.
+		// withEmbeddedKeys/withKeyResolver option below still overrides.
 		embeddedKeys: p.Tool.Signing.EmbeddedKeys,
 	}
 
 	// Options are applied before the release client is resolved so
-	// WithReleaseProvider can supply s.releaseClient and short-circuit the
+	// withReleaseProvider can supply s.releaseClient and short-circuit the
 	// registry lookup (and its private-repo token gate).
 	for _, o := range opts {
 		o(s)
@@ -433,7 +406,7 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 }
 
 // resolveReleaseClient fills s.releaseClient using the precedence: an injected
-// provider (WithReleaseProvider, already applied) → props.Tool.ReleaseProvider
+// provider (withReleaseProvider, already applied) → props.Tool.ReleaseProvider
 // → the ReleaseSource.Type registry lookup. The registry path is the only one
 // that enforces the private-repository token gate; an injected provider is
 // self-contained.
@@ -503,8 +476,8 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 }
 
 // buildDefaultKeyResolver constructs keyResolver from the resolved
-// config and any keys supplied via WithEmbeddedKeys, unless an explicit
-// resolver was already set via WithKeyResolver. Does nothing when
+// config and the tool's embedded keys, unless an explicit
+// resolver was already set via withKeyResolver. Does nothing when
 // neither embedded keys nor an external key email are configured —
 // signature verification is then governed entirely by requireSignature
 // at verify time.
@@ -1117,7 +1090,7 @@ func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset forge.ReleaseAsse
 
 	if i > maxBytes {
 		return file, errors.WithHintf(ErrBinaryTooLarge,
-			"asset %q exceeded the binary download bound (%d bytes); raise it with WithMaxBinaryDownloadSize if this is legitimate",
+			"asset %q exceeded the binary download bound (%d bytes)",
 			asset.GetName(), maxBytes)
 	}
 

@@ -185,7 +185,7 @@ Remote updates via `Update()` automatically verify the downloaded binary against
 **How it works:**
 
 1. After downloading the target binary, `Update()` looks for a `checksums.txt` asset in the same release.
-2. The manifest is downloaded (capped at `setup.DefaultMaxChecksumsSize`, 1 MiB, raisable per updater with `setup.WithMaxChecksumsSize`) and parsed line-by-line. A single malformed line rejects the whole manifest (`ErrChecksumManifestMalformed`), and a filename listed **more than once** rejects it too (`ErrChecksumManifestDuplicate`). A duplicate is never silently resolved last-wins, since that would let a tampered manifest shadow the genuine hash with an attacker-chosen one.
+2. The manifest is downloaded (capped at `setup.DefaultMaxChecksumsSize`, 1 MiB) and parsed line-by-line. A single malformed line rejects the whole manifest (`ErrChecksumManifestMalformed`), and a filename listed **more than once** rejects it too (`ErrChecksumManifestDuplicate`). A duplicate is never silently resolved last-wins, since that would let a tampered manifest shadow the genuine hash with an attacker-chosen one.
 3. The binary's SHA-256 is compared against the manifest entry in constant time.
 4. A mismatch aborts the update; a match logs `"checksum verified"` at INFO and proceeds to extraction.
 
@@ -255,7 +255,7 @@ The Setup package provides a comprehensive middleware system for wrapping CLI co
 ### Core Features
 - **Functional Chain Pattern**: Middleware "wraps" the execution, allowing for logic before and after the command runs.
 - **Global & Feature Scopes**: Register middleware globally for all commands, or specifically for a feature.
-- **Built-ins**: Includes `WithTiming`, `WithRecovery` (panic protection), `WithAuthCheck` (config validation), and `WithTelemetry`.
+- **Built-ins**: Includes `WithTiming`, `WithRecovery` (panic protection), and `WithTelemetry`.
 - **Thread-Safe Registry**: Secure registration during initialization with a "sealing" mechanism to prevent runtime modifications.
 - **Composed `Command` type**: Since v0.5, command constructors return `*setup.Command` (`{*cobra.Command, Feature props.FeatureID}`). Parents attach children via `cmd.Register(child...)`, which wraps each child's `RunE` exactly once with global and feature-specific middleware: no separate middleware-wiring call required. (The former `AddCommandWithMiddleware` helper was removed in v0.20.)
 

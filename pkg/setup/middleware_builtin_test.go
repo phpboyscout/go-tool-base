@@ -142,7 +142,7 @@ func TestWithAuthCheck(t *testing.T) {
 
 		p := propsWith(t, "test:\n  key1: value1\n  key2: value2\n")
 
-		mw := WithAuthCheck(p, "test.key1", "test.key2")
+		mw := withAuthCheck(p, "test.key1", "test.key2")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -156,7 +156,7 @@ func TestWithAuthCheck(t *testing.T) {
 
 		p := propsWith(t, "test:\n  key1: value1\n")
 
-		mw := WithAuthCheck(p, "test.key1", "test.missing")
+		mw := withAuthCheck(p, "test.key1", "test.missing")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -171,7 +171,7 @@ func TestWithAuthCheck(t *testing.T) {
 
 		p := propsWith(t, "test:\n  key1: \"\"\n")
 
-		mw := WithAuthCheck(p, "test.key1")
+		mw := withAuthCheck(p, "test.key1")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -184,7 +184,7 @@ func TestWithAuthCheck(t *testing.T) {
 	t.Run("NoKeysIsNoOp", func(t *testing.T) {
 		t.Parallel()
 
-		mw := WithAuthCheck(nil)
+		mw := withAuthCheck(nil)
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -195,7 +195,7 @@ func TestWithAuthCheck(t *testing.T) {
 	t.Run("NoConfigFailsCheck", func(t *testing.T) {
 		t.Parallel()
 
-		mw := WithAuthCheck(&props.Props{}, "test.key1")
+		mw := withAuthCheck(&props.Props{}, "test.key1")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})

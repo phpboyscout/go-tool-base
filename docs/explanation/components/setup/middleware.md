@@ -117,12 +117,6 @@ Catches panics during command execution and converts them into returned errors.
 - **Log Level**: `Error` (on panic)
 - **Fields**: `command`, `panic`, `stack`
 
-### `WithAuthCheck`
-```go
-func WithAuthCheck(keys ...string) Middleware
-```
-Verifies that the specified configuration keys are set (non-empty) before executing the command. If any key is missing, it returns an error and prevents command execution.
-
 ## Implementation Details
 
 ### Execution Order

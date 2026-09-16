@@ -113,17 +113,10 @@ The manifest download is capped at `setup.DefaultMaxChecksumsSize` (1 MiB); the
 binary download at `setup.DefaultMaxBinaryDownloadSize` (512 MiB). A hostile
 server streaming beyond those bounds aborts with `ErrChecksumTooLarge`.
 
-Those are constants. A tool legitimately shipping larger artefacts raises the
-bound **per updater** rather than by reassigning a package variable:
-
-```go
-setup.NewUpdater(ctx, props, "", false,
-    setup.WithMaxBinaryDownloadSize(2<<30), // 2 GiB
-)
-```
-
-The previous mutable globals raced under `t.Parallel()` and scoped a bound to
-the whole process rather than to the updater that needed it.
+Those are constants, not package variables (the previous mutable globals
+raced under `t.Parallel()` and scoped a bound to the whole process). No tool
+has needed a different bound; one that ships larger artefacts asks for a
+`props.Tool` field rather than a per-updater option.
 
 ## Phase 2: GPG-signed manifests
 
@@ -139,8 +132,8 @@ Phase 1 defends against accidental corruption and single-asset tampering, but a 
     `SelfUpdater` (still in `pkg/setup`) consumes them, injecting an
     `*slog.Logger` and a hardened `*http.Client`. Where the snippets
     below show these symbols with a `setup.` prefix, read them as
-    `verify.`, `setup.NewUpdater` / `setup.WithKeyResolver` remain in
-    `pkg/setup`, and `DefaultRequireChecksum` (Phase 1) stays there too.
+    `verify.`; `setup.NewUpdater` remains in `pkg/setup`, and
+    `DefaultRequireChecksum` (Phase 1) stays there too.
     See the [Signature Verification component reference][svdocs] and the
     [signing module docs](https://signing.phpboyscout.uk).
 
@@ -312,7 +305,7 @@ verify.DefaultRequireExternalCrosscheck = true
 2. **Embed** the public half. Drop the ASCII-armored file at `internal/trustkeys/keys/signing-key-v1.asc` in your repo: `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
 3. **Publish** the same key via your chosen external source:
    - **WKD**: serve the ASCII-armored key at the WKD path under `openpgpkey.<yourdomain>`. DNS and TLS cert are your trust anchors, administered independently from your VCS.
-   - **Custom HTTPS**: implement `KeyResolver` with your own endpoint (Vault, static S3, internal CA-served HTTPS). Register it via `setup.WithKeyResolver` on `SelfUpdater`.
+   - **Anything else** (Vault, static S3, an internal CA-served endpoint) is not wired into the updater: the resolver chain is built from `update.key_source` (`embedded`, `external` over WKD, or `both`). A tool needing another source asks for it as a `props.Tool.Signing` field.
 4. **Store** the private half in a KMS (AWS/GCP/Azure), Vault Transit, or a hardware token. GitHub encrypted secrets are a last resort. See the spec's Key Management section.
 
 ### Diagnosing live updates from logs
@@ -330,32 +323,18 @@ The `resolver=` value is the most useful single field for support triage. `compo
 
 ### Custom resolvers (third-party key source)
 
-```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-
-type VaultResolver struct { /* ... */ }
-
-func (r *VaultResolver) Resolve(ctx context.Context) (*setup.TrustSet, error) {
-    // Fetch ASCII-armored key from Vault KV, call setup.LoadTrustSet,
-    // return the resulting TrustSet (enforces the minimum-strength policy).
-}
-
-func main() {
-    embedded := setup.NewEmbeddedResolver(/* embedded trust set */)
-    resolver := setup.CompositeResolver{
-        Resolvers: []setup.KeyResolver{embedded, &VaultResolver{ /* ... */ }},
-    }
-    // Wire it in at SelfUpdater construction:
-    //   setup.NewUpdater(ctx, props, version, force, setup.WithKeyResolver(resolver))
-}
-```
-
-Any implementation must:
+The updater builds its resolver chain itself, from the tool's embedded keys
+(`props.Tool.Signing.EmbeddedKeys`) and the `update.key_source` family, through
+`verify.BuildKeyResolver`. There is no hook for a tool to hand it a resolver of
+its own: the option that did that was a test seam in practice and was removed
+(spec 0198 D4). A tool that needs a further key source (Vault, an internal
+endpoint) asks for it as a `props.Tool.Signing` field, so that the same rules
+below apply to it as to the built-in sources:
 
 - Return a `*TrustSet` containing only keys that passed the minimum-strength policy.
 - Honour the context's deadline and cancellation.
-- Cap response bodies at `setup.MaxWKDResponseSize` (64 KiB) or an equivalent bound.
-- Not leak private material anywhere: `log.Fatal` if it ever sees a secret key at load time.
+- Cap response bodies at `verify.MaxWKDResponseSize` (64 KiB) or an equivalent bound.
+- Not leak private material anywhere.
 
 ### Key rotation
 

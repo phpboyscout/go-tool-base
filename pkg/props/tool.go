@@ -262,8 +262,7 @@ type Tool struct {
 	// lookup. It is a runtime-only dependency-injection seam — for tests
 	// (see go/forge/test) and custom/embedded providers — and is
 	// never serialised. Production tools leave it nil and are resolved from the
-	// release registry by ReleaseSource.Type as before. An explicit
-	// setup.WithReleaseProvider option takes precedence over this field.
+	// release registry by ReleaseSource.Type as before.
 	ReleaseProvider forge.Provider `json:"-" yaml:"-"`
 
 	// UpdatePolicy is the tool author's baseline self-update posture

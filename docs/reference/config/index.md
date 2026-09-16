@@ -239,7 +239,7 @@ set to `0` means every run.
 `update.key_source` is the one update key that fails loudly, because a
 misconfigured trust anchor must not silently downgrade to no verification:
 
-- `embedded` with no embedded keys → `key_source=embedded requires embedded keys (WithEmbeddedKeys)`
+- `embedded` with no embedded keys → `key_source=embedded requires embedded keys`
 - `external` with no `update.external_key_email` → `key_source=external requires update.external_key_email`
 - `both` with neither → `key_source=both requires embedded keys, an external key email, or both`
 - anything else → `unknown key_source "x" (want embedded, external, or both)`

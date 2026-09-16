@@ -39,11 +39,11 @@ func TestUpdaterOptions_SetFields(t *testing.T) {
 
 	r := &fakeResolver{name: "x"}
 	s := &SelfUpdater{}
-	WithKeyResolver(r)(s)
+	withKeyResolver(r)(s)
 	assert.Same(t, r, s.keyResolver)
 
 	s2 := &SelfUpdater{}
-	WithEmbeddedKeys([]byte("a"), []byte("b"))(s2)
+	withEmbeddedKeys([]byte("a"), []byte("b"))(s2)
 	assert.Len(t, s2.embeddedKeys, 2)
 }
 

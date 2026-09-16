@@ -82,11 +82,11 @@ under `t.Parallel()`. For tests, and for a provider constructed at runtime
 rather than registered, inject it instead:
 
 ```go
-setup.NewUpdater(ctx, props, "", false, setup.WithReleaseProvider(myProvider))
+props.Tool.ReleaseProvider = myProvider
+updater, err := setup.NewUpdater(ctx, props, "", false)
 ```
 
-or set `props.Tool.ReleaseProvider`, which takes precedence over registry lookup.
-The option wins over the field.
+`props.Tool.ReleaseProvider` takes precedence over registry lookup.
 
 An injected provider is self-contained, so `NewUpdater` skips **both** the
 registry lookup *and* the private-repository token gate that precedes it. That is

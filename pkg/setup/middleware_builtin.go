@@ -122,7 +122,7 @@ func WithTelemetry(p *props.Props) Middleware {
 	}
 }
 
-// WithAuthCheck returns middleware that validates the specified
+// withAuthCheck returns middleware that validates the specified
 // configuration keys are non-empty before allowing command execution.
 // If any key is empty, a descriptive error is returned without
 // executing the command.
@@ -130,7 +130,7 @@ func WithTelemetry(p *props.Props) Middleware {
 // The keys resolve against p's live store at execution time. The previous
 // implementation read the global viper singleton, which GTB's own
 // configuration never populated — every check passed vacuously.
-func WithAuthCheck(p props.ConfigProvider, keys ...string) Middleware {
+func withAuthCheck(p props.ConfigProvider, keys ...string) Middleware {
 	return func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 		return func(cmd *cobra.Command, args []string) error {
 			if len(keys) == 0 {

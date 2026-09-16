@@ -17,20 +17,19 @@ import (
 // the `update.signature_asset_name` config key.
 const signatureDefaultAssetName = "checksums.txt.sig"
 
-// WithKeyResolver overrides the default key resolver used for signature
-// verification. When set, the config-driven default (built from
-// WithEmbeddedKeys and the update.key_source family) is bypassed
-// entirely — the tool author owns the resolver chain.
-func WithKeyResolver(r verify.KeyResolver) UpdaterOption {
+// withKeyResolver overrides the default key resolver used for signature
+// verification. When set, the config-driven default (built from the tool's
+// embedded keys and the update.key_source family) is bypassed entirely.
+func withKeyResolver(r verify.KeyResolver) UpdaterOption {
 	return func(s *SelfUpdater) { s.keyResolver = r }
 }
 
-// WithEmbeddedKeys supplies the tool's embedded release public keys (in
-// ASCII-armored form). NewUpdater builds the default resolver from
-// these keys and the resolved update.key_source / external_key_email /
-// require_external_crosscheck config. Ignored when WithKeyResolver is
-// also supplied.
-func WithEmbeddedKeys(armoredKeys ...[]byte) UpdaterOption {
+// withEmbeddedKeys supplies release public keys (in ASCII-armored form) in
+// place of props.Tool.Signing.EmbeddedKeys. NewUpdater builds the default
+// resolver from these keys and the resolved update.key_source /
+// external_key_email / require_external_crosscheck config. Ignored when
+// withKeyResolver is also supplied.
+func withEmbeddedKeys(armoredKeys ...[]byte) UpdaterOption {
 	return func(s *SelfUpdater) { s.embeddedKeys = armoredKeys }
 }
 
@@ -122,7 +121,7 @@ func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel forge.Rel
 		if s.requireSignature {
 			return errors.WithHint(
 				errors.New("update.require_signature is enabled but no signing key is configured"),
-				"Supply the release public key via WithEmbeddedKeys or WithKeyResolver, set "+
+				"Supply the release public key via props.Tool.Signing.EmbeddedKeys, set "+
 					"update.external_key_email for a WKD-sourced key, or disable update.require_signature.",
 			)
 		}

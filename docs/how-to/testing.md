@@ -126,7 +126,7 @@ The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegi
 
 Tests that only _read_ from the registry (e.g. `setup.GetChecks()`) with distinct feature names _can_ use `t.Parallel()` safely, the mutex guarantees memory visibility.
 
-The release-provider registry (`forge.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`setup.WithReleaseProvider` / `props.Tool.ReleaseProvider`) and drive it with the in-memory double from `forge/test`. See [Release Provider › `releasetest`](https://forge.go.phpboyscout.uk/how-to/testing/).
+The release-provider registry (`forge.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`props.Tool.ReleaseProvider`) and drive it with the in-memory double from `forge/test`. See [Release Provider › `releasetest`](https://forge.go.phpboyscout.uk/how-to/testing/).
 
 ### Avoid `cobra.OnFinalize`
 
