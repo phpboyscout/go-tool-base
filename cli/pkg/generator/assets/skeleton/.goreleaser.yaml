@@ -7,7 +7,7 @@ before:
     - go generate ./...
 
 builds:
-  - main: cmd/{{ .Name }}/main.go
+  - main: ./cmd/{{ .Name }}
     env:
       - CGO_ENABLED=0
     goos:
