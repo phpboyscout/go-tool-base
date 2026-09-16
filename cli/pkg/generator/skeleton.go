@@ -736,8 +736,9 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	}
 
 	// The adapter files are always written, empty when nothing is selected, so
-	// their presence is a fact about the layout rather than about the choice;
-	// deleting one is the operator's way to ship none (spec 0194 D6).
+	// their presence is a fact about the layout rather than about the choice.
+	// Every manifest writer re-emits them, so shipping none is a manifest
+	// field (chat.providers: []), never a deleted file (spec 0197 D7).
 	goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatModules, !data.ChatDefault.IsZero())
 	goFiles[filepath.Join("cmd", data.Name, "forge.go")] = templates.SkeletonForgeAdapters(data.ForgeModules)
 

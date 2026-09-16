@@ -98,6 +98,21 @@ Feature: A generated tool links only the adapters it selects
     Then the project exit code is 0
     And the generated "cmd/feattool/chat/assets/config.yaml" file contains "claude-local"
 
+  Scenario: Deleted adapter files come back on regenerate, and only the manifest ships none
+    Given I generate a gtb project with features "init,update,ai" and chat providers "claude-local"
+    Then the project exit code is 0
+    When I delete the generated "cmd/feattool/chat.go" file
+    And I delete the generated "cmd/feattool/forge.go" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat.go" file contains "gitlab.com/phpboyscout/go/chat-anthropic"
+    And the generated "cmd/feattool/forge.go" file contains "gitlab.com/phpboyscout/go/forge-github"
+    When I set the project manifest chat providers to none
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat.go" file exists
+    And the generated "cmd/feattool/chat.go" file does not contain "gitlab.com/phpboyscout/go/chat-"
+
   Scenario: Credential forges link their adapters beside the backend's, and codeberg shares gitea's
     Given I generate a gtb project with forge backend "github" and forge credentials "codeberg"
     Then the project exit code is 0
