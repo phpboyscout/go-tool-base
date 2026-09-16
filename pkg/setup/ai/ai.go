@@ -19,7 +19,6 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -73,19 +72,6 @@ type AIConfig struct {
 	EnvVarName string
 }
 
-// FormOption configures the AI init form for testability.
-type FormOption func(*formConfig)
-
-type formConfig struct {
-	providerFormCreator    func(*AIConfig) *huh.Form
-	storageModeFormCreator func(*AIConfig) *huh.Form
-	envVarFormCreator      func(*AIConfig) *huh.Form
-	keyFormCreator         func(*AIConfig) *huh.Form
-	// linked reports whether this binary registers a provider; the select
-	// offers only those and a chosen provider must be one (spec 0196 D7).
-	linked func(gochat.Provider) bool
-}
-
 // ErrProviderNotLinked is a provider chosen for init ai that this binary does
 // not register: writing it to config would only fail at first use.
 var ErrProviderNotLinked = errors.NewSentinel("gtb.setup.ai.provider_not_linked", "this tool does not link the chosen chat provider")
@@ -100,42 +86,6 @@ func linkedProviders(registered func() []gochat.Provider) func(gochat.Provider) 
 	}
 
 	return func(p gochat.Provider) bool { return slices.Contains(names, p) }
-}
-
-// Form-slot indices used by [WithAIForm]. The creator callback
-// returns a slice of forms; these constants identify which stage
-// each slot feeds.
-const (
-	formSlotProvider    = 0
-	formSlotStorageMode = 1
-	formSlotEnvVar      = 2
-	formSlotKey         = 3
-)
-
-// WithAIForm allows injecting custom form creators for testing. The
-// creator returns forms in order: [0] provider, [1] storage mode,
-// [2] env-var name (or key input), [3] key input fallback.
-//
-// Returning fewer forms is allowed — the runner skips stages whose
-// slot is nil or absent.
-func WithAIForm(creator func(*AIConfig) []*huh.Form) FormOption {
-	return func(c *formConfig) {
-		c.providerFormCreator = formAtIndex(creator, formSlotProvider)
-		c.storageModeFormCreator = formAtIndex(creator, formSlotStorageMode)
-		c.envVarFormCreator = formAtIndex(creator, formSlotEnvVar)
-		c.keyFormCreator = formAtIndex(creator, formSlotKey)
-	}
-}
-
-func formAtIndex(creator func(*AIConfig) []*huh.Form, i int) func(*AIConfig) *huh.Form {
-	return func(cfg *AIConfig) *huh.Form {
-		forms := creator(cfg)
-		if i < len(forms) {
-			return forms[i]
-		}
-
-		return nil
-	}
 }
 
 // providerLabel returns the framework's label for the provider, or the name
@@ -181,11 +131,24 @@ func envOverrideNote() string {
 	)
 }
 
-func defaultProviderForm(cfg *AIConfig) *huh.Form {
-	return providerFormFor(cfg, linkedProviders(gochat.RegisteredProviders))
+// aiForm is the whole wizard as one form (spec 0198): the provider, then the
+// storage mode, then the env var name or the key, each later page hidden
+// when the answers before it make it moot. One form means one run, back
+// navigation between pages, and a test that drives it from one stream.
+func aiForm(ctx context.Context, cfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) *huh.Form {
+	needsCredential := func() bool { return chat.NeedsCredential(gochat.Provider(cfg.Provider)) }
+
+	return huh.NewForm(
+		providerGroup(cfg, linked),
+		setup.StorageModeGroup(ctx, &cfg.StorageMode, func() bool { return !needsCredential() }),
+		envVarGroup(cfg, func() bool { return !needsCredential() || cfg.StorageMode != credentials.ModeEnvVar }),
+		keyGroup(cfg, existing, func() bool { return !needsCredential() || cfg.StorageMode == credentials.ModeEnvVar }),
+	)
 }
 
-func providerFormFor(cfg *AIConfig, linked func(gochat.Provider) bool) *huh.Form {
+// providerGroup offers the providers this binary links (spec 0196 D7), with
+// a note when AI_PROVIDER is set saying what it does.
+func providerGroup(cfg *AIConfig, linked func(gochat.Provider) bool) *huh.Group {
 	// huh sizes an auto-height select to its options and then subtracts the
 	// title and description lines, so the last options render off-screen
 	// until the cursor reaches them (#43); the height is set explicitly.
@@ -193,135 +156,81 @@ func providerFormFor(cfg *AIConfig, linked func(gochat.Provider) bool) *huh.Form
 
 	options := providerOptions(linked)
 
-	providerFields := []huh.Field{
+	fields := []huh.Field{
 		huh.NewSelect[string]().
+			Key("provider").
 			Title("Select AI Provider").
 			Description("Choose the default AI provider for this tool").
 			Options(options...).
 			Height(len(options) + titleAndDescriptionLines).
-			Value(&cfg.Provider),
+			Value(&cfg.Provider).
+			Validate(func(provider string) error {
+				if !linked(gochat.Provider(provider)) {
+					return errors.Wrapf(ErrProviderNotLinked, "%s", provider)
+				}
+
+				return nil
+			}),
 	}
 
 	if note := envOverrideNote(); note != "" {
-		providerFields = append([]huh.Field{
-			huh.NewNote().Title("AI_PROVIDER is set").Description(note),
-		}, providerFields...)
+		fields = append([]huh.Field{huh.NewNote().Title("AI_PROVIDER is set").Description(note)}, fields...)
 	}
 
-	return huh.NewForm(
-		huh.NewGroup(providerFields...),
-	)
+	return huh.NewGroup(fields...).Title("AI Provider")
 }
 
-// defaultStorageModeForm offers the three-mode selector. Literal
-// mode is hidden when the process runs under CI=true — the wizard
-// refuses to write a plaintext credential to a config file that will
-// almost certainly leak via CI artefacts or logs. Keychain is hidden
-// unless the backend is both compiled in AND passes [credentials.Probe]
-// (canary round-trip) so the user is never offered an option that
-// will fail the moment they pick it.
-func defaultStorageModeForm(cfg *AIConfig) *huh.Form {
-	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
-	defer cancel()
-
-	choices, defaultMode := credentialposture.StorageModeOptions(ctx, credentialposture.ModeLabels{
-		Env:      "Environment variable reference",
-		Keychain: "OS keychain",
-		Literal:  "Literal value in config file (plaintext)",
-	})
-
-	options := make([]huh.Option[credentials.Mode], len(choices))
-	for i, c := range choices {
-		options[i] = huh.NewOption(c.Label, c.Mode)
-	}
-
-	if cfg.StorageMode == "" {
-		cfg.StorageMode = defaultMode
-	}
-
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[credentials.Mode]().
-				Title("Credential Storage").
-				Description(storageModeDescription(credentials.IsCI())).
-				Options(options...).
-				Value(&cfg.StorageMode),
-		),
-	)
-}
-
-// defaultEnvVarForm prompts for the name of the environment variable
-// that will hold the API key. Only rendered when the user selects
-// [credentials.ModeEnvVar].
-func defaultEnvVarForm(cfg *AIConfig) *huh.Form {
-	defaultName := providerEnvVar(cfg.Provider)
-
-	if cfg.EnvVarName == "" {
-		cfg.EnvVarName = defaultName
-	}
-
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Environment Variable Name").
-				Description(fmt.Sprintf(
-					"Name of the env var that will contain your %s API key. "+
-						"Set the variable in your shell profile (or CI secret store) "+
-						"after running this wizard.",
-					providerLabel(cfg.Provider))).
-				Placeholder(defaultName).
-				Validate(credentials.ValidateEnvVarName).
-				Value(&cfg.EnvVarName),
-		),
-	)
-}
-
-func storageModeDescription(ci bool) string {
-	if ci {
-		return "CI environment detected — only environment variable references are permitted. Configure the env var via your CI platform's secret injection."
-	}
-
-	return "Environment variable references keep secrets out of the config file. Pick literal mode only for throwaway environments."
-}
-
-func defaultKeyForm(cfg *AIConfig) *huh.Form {
-	keyFields := []huh.Field{
+// envVarGroup asks the name of the variable that will hold the key. Blank
+// takes the provider's well-known name, which the description shows.
+func envVarGroup(cfg *AIConfig, hide func() bool) *huh.Group {
+	return huh.NewGroup(
 		huh.NewInput().
-			Title(fmt.Sprintf("%s API Key", providerLabel(cfg.Provider))).
+			Key("env-var").
+			Title("Environment Variable Name").
 			DescriptionFunc(func() string {
-				if cfg.ExistingKey != "" {
-					masked := maskKey(cfg.ExistingKey)
-
-					return fmt.Sprintf("Current key: %s — leave blank to keep existing", masked)
+				return fmt.Sprintf(
+					"Name of the env var that will contain your %s API key; blank takes %s. "+
+						"Set the variable in your shell profile (or CI secret store) after running this wizard.",
+					providerLabel(cfg.Provider), providerEnvVar(cfg.Provider))
+			}, &cfg.Provider).
+			PlaceholderFunc(func() string { return providerEnvVar(cfg.Provider) }, &cfg.Provider).
+			Validate(func(s string) error {
+				if s == "" {
+					return nil
 				}
 
-				return fmt.Sprintf("Enter your %s API key", providerLabel(cfg.Provider))
-			}, &cfg.ExistingKey).
+				return credentials.ValidateEnvVarName(s)
+			}).
+			Value(&cfg.EnvVarName),
+	).WithHideFunc(hide)
+}
+
+// keyGroup asks the key itself, masked; blank keeps an existing one, which
+// the description says (masked) when there is one.
+func keyGroup(cfg *AIConfig, existing config.Reader, hide func() bool) *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Key("api-key").
+			TitleFunc(func() string { return fmt.Sprintf("%s API Key", providerLabel(cfg.Provider)) }, &cfg.Provider).
+			DescriptionFunc(func() string {
+				var parts []string
+
+				if current := existing.GetString(providerConfigKey(cfg.Provider)); current != "" {
+					parts = append(parts, fmt.Sprintf("Current key: %s; leave blank to keep it.", maskKey(current)))
+				} else {
+					parts = append(parts, fmt.Sprintf("Enter your %s API key.", providerLabel(cfg.Provider)))
+				}
+
+				if envName := providerEnvVar(cfg.Provider); envName != "" && os.Getenv(envName) != "" {
+					parts = append(parts, fmt.Sprintf("%s is set and takes precedence over the config file until it is unset.", envName))
+				}
+
+				return strings.Join(parts, " ")
+			}, &cfg.Provider).
 			Placeholder("paste new key or press enter to keep existing").
 			EchoMode(huh.EchoModePassword).
 			Value(&cfg.APIKey),
-	}
-
-	// Warn if the provider's token env var is set
-	envName := providerEnvVar(cfg.Provider)
-	if envName != "" {
-		if envVal := os.Getenv(envName); envVal != "" {
-			escapedName := strings.ReplaceAll(envName, "_", "\\_")
-			keyFields = append([]huh.Field{
-				huh.NewNote().
-					Title("⚠ Environment Override Detected").
-					Description(fmt.Sprintf(
-						"%s is set. This environment variable takes precedence over the config file. "+
-							"Changes to the API key below will only take effect when %s is unset.",
-						escapedName, escapedName,
-					)),
-			}, keyFields...)
-		}
-	}
-
-	return huh.NewForm(
-		huh.NewGroup(keyFields...),
-	)
+	).WithHideFunc(hide)
 }
 
 // providerEnvVar returns the environment variable name for the provider's API key.
@@ -343,15 +252,13 @@ func maskKey(key string) string {
 }
 
 // AIInitialiser implements setup.Initialiser for AI provider configuration.
-type AIInitialiser struct {
-	formOpts []FormOption
-}
+type AIInitialiser struct{}
 
 // NewAIInitialiser creates a new AIInitialiser. Its asset bundle is
 // registered from init() via setup.RegisterAssets, applied for enabled
 // features at root construction.
-func NewAIInitialiser(_ *props.Props, opts ...FormOption) *AIInitialiser {
-	return &AIInitialiser{formOpts: opts}
+func NewAIInitialiser(_ *props.Props) *AIInitialiser {
+	return &AIInitialiser{}
 }
 
 // Name returns the human-readable name for this initialiser.
@@ -384,7 +291,7 @@ func (a *AIInitialiser) IsConfigured(cfg config.Reader) bool {
 // Configure runs the interactive AI configuration forms and writes the
 // results through the editor.
 func (a *AIInitialiser) Configure(ctx context.Context, p *props.Props, cfg setup.Editor) error {
-	aiCfg, err := runAIForms(cfg.View(), a.formOpts...)
+	aiCfg, err := runAIForms(ctx, p, cfg.View(), linkedProviders(gochat.RegisteredProviders))
 	if err != nil {
 		return err
 	}
@@ -535,13 +442,13 @@ func storeAIKeyInKeychain(ctx context.Context, toolName string, aiCfg *AIConfig)
 
 // RunAIInit executes the AI configuration form and writes the results to the
 // config file, which is seeded from the merged init template when absent.
-func RunAIInit(ctx context.Context, p *props.Props, dir string, opts ...FormOption) error {
+func RunAIInit(ctx context.Context, p *props.Props, dir string) error {
 	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
 	if err != nil {
 		return err
 	}
 
-	aiCfg, err := runAIForms(editor.View(), opts...)
+	aiCfg, err := runAIForms(ctx, p, editor.View(), linkedProviders(gochat.RegisteredProviders))
 	if err != nil {
 		return err
 	}
@@ -549,27 +456,30 @@ func RunAIInit(ctx context.Context, p *props.Props, dir string, opts ...FormOpti
 	return writeAIConfig(ctx, editor, p.Tool.Name, aiCfg)
 }
 
-// runAIForms runs the multi-stage AI configuration forms and returns the result.
-//
-// Stages: provider selection → storage-mode selection → either
-// env-var name input (env-var mode) or secret input (literal/keychain
-// mode). Split across helpers to keep each stage under the
-// cyclomatic-complexity budget.
-func runAIForms(existingCfg config.Reader, opts ...FormOption) (*AIConfig, error) {
-	fCfg := newAIFormConfig(opts...)
-
+// runAIForms runs the wizard on the invocation's streams and settles what the
+// form could not: a blank env var name takes the provider's well-known one, a
+// blank key keeps the existing one, and a literal is refused under CI even if
+// the selector somehow offered it.
+func runAIForms(ctx context.Context, p *props.Props, existing config.Reader, linked func(gochat.Provider) bool) (*AIConfig, error) {
 	aiCfg := &AIConfig{}
 
 	// Pre-populate provider from existing config.
-	if provider := existingCfg.GetString(chat.ConfigKeyAIProvider); isValidProvider(provider) {
+	if provider := existing.GetString(chat.ConfigKeyAIProvider); isValidProvider(provider) {
 		aiCfg.Provider = provider
 	}
 
-	if err := runFormStage(fCfg.providerFormCreator, aiCfg); err != nil {
-		return nil, err
+	if err := setup.RunForm(ctx, p, aiForm(ctx, aiCfg, existing, linked)); err != nil {
+		return nil, errors.Newf("AI configuration form cancelled: %w", err)
 	}
 
-	if provider := gochat.Provider(aiCfg.Provider); !fCfg.linked(provider) {
+	return finaliseAIConfig(aiCfg, existing, linked)
+}
+
+// finaliseAIConfig applies the rules that hold whatever the form did.
+func finaliseAIConfig(aiCfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) (*AIConfig, error) {
+	provider := gochat.Provider(aiCfg.Provider)
+
+	if !linked(provider) {
 		err := errors.Wrapf(ErrProviderNotLinked, "%s", provider)
 		if module, ok := chat.ProviderModule(provider); ok {
 			err = errors.WithHintf(err, "Add to the tool's main package:\n\nimport _ %q", module)
@@ -579,76 +489,30 @@ func runAIForms(existingCfg config.Reader, opts ...FormOption) (*AIConfig, error
 	}
 
 	// A local CLI or bedrock authenticates on its own: the provider is the
-	// whole answer, and the storage and key forms have nothing to ask.
-	if !chat.NeedsCredential(gochat.Provider(aiCfg.Provider)) {
+	// whole answer.
+	if !chat.NeedsCredential(provider) {
+		aiCfg.StorageMode, aiCfg.EnvVarName, aiCfg.APIKey = "", "", ""
+
 		return aiCfg, nil
 	}
 
-	aiCfg.ExistingKey = existingCfg.GetString(providerConfigKey(aiCfg.Provider))
-
-	if err := runFormStage(fCfg.storageModeFormCreator, aiCfg); err != nil {
-		return nil, err
-	}
-
-	// CI defence-in-depth: refuse literal even if a test-injected
-	// creator bypassed the storage-mode form.
 	if err := credentials.RefuseLiteralUnderCI(aiCfg.StorageMode); err != nil {
 		return nil, err
 	}
 
-	return runAICredentialStage(fCfg, aiCfg)
-}
+	aiCfg.ExistingKey = existing.GetString(providerConfigKey(aiCfg.Provider))
 
-// newAIFormConfig constructs the default formConfig and applies options.
-func newAIFormConfig(opts ...FormOption) *formConfig {
-	c := &formConfig{
-		storageModeFormCreator: defaultStorageModeForm,
-		envVarFormCreator:      defaultEnvVarForm,
-		keyFormCreator:         defaultKeyForm,
-		linked:                 linkedProviders(gochat.RegisteredProviders),
-	}
-	for _, opt := range opts {
-		opt(c)
-	}
-
-	if c.providerFormCreator == nil {
-		c.providerFormCreator = func(cfg *AIConfig) *huh.Form { return providerFormFor(cfg, c.linked) }
-	}
-
-	return c
-}
-
-// runFormStage runs a single form-creator stage, wrapping the form
-// error in a form-cancelled message.
-func runFormStage(creator func(*AIConfig) *huh.Form, aiCfg *AIConfig) error {
-	form := creator(aiCfg)
-	if form == nil {
-		return nil
-	}
-
-	if err := form.Run(); err != nil {
-		return errors.Newf("AI configuration form cancelled: %w", err)
-	}
-
-	return nil
-}
-
-// runAICredentialStage runs either the env-var name form (env-var
-// mode) or the API key input form (literal / keychain mode).
-func runAICredentialStage(fCfg *formConfig, aiCfg *AIConfig) (*AIConfig, error) {
 	if aiCfg.StorageMode == credentials.ModeEnvVar {
-		if err := runFormStage(fCfg.envVarFormCreator, aiCfg); err != nil {
-			return nil, err
+		if aiCfg.EnvVarName == "" {
+			aiCfg.EnvVarName = providerEnvVar(aiCfg.Provider)
 		}
+
+		aiCfg.APIKey = ""
 
 		return aiCfg, nil
 	}
 
-	if err := runFormStage(fCfg.keyFormCreator, aiCfg); err != nil {
-		return nil, err
-	}
-
-	// Blank submission in literal mode preserves the existing key.
+	// Blank submission in literal or keychain mode preserves the existing key.
 	if aiCfg.APIKey == "" && aiCfg.ExistingKey != "" {
 		aiCfg.APIKey = aiCfg.ExistingKey
 	}
@@ -728,7 +592,7 @@ func IsAIConfigured(p props.ConfigProvider) bool {
 }
 
 // NewCmdInitAI creates the `init ai` subcommand.
-func NewCmdInitAI(p *props.Props, opts ...FormOption) *cobra.Command {
+func NewCmdInitAI(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ai",
 		Short: "Configure AI provider integration",
@@ -740,7 +604,7 @@ mode is refused when running under CI.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
-			if err := RunAIInit(cmd.Context(), p, dir, opts...); err != nil {
+			if err := RunAIInit(cmd.Context(), p, dir); err != nil {
 				return errors.Wrap(err, "failed to configure AI")
 			}
 

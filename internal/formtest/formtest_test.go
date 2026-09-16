@@ -62,5 +62,5 @@ func TestTUI(t *testing.T) {
 	_, err = io.Err().Write([]byte("x"))
 	require.NoError(t, err)
 
-	assert.Len(t, formtest.ProgramOptions(in), 4)
+	assert.Len(t, formtest.ProgramOptions(in), 5)
 }

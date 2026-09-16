@@ -3,7 +3,6 @@ package ai
 import (
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -34,16 +33,11 @@ func TestRunAIForms_RefusesAProviderTheBinaryDoesNotLink(t *testing.T) {
 	t.Parallel()
 
 	store := testutil.StoreFromYAML(t, "")
-	choose := func(c *formConfig) {
-		c.linked = func(p gochat.Provider) bool { return p == gochat.ProviderCodexLocal }
-		c.providerFormCreator = func(cfg *AIConfig) *huh.Form {
-			cfg.Provider = string(gochat.ProviderBedrock)
+	linked := func(p gochat.Provider) bool { return p == gochat.ProviderCodexLocal }
 
-			return nil
-		}
-	}
-
-	_, err := runAIForms(store.View(), choose)
+	// The select offers only the linked provider, so a hand-typed answer is
+	// what an unlinked choice looks like; the rule holds after the form too.
+	_, err := finaliseAIConfig(&AIConfig{Provider: string(gochat.ProviderBedrock)}, store.View(), linked)
 	require.ErrorIs(t, err, ErrProviderNotLinked)
 	assert.Contains(t, errors.FlattenHints(err), "chat-bedrock", "the hint names the module to import")
 }

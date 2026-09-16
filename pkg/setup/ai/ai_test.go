@@ -7,7 +7,6 @@ import (
 
 	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,37 +39,13 @@ func withNoCI(t *testing.T) {
 	t.Setenv("CI", "")
 }
 
-func mockFormCreator(provider, apiKey string) func(*AIConfig) []*huh.Form {
-	return func(cfg *AIConfig) []*huh.Form {
-		cfg.Provider = provider
-		cfg.APIKey = apiKey
-		// Older tests rely on literal-mode semantics; make the
-		// choice explicit so adding a new default mode in the future
-		// cannot silently reroute these writes.
-		cfg.StorageMode = credentials.ModeLiteral
-
-		return nil // skip form rendering
-	}
-}
-
-// mockEnvVarFormCreator simulates the user selecting env-var storage
-// mode and entering an env var name — the Phase 1 recommended path.
-func mockEnvVarFormCreator(provider, envVarName string) func(*AIConfig) []*huh.Form {
-	return func(cfg *AIConfig) []*huh.Form {
-		cfg.Provider = provider
-		cfg.StorageMode = credentials.ModeEnvVar
-		cfg.EnvVarName = envVarName
-
-		return nil
-	}
-}
-
 func TestRunAIInit_ClaudeEnvVarMode(t *testing.T) {
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockEnvVarFormCreator("claude", "CUSTOM_ANTHROPIC_KEY")))
+	props.IO = envVarIO(t, "claude", "CUSTOM_ANTHROPIC_KEY")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -90,7 +65,8 @@ func TestRunAIForms_CIRefusesLiteral(t *testing.T) {
 
 	cfg := testutil.ViewFromYAML(t, "")
 
-	_, err := runAIForms(cfg, WithAIForm(mockFormCreator("claude", "sk-should-be-refused")))
+	refused := &AIConfig{Provider: "claude", StorageMode: credentials.ModeLiteral, APIKey: "would-be-refused"}
+	_, err := finaliseAIConfig(refused, cfg, allLinked)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "literal credential storage is refused under CI")
 }
@@ -102,7 +78,8 @@ func TestRunAIInit_Claude(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("claude", "sk-ant-test123")))
+	props.IO = keyIO(t, "claude", credentials.ModeLiteral, "sk-ant-test123")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -125,7 +102,8 @@ func TestRunAIInit_OpenAI(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("openai", "sk-openai-test456")))
+	props.IO = keyIO(t, "openai", credentials.ModeLiteral, "sk-openai-test456")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -145,7 +123,8 @@ func TestRunAIInit_Gemini(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("gemini", "AIza-gemini-test789")))
+	props.IO = keyIO(t, "gemini", credentials.ModeLiteral, "AIza-gemini-test789")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -165,7 +144,8 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("claude", "sk-ant-test")))
+	props.IO = keyIO(t, "claude", credentials.ModeLiteral, "sk-ant-test")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -202,7 +182,8 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 		[]byte("anthropic:\n  api:\n    key: sk-ant-STALE-SECRET\n"), 0o600))
 
 	// Re-run the wizard, this time choosing env-var mode.
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockEnvVarFormCreator("claude", "ANTHROPIC_API_KEY")))
+	props.IO = envVarIO(t, "claude", "ANTHROPIC_API_KEY")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(props.FS, configFile)
@@ -295,7 +276,8 @@ github:
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
 	require.NoError(t, afero.WriteFile(props.FS, configFile, []byte(existingConfig), 0o644))
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("openai", "sk-test")))
+	props.IO = keyIO(t, "openai", credentials.ModeLiteral, "sk-test")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(props.FS, configFile)
@@ -564,7 +546,9 @@ func TestAIInitialiser_IsConfigured(t *testing.T) {
 }
 
 func TestAIInitialiser_Configure(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the TUI route is paced by time (see keyIO), and literal
+	// mode is only offered outside CI.
+	withNoCI(t)
 
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
@@ -579,23 +563,17 @@ func TestAIInitialiser_Configure(t *testing.T) {
 		config.Remove(chat.ConfigKeyClaudeKeychain),
 	}).Return(nil).Once()
 
-	i := &AIInitialiser{
-		formOpts: []FormOption{
-			WithAIForm(func(c *AIConfig) []*huh.Form {
-				c.Provider = string(gochat.ProviderClaude)
-				c.APIKey = "sk-ant-configure-test"
+	props := newTestProps(t)
+	props.IO = keyIO(t, "claude", credentials.ModeLiteral, "sk-ant-configure-test")
 
-				return nil
-			}),
-		},
-	}
-
-	err := i.Configure(t.Context(), newTestProps(t), cfg)
+	err := (&AIInitialiser{}).Configure(t.Context(), props, cfg)
 	assert.NoError(t, err)
 }
 
 func TestAIInitialiser_Configure_NoKey(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the TUI route is paced by time (see keyIO), and literal
+	// mode is only offered outside CI.
+	withNoCI(t)
 
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
@@ -605,17 +583,10 @@ func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 		config.Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)),
 	}).Return(nil).Once()
 
-	i := &AIInitialiser{
-		formOpts: []FormOption{
-			WithAIForm(func(c *AIConfig) []*huh.Form {
-				c.Provider = string(gochat.ProviderOpenAI)
-				// APIKey intentionally blank
-				return nil
-			}),
-		},
-	}
+	props := newTestProps(t)
+	props.IO = keyIO(t, "openai", credentials.ModeLiteral, "")
 
-	err := i.Configure(t.Context(), newTestProps(t), cfg)
+	err := (&AIInitialiser{}).Configure(t.Context(), props, cfg)
 	assert.NoError(t, err)
 }
 
@@ -646,18 +617,18 @@ func TestInitTemplate_SeedsNoEmptyCredentials(t *testing.T) {
 }
 
 func TestRunAIForms_ExistingKeyFallback(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the TUI route is paced by time (see keyIO), and literal
+	// mode is only offered outside CI.
+	withNoCI(t)
 
 	// When the form leaves APIKey blank, runAIForms should fall back to ExistingKey.
 	cfg := testutil.ViewFromYAML(t,
 		"ai:\n  provider: claude\nanthropic:\n  api:\n    key: sk-ant-existing-key\n")
 
-	aiCfg, err := runAIForms(cfg, WithAIForm(func(c *AIConfig) []*huh.Form {
-		c.Provider = string(gochat.ProviderClaude)
-		// APIKey intentionally not set — should fall back to ExistingKey
-		return nil
-	}))
+	props := newTestProps(t)
+	props.IO = keyIO(t, "claude", credentials.ModeLiteral, "")
 
+	aiCfg, err := runAIForms(t.Context(), props, cfg, allLinked)
 	require.NoError(t, err)
 	assert.Equal(t, "sk-ant-existing-key", aiCfg.APIKey)
 }
@@ -690,13 +661,10 @@ func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 
-	// Inject a provider form that fails to run (no TTY) so RunAIInit
+	// Nobody is at the terminal, so the wizard refuses and RunAIInit
 	// returns an error without prompting.
-	cmd := NewCmdInitAI(props, WithAIForm(func(_ *AIConfig) []*huh.Form {
-		return []*huh.Form{
-			huh.NewForm(huh.NewGroup(huh.NewInput().Title("dummy"))),
-		}
-	}))
+	props.IO = nonInteractiveIO()
+	cmd := NewCmdInitAI(props)
 	cmd.SetContext(t.Context())
 
 	err := cmd.RunE(cmd, nil)
@@ -704,57 +672,16 @@ func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to configure AI")
 }
 
-func TestRunAIForms_ProviderFormCancellation(t *testing.T) {
+func TestRunAIForms_RefusesWithNobodyAtTheTerminal(t *testing.T) {
 	t.Parallel()
 
-	cfg := testutil.ViewFromYAML(t, "")
+	props := newTestProps(t)
+	props.IO = nonInteractiveIO()
 
-	// Inject a providerFormCreator that returns a real huh.Form.
-	// In a test environment (no TTY) huh.Form.Run() will return an error,
-	// simulating user cancellation.
-	cancelOpt := func(c *formConfig) {
-		c.providerFormCreator = func(_ *AIConfig) *huh.Form {
-			return huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().Title("dummy"),
-				),
-			)
-		}
-		// keyFormCreator returns nil — we never reach stage 2.
-		c.keyFormCreator = func(_ *AIConfig) *huh.Form {
-			return nil
-		}
-	}
-
-	aiCfg, err := runAIForms(cfg, cancelOpt)
+	aiCfg, err := runAIForms(t.Context(), props, testutil.ViewFromYAML(t, ""), allLinked)
 	require.Error(t, err)
 	assert.Nil(t, aiCfg)
-	assert.Contains(t, err.Error(), "AI configuration form cancelled")
-}
-
-func TestRunAIForms_KeyFormCancellation(t *testing.T) {
-	t.Parallel()
-
-	cfg := testutil.ViewFromYAML(t, "")
-
-	// Provider form succeeds (returns nil to skip), but key form fails.
-	cancelOpt := func(c *formConfig) {
-		c.providerFormCreator = func(ac *AIConfig) *huh.Form {
-			ac.Provider = string(gochat.ProviderClaude)
-			return nil // skip provider selection
-		}
-		c.keyFormCreator = func(_ *AIConfig) *huh.Form {
-			return huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().Title("dummy-key"),
-				),
-			)
-		}
-	}
-
-	aiCfg, err := runAIForms(cfg, cancelOpt)
-	require.Error(t, err)
-	assert.Nil(t, aiCfg)
+	requireRefusedAsNonInteractive(t, err)
 	assert.Contains(t, err.Error(), "AI configuration form cancelled")
 }
 
@@ -764,24 +691,10 @@ func TestAIInitialiser_Configure_FormCancellation(t *testing.T) {
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 
-	i := &AIInitialiser{
-		formOpts: []FormOption{
-			func(c *formConfig) {
-				c.providerFormCreator = func(_ *AIConfig) *huh.Form {
-					return huh.NewForm(
-						huh.NewGroup(
-							huh.NewInput().Title("cancelled"),
-						),
-					)
-				}
-				c.keyFormCreator = func(_ *AIConfig) *huh.Form {
-					return nil
-				}
-			},
-		},
-	}
+	props := newTestProps(t)
+	props.IO = nonInteractiveIO()
 
-	err := i.Configure(t.Context(), newTestProps(t), cfg)
+	err := (&AIInitialiser{}).Configure(t.Context(), props, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "AI configuration form cancelled")
 }

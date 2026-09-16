@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,7 +106,7 @@ func TestNewAIInitialiser_MountsAssets(t *testing.T) {
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 
-	init := NewAIInitialiser(props, WithAIForm(func(_ *AIConfig) []*huh.Form { return nil }))
+	init := NewAIInitialiser(props)
 	require.NotNil(t, init)
 	assert.Equal(t, "AI integration", init.Name())
 
@@ -116,89 +115,42 @@ func TestNewAIInitialiser_MountsAssets(t *testing.T) {
 	assert.NotNil(t, NewAIInitialiser(props))
 }
 
-// TestDefaultProviderForm exercises the provider-form constructor in
-// both the normal path and the AI_PROVIDER override-warning path.
-func TestDefaultProviderForm(t *testing.T) {
+// TestProviderGroup covers the provider page in both the plain path and the
+// AI_PROVIDER note path.
+func TestProviderGroup(t *testing.T) {
 	t.Run("without env override", func(t *testing.T) {
 		t.Setenv(chat.EnvAIProvider, "")
 
-		cfg := &AIConfig{}
-		assert.NotNil(t, defaultProviderForm(cfg))
+		assert.NotNil(t, providerGroup(&AIConfig{}, allLinked))
 	})
 
-	t.Run("with env override warning", func(t *testing.T) {
+	t.Run("with env override note", func(t *testing.T) {
 		t.Setenv(chat.EnvAIProvider, "openai")
 
-		cfg := &AIConfig{}
-		assert.NotNil(t, defaultProviderForm(cfg))
+		assert.NotNil(t, providerGroup(&AIConfig{}, allLinked))
 	})
 }
 
 // TestDefaultEnvVarForm exercises the env-var-name form constructor,
 // including the default-name population branch.
-func TestDefaultEnvVarForm(t *testing.T) {
+// TestAIForm_PagesFollowTheAnswers drives the one form through the key route
+// and asserts the pages a person sees: the env var page for env-var mode, the
+// key page otherwise, neither for a provider without a credential. The pages
+// themselves are what the RunAIInit tests exercise; this pins their gating.
+func TestAIForm_PagesFollowTheAnswers(t *testing.T) {
 	t.Parallel()
 
-	t.Run("populates default name", func(t *testing.T) {
-		t.Parallel()
+	view := testutil.ViewFromYAML(t, "")
 
-		cfg := &AIConfig{Provider: string(gochat.ProviderClaude)}
-		assert.NotNil(t, defaultEnvVarForm(cfg))
-		assert.Equal(t, chat.EnvClaudeKey, cfg.EnvVarName,
-			"blank EnvVarName must be seeded with the provider default")
-	})
+	envVar := &AIConfig{Provider: "claude", StorageMode: credentials.ModeEnvVar}
+	f := aiForm(t.Context(), envVar, view, allLinked)
+	require.NotNil(t, f)
 
-	t.Run("keeps explicit name", func(t *testing.T) {
-		t.Parallel()
+	local := &AIConfig{Provider: "claude-local"}
+	assert.NotNil(t, aiForm(t.Context(), local, view, allLinked))
 
-		cfg := &AIConfig{Provider: string(gochat.ProviderOpenAI), EnvVarName: "CUSTOM"}
-		assert.NotNil(t, defaultEnvVarForm(cfg))
-		assert.Equal(t, "CUSTOM", cfg.EnvVarName)
-	})
-}
-
-// TestDefaultKeyForm exercises the key-input form constructor in both
-// the plain and the token-env-override-warning paths.
-func TestDefaultKeyForm(t *testing.T) {
-	t.Run("plain", func(t *testing.T) {
-		t.Setenv(chat.EnvClaudeKey, "")
-
-		cfg := &AIConfig{Provider: string(gochat.ProviderClaude)}
-		assert.NotNil(t, defaultKeyForm(cfg))
-	})
-
-	t.Run("with token env override and existing key", func(t *testing.T) {
-		t.Setenv(chat.EnvClaudeKey, "sk-ant-from-env")
-
-		cfg := &AIConfig{Provider: string(gochat.ProviderClaude), ExistingKey: "sk-ant-existing"}
-		assert.NotNil(t, defaultKeyForm(cfg))
-	})
-
-	t.Run("unknown provider has no env var", func(t *testing.T) {
-		t.Parallel()
-
-		cfg := &AIConfig{Provider: "unknown"}
-		assert.NotNil(t, defaultKeyForm(cfg))
-	})
-}
-
-// TestDefaultStorageModeForm exercises the storage-mode form
-// constructor and its default-mode seeding.
-func TestDefaultStorageModeForm(t *testing.T) {
-	t.Parallel()
-
-	cfg := &AIConfig{Provider: string(gochat.ProviderClaude)}
-	assert.NotNil(t, defaultStorageModeForm(cfg))
-	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode,
-		"blank StorageMode must default to env-var mode")
-}
-
-// TestStorageModeDescription covers both the CI and non-CI branches.
-func TestStorageModeDescription(t *testing.T) {
-	t.Parallel()
-
-	assert.Contains(t, storageModeDescription(true), "CI environment detected")
-	assert.Contains(t, storageModeDescription(false), "out of the config file")
+	assert.NotNil(t, envVarGroup(envVar, func() bool { return false }))
+	assert.NotNil(t, keyGroup(&AIConfig{Provider: "claude"}, view, func() bool { return false }))
 }
 
 // TestStorageModeChanges_UnknownMode covers the default arm of the
@@ -340,48 +292,37 @@ func TestStoreAIKeyInKeychain_StoreFailureWrapsHint(t *testing.T) {
 	assert.Contains(t, err.Error(), "storing AI API key in OS keychain")
 }
 
-// TestRunAIInit_EnvVarFormCancellation drives the env-var stage with a
-// real (TTY-less) form so runAICredentialStage's env-var branch
-// returns the cancellation error.
-func TestRunAIInit_EnvVarFormCancellation(t *testing.T) {
-	t.Parallel()
+// TestFinaliseAIConfig pins the rules that hold whatever the form did: a
+// blank env var name takes the provider's well-known one; a provider with no
+// credential drops the credential answers; a blank key keeps the existing
+// one; literal is refused under CI.
+func TestFinaliseAIConfig(t *testing.T) {
+	// Not parallel: CI is cleared for the literal cases and set for the last.
+	withNoCI(t)
 
-	cfg := testutil.ViewFromYAML(t, "")
+	view := testutil.ViewFromYAML(t, "anthropic:\n  api:\n    key: sk-existing\n")
 
-	opt := func(c *formConfig) {
-		c.providerFormCreator = func(ac *AIConfig) *huh.Form {
-			ac.Provider = string(gochat.ProviderClaude)
-			ac.StorageMode = credentials.ModeEnvVar
-
-			return nil
-		}
-		c.storageModeFormCreator = func(_ *AIConfig) *huh.Form { return nil }
-		c.envVarFormCreator = func(_ *AIConfig) *huh.Form {
-			return huh.NewForm(huh.NewGroup(huh.NewInput().Title("env")))
-		}
-	}
-
-	aiCfg, err := runAIForms(cfg, opt)
-	require.Error(t, err)
-	assert.Nil(t, aiCfg)
-	assert.Contains(t, err.Error(), "AI configuration form cancelled")
-}
-
-// TestRunAICredentialStage_EnvVarSuccess covers the env-var branch's
-// happy (nil-form) return path.
-func TestRunAICredentialStage_EnvVarSuccess(t *testing.T) {
-	t.Parallel()
-
-	fCfg := newAIFormConfig(WithAIForm(func(c *AIConfig) []*huh.Form {
-		c.EnvVarName = "X"
-
-		return nil
-	}))
-
-	aiCfg := &AIConfig{Provider: string(gochat.ProviderClaude), StorageMode: credentials.ModeEnvVar}
-	got, err := runAICredentialStage(fCfg, aiCfg)
+	got, err := finaliseAIConfig(&AIConfig{Provider: "claude", StorageMode: credentials.ModeEnvVar}, view, allLinked)
 	require.NoError(t, err)
-	assert.Equal(t, "X", got.EnvVarName)
+	assert.Equal(t, chat.EnvClaudeKey, got.EnvVarName, "blank takes the well-known name")
+
+	got, err = finaliseAIConfig(&AIConfig{Provider: "claude-local", StorageMode: credentials.ModeLiteral, APIKey: "x"}, view, allLinked)
+	require.NoError(t, err)
+	assert.Empty(t, got.APIKey, "a local CLI carries no credential")
+	assert.Empty(t, got.StorageMode)
+
+	got, err = finaliseAIConfig(&AIConfig{Provider: "claude", StorageMode: credentials.ModeLiteral}, view, allLinked)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-existing", got.APIKey, "blank keeps the existing key")
+
+	_, err = finaliseAIConfig(&AIConfig{Provider: "bedrock"}, view, func(gochat.Provider) bool { return false })
+	require.ErrorIs(t, err, ErrProviderNotLinked)
+
+	t.Setenv("CI", "true")
+
+	_, err = finaliseAIConfig(&AIConfig{Provider: "claude", StorageMode: credentials.ModeLiteral, APIKey: "x"}, view, allLinked)
+	require.Error(t, err, "literal is refused under CI")
+	assert.Contains(t, err.Error(), "refused under CI")
 }
 
 // TestNewCmdInitAI_Success drives the RunE happy path end-to-end with
@@ -394,7 +335,8 @@ func TestNewCmdInitAI_Success(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	cmd := NewCmdInitAI(props, WithAIForm(mockEnvVarFormCreator("claude", "ANTHROPIC_TOKEN")))
+	props.IO = envVarIO(t, "claude", "ANTHROPIC_TOKEN")
+	cmd := NewCmdInitAI(props)
 	cmd.SetContext(t.Context())
 	require.NoError(t, cmd.Flags().Set("dir", dir))
 

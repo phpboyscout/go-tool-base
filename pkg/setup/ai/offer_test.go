@@ -3,7 +3,6 @@ package ai
 import (
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -37,24 +36,15 @@ func TestRunAIForms_LocalProviderSkipsTheCredentialStages(t *testing.T) {
 
 	store := testutil.StoreFromYAML(t, "")
 
-	called := false
-	choose := func(c *formConfig) {
-		c.providerFormCreator = func(cfg *AIConfig) *huh.Form {
-			cfg.Provider = string(gochat.ProviderClaudeLocal)
+	// The answers stop at the provider: were the storage page asked, the
+	// form would run out of input and fail.
+	props := newTestProps(t)
+	props.IO = localIO(t, "claude-local")
 
-			return nil
-		}
-		c.storageModeFormCreator = func(*AIConfig) *huh.Form {
-			called = true
-
-			return nil
-		}
-	}
-
-	got, err := runAIForms(store.View(), choose)
+	got, err := runAIForms(t.Context(), props, store.View(), allLinked)
 	require.NoError(t, err)
 	assert.Equal(t, string(gochat.ProviderClaudeLocal), got.Provider)
-	assert.False(t, called, "no credential, no storage-mode form")
+	assert.Empty(t, got.StorageMode, "no credential, no storage-mode page")
 }
 
 // TestIsAIConfigured_LocalProviderNeedsNoKey: a tool whose ai.provider is a

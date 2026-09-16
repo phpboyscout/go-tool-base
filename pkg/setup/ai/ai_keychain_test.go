@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,20 +21,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-// mockKeychainFormCreator drives the wizard through the keychain
-// stage as if the user selected OS keychain mode, entered an API
-// key, and submitted. ExistingKey is left blank so the form path
-// mirrors a first-time setup rather than a re-run.
-func mockKeychainFormCreator(provider, apiKey string) func(*AIConfig) []*huh.Form {
-	return func(cfg *AIConfig) []*huh.Form {
-		cfg.Provider = provider
-		cfg.StorageMode = credentials.ModeKeychain
-		cfg.APIKey = apiKey
-
-		return nil
-	}
-}
-
 // End-to-end: the wizard's keychain mode must (a) write the API key
 // through the registered backend and (b) record the
 // "<tool>/<account>" reference under `{provider}.api.keychain` in
@@ -47,7 +32,8 @@ func TestRunAIInit_KeychainMode_WritesReferenceAndStoresSecret(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockKeychainFormCreator("openai", "sk-keychain-test")))
+	props.IO = keyIO(t, "openai", credentials.ModeKeychain, "sk-keychain-test")
+	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -88,13 +74,10 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 		config.Remove(chat.ConfigKeyClaudeKey),
 	}).Return(nil).Once()
 
-	i := &AIInitialiser{
-		formOpts: []FormOption{
-			WithAIForm(mockKeychainFormCreator(string(gochat.ProviderClaude), "sk-ant-configure-keychain")),
-		},
-	}
+	props := newTestProps(t)
+	props.IO = keyIO(t, "claude", credentials.ModeKeychain, "sk-ant-configure-keychain")
 
-	err := i.Configure(t.Context(), newTestProps(t), cfg)
+	err := (&AIInitialiser{}).Configure(t.Context(), props, cfg)
 	require.NoError(t, err)
 
 	got, err := credentials.Retrieve(t.Context(), "test-tool", "anthropic.api")

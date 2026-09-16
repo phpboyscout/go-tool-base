@@ -30,12 +30,17 @@ const (
 
 const (
 	keyPace    = 20 * time.Millisecond
+	enterPace  = 150 * time.Millisecond
 	settleTime = 50 * time.Millisecond
 )
 
 type chunkReader struct {
 	chunks []string
 	pause  time.Duration
+	// last is the previous chunk; an Enter moves huh to the next field or
+	// group through a command the program runs after Update returns, so the
+	// key after it waits longer or lands on the field that was just left.
+	last string
 }
 
 func (r *chunkReader) Read(p []byte) (int, error) {
@@ -46,11 +51,15 @@ func (r *chunkReader) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	if r.pause > 0 {
+	switch {
+	case r.pause > 0 && r.last == Enter:
+		time.Sleep(enterPace)
+	case r.pause > 0:
 		time.Sleep(r.pause)
 	}
 
 	n := copy(p, r.chunks[0])
+	r.last = r.chunks[0]
 	r.chunks = r.chunks[1:]
 
 	return n, nil
@@ -69,7 +78,10 @@ func Answers(lines ...string) io.Reader {
 }
 
 // Keys is what a person presses on the TUI path, one sequence per Read, paced
-// so the parser sees each on its own. Typed text is one key per rune.
+// so the parser sees each on its own and a field change has happened before
+// the next key. Typed text is one key per rune. The pacing is time, so a test
+// on this route does not call t.Parallel: contention is what makes a paced
+// key land early.
 func Keys(seqs ...string) io.Reader {
 	var chunks []string
 
@@ -95,15 +107,23 @@ func TUI(keys io.Reader) props.IO {
 }
 
 // ProgramOptions are the bubbletea options a form on the key route needs:
-// the keys as input, no output, no renderer, a terminal the parser recognises.
+// the keys as input, no output, no renderer, a terminal the parser
+// recognises, and a window size, since no renderer means no WindowSizeMsg
+// and a field with a placeholder panics on a negative width.
 func ProgramOptions(in io.Reader) []tea.ProgramOption {
 	return []tea.ProgramOption{
 		tea.WithInput(in),
 		tea.WithOutput(io.Discard),
 		tea.WithoutRenderer(),
+		tea.WithWindowSize(headlessWidth, headlessHeight),
 		tea.WithEnvironment([]string{"TERM=xterm-256color"}),
 	}
 }
+
+const (
+	headlessWidth  = 100
+	headlessHeight = 40
+)
 
 type tuiIO struct{ in io.Reader }
 
