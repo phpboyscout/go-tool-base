@@ -24,7 +24,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	gitlab.com/phpboyscout/go/browser v0.2.2
 	gitlab.com/phpboyscout/go/changelog v0.4.0
-	gitlab.com/phpboyscout/go/chat v0.23.0
+	gitlab.com/phpboyscout/go/chat v0.24.0
 	gitlab.com/phpboyscout/go/config v0.18.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.11
 	gitlab.com/phpboyscout/go/controls v0.7.0

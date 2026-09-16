@@ -444,8 +444,8 @@ gitlab.com/phpboyscout/go/browser v0.2.2 h1:8DhFnMRUrr73pIAEBqbDgd7LJvZrM5X02SOm
 gitlab.com/phpboyscout/go/browser v0.2.2/go.mod h1:pYib+LXPWgPhHV6QbJtXGObzxFa6WtNHt+6ggDN75pE=
 gitlab.com/phpboyscout/go/changelog v0.4.0 h1:fnjWjdlWvR9ePgYzth+nNB/quPeAzMYQ1BtEMFdxMuc=
 gitlab.com/phpboyscout/go/changelog v0.4.0/go.mod h1:oo91F0fyO5yIFI7xCvdb+p4kjxBMiCOYGkcNZY8pVaM=
-gitlab.com/phpboyscout/go/chat v0.23.0 h1:IF9/RxtzurpHAl4eCgKSHzRBcSmoljY8hqkND5nLmnA=
-gitlab.com/phpboyscout/go/chat v0.23.0/go.mod h1:mQ4uRkREA0GUrmHAGP86jxxklbnQgIKZkktBa0CmkKQ=
+gitlab.com/phpboyscout/go/chat v0.24.0 h1:oSV1izXQCAeHdTBwdcTGKb/D9P1DhierPQFuIm5KSV0=
+gitlab.com/phpboyscout/go/chat v0.24.0/go.mod h1:mQ4uRkREA0GUrmHAGP86jxxklbnQgIKZkktBa0CmkKQ=
 gitlab.com/phpboyscout/go/chat-anthropic v0.14.1 h1:YNr79Sq3l5UghULzamWew7yiE8CeTg0Ii9jPgDRDFic=
 gitlab.com/phpboyscout/go/chat-anthropic v0.14.1/go.mod h1:eL8/41F2Ht+3qSP2zg3KiDWzWdNOGv22RP2Dc7Bpaco=
 gitlab.com/phpboyscout/go/chat-bedrock v0.2.0 h1:iIyoQlHMK4yVWoQRHZk9TV8GtysHeC/5SbTlgiXzZRI=

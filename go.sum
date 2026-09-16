@@ -366,8 +366,8 @@ gitlab.com/phpboyscout/go/browser v0.2.2 h1:8DhFnMRUrr73pIAEBqbDgd7LJvZrM5X02SOm
 gitlab.com/phpboyscout/go/browser v0.2.2/go.mod h1:pYib+LXPWgPhHV6QbJtXGObzxFa6WtNHt+6ggDN75pE=
 gitlab.com/phpboyscout/go/changelog v0.4.0 h1:fnjWjdlWvR9ePgYzth+nNB/quPeAzMYQ1BtEMFdxMuc=
 gitlab.com/phpboyscout/go/changelog v0.4.0/go.mod h1:oo91F0fyO5yIFI7xCvdb+p4kjxBMiCOYGkcNZY8pVaM=
-gitlab.com/phpboyscout/go/chat v0.23.0 h1:IF9/RxtzurpHAl4eCgKSHzRBcSmoljY8hqkND5nLmnA=
-gitlab.com/phpboyscout/go/chat v0.23.0/go.mod h1:mQ4uRkREA0GUrmHAGP86jxxklbnQgIKZkktBa0CmkKQ=
+gitlab.com/phpboyscout/go/chat v0.24.0 h1:oSV1izXQCAeHdTBwdcTGKb/D9P1DhierPQFuIm5KSV0=
+gitlab.com/phpboyscout/go/chat v0.24.0/go.mod h1:mQ4uRkREA0GUrmHAGP86jxxklbnQgIKZkktBa0CmkKQ=
 gitlab.com/phpboyscout/go/config v0.18.0 h1:2/u0ONVIIiPSsiogORccqtDvGx+bJifZsNo7XtJqdow=
 gitlab.com/phpboyscout/go/config v0.18.0/go.mod h1:g6bBGdn6vqVL/kVVDujMEbqFN05RP7DhQYD1pjQc0GU=
 gitlab.com/phpboyscout/go/config-afero v0.1.11 h1:OU/BVJNm0csZB44vtVlPBMcB7fpgnegwqmQnClu4tYc=
