@@ -167,15 +167,10 @@ func IsLocalCLI(provider gochat.Provider) bool {
 	}
 }
 
-// unsupportedProviderWording is go/chat's registry-miss message. Matched as text
-// because the module exports no sentinel for it yet (go/chat#23);
-// TestUnsupportedProviderWording fails the day the wording moves.
-const unsupportedProviderWording = "unsupported provider"
-
-// hintUnsupportedProvider adds the missing blank import to a registry miss and
-// leaves every other error untouched.
+// hintUnsupportedProvider adds the missing blank import to a registry miss
+// (go/chat's ErrProviderNotRegistered) and leaves every other error untouched.
 func hintUnsupportedProvider(err error, provider gochat.Provider) error {
-	if err == nil || !strings.Contains(err.Error(), unsupportedProviderWording) {
+	if err == nil || !errors.Is(err, gochat.ErrProviderNotRegistered) {
 		return err
 	}
 

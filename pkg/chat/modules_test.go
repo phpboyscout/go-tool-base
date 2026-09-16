@@ -62,7 +62,7 @@ func TestHintUnsupportedProvider(t *testing.T) {
 	t.Run("registry miss gains the module to import", func(t *testing.T) {
 		t.Parallel()
 
-		err := hintUnsupportedProvider(errors.New("unsupported provider: bedrock"), gochat.ProviderBedrock)
+		err := hintUnsupportedProvider(errors.Wrapf(gochat.ErrProviderNotRegistered, "%s", gochat.ProviderBedrock), gochat.ProviderBedrock)
 
 		assert.Contains(t, errors.FlattenHints(err), `_ "gitlab.com/phpboyscout/go/chat-bedrock"`)
 	})
@@ -85,24 +85,11 @@ func TestHintUnsupportedProvider(t *testing.T) {
 	t.Run("unknown provider gets no hint", func(t *testing.T) {
 		t.Parallel()
 
-		orig := errors.New("unsupported provider: nope")
+		orig := errors.Wrapf(gochat.ErrProviderNotRegistered, "nope")
 		err := hintUnsupportedProvider(orig, gochat.Provider("nope"))
 
 		assert.Same(t, orig, err)
 	})
-}
-
-// TestUnsupportedProviderWording pins the wording this adapter matches on. It
-// is go/chat's, not ours: a change there turns the hint off silently, and this
-// is the test that says so.
-func TestUnsupportedProviderWording(t *testing.T) {
-	t.Parallel()
-
-	_, err := gochat.New(t.Context(), gochat.Settings{
-		Config: gochat.Config{Provider: gochat.Provider("no-such-provider-for-test")},
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), unsupportedProviderWording)
 }
 
 func TestIsLocalCLI(t *testing.T) {

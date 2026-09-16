@@ -28,7 +28,7 @@ func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, erro
 	}
 
 	log := props.SlogLogger(p)
-	if err := applyDefaultProvider(log, &cfg); err != nil {
+	if err := applyDefaultProvider(log, &cfg, gochat.RegisteredProviders()); err != nil {
 		return gochat.Settings{}, err
 	}
 

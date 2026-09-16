@@ -17,14 +17,14 @@ func TestApplyDefaultProvider(t *testing.T) {
 
 	t.Run("keeps an explicit provider", func(t *testing.T) {
 		cfg := gochat.Config{Provider: gochat.ProviderGemini}
-		require.NoError(t, applyDefaultProvider(log, &cfg))
+		require.NoError(t, applyDefaultProvider(log, &cfg, nil))
 		assert.Equal(t, gochat.ProviderGemini, cfg.Provider)
 	})
 
 	t.Run("uses AI_PROVIDER when unset", func(t *testing.T) {
 		t.Setenv(EnvAIProvider, "openai")
 		cfg := gochat.Config{}
-		require.NoError(t, applyDefaultProvider(log, &cfg))
+		require.NoError(t, applyDefaultProvider(log, &cfg, nil))
 		assert.Equal(t, gochat.ProviderOpenAI, cfg.Provider)
 	})
 
@@ -33,7 +33,7 @@ func TestApplyDefaultProvider(t *testing.T) {
 	t.Run("nothing set is an error naming ai.provider", func(t *testing.T) {
 		t.Setenv(EnvAIProvider, "")
 		cfg := gochat.Config{}
-		err := applyDefaultProvider(log, &cfg)
+		err := applyDefaultProvider(log, &cfg, nil)
 		require.ErrorIs(t, err, ErrProviderUnset)
 		assert.Contains(t, errors.FlattenHints(err), ConfigKeyAIProvider)
 		assert.Contains(t, errors.FlattenHints(err), "init ai")

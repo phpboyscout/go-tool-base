@@ -95,6 +95,10 @@ type Descriptor struct {
 	// the ai feature), as its FeatureID string. A reporting surface uses it
 	// to speak only about what the tool has enabled; empty means always.
 	Feature string
+	// Providers names the chat providers that consume this credential, so a
+	// reporting surface can speak only about what the binary links; empty
+	// means the feature alone decides (spec 0196 D12).
+	Providers []string
 }
 
 // Rung is one step of the precedence chain: what it is, and how to read it.

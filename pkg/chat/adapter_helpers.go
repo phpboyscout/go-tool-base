@@ -3,6 +3,7 @@ package chat
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -31,11 +32,13 @@ func resolveChatTimeout(cfg gochat.Config) time.Duration {
 // embedded defaults, and an end user does through init ai.
 var ErrProviderUnset = errors.NewSentinel("gtb.chat.provider_unset", "no AI provider is configured")
 
-// applyDefaultProvider fills an unset provider from AI_PROVIDER, the legacy
-// fallback read only when every config layer left ai.provider empty, so
-// credential loading (which is per provider) sees the effective provider. It
-// never names a vendor: with nothing configured it returns ErrProviderUnset.
-func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config) error {
+// applyDefaultProvider fills an unset provider from AI_PROVIDER (the legacy
+// fallback read only when every config layer left ai.provider empty), else
+// from the registry when the binary links exactly one provider, so credential
+// loading (which is per provider) sees the effective provider. It never names
+// a vendor: with several linked and nothing configured it returns
+// ErrProviderUnset naming them (spec 0196 D5).
+func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config, registered []gochat.Provider) error {
 	if cfg.Provider != "" {
 		return nil
 	}
@@ -48,6 +51,23 @@ func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config) error {
 		return nil
 	}
 
-	return errors.WithHint(ErrProviderUnset,
-		"Set "+ConfigKeyAIProvider+" in the tool's config, or run its `init ai` to choose one.")
+	if len(registered) == 1 {
+		cfg.Provider = registered[0]
+		log.Debug("provider not specified, using the only one this binary links", "provider", cfg.Provider)
+
+		return nil
+	}
+
+	hint := "Set " + ConfigKeyAIProvider + " in the tool's config, or run its `init ai` to choose one."
+
+	if len(registered) > 1 {
+		names := make([]string, len(registered))
+		for i, p := range registered {
+			names[i] = string(p)
+		}
+
+		hint += " This binary links: " + strings.Join(names, ", ") + "."
+	}
+
+	return errors.WithHint(ErrProviderUnset, hint)
 }

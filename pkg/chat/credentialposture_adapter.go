@@ -37,12 +37,27 @@ func providerCredentials() []credentialposture.Descriptor {
 		out = append(out, credentialposture.Descriptor{
 			Owner:       r.owner,
 			Feature:     string(props.AiCmd),
+			Providers:   providersUnderRoot(r.root),
 			Label:       r.label,
 			EnvKey:      keys.Env,
 			KeychainKey: keys.Keychain,
 			LiteralKey:  keys.Literal,
 			FallbackEnv: keys.FallbackEnv,
 		})
+	}
+
+	return out
+}
+
+// providersUnderRoot lists the providers whose credential lives under root,
+// in module-table order.
+func providersUnderRoot(root string) []string {
+	var out []string
+
+	for _, entry := range providerModules {
+		if credentialConfigRoot(entry.Provider) == root {
+			out = append(out, string(entry.Provider))
+		}
 	}
 
 	return out
