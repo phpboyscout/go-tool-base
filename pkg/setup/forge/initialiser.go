@@ -58,11 +58,11 @@ func WithSSHOptions(opts ...ConfigureSSHKeyOption) InitialiserOption {
 
 // New constructs a profile-driven [Initialiser] with production defaults
 // (the registered forge provider and the CLI prompter) and applies opts.
-func New(_ *props.Props, profile Profile, opts ...InitialiserOption) *Initialiser {
+func New(p *props.Props, profile Profile, opts ...InitialiserOption) *Initialiser {
 	i := &Initialiser{
 		profile:         profile,
 		providerFactory: defaultForgeProvider(profile),
-		prompter:        newCLIPrompter(),
+		prompter:        newCLIPrompter(p),
 	}
 
 	for _, o := range opts {

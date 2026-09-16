@@ -9,30 +9,32 @@ import (
 	"gitlab.com/phpboyscout/go/browser"
 	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // cliPrompter is the CLI-side [forgeapi.Prompter]: it renders an OAuth
 // device-code prompt through huh (a note carrying the verification URL and user
-// code, plus a confirmation to continue) and best-effort opens the verification
-// URL through pkg/browser.OpenURL (scheme-allowlisted). It is how pkg/setup
-// surfaces a [forgeapi.Authenticator]'s interactive step while presentation
-// stays out of the forge module — the provider speaks only the OAuth protocol.
+// code, plus a confirmation to continue) on the invocation's IO, and
+// best-effort opens the verification URL through pkg/browser.OpenURL
+// (scheme-allowlisted). It is how pkg/setup surfaces a
+// [forgeapi.Authenticator]'s interactive step while presentation stays out of
+// the forge module — the provider speaks only the OAuth protocol.
 //
-// The huh form runner and the browser opener are injected as seams so the
-// prompt is exercisable without a TTY: tests substitute a fake runner (asserting
-// the built form) and a fake opener (asserting the completing URL is used and
-// that a failed open is non-fatal).
+// The browser opener is injected so a test can assert the completing URL is
+// used and that a failed open is non-fatal.
 type cliPrompter struct {
-	run    func(*huh.Form) error
+	p      *props.Props
 	opener func(context.Context, string) error
 }
 
 // newCLIPrompter builds the default prompter: renders the device-code note via
-// huh and opens URLs via browser.OpenURL (which validates the URL against a
-// scheme allowlist).
-func newCLIPrompter() *cliPrompter {
+// huh on p's IO and opens URLs via browser.OpenURL (which validates the URL
+// against a scheme allowlist).
+func newCLIPrompter(p *props.Props) *cliPrompter {
 	return &cliPrompter{
-		run: func(f *huh.Form) error { return f.Run() },
+		p: p,
 		opener: func(ctx context.Context, u string) error {
 			return browser.OpenURL(ctx, u)
 		},
@@ -66,10 +68,6 @@ func (c *cliPrompter) ShowDeviceCode(ctx context.Context, dc forgeapi.DeviceCode
 		_ = c.opener(ctx, target)
 	}
 
-	if c.run == nil {
-		return nil
-	}
-
 	proceed := true
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -77,6 +75,7 @@ func (c *cliPrompter) ShowDeviceCode(ctx context.Context, dc forgeapi.DeviceCode
 				Title("Authorize access").
 				Description(deviceCodeMessage(dc)),
 			huh.NewConfirm().
+				Key("continue").
 				Title("Continue once you have entered the code?").
 				Affirmative("Continue").
 				Negative("Cancel").
@@ -84,7 +83,7 @@ func (c *cliPrompter) ShowDeviceCode(ctx context.Context, dc forgeapi.DeviceCode
 		),
 	)
 
-	if err := c.run(form); err != nil {
+	if err := setup.RunForm(ctx, c.p, form); err != nil {
 		return errors.Wrap(err, "device-code prompt cancelled")
 	}
 
