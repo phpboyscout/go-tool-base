@@ -25,6 +25,7 @@ This is the **Design-First** workflow.
     - It protects manual changes in `init.go` and `cmd.go` by verifying their content hashes against the manifest before regeneration.
     - **Child command registrations are preserved.** When a parent `cmd.go` is overwritten, the pipeline's re-registration step reads the manifest to find all existing children and re-injects their `AddCommand` calls. You will not lose child registrations across a regeneration.
     - **Project-level settings (including help channel configuration) are fully preserved.** The root `cmd.go` is rebuilt via `buildSkeletonRootData`, which maps all manifest fields (including Slack/Teams help-channel settings) into the rendered file. No settings are silently dropped.
+    - **The run is all or nothing.** Every write and deletion is staged against an in-memory overlay and committed to disk only once the whole run has succeeded. The commit journals each file before touching it and rolls the journal back if a write or deletion fails part-way (a full disk, a permission error), so a failed regenerate leaves the tree and the manifest hashes as they were rather than half-updated. The one thing a rollback does not undo is an empty parent directory created for a new file. Post-processing (`go mod tidy`, `golangci-lint`) runs after the commit and its failure is reported as exit 3, not rolled back.
 
 ### 2. Code -> Manifest (`regenerate manifest`)
 
