@@ -148,7 +148,7 @@ What this means in practice today:
 
 For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/reference/api-stability.md` applies.
 
-The gtb CLI is a nested module at `cli/` (`gitlab.com/phpboyscout/go-tool-base/cli`), with a committed `go.work` so in-repo builds use the framework working tree while `cli/go.mod` requires the framework's latest release. `./...` at the root does not reach it in workspace mode: use `./... ./cli/...`. The binary entry point is `cli/cmd/gtb/main.go`. The `cli/pkg/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
+The gtb CLI is a nested module at `cli/` (`gitlab.com/phpboyscout/go-tool-base/cli`), with a committed `go.work` so every build, test and release uses the framework working tree; the CLI may use new framework API in the same MR that adds it. `cli/go.mod`'s require line only matters to `go install ...@latest`, which is not a supported install path (spec 0194 D2, revised 2026-09-16). `./...` at the root does not reach the CLI in workspace mode: use `./... ./cli/...`. The binary entry point is `cli/cmd/gtb/main.go`. The `cli/pkg/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
 
 ### Configuration
 

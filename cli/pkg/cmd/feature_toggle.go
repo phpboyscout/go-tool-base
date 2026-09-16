@@ -12,7 +12,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // ErrFeatureNameRequired is returned when `gtb enable`/`gtb disable` is run with
@@ -70,7 +69,7 @@ func resolveFeatureSelection(cmd *cobra.Command, p *props.Props, gen *generator.
 	}
 
 	// No name: pick interactively, unless we cannot prompt.
-	if !utils.IsInteractive() || featureToggleIsCI(cmd, p) {
+	if !p.GetIO().Interactive() || featureToggleIsCI(cmd, p) {
 		return nil, ErrFeatureNameRequired
 	}
 

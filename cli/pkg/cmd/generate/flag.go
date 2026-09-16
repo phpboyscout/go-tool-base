@@ -13,7 +13,6 @@ import (
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 type AddFlagOptions struct {
@@ -57,7 +56,7 @@ Examples:
   gtb generate add-flag -c deploy -n output -t string -d "Output path" -s o
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.ValidateOrPrompt(); err != nil {
+			if err := opts.ValidateOrPrompt(p); err != nil {
 				return err
 			}
 
@@ -76,12 +75,12 @@ Examples:
 	return cmd
 }
 
-func (o *AddFlagOptions) ValidateOrPrompt() error {
+func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 	if o.CommandName != "" && o.FlagName != "" {
 		return o.validateNonInteractive()
 	}
 
-	if !utils.IsInteractive() {
+	if !p.GetIO().Interactive() {
 		return ErrNonInteractive
 	}
 

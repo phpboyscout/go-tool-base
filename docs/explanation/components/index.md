@@ -46,7 +46,6 @@ Many components began life in `pkg/` and were later extracted. The
 | **[Chat](chat/index.md)** | `pkg/chat` | Multi-provider AI client (OpenAI, Anthropic, Gemini) for building intelligent features. |
 | **[Telemetry](telemetry/index.md)** | `pkg/telemetry` | Opt-in, consent-gated product analytics with pluggable backends (OTLP, PostHog, Datadog), bounded buffering and GDPR deletion. Distinct from web-service **[Observability](observability.md)**. |
 | **[Docs](docs.md)** | `pkg/docs` | Logic for the interactive TUI documentation browser. |
-| **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
 | **[Workspace](workspace.md)** | `go/workspace` | Framework-free project-root detection: a marker-file walk over an injected `afero.Fs`, now a standalone module. |
 | **[OS Info](osinfo.md)** | `pkg/osinfo` | Human-readable OS-version string; the single shared implementation behind the telemetry OS field and the doctor support bundle. |
 

@@ -253,32 +253,6 @@ osv-scanner:
   script:
     - /osv-scanner --no-call-analysis=go -L go.mod
 
-# cli-release-build — the CLI module compiled against the framework RELEASE it
-# requires, not the working tree. The committed go.work lets every other job
-# build the CLI against the checkout, which is what makes a framework change
-# and the CLI change that uses it land together locally; go install builds the
-# CLI against cli/go.mod's require line instead. This job is the only thing
-# that observes that requirement (spec 0194 D2), and it fails the MR that
-# starts relying on framework API the last release does not have. The fix is
-# always the same: release the framework, then bump the require.
-#
-# Build only, no vet: vet type-checks test files, and the CLI's tests run
-# through the workspace against the working tree on purpose. What go install
-# needs is the non-test build, and that is what this checks. The first run
-# proved the distinction: the binary built, and a test that used a framework
-# helper merged an hour earlier did not.
-cli-release-build:
-  stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.1
-  needs: []
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-  variables:
-    GOTOOLCHAIN: auto
-    GOWORK: "off"
-  script:
-    - cd cli && go build ./...
-
 # gtb-embedded-assets — the release binary must carry its docs and changelog.
 # Runs the same `go generate` the GoReleaser hook runs, in the release image,
 # then asserts through the embed and the built binary. The e2e binary embeds

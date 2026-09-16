@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // ErrRemoteTemplateDeclined is returned when the operator declines the
@@ -30,7 +29,7 @@ func ConfirmRemoteTemplate(p *props.Props, ci bool, ts generator.TemplateSource)
 		return nil
 	}
 
-	if ci || !utils.IsInteractive() || os.Getenv("GTB_NON_INTERACTIVE") == "true" {
+	if ci || !p.GetIO().Interactive() || os.Getenv("GTB_NON_INTERACTIVE") == "true" {
 		p.Logger.Warn("trusting remote template source (non-interactive)", "location", ts.Location, "ref", refOrDefault(ts.Ref))
 
 		return nil

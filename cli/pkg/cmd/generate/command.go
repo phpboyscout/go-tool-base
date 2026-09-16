@@ -14,7 +14,6 @@ import (
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // flagFieldCount is the number of colon-separated fields in a serialised flag string.
@@ -142,7 +141,7 @@ Examples:
   gtb generate command -n post --mcp-enabled=false
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := opts.ValidateOrPrompt(); err != nil {
+			if err := opts.ValidateOrPrompt(p); err != nil {
 				return err
 			}
 
@@ -248,12 +247,12 @@ overwrite of existing files still requires --force on the generating command.`,
 	return cmd
 }
 
-func (o *CommandOptions) ValidateOrPrompt() error {
+func (o *CommandOptions) ValidateOrPrompt(p *props.Props) error {
 	if o.Name != "" {
 		return o.validateNonInteractive()
 	}
 
-	if !utils.IsInteractive() {
+	if !p.GetIO().Interactive() {
 		return ErrNonInteractive
 	}
 
@@ -682,7 +681,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		AIModel:              o.shared.aiModel(),
 		Agentless:            o.Agentless,
 		MaxSteps:             o.MaxSteps,
-		NonInteractive:       o.NonInteractive || !utils.IsInteractive(),
+		NonInteractive:       o.NonInteractive || !p.GetIO().Interactive(),
 		PersistentPreRun:     o.PersistentPreRun,
 		PreRun:               o.PreRun,
 		Force:                o.Force,

@@ -43,12 +43,17 @@ irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 ### From source
 
 ```bash
-go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest
+git clone https://gitlab.com/phpboyscout/go-tool-base.git
+cd go-tool-base && just install
 ```
 
-The `cli/cmd/gtb` suffix matters. The module root is a library and has no `main`
-package, so `go install gitlab.com/phpboyscout/go-tool-base@latest` fails.
-Ensure `$GOPATH/bin` is on your `$PATH`.
+This builds the CLI through the repository's Go workspace, so it gets the
+framework at the same commit. **Do not use `go install .../cli/cmd/gtb@latest`**:
+it ignores the workspace and builds the CLI against the framework release
+named in `cli/go.mod`, which is not kept in step with the CLI between
+releases. Every supported install path (the scripts, Homebrew, self-update
+and this one) ships the two from one commit. Ensure `$GOPATH/bin` is on your
+`$PATH`.
 
 ### Does the installer need a token?
 

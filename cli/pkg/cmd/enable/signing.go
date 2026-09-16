@@ -14,7 +14,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // ErrInvalidKeySource is returned when --key-source is not one of the
@@ -156,8 +155,8 @@ func mergeSigning(current generator.ManifestSigning, opts *signingOptions, set s
 // passed, none already in the manifest, and an interactive non-CI session. A
 // re-run that already has an email (e.g. adding --key-id later) never re-asks.
 // When the prompt runs, the email and key source it collects count as provided.
-func maybePromptEmail(cmd *cobra.Command, p props.ConfigProvider, opts *signingOptions, current generator.ManifestSigning, set *signingFlagSet) error {
-	if opts.Email != "" || current.ExternalKeyEmail != "" || !utils.IsInteractive() || isCI(cmd, p) {
+func maybePromptEmail(cmd *cobra.Command, p *props.Props, opts *signingOptions, current generator.ManifestSigning, set *signingFlagSet) error {
+	if opts.Email != "" || current.ExternalKeyEmail != "" || !p.GetIO().Interactive() || isCI(cmd, p) {
 		return nil
 	}
 

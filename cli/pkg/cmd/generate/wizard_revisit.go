@@ -13,7 +13,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // WizardOptions drives `gtb wizard`: the generation wizard over an existing
@@ -62,12 +61,12 @@ const needsTerminalHint = "gtb wizard needs a terminal; use gtb set <path> <valu
 // not a terminal is refused before the form opens; a form that still cannot
 // open a TTY (stdin is /dev/null, which stats as a character device) gets the
 // same hint on its error.
-func (o *WizardOptions) run(so *SkeletonOptions) error {
+func (o *WizardOptions) run(p *props.Props, so *SkeletonOptions) error {
 	if o.runForm != nil {
 		return o.runForm(so)
 	}
 
-	if !utils.IsInteractive() {
+	if !p.GetIO().Interactive() {
 		return errors.WithHint(ErrNonInteractive, needsTerminalHint)
 	}
 
@@ -92,7 +91,7 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 	so := optionsFromManifest(*before)
 	so.Path = o.Path
 
-	if err := o.run(so); err != nil {
+	if err := o.run(p, so); err != nil {
 		return err
 	}
 

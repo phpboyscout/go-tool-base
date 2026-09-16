@@ -18,7 +18,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 type SkeletonOptions struct {
@@ -164,7 +163,7 @@ also add the remote and push.
 Run without --name/--repo in an interactive terminal to launch a guided wizard;
 otherwise supply the flags directly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.ValidateOrPrompt(); err != nil {
+			if err := opts.ValidateOrPrompt(p); err != nil {
 				return err
 			}
 
@@ -242,9 +241,9 @@ otherwise supply the flags directly.`,
 	return cmd
 }
 
-func (o *SkeletonOptions) ValidateOrPrompt() error {
+func (o *SkeletonOptions) ValidateOrPrompt(p *props.Props) error {
 	if o.Name == "" || (o.Repo == "" && !o.NoForge) {
-		if !utils.IsInteractive() {
+		if !p.GetIO().Interactive() {
 			return ErrNonInteractive
 		}
 

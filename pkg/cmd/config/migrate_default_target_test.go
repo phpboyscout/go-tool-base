@@ -14,7 +14,7 @@ import (
 // Spec 0189 R6/D8: the default migration target follows the environment.
 //
 // The environment arrives as data. An earlier attempt had resolveMigrateTarget
-// discover it — calling utils.IsInteractive and credentials.Probe itself — and
+// discover it — asking the IO and credentials.Probe itself — and
 // the suite became non-hermetic: whether a test passed depended on whether
 // stdin happened to be a terminal and whether a keychain answered. Taking it as
 // a parameter is what makes these assertions mean anything.

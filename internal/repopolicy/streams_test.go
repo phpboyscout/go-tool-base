@@ -12,13 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// streamsAllowlist names the files that may still name the process's streams
-// directly: pkg/props/io.go is the default an IO falls back to, and
-// pkg/utils/main.go is the superseded IsInteractive, which goes once the gtb
-// CLI has moved off it (spec 0198 D6).
+// streamsAllowlist names the one file that may name the process's streams
+// directly: pkg/props/io.go, the default an IO falls back to (spec 0198 D6).
 var streamsAllowlist = map[string]bool{
-	"pkg/props/io.go":   true,
-	"pkg/utils/main.go": true,
+	"pkg/props/io.go": true,
 }
 
 // TestNoProcessStreamsInPkg pins spec 0198 D6: a package under pkg/ reads

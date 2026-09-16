@@ -19,7 +19,7 @@ type ModeEnvironment struct {
 	// CI reports whether this is an automated run.
 	//
 	// It is checked separately from Interactive because a terminal is NOT
-	// evidence of a human: GitLab's runners allocate a TTY, so IsInteractive
+	// evidence of a human: GitLab's runners allocate a TTY, so a terminal check
 	// reports true inside a pipeline. Relying on the terminal alone made a
 	// pipeline pick the interactive default, which is exactly backwards.
 	CI bool
@@ -48,7 +48,7 @@ type ModeEnvironment struct {
 //
 // That exclusion is not belt-and-braces. This design originally rested on "CI
 // needs no special case, because a pipeline has no terminal", and that is
-// false: GitLab's runners allocate a TTY, so IsInteractive reports true inside
+// false: GitLab's runners allocate a TTY, so a terminal check reports true inside
 // a pipeline. The keychain probe happened to save it — a runner has no keychain
 // — but a rule that is right only because a second condition rescues it is a
 // rule waiting to be wrong. A CI run takes the CI default outright.

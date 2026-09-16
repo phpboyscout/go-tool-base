@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // conflictOutcome is what the shared resolver decided for a single generated
@@ -560,7 +558,7 @@ func (g *Generator) isNonInteractive() bool {
 		return true
 	}
 
-	if !utils.IsInteractive() {
+	if !g.props.GetIO().Interactive() {
 		return true
 	}
 

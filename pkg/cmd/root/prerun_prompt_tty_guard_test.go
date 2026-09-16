@@ -52,7 +52,7 @@ func TestPromptTelemetryConsent_CIEnvVarSkipsPrompt(t *testing.T) {
 }
 
 // TestPromptTelemetryConsent_NonInteractiveSkipsPrompt proves the consent
-// prompt is skipped when stdin is not a terminal (utils.IsInteractive is false
+// prompt is skipped when stdin is not a terminal (the IO is not a terminal
 // under `go test`). CI is neutralised so this isolates the interactivity gate.
 // On origin/main there is no such gate, so the form is attempted and logs
 // "telemetry consent prompt skipped" on the non-TTY error path.

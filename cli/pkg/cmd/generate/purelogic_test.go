@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -383,7 +385,7 @@ func TestResolveFeatures_Partial(t *testing.T) {
 func TestAddFlagOptions_ValidateOrPrompt_BothSet(t *testing.T) {
 	t.Parallel()
 	o := &AddFlagOptions{CommandName: "deploy", FlagName: "env"}
-	err := o.ValidateOrPrompt()
+	err := o.ValidateOrPrompt(nobodyTyping())
 	assert.NoError(t, err)
 }
 
@@ -436,7 +438,7 @@ func TestAddFlagOptions_ValidateOrPrompt_NonInteractiveValidation(t *testing.T) 
 			t.Parallel()
 
 			o := tc.opts
-			err := o.ValidateOrPrompt()
+			err := o.ValidateOrPrompt(nobodyTyping())
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -538,17 +540,22 @@ func TestSaveManifest_Success(t *testing.T) {
 func TestSkeletonValidateOrPrompt_Valid(t *testing.T) {
 	t.Parallel()
 	o := &SkeletonOptions{Name: "mytool", Repo: "org/mytool"}
-	err := o.ValidateOrPrompt()
+	err := o.ValidateOrPrompt(nobodyTyping())
 	assert.NoError(t, err)
 }
 
+// TestSkeletonValidateOrPrompt_MissingRepo: with a repo to ask for and nobody
+// at the terminal, the wizard is refused rather than opened.
 func TestSkeletonValidateOrPrompt_MissingRepo(t *testing.T) {
 	t.Parallel()
+
 	o := &SkeletonOptions{Name: "mytool", Repo: ""}
-	// Falls through to IsInteractive — since this IS a terminal, it would call runWizard.
-	// Just verify it doesn't return nil immediately (skips the early-return path).
-	// This test documents the branching rather than asserting a specific error.
-	_ = o // ValidateOrPrompt is tested indirectly via Run
+	require.ErrorIs(t, o.ValidateOrPrompt(nobodyTyping()), ErrNonInteractive)
+}
+
+// nobodyTyping is a Props whose stdin is not a terminal.
+func nobodyTyping() *props.Props {
+	return &props.Props{IO: props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}}
 }
 
 func TestSkeletonValidateOrPrompt_InvalidOverwrite(t *testing.T) {
