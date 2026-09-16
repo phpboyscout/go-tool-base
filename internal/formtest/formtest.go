@@ -30,10 +30,14 @@ const (
 	No    = "n"
 )
 
+// Pacing for the key route. A group transition in huh is an asynchronous
+// command, so a key sent too soon after Enter lands on the field being left
+// rather than the one being entered; the pause after Enter is sized for a
+// loaded shared CI runner, where 150ms let a mode selection slip a page.
 const (
-	keyPace    = 20 * time.Millisecond
-	enterPace  = 150 * time.Millisecond
-	settleTime = 50 * time.Millisecond
+	keyPace    = 30 * time.Millisecond
+	enterPace  = 400 * time.Millisecond
+	settleTime = 100 * time.Millisecond
 )
 
 type chunkReader struct {

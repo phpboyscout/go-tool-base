@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"testing"
@@ -8,6 +9,8 @@ import (
 	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -62,4 +65,36 @@ func TestRunForm(t *testing.T) {
 		require.NoError(t, RunForm(context.Background(), p, f))
 		assert.Equal(t, "keychain", mode)
 	})
+}
+
+// TestStorageModeGroup pins spec 0198 D5: the one storage-mode selector
+// offers what the environment allows, starts on the recommended mode, and
+// takes an answer at an accessible prompt.
+func TestStorageModeGroup(t *testing.T) {
+	t.Setenv("CI", "")
+
+	out := &bytes.Buffer{}
+	p := &props.Props{IO: props.StdIO{Stdin: formtest.Answers("2"), Stdout: out, Stderr: out, AccessibleMode: true}}
+
+	var mode credentials.Mode
+
+	group := StorageModeGroup(t.Context(), p, &mode, func() bool { return false })
+	require.NotNil(t, group)
+	assert.Equal(t, credentials.ModeEnvVar, mode, "the recommended mode is the default before the form runs")
+
+	require.NoError(t, RunForm(t.Context(), p, huh.NewForm(group)))
+	assert.Equal(t, credentials.ModeLiteral, mode, "no keychain answers under go test, so the second choice is literal")
+	assert.Contains(t, out.String(), "Credential Storage")
+
+	// A preset mode is kept.
+	preset := credentials.ModeLiteral
+	StorageModeGroup(t.Context(), p, &preset, func() bool { return false })
+	assert.Equal(t, credentials.ModeLiteral, preset)
+}
+
+func TestStorageModeDescription(t *testing.T) {
+	t.Parallel()
+
+	assert.Contains(t, storageModeDescription(true), "CI environment detected")
+	assert.Contains(t, storageModeDescription(false), "Environment variable references")
 }

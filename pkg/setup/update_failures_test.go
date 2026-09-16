@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -145,4 +146,26 @@ func TestRequireReleaseToken(t *testing.T) {
 		assert.Contains(t, err.Error(), "malformed keychain reference",
 			"and carry the underlying cause, so the operator knows which key is wrong")
 	})
+}
+
+// TestSelfUpdater_resolveTargetPath_Prompt: with a terminal and differing
+// paths, the installation is chosen at the prompt (spec 0198: the prompt runs
+// on the updater's IO, an accessible terminal here).
+func TestSelfUpdater_resolveTargetPath_Prompt(t *testing.T) {
+	t.Parallel()
+
+	s := &SelfUpdater{
+		logger:       logger.NewNoop(),
+		Tool:         props.Tool{Name: "tool"},
+		osExecutable: func() (string, error) { return "/run/tool", nil },
+		execLookPath: func(string) (string, error) { return "/on/path/tool", nil },
+	}
+	WithIO(formtest.AccessibleTTY(formtest.Answers("2")))(s)
+
+	got, err := s.resolveTargetPath(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "/on/path/tool", got, "the second option is the one on PATH")
+
+	// With no IO given, the updater's prompt runs on the process's streams.
+	assert.Equal(t, props.StdIO{}, (&SelfUpdater{}).streams())
 }
