@@ -48,6 +48,12 @@ const (
 )
 
 type Config struct {
+	// NoVerify skips the post-processing steps (go mod tidy, golangci-lint)
+	// after generate project and regenerate project, for a caller who knows
+	// the tree cannot be verified here (offline, pre-tag). The run then exits
+	// 0 having emitted files it did not verify (spec 0197 D10).
+	NoVerify bool
+
 	Agentless  bool
 	AIModel    string
 	AIProvider string
@@ -273,7 +279,7 @@ func (g *Generator) checkManifestVersion(m *Manifest) error {
 	}
 
 	if version.CompareVersions(cliVer, manifestVer) < 0 {
-		return errors.Newf("current gtb version (%s) is lower than the version specified in the manifest (%s). Please update gtb: gtb update, or go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest", cliVer, manifestVer)
+		return errors.Newf("current gtb version (%s) is lower than the version specified in the manifest (%s). Please update gtb: gtb update, or go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@%s", cliVer, manifestVer, manifestVer)
 	}
 
 	if version.CompareVersions(cliVer, manifestVer) > 0 {

@@ -21,6 +21,7 @@ type ProjectOptions struct {
 	Force      bool
 	Overwrite  string
 	UpdateDocs bool
+	NoVerify   bool
 }
 
 func NewCmdProject(p *props.Props, shared *SharedFlags) *cobra.Command {
@@ -40,6 +41,7 @@ Does not overwrite implementation files (main.go) unless --force is provided.`,
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing main.go implementation files")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().BoolVar(&opts.UpdateDocs, "update-docs", false, "Use AI to update existing documentation")
+	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify", false, "Skip go mod tidy and golangci-lint after regeneration (the run exits 0 unverified; without it a failed step exits 3)")
 
 	return cmd
 }
@@ -60,6 +62,7 @@ func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
 		Force:      o.Force,
 		Overwrite:  generator.OverwriteMode(o.Overwrite),
 		UpdateDocs: o.UpdateDocs,
+		NoVerify:   o.NoVerify,
 	}
 
 	return generator.New(p, cfg).RegenerateProject(ctx)

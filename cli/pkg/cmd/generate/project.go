@@ -121,6 +121,10 @@ type SkeletonOptions struct {
 	SigningRequireSignature bool
 	SigningRequireChecksum  bool
 
+	// NoVerify skips go mod tidy and golangci-lint after generation; the run
+	// then exits 0 having emitted files it did not verify (spec 0197 D10).
+	NoVerify bool
+
 	// revisit marks a wizard run over an existing project (gtb wizard, spec
 	// 0197 D13), which asks what a first run holds back.
 	revisit bool
@@ -211,6 +215,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringSliceVar(&opts.ConfigLayers, "config-layers", nil, "Config-stack layers the tool wires, in precedence order (default: the framework's)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
+	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify", false, "Skip go mod tidy and golangci-lint after generation (the run exits 0 unverified; without it a failed step exits 3)")
 	cmd.Flags().StringVar(&opts.SlackChannel, "slack-channel", "", "Slack channel for help (e.g. #my-team-help)")
 	cmd.Flags().StringVar(&opts.SlackTeam, "slack-team", "", "Slack team name (e.g. My Team)")
 	cmd.Flags().StringVar(&opts.TeamsChannel, "teams-channel", "", "Microsoft Teams channel for help")
@@ -1507,6 +1512,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		GitInit:   !o.NoGit,
 		GitPush:   o.Push,
 		GitBranch: o.GitBranch,
+		NoVerify:  o.NoVerify,
 	}).EnableRealTemplateClone()
 
 	return gen.GenerateSkeleton(ctx, o.skeletonConfig(templates))

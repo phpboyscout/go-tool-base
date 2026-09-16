@@ -35,7 +35,25 @@ A persistent `--dry-run` previews changes without writing files.
 | `--force` | `false` | Overwrite existing `main.go` implementation files. On a flat-layout project, also migrates the docs to the [Diátaxis layout](../../explanation/concepts/documentation-layout.md). |
 | `--overwrite` | `ask` | Conflict handling: `allow`, `deny`, or `ask`. Applies to every generated file: skeleton assets and per-command `cmd.go`/`init.go`/`main_test.go` alike. |
 | `--update-docs` | `false` | Use AI to update existing documentation. |
+| `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` afterwards; exit 0 unverified (see exit codes). |
 | `--dry-run` | `false` | Preview changes without writing. |
+
+#### Exit codes: emitted is not verified
+
+After the files are written, `go mod tidy` and `golangci-lint run --fix` run
+over the tree. The result is the run's exit code:
+
+| Code | Meaning |
+|---|---|
+| `0` | Files written and every verification step passed. |
+| `2` | Usage error (a bare or mistyped invocation); nothing written. |
+| `3` | Files written, but a verification step failed. The last line names the step and the reason (`go mod tidy failed: module … not found`). The files stay; fix the cause and run the step yourself. |
+
+`--no-verify` skips the steps and exits `0` with a warning that the tree was
+emitted, not verified: for a machine that cannot tidy (offline, or before the
+pinned framework is tagged). Spec
+[0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface)
+D10.
 
 #### Conflicts
 

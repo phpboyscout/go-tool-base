@@ -108,7 +108,7 @@ func TestRunLintPass_SkippedWhenEnvSaysSo(t *testing.T) {
 	buf := logger.NewBuffer()
 	g := &Generator{props: &props.Props{Logger: buf, FS: afero.NewOsFs()}}
 
-	g.runLintPass(t.Context(), t.TempDir())
+	require.NoError(t, g.runLintPass(t.Context(), t.TempDir()), "a skipped pass fails nothing")
 
 	assert.True(t, buf.Contains("Skipping golangci-lint pass"),
 		"the skip must say so, so a slow suite can be traced to it")
@@ -131,8 +131,8 @@ func TestRunLintPass_OnlyTheLiteralTrueSkips(t *testing.T) {
 			g := &Generator{props: &props.Props{Logger: buf, FS: afero.NewOsFs()}}
 
 			// A directory with no Go module: golangci-lint exits non-zero, the
-			// pass logs a Warn and returns. What is asserted is that it TRIED.
-			g.runLintPass(t.Context(), t.TempDir())
+			// pass logs a Warn and reports it. What is asserted is that it TRIED.
+			_ = g.runLintPass(t.Context(), t.TempDir())
 
 			assert.True(t, buf.Contains("Running golangci-lint"),
 				"%q is not the literal \"true\" and must not skip the pass", value)

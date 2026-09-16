@@ -16,6 +16,8 @@ import (
 	"strings"
 	"text/template"
 
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
 	"github.com/dave/jennifer/jen"
@@ -218,28 +220,71 @@ const SkipLintEnv = "GTB_SKIP_LINT"
 //
 // Shared by generation and regeneration, which each carried their own copy of
 // this three-line block and would each have needed the same gate.
-func (g *Generator) runLintPass(ctx context.Context, path string) {
+func (g *Generator) runLintPass(ctx context.Context, path string) error {
 	if os.Getenv(SkipLintEnv) == "true" {
 		g.props.Logger.Debug("Skipping golangci-lint pass", "reason", SkipLintEnv+"=true")
 
-		return
+		return nil
 	}
 
 	g.props.Logger.Info("Running golangci-lint run --fix...")
 
 	if err := g.runSkeletonCommand(ctx, path, "golangci-lint", "run", "--fix"); err != nil {
 		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
+
+		return err
 	}
+
+	return nil
 }
 
-func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) {
+// ErrProjectNotVerified is a generate or regenerate whose files were written
+// but whose verification (go mod tidy, golangci-lint) failed. It carries
+// ExitCodeNotVerified so a script can tell it from success (0) and from a
+// usage error (2), and its message names the step (spec 0197 D10).
+var ErrProjectNotVerified = errors.NewSentinel("gtb.generator.project_not_verified", "files were written but a verification step failed")
+
+// ExitCodeNotVerified is the exit code of ErrProjectNotVerified. 2 is
+// errorhandling.ExitCodeUsage, which the same commands already return for a
+// bare or mistyped invocation.
+const ExitCodeNotVerified = 3
+
+// notVerified wraps the failed steps into ErrProjectNotVerified with its
+// exit code, or returns nil when every step passed.
+func notVerified(failed []string) error {
+	if len(failed) == 0 {
+		return nil
+	}
+
+	return errorhandling.WithExitCode(
+		errors.WithHint(errors.Wrapf(ErrProjectNotVerified, "%s", strings.Join(failed, "; ")),
+			"The files are in place. Fix the cause and run `go mod tidy` and `golangci-lint run --fix` yourself, or pass --no-verify to skip verification on a machine that cannot run it."),
+		ExitCodeNotVerified)
+}
+
+// runSkeletonPostProcessing tidies, lints and refreshes hashes, and returns
+// the steps that failed, each with its reason; the caller decides whether
+// that is a warning (an edit to an existing project) or the run's result (a
+// generate or regenerate, spec 0197 D10). Nothing runs under NoVerify.
+func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) []string {
+	if g.config.NoVerify {
+		g.props.Logger.Warn("verification skipped (--no-verify): the tree was emitted, not verified")
+
+		return nil
+	}
+
+	var failed []string
+
 	g.props.Logger.Info("Running go mod tidy...")
 
 	if err := g.runSkeletonCommand(ctx, path, "go", "mod", "tidy"); err != nil {
 		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+		failed = append(failed, "go mod tidy failed: "+err.Error())
 	}
 
-	g.runLintPass(ctx, path)
+	if err := g.runLintPass(ctx, path); err != nil {
+		failed = append(failed, "golangci-lint run --fix failed: "+err.Error())
+	}
 
 	// The lint pass rewrites command files as readily as skeleton ones, so the
 	// command-hash refresh belongs to the shared post-processing step rather
@@ -251,6 +296,8 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 	if err := g.refreshCommandFileHashes(path); err != nil {
 		g.props.Logger.Warn("Failed to refresh command file hashes after post-processing", "error", err)
 	}
+
+	return failed
 }
 
 func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig) error {
@@ -323,8 +370,10 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 		return err
 	}
 
+	var failed []string
+
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
-		g.runSkeletonPostProcessing(ctx, config.Path)
+		failed = g.runSkeletonPostProcessing(ctx, config.Path)
 
 		// Post-processing tools (go mod tidy, golangci-lint) may have modified
 		// tracked files. Refresh their hashes so the next run does not flag
@@ -338,6 +387,12 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 		// post-lint-fix, final manifest hashes). Best-effort: any git failure is
 		// a warning, never a generation error.
 		g.runSkeletonGitInit(ctx, config)
+	}
+
+	if err := notVerified(failed); err != nil {
+		g.props.Logger.Warn("generated skeleton, not verified", "path", config.Path)
+
+		return err
 	}
 
 	g.props.Logger.Info("successfully generated skeleton", "path", config.Path)

@@ -94,14 +94,22 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 
 	// Post-processing (linter, hash refresh) runs against the now-committed tree
 	// on the real filesystem only.
+	var failed []string
+
 	writtenSkeletonHashes, err := g.collectSkeletonHashes()
 	if err != nil {
 		g.props.Logger.Warn("skipping post-regeneration processing: failed to load skeleton hashes", "error", err)
 	} else {
-		g.runPostRegenerationProcessing(ctx, writtenSkeletonHashes)
+		failed = g.runPostRegenerationProcessing(ctx, writtenSkeletonHashes)
 	}
 
 	g.reportConflicts()
+
+	if err := notVerified(failed); err != nil {
+		g.props.Logger.Warn("project regenerated, not verified")
+
+		return err
+	}
 
 	g.props.Logger.Info("Project regeneration complete.")
 
@@ -239,18 +247,27 @@ func (g *Generator) collectSkeletonHashes() (map[string]string, error) {
 // generated, unchanged project would not survive a regenerate unchanged. Tidying
 // here keeps regenerate's go.mod byte-identical to generate's, and because the
 // hash refresh runs afterwards the manifest records the tidied go.mod's hash.
-func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHashes map[string]string) {
+func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHashes map[string]string) []string {
 	if _, ok := g.props.FS.(*afero.OsFs); !ok {
-		return
+		return nil
 	}
 
-	g.props.Logger.Info("Running go mod tidy...")
+	var failed []string
 
-	if err := g.runSkeletonCommand(ctx, g.config.Path, "go", "mod", "tidy"); err != nil {
-		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+	if g.config.NoVerify {
+		g.props.Logger.Warn("verification skipped (--no-verify): the tree was emitted, not verified")
+	} else {
+		g.props.Logger.Info("Running go mod tidy...")
+
+		if err := g.runSkeletonCommand(ctx, g.config.Path, "go", "mod", "tidy"); err != nil {
+			g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+			failed = append(failed, "go mod tidy failed: "+err.Error())
+		}
+
+		if err := g.runLintPass(ctx, g.config.Path); err != nil {
+			failed = append(failed, "golangci-lint run --fix failed: "+err.Error())
+		}
 	}
-
-	g.runLintPass(ctx, g.config.Path)
 
 	// Post-processing (tidy, lint) may have modified tracked files in either
 	// namespace. Refresh both so the next run does not flag those changes as
@@ -264,6 +281,8 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 	if err := g.refreshCommandFileHashes(g.config.Path); err != nil {
 		g.props.Logger.Warn("Failed to refresh command file hashes after post-processing", "error", err)
 	}
+
+	return failed
 }
 
 // RegenerateCommand regenerates a single command's cmd.go from its full
