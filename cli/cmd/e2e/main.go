@@ -29,6 +29,7 @@ package main
 import (
 	"embed"
 	"encoding/base64"
+	"fmt"
 	"os"
 
 	"github.com/spf13/afero"
@@ -66,66 +67,71 @@ func init() {
 }
 
 func main() {
-	rootCmd, p := newTestRoot()
+	rootCmd, p, err := newTestRoot()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gtb-e2e:", err)
+		os.Exit(errorhandling.ExitCodeUsage)
+	}
+
 	root.Execute(rootCmd, p)
 }
 
-func newTestRoot() (*setup.Command, *props.Props) {
+func newTestRoot() (*setup.Command, *props.Props, error) {
 	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
-	p := &props.Props{
-		Tool: props.Tool{
-			Name:        "gtb",
-			Summary:     "GTB E2E test binary",
-			Description: "A test-only binary with all features enabled for E2E/BDD testing.",
-			// Match production gtb's env prefix so the test binary does
-			// not inherit raw credential env vars (ANTHROPIC_API_KEY
-			// etc.) from the developer's shell via viper's AutomaticEnv.
-			EnvPrefix: "GTB",
-			ReleaseSource: props.ReleaseSource{
-				Type:  "gitlab",
-				Owner: "phpboyscout",
-				Repo:  "go-tool-base",
-			},
-			Features: props.SetFeatures(
-				props.Enable(props.InitCmd),
-				props.Enable(props.UpdateCmd),
-				props.Enable(props.DoctorCmd),
-				props.Enable(props.McpCmd),
-				props.Enable(props.ConfigCmd),
-				props.Enable(props.TelemetryCmd),
-				props.Enable(props.ManCmd), // hidden; enabled here for BDD coverage
-				// AiCmd and the forges are not enabled by default but
-				// are needed for BDD / manual testing of the credential
-				// setup wizards and the chat/VCS resolvers.
-				//
-				// The forge constants come from pkg/setup/forge rather
-				// than being rebuilt inline as props.FeatureID("github").
-				// Constructing them inline is what let github and
-				// bitbucket exist everywhere except the enumeration —
-				// see spec 0184.
-				props.Enable(props.AiCmd),
-				props.Enable(forge.GithubFeature),
-				props.Enable(forge.GitlabFeature),
-				props.Enable(forge.GiteaFeature),
-				props.Enable(forge.CodebergFeature),
-				props.Enable(forge.BitbucketFeature),
-				props.Disable(props.DocsCmd), // no embedded assets in test binary
-			),
-			Telemetry: props.TelemetryConfig{
-				OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
-				OTelHeaders: map[string]string{
-					"Authorization": "Basic " + otelAuth,
-				},
+	tool := props.Tool{
+		Name:        "gtb",
+		Summary:     "GTB E2E test binary",
+		Description: "A test-only binary with all features enabled for E2E/BDD testing.",
+		// Match production gtb's env prefix so the test binary does
+		// not inherit raw credential env vars (ANTHROPIC_API_KEY
+		// etc.) from the developer's shell via viper's AutomaticEnv.
+		EnvPrefix: "GTB",
+		ReleaseSource: props.ReleaseSource{
+			Type:  "gitlab",
+			Owner: "phpboyscout",
+			Repo:  "go-tool-base",
+		},
+		Features: props.SetFeatures(
+			props.Enable(props.InitCmd),
+			props.Enable(props.UpdateCmd),
+			props.Enable(props.DoctorCmd),
+			props.Enable(props.McpCmd),
+			props.Enable(props.ConfigCmd),
+			props.Enable(props.TelemetryCmd),
+			props.Enable(props.ManCmd), // hidden; enabled here for BDD coverage
+			// AiCmd and the forges are not enabled by default but
+			// are needed for BDD / manual testing of the credential
+			// setup wizards and the chat/VCS resolvers.
+			//
+			// The forge constants come from pkg/setup/forge rather
+			// than being rebuilt inline as props.FeatureID("github").
+			// Constructing them inline is what let github and
+			// bitbucket exist everywhere except the enumeration —
+			// see spec 0184.
+			props.Enable(props.AiCmd),
+			props.Enable(forge.GithubFeature),
+			props.Enable(forge.GitlabFeature),
+			props.Enable(forge.GiteaFeature),
+			props.Enable(forge.CodebergFeature),
+			props.Enable(forge.BitbucketFeature),
+			props.Disable(props.DocsCmd), // no embedded assets in test binary
+		),
+		Telemetry: props.TelemetryConfig{
+			OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
+			OTelHeaders: map[string]string{
+				"Authorization": "Basic " + otelAuth,
 			},
 		},
-		Logger:  l,
-		FS:      afero.NewOsFs(),
-		Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
-		Version: version.Get(),
 	}
 
-	p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
+	p, err := props.New(tool, l, afero.NewOsFs(),
+		props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})),
+		props.WithVersion(version.Get()),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// When GTB_E2E_RELEASE_SCENARIO is set, swap the configured GitLab release
 	// source for an in-memory stub so `gtb update` scenarios run hermetically.
@@ -158,5 +164,5 @@ func newTestRoot() (*setup.Command, *props.Props) {
 	// controls.Controller runs underneath the root command.
 	rootCmd.Register(newSuperviseCommand(p))
 
-	return rootCmd, p
+	return rootCmd, p, nil
 }

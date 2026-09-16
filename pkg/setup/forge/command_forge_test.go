@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -169,43 +170,43 @@ func TestRegisteredForgeProviders_HonourTheirSkipFlag(t *testing.T) {
 	tests := []struct {
 		name    string
 		feature props.FeatureID
-		skip    *bool
 		flag    string
 	}{
-		{"gitlab", GitlabFeature, &skipGitlab, "skip-gitlab"},
-		{"gitea", GiteaFeature, &skipGitea, "skip-gitea"},
+		{"gitlab", GitlabFeature, "skip-gitlab"},
+		{"gitea", GiteaFeature, "skip-gitea"},
 	}
+
+	snapshot := features.Default().Snapshot()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Not parallel: these mutate the package-level skip flags the
-			// registered closures read.
-			initialisers := setup.GetInitialisers()[tt.feature]
+			t.Parallel()
+
+			initialisers := setup.InitialisersIn(snapshot)[tt.feature]
 			require.NotEmpty(t, initialisers)
 
-			*tt.skip = false
+			binders := setup.FeatureFlagsIn(snapshot)[tt.feature]
+			require.NotEmpty(t, binders)
 
-			defer func() { *tt.skip = false }()
+			// The skip flag is the init command's own: bind it, then read it back
+			// through the provider, so no package state is involved (#37).
+			target := &cobra.Command{Use: "init"}
+			binders[0](target)
+			require.NotNil(t, target.Flags().Lookup(tt.flag), "the forge must contribute its %s flag", tt.flag)
 
-			assert.NotNil(t, initialisers[0](p), "an unskipped forge must yield an initialiser")
+			// The flag defaults on under CI=true; pin the unskipped case explicitly.
+			require.NoError(t, target.Flags().Set(tt.flag, "false"))
+			assert.NotNil(t, initialisers[0](p, target.Flags()), "an unskipped forge must yield an initialiser")
 
-			*tt.skip = true
-			assert.Nil(t, initialisers[0](p), "a skipped forge must yield no initialiser")
+			require.NoError(t, target.Flags().Set(tt.flag, "true"))
+			assert.Nil(t, initialisers[0](p, target.Flags()), "a skipped forge must yield no initialiser")
 
-			subcommands := setup.GetSubcommands()[tt.feature]
+			subcommands := setup.SubcommandsIn(snapshot)[tt.feature]
 			require.NotEmpty(t, subcommands)
 
 			cmds := subcommands[0](p)
 			require.Len(t, cmds, 1)
 			assert.Equal(t, tt.name, cmds[0].Use)
-
-			flags := setup.GetFeatureFlags()[tt.feature]
-			require.NotEmpty(t, flags)
-
-			target := &cobra.Command{Use: "init"}
-			flags[0](target)
-			assert.NotNil(t, target.Flags().Lookup(tt.flag),
-				"the forge must contribute its %s flag", tt.flag)
 		})
 	}
 }

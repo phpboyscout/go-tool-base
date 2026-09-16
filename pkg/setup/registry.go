@@ -3,15 +3,20 @@ package setup
 import (
 	"context"
 	"io/fs"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// InitialiserProvider is a function that creates an Initialiser.
-type InitialiserProvider func(p *props.Props) Initialiser
+// InitialiserProvider creates an Initialiser for one init run, reading the
+// run's flags (the ones a FeatureFlag bound on the init command) rather than
+// package state, so two roots never share a flag target (spec 0199 D3, #37).
+// It returns nil when its feature asks to be skipped.
+type InitialiserProvider func(p *props.Props, flags *pflag.FlagSet) Initialiser
 
 // SubcommandProvider is a function that creates a slice of cobra subcommands.
 type SubcommandProvider func(p *props.Props) []*cobra.Command
@@ -102,19 +107,9 @@ func RegisterAssets(feature props.FeatureID, name string, bundle fs.FS) {
 	features.Default().Contribute(feature, SlotAssets, AssetBundle{Name: name, Bundle: bundle})
 }
 
-// GetInitialisers returns every registered initialiser provider by feature.
-func GetInitialisers() map[props.FeatureID][]InitialiserProvider {
-	return InitialisersIn(features.Default().Snapshot())
-}
-
 // InitialisersIn is GetInitialisers over a snapshot.
 func InitialisersIn(s features.Snapshot) map[props.FeatureID][]InitialiserProvider {
 	return contributionsBy[InitialiserProvider](s, SlotInitialiser)
-}
-
-// GetSubcommands returns every registered subcommand provider by feature.
-func GetSubcommands() map[props.FeatureID][]SubcommandProvider {
-	return SubcommandsIn(features.Default().Snapshot())
 }
 
 // SubcommandsIn is GetSubcommands over a snapshot.
@@ -122,29 +117,14 @@ func SubcommandsIn(s features.Snapshot) map[props.FeatureID][]SubcommandProvider
 	return contributionsBy[SubcommandProvider](s, SlotSubcommand)
 }
 
-// GetFeatureFlags returns every registered init-flag binder by feature.
-func GetFeatureFlags() map[props.FeatureID][]FeatureFlag {
-	return FeatureFlagsIn(features.Default().Snapshot())
-}
-
 // FeatureFlagsIn is GetFeatureFlags over a snapshot.
 func FeatureFlagsIn(s features.Snapshot) map[props.FeatureID][]FeatureFlag {
 	return contributionsBy[FeatureFlag](s, SlotInitFlag)
 }
 
-// GetAssets returns every registered asset bundle by feature.
-func GetAssets() map[props.FeatureID][]AssetBundle {
-	return AssetsIn(features.Default().Snapshot())
-}
-
 // AssetsIn is GetAssets over a snapshot.
 func AssetsIn(s features.Snapshot) map[props.FeatureID][]AssetBundle {
 	return contributionsBy[AssetBundle](s, SlotAssets)
-}
-
-// GetChecks returns every registered check provider by feature.
-func GetChecks() map[props.FeatureID][]CheckProvider {
-	return ChecksIn(features.Default().Snapshot())
 }
 
 // ChecksIn is GetChecks over a snapshot.
@@ -168,3 +148,30 @@ func contributionsBy[T any](s features.Snapshot, slot features.Slot) map[props.F
 
 	return out
 }
+
+// SkipKeyFlag is the init flag every profile that offers an SSH key honours.
+// The init command binds it; a provider reads it through FlagSkips.
+const SkipKeyFlag = "skip-key"
+
+// FlagSkips reads a set of boolean init flags by name. A flag that was not
+// bound (its feature is off) reads as false, so a provider can ask for a flag
+// another feature owns without caring whether that feature is linked.
+func FlagSkips(flags *pflag.FlagSet, names ...string) map[string]bool {
+	out := make(map[string]bool, len(names))
+
+	for _, name := range names {
+		if flags == nil {
+			continue
+		}
+
+		if v, err := flags.GetBool(name); err == nil {
+			out[name] = v
+		}
+	}
+
+	return out
+}
+
+// CIDefault is the default an init skip flag takes: on under CI, where nobody
+// can answer a wizard.
+func CIDefault() bool { return os.Getenv("CI") == "true" }

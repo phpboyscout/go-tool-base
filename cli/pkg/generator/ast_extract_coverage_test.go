@@ -1153,7 +1153,7 @@ func TestFindPropsLiteralInFunc_NotFound(t *testing.T) {
 	fn := parseFunc(t, "package p\nfunc f() {\n\tx := 1\n\t_ = x\n}\n", "f")
 	_, _, err := findPropsLiteralInFunc(fn)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "props.Props literal not found")
+	assert.Contains(t, err.Error(), "props.Tool literal not found")
 }
 
 func TestTryExtractPropsLiteral_NegativeBranches(t *testing.T) {

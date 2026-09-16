@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +20,7 @@ func TestRegisterOn_PopulatesEveryReader(t *testing.T) {
 	t.Parallel()
 
 	feature := props.FeatureID("cov-feature")
-	ip := func(_ *props.Props) Initialiser { return nil }
+	ip := func(_ *props.Props, _ *pflag.FlagSet) Initialiser { return nil }
 	sp := func(_ *props.Props) []*cobra.Command { return nil }
 	fp := func(_ *cobra.Command) {}
 	cp := func(_ *props.Props) []CheckFunc { return nil }

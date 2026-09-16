@@ -6,7 +6,17 @@ Feature: The manifest owns every author setting
   machine, is one the author cannot rely on.
 
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface
-  D3, D4, D6, D7, D8, D9, D10 and D13.
+  D3, D4, D6, D7, D8, D9, D10 and D13, and
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0199-features-as-a-value-and-a-root-that-owns-its-registries
+  D4 (the generated root goes through props.New).
+
+  Scenario: The generated root constructs its Props through props.New and reports a failure as an error
+    Given a freshly generated gtb project
+    Then the generated "pkg/cmd/root/cmd.go" file contains "props.New("
+    And the generated "pkg/cmd/root/cmd.go" file contains "return nil, nil, err"
+    And the generated "pkg/cmd/root/cmd.go" file does not contain "&props.Props{"
+    And the generated "cmd/feattool/main.go" file contains "rootCmd, p, err := root.NewCmdRoot("
+    And the generated "cmd/feattool/main.go" file contains "errorhandling.ExitCodeUsage"
 
   Scenario: The Go version is recorded and regenerate leaves the go line alone
     Given a freshly generated gtb project

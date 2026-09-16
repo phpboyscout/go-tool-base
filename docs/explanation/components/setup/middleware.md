@@ -26,27 +26,25 @@ A `Middleware` is a higher-order function that takes a `cobra.RunEFunc` and retu
 ```go
 func RegisterGlobalMiddleware(mw ...Middleware)
 ```
-Adds middleware that will be applied to **all** commands registered via the root command. Global middleware is executed before feature-specific middleware.
+Contributes middleware, under `features.Global`, that applies to **every** command a root chains. Call it at `init()`; the root reads it through the snapshot its feature set was resolved from. Global middleware runs before feature-specific middleware.
 
 #### `RegisterMiddleware`
 ```go
 func RegisterMiddleware(feature props.FeatureID, mw ...Middleware)
 ```
-Adds middleware that will be applied only to commands associated with a specific `props.FeatureID`.
+Contributes middleware for the commands of one `props.FeatureID`. It applies only while that feature is enabled in the root's set.
 
-#### `Seal`
+### The chain is the root's
+
+#### `Chainer` and `MiddlewareChain`
 ```go
-func Seal()
-```
-Locks the middleware registry. This must be called before `Chain()` is used, typically during root command initialization. Attempting to register middleware after sealing will cause a panic.
+type Chainer interface {
+    Chain(feature props.FeatureID, runE RunE) RunE
+}
 
-### Application Functions
-
-#### `Chain`
-```go
-func Chain(feature props.FeatureID, runE cobra.RunEFunc) cobra.RunEFunc
+func NewMiddlewareChain(builtin []Middleware, set features.Set) *MiddlewareChain
 ```
-Applies all registered global and feature-specific middleware to the provided `RunE` function, returning the final wrapped function.
+A `Chainer` wraps a command's `RunE` with the middleware that applies to its feature. `NewCmdRoot` builds one per root (spec 0199 D3): the built-in recovery, timing and telemetry middleware closing over **that root's** `Props`, then the enabled features' global contributions, then the feature's own. Nothing is process-wide, so two roots in one process share no middleware and each reports telemetry to its own collector. `root.WithChain` replaces the default; `MiddlewareChain` is exported so a consumer can embed it.
 
 ## Composed Commands: `setup.Command`
 
@@ -73,11 +71,14 @@ as `setup.Wrap("serve", &cobra.Command{...})`.
 ```go
 func (c *Command) Register(children ...*Command)
 ```
-Attaches each child to the underlying cobra tree and wraps its `RunE`
-with `Chain(child.Feature, child.RunE)`, applying every global
-middleware and any feature-specific middleware registered for the
-child's key. Each child is wrapped exactly once with **its own** feature;
-the parent's feature is not propagated downward.
+Hands each child the parent's `Chainer` (set on the root by `UseChain`),
+wraps its `RunE` with `chain.Chain(child.Feature, child.RunE)`, and walks the
+child's descendants wrapping any `RunE` not yet chained under its own
+annotated feature, so a subtree assembled bottom-up before it joined the root
+is wrapped exactly once (the `gtb.chained` annotation marks a wrapped command).
+The parent's feature is not propagated downward. A command with no chain yet
+(a subtree with no root) attaches children unwrapped and leaves the wrapping
+for the root that takes it.
 
 ```go
 parent := setup.Wrap("parent", &cobra.Command{Use: "parent"})
@@ -197,9 +198,10 @@ Because it is a wrapping chain, the "before" logic runs in registration order (o
 
 To ensure thread safety and architectural consistency, the middleware registry follows a strict lifecycle:
 
-1.  **Registration**: Occurs during the `init()` phase of your packages.
-2.  **Sealing**: The registry is "sealed" during the root command registration. No further middleware can be added once the command tree is being built.
-3.  **Execution**: When a parent attaches a child via `parent.Register(child)`, `Chain()` wraps the child's `RunE` exactly once: with that child's own feature key. Every command in the tree picks up its own middleware at attach time; nothing is wrapped twice.
+1.  **Registration**: Occurs during the `init()` phase of your packages, as contributions to the default feature registry.
+2.  **Snapshot**: `props.New` (or the root, for a literal `Props`) snapshots the registry and resolves the tool's feature set. Middleware registered after that is not in this root's chain, and nothing panics.
+3.  **Chain**: `NewCmdRoot` builds this root's `MiddlewareChain` from the set and hands it down the tree.
+4.  **Wrap**: When a parent attaches a child via `parent.Register(child)`, the chain wraps the child's `RunE` exactly once, with that child's own feature key, and wraps any descendant the child already carried. Nothing is wrapped twice.
 
 ## How wrapping is wired
 

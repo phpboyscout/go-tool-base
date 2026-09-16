@@ -190,7 +190,7 @@ func Update(ctx context.Context, props *p.Props, version string, force bool, out
 
 	props.Logger.Info("Update complete")
 
-	if props.Tool.IsEnabled(p.ChangelogCmd) {
+	if props.GetFeatures().Enabled(p.ChangelogCmd) {
 		props.Logger.Info(fmt.Sprintf("Run '%s changelog --latest' to see the full changelog.", props.Tool.Name))
 	}
 
@@ -257,7 +257,7 @@ func UpdateConfig(ctx context.Context, props *p.Props, binPath string, opts ...U
 		opt(o)
 	}
 
-	if props.Tool.IsDisabled(p.InitCmd) {
+	if !props.GetFeatures().Enabled(p.InitCmd) {
 		props.Logger.Debug("Skipping config update as init command is disabled")
 	} else {
 		updatePaths := []string{

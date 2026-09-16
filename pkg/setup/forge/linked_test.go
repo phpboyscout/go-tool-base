@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/errors"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -87,12 +88,15 @@ func TestUnlinked_DisabledFeaturesAreNotChecked(t *testing.T) {
 func TestUnlinked_RealRegistry(t *testing.T) {
 	t.Parallel()
 
-	tool := props.Tool{}
+	var states []features.State
 	for feature := range profilesByFeature {
-		tool.Features = append(tool.Features, props.Feature{ID: feature, Enabled: true})
+		states = append(states, features.State{ID: feature, Enabled: true})
 	}
 
-	missing := Unlinked(tool)
+	set, err := features.Resolve(features.Default().Snapshot(), states)
+	require.NoError(t, err)
+
+	missing := Unlinked(set)
 	require.Len(t, missing, len(profilesByFeature))
 
 	for _, m := range missing {

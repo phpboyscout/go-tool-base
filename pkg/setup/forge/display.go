@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -59,18 +60,29 @@ func DisplayFor(id props.FeatureID) (Display, bool) {
 	}, true
 }
 
-// Displays returns every registered forge's display data, in the registry's
+// Displays returns every forge this binary declared, in the registry's
 // deterministic order. A chooser built from this cannot offer a forge with no
-// initialiser behind it, nor omit one that has an initialiser — which is how
+// initialiser behind it, nor omit one that has an initialiser, which is how
 // the generator came to offer GitLab, which had no credential path, while
-// hiding Bitbucket, which did.
+// hiding Bitbucket, which did. It reads the default registry because the
+// question is what the binary linked, not what one tool enabled.
 func Displays() []Display {
-	ids := props.FeaturesOfKind(props.KindForge)
-	out := make([]Display, 0, len(ids))
+	return DisplaysIn(features.Default().Snapshot())
+}
 
-	for _, id := range ids {
-		if d, ok := DisplayFor(id); ok {
-			out = append(out, d)
+// DisplaysIn is Displays over an enumeration: a snapshot for "what is linked",
+// a Set for "what is linked and enabled".
+func DisplaysIn(e props.Enumerator) []Display {
+	descriptors := e.Descriptors()
+	out := make([]Display, 0, len(descriptors))
+
+	for _, d := range descriptors {
+		if d.FeatureKind() != props.KindForge {
+			continue
+		}
+
+		if disp, ok := DisplayFor(d.FeatureID()); ok {
+			out = append(out, disp)
 		}
 	}
 

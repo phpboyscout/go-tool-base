@@ -7,12 +7,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
-// The parity guards below all range over props.FeaturesOfKind(props.KindForge)
+// forgeIDs is every forge this binary declared, in snapshot order.
+func forgeIDs() []props.FeatureID {
+	var ids []props.FeatureID
+	for _, d := range features.Default().Snapshot().OfKind(props.KindForge) {
+		ids = append(ids, d.FeatureID())
+	}
+
+	return ids
+}
+
+// The parity guards below all range over the default snapshot's forge kind
 // rather than a list written here. That is the point: a forge added later is
 // picked up automatically, and if it is missing an initialiser, a subcommand, a
 // config bundle or display data, one of these fails — instead of the gap being
@@ -25,9 +36,11 @@ import (
 func TestEveryForgeHasAnInitialiser(t *testing.T) {
 	t.Parallel()
 
-	initialisers := setup.GetInitialisers()
+	snapshot := features.Default().Snapshot()
+	initialisers := setup.InitialisersIn(snapshot)
 
-	for _, id := range props.FeaturesOfKind(props.KindForge) {
+	for _, d := range snapshot.OfKind(props.KindForge) {
+		id := d.FeatureID()
 		assert.NotEmptyf(t, initialisers[id],
 			"forge %q is registered but has no initialiser — it cannot be configured", id)
 	}
@@ -38,9 +51,9 @@ func TestEveryForgeHasAnInitialiser(t *testing.T) {
 func TestEveryForgeHasAnInitSubcommand(t *testing.T) {
 	t.Parallel()
 
-	subcommands := setup.GetSubcommands()
+	subcommands := setup.SubcommandsIn(features.Default().Snapshot())
 
-	for _, id := range props.FeaturesOfKind(props.KindForge) {
+	for _, id := range forgeIDs() {
 		assert.NotEmptyf(t, subcommands[id],
 			"forge %q has no `init %s` subcommand", id, id)
 	}
@@ -53,9 +66,9 @@ func TestEveryForgeHasAnInitSubcommand(t *testing.T) {
 func TestEveryForgeShipsAConfigBundle(t *testing.T) {
 	t.Parallel()
 
-	assets := setup.GetAssets()
+	assets := setup.AssetsIn(features.Default().Snapshot())
 
-	for _, id := range props.FeaturesOfKind(props.KindForge) {
+	for _, id := range forgeIDs() {
 		bundles := assets[id]
 		require.NotEmptyf(t, bundles, "forge %q ships no config bundle", id)
 
@@ -77,7 +90,7 @@ func TestEveryForgeShipsAConfigBundle(t *testing.T) {
 func TestEveryForgeHasDisplayData(t *testing.T) {
 	t.Parallel()
 
-	for _, id := range props.FeaturesOfKind(props.KindForge) {
+	for _, id := range forgeIDs() {
 		d, ok := forge.DisplayFor(id)
 		require.Truef(t, ok, "forge %q has no display data", id)
 
@@ -95,25 +108,24 @@ func TestForgeFeaturesCoverEveryRegisteredProfile(t *testing.T) {
 	t.Parallel()
 
 	displays := forge.Displays()
-	kinds := props.FeaturesOfKind(props.KindForge)
+	kinds := forgeIDs()
 
 	assert.Len(t, displays, len(kinds),
 		"every registered forge feature must have display data, and vice versa")
 }
 
 // TestNewForgeFeaturesAreRegistered extends the 0184 enumeration guard to the
-// forges this spec adds. doctor's support bundle ranges over props.AllFeatures.
+// forges this spec adds. doctor's support bundle ranges over the Set's
+// descriptors.
 func TestNewForgeFeaturesAreRegistered(t *testing.T) {
 	t.Parallel()
 
-	all := props.AllFeatures()
+	snapshot := features.Default().Snapshot()
 
 	for _, id := range []props.FeatureID{forge.GitlabFeature, forge.GiteaFeature, forge.CodebergFeature} {
-		assert.Containsf(t, all, id, "%q must appear in the feature enumeration", id)
-
-		d, ok := props.DescriptorFor(id)
+		d, ok := snapshot.Lookup(id)
 		require.Truef(t, ok, "%q must be registered", id)
-		assert.Equalf(t, props.KindForge, d.Kind, "%q must be a forge", id)
-		assert.Falsef(t, d.Default, "%q must not be default-enabled", id)
+		assert.Equalf(t, props.KindForge, d.FeatureKind(), "%q must be a forge", id)
+		assert.Falsef(t, d.DefaultOn(), "%q must not be default-enabled", id)
 	}
 }

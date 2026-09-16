@@ -118,20 +118,20 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	f.ImportAlias("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "gtbRoot")
 
-	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("gitlab.com/phpboyscout/go/errorhandling", "New").Call(
-		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "ToSlog").Call(jen.Id("l")),
-		jen.Id("p").Dot("Tool").Dot("Help"),
-	)
-
 	rootCmdInit := buildRootCmdInit(f, data)
 
 	toolDict := buildToolDict(data)
 
+	f.Comment("NewCmdRoot builds the tool's Props through props.New, the one construction")
+	f.Comment("path, and the command tree on it. The error is a wiring defect in this")
+	f.Comment("file (an unnamed tool, a feature enabled that no import declares); main")
+	f.Comment("exits 2 on it.")
 	f.Func().Id("NewCmdRoot").Params(
 		jen.Id("v").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/version", "Info"),
 	).Params(
 		jen.Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Command"),
 		jen.Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
+		jen.Error(),
 	).Block(
 		jen.Id("l").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "NewCharm").Call(
 			jen.Qual("os", "Stderr"),
@@ -141,19 +141,24 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 			),
 		),
 		jen.Line(),
-		jen.Id("p").Op(":=").Op("&").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props").Values(jen.Dict{
-			jen.Id("Tool"):    jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Tool").Values(toolDict),
-			jen.Id("Logger"):  jen.Id("l"),
-			jen.Id("Assets"):  jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "NewAssets").Call(jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "AssetMap").Values(jen.Dict{jen.Lit("root"): jen.Op("&").Id("assets")})),
-			jen.Id("FS"):      jen.Qual("github.com/spf13/afero", "NewOsFs").Call(),
-			jen.Id("Version"): jen.Id("v"),
-		}),
+		jen.Id("tool").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Tool").Values(toolDict),
 		jen.Line(),
-		pErrorHandler,
+		jen.List(jen.Id("p"), jen.Id("err")).Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "New").Call(
+			jen.Id("tool"),
+			jen.Id("l"),
+			jen.Qual("github.com/spf13/afero", "NewOsFs").Call(),
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "WithAssets").Call(
+				jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "NewAssets").Call(jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "AssetMap").Values(jen.Dict{jen.Lit("root"): jen.Op("&").Id("assets")})),
+			),
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "WithVersion").Call(jen.Id("v")),
+		),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Return(jen.Nil(), jen.Nil(), jen.Id("err")),
+		),
 		jen.Line(),
 		rootCmdInit,
 		jen.Line(),
-		jen.Return(jen.Id("rootCmd"), jen.Id("p")),
+		jen.Return(jen.Id("rootCmd"), jen.Id("p"), jen.Nil()),
 	)
 
 	return f

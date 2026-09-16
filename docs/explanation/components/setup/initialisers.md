@@ -72,16 +72,15 @@ func Register(
 
 ### The Registration Flow
 
-1.  **Package Init**: When the application starts, packages invoke `setup.Register`. The setup package stores these providers in a global registry.
+1.  **Package Init**: When the application starts, packages invoke `setup.Register`, which contributes the providers to the default feature registry under the feature's ID (`setup.SlotInitialiser`, `SlotSubcommand`, `SlotInitFlag`).
 2.  **Command Construction**:
-    *   The **Root Init Command** iterates over the registry.
-    *   It checks `props.Tool.IsEnabled(feature)` to see if the feature is active.
-    *   If active, it adds any registered `FeatureFlag`s to the root `init` command flags.
+    *   The **Root Init Command** reads `props.GetFeatures().EnabledDescriptors()`, the resolved set on `Props`.
+    *   For each enabled feature it binds the contributed `FeatureFlag`s on the `init` command. The flag targets are the command's own: two roots never share one (spec 0199 D3).
+    *   `init` also binds `--skip-key` itself, since every profile that offers an SSH key honours it whichever forges are linked.
 3.  **Command Execution**:
-    *   When `init` runs, it calls `setup.Initialise`.
-    *   `setup.Initialise` instantiates `Initialiser`s using the registered `InitialiserProvider`s.
-    *   It iterates through them, calling `IsConfigured`.
-    *   If not configured (and not skipped via flag), `Configure` is executed.
+    *   When `init` runs, it asks each enabled feature's `InitialiserProvider(p, cmd.Flags())` for an initialiser, handing it the run's flags; a provider that reads its skip flag set returns nil.
+    *   `setup.Initialise` iterates the initialisers, calling `IsConfigured`.
+    *   If not configured, `Configure` is executed.
 
 ## Built-in Initialisers Implementation
 
@@ -237,7 +236,7 @@ graph TD
 ## How it works at Runtime
 
 1. When you run `mytool init`, the framework fetches all registered items from the **Global Setup Registry**.
-2. It filters these items based on `props.Tool.IsEnabled(feature)`.
+2. It filters these items through the resolved set, `props.GetFeatures().Enabled(feature)`.
 3. It dynamically attaches any registered **Flags** to the `init` command.
 4. Before any initialiser runs, it materialises the config file from the init template (`assets/init/config.yaml`, merged across every registered bundle): seeding it when absent, or merging new template keys under an existing file.
 5. During execution, it iterates through the **Initialisers**. If `IsConfigured()` returns false (and the feature isn't explicitly skipped via a flag), it calls `Configure()`; each `Set` is applied to the file in place as it happens, preserving the template's comments.

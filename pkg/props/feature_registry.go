@@ -142,19 +142,16 @@ func registerFeature(r features.Registry, d FeatureDescriptor) error {
 	return r.Declare(d)
 }
 
-// FeatureDescriptors returns every registered feature in a stable total order:
-// built-ins in the order the constant block declares them, then everything else
-// by (kind, id). The order is the snapshot's, derived from data rather than
-// init() sequencing, because the doctor report and the generator's golden
-// files depend on it.
-func FeatureDescriptors() []FeatureDescriptor {
-	return descriptorsOf(features.Default().Snapshot())
+// Enumerator is anything that lists descriptors: a features.Snapshot or a
+// features.Set.
+type Enumerator interface {
+	Descriptors() []features.Descriptor
 }
 
-// descriptorsOf narrows a snapshot to GTB's descriptors. A descriptor of
+// descriptorsOf narrows an enumeration to GTB's descriptors. A descriptor of
 // another type on the same registry is a downstream's own and not GTB's to
 // enumerate, so it is skipped rather than refused.
-func descriptorsOf(s features.Snapshot) []FeatureDescriptor {
+func descriptorsOf(s Enumerator) []FeatureDescriptor {
 	all := s.Descriptors()
 	out := make([]FeatureDescriptor, 0, len(all))
 
@@ -167,48 +164,10 @@ func descriptorsOf(s features.Snapshot) []FeatureDescriptor {
 	return out
 }
 
-// AllFeatures is the canonical enumeration of every registered feature.
-//
-// It reflects what this binary linked: a tool that blank-imports fewer providers
-// enumerates fewer features, which is the correct runtime answer. The generator
-// needs the complete *possible* set instead, and gets it from its own catalogue.
-func AllFeatures() []FeatureID {
-	ds := FeatureDescriptors()
-
-	ids := make([]FeatureID, len(ds))
-	for i, d := range ds {
-		ids[i] = d.ID
-	}
-
-	return ids
-}
-
-// FeaturesOfKind returns the registered features of one kind, in the same order
-// [AllFeatures] uses. It is what makes "every forge" a query rather than a list
-// duplicated across the wizard, config validation and the doctor report.
-func FeaturesOfKind(kind FeatureKind) []FeatureID {
-	var ids []FeatureID
-
-	for _, d := range FeatureDescriptors() {
-		if d.Kind == kind {
-			ids = append(ids, d.ID)
-		}
-	}
-
-	return ids
-}
-
-// DescriptorFor returns the descriptor for id.
-func DescriptorFor(id FeatureID) (FeatureDescriptor, bool) {
-	d, ok := features.Default().Snapshot().Lookup(id)
-	if !ok {
-		return FeatureDescriptor{}, false
-	}
-
-	fd, ok := d.(FeatureDescriptor)
-
-	return fd, ok
-}
+// DescriptorsIn returns GTB's descriptors in s, in the snapshot's order. It is
+// what a reader with a Set or a Snapshot in hand uses in place of the removed
+// process-wide enumerations (spec 0199 D3).
+func DescriptorsIn(s Enumerator) []FeatureDescriptor { return descriptorsOf(s) }
 
 // builtinOrder fixes the enumeration order of the built-in features, preserving
 // the sequence the constant block and the historical AllFeatures var declared.
@@ -216,13 +175,6 @@ func DescriptorFor(id FeatureID) (FeatureDescriptor, bool) {
 var builtinOrder = []FeatureID{
 	UpdateCmd, InitCmd, McpCmd, DocsCmd, AiCmd, DoctorCmd,
 	ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
-}
-
-// isDefaultEnabled reports the framework default for id, from the registry.
-func isDefaultEnabled(id FeatureID) bool {
-	d, ok := DescriptorFor(id)
-
-	return ok && d.Default
 }
 
 func init() {

@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
@@ -40,6 +41,46 @@ type Props struct {
 	// reads as StdIO{}, the process's; the root fills it from the command once
 	// (spec 0198 D1). Read through GetIO.
 	IO IO
+	// Features is what this tool has: the resolved enabled state of every
+	// feature this binary declared, and the contributions of the enabled ones
+	// (spec 0199 D3). New resolves it from a snapshot of the default registry
+	// and Tool.Features; ApplyDefaults does the same for a literal Props. Every
+	// static decision (which commands exist, what doctor inventories) reads it.
+	Features features.Set
+	// Flags answers whether a feature is on for a request. It defaults to
+	// Features (every answer static); a service wires a features.Dynamic over a
+	// backend for the features that opt in (spec 0199 D10).
+	Flags features.Evaluator
+
+	// Construction-only: the snapshot and resolver New resolves Features from.
+	featureSnapshot features.Snapshot
+	featureResolver features.Resolver
+}
+
+// GetFeatures returns the resolved feature set. New and ApplyDefaults populate
+// Features; a literal Props that skipped both (a test building one command)
+// resolves here from the default registry, dropping any enable of a feature
+// nothing declared, the way ApplyDefaults would. Nil-safe by design, like
+// GetIO: a command reads its gate through this and never dereferences the
+// field.
+func (p *Props) GetFeatures() features.Set {
+	if p.Features != nil {
+		return p.Features
+	}
+
+	snapshot := features.Default().Snapshot()
+	set, _ := features.Resolve(snapshot, withoutUnknownEnables(snapshot, StatesOf(p.Tool.Features)))
+
+	return set
+}
+
+// GetFlags returns the request-time evaluator, defaulting to the feature set.
+func (p *Props) GetFlags() features.Evaluator {
+	if p.Flags != nil {
+		return p.Flags
+	}
+
+	return p.GetFeatures()
 }
 
 // GetLogger returns the application logger.

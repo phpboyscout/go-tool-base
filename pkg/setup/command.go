@@ -25,7 +25,16 @@ type Command struct {
 	// Feature is the middleware lookup key. The empty string means "no
 	// feature-specific middleware" (global middleware still applies).
 	Feature props.FeatureID
+
+	// chain is the root's Chainer, set by UseChain on the root and passed to
+	// each child on Register. Nil until the command joins a tree that has one;
+	// a subtree built before then is wrapped when it joins (spec 0199 D3).
+	chain Chainer
 }
+
+// ChainedAnnotation marks a cobra command whose RunE has been wrapped by a
+// Chainer, so a subtree that joins a tree later is wrapped exactly once.
+const ChainedAnnotation = "gtb.chained"
 
 // FeatureAnnotation is the cobra.Command.Annotations key under which [Wrap]
 // records the feature a command belongs to. Code that only has the raw
@@ -158,10 +167,38 @@ func (c *Command) Register(children ...*Command) {
 			continue
 		}
 
-		if child.RunE != nil {
-			child.RunE = Chain(child.Feature, child.RunE)
+		child.chain = c.chain
+		c.wrapTree(child.Command, child.Feature)
+		c.AddCommand(child.Command)
+	}
+}
+
+// UseChain gives the command (a root) the Chainer its tree is wrapped with.
+// Children registered afterwards inherit it; descendants they already carry
+// are wrapped as they join.
+func (c *Command) UseChain(chain Chainer) {
+	c.chain = chain
+}
+
+// wrapTree wraps cmd's RunE with the chain under feature, then every
+// descendant not yet wrapped under its own annotated feature. A nil chain
+// (a tree with no root yet) leaves the wrapping for the root to do.
+func (c *Command) wrapTree(cmd *cobra.Command, feature props.FeatureID) {
+	if c.chain == nil || cmd == nil {
+		return
+	}
+
+	if cmd.RunE != nil && cmd.Annotations[ChainedAnnotation] == "" {
+		cmd.RunE = c.chain.Chain(feature, cmd.RunE)
+
+		if cmd.Annotations == nil {
+			cmd.Annotations = map[string]string{}
 		}
 
-		c.AddCommand(child.Command)
+		cmd.Annotations[ChainedAnnotation] = "true"
+	}
+
+	for _, sub := range cmd.Commands() {
+		c.wrapTree(sub, FeatureOf(sub))
 	}
 }

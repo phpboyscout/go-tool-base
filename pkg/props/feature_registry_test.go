@@ -16,7 +16,7 @@ func TestBuiltinsAreRegistered(t *testing.T) {
 	t.Parallel()
 
 	byID := map[FeatureID]FeatureDescriptor{}
-	for _, d := range FeatureDescriptors() {
+	for _, d := range DescriptorsIn(features.Default().Snapshot()) {
 		byID[d.ID] = d
 	}
 
@@ -49,19 +49,20 @@ func TestBuiltinsAreRegistered(t *testing.T) {
 		"registry holds %d built-ins, expected %d — a new constant needs a descriptor", len(byID), len(want))
 }
 
-// TestAllFeatures_DerivesFromRegistry is the point of the whole change: the
-// enumeration is what was registered, not a second hand-maintained list. This is
+// TestDescriptorsIn_MirrorsTheSnapshot is the point of the whole change: the
+// enumeration is what was declared, not a second hand-maintained list. This is
 // the defect that let github/bitbucket vanish from doctor's feature matrix.
-func TestAllFeatures_DerivesFromRegistry(t *testing.T) {
+func TestDescriptorsIn_MirrorsTheSnapshot(t *testing.T) {
 	t.Parallel()
 
-	ids := AllFeatures()
-	descriptors := FeatureDescriptors()
+	snap := features.Default().Snapshot()
+	all := snap.Descriptors()
+	ours := DescriptorsIn(snap)
 
-	require.Len(t, ids, len(descriptors))
+	require.Len(t, ours, len(all), "every descriptor on the default registry is GTB's")
 
-	for i, d := range descriptors {
-		assert.Equal(t, d.ID, ids[i], "AllFeatures must mirror FeatureDescriptors order")
+	for i, d := range all {
+		assert.Equal(t, d.FeatureID(), ours[i].ID, "DescriptorsIn must keep the snapshot's order")
 	}
 }
 
@@ -73,7 +74,10 @@ func TestAllFeatures_DerivesFromRegistry(t *testing.T) {
 func TestOrdering_IsTotalAndIndependentOfRegistrationOrder(t *testing.T) {
 	t.Parallel()
 
-	ids := AllFeatures()
+	var ids []FeatureID
+	for _, d := range features.Default().Snapshot().Descriptors() {
+		ids = append(ids, d.FeatureID())
+	}
 
 	// Built-ins first, in the order the const block declares them.
 	wantHead := []FeatureID{
@@ -83,8 +87,13 @@ func TestOrdering_IsTotalAndIndependentOfRegistrationOrder(t *testing.T) {
 	require.GreaterOrEqual(t, len(ids), len(wantHead))
 	assert.Equal(t, wantHead, ids[:len(wantHead)], "built-ins must keep their declared order")
 
-	// Repeated calls must not vary.
-	assert.Equal(t, ids, AllFeatures(), "enumeration must be stable across calls")
+	// Repeated snapshots must not vary.
+	var again []FeatureID
+	for _, d := range features.Default().Snapshot().Descriptors() {
+		again = append(again, d.FeatureID())
+	}
+
+	assert.Equal(t, ids, again, "enumeration must be stable across calls")
 }
 
 // TestRegisterFeature_RejectsDefaultOnNonBuiltin guards D9. A blank import must
@@ -146,7 +155,7 @@ func TestRegisterFeature_Validates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateDescriptor(tt.d, FeatureDescriptors())
+			err := validateDescriptor(tt.d, DescriptorsIn(features.Default().Snapshot()))
 			require.Error(t, err)
 			assert.ErrorIs(t, err, tt.want)
 		})
@@ -159,24 +168,24 @@ func TestRegisterFeature_Validates(t *testing.T) {
 func TestFeaturesOfKind(t *testing.T) {
 	t.Parallel()
 
-	builtins := FeaturesOfKind(KindBuiltin)
-	assert.Equal(t, AllFeatures(), builtins,
+	snap := features.Default().Snapshot()
+	assert.Len(t, snap.OfKind(KindBuiltin), len(snap.Descriptors()),
 		"with only built-ins registered, the builtin kind is the whole set")
 
-	assert.Empty(t, FeaturesOfKind(KindForge))
-	assert.Empty(t, FeaturesOfKind(FeatureKind("nonexistent")))
+	assert.Empty(t, snap.OfKind(KindForge))
+	assert.Empty(t, snap.OfKind(FeatureKind("nonexistent")))
 }
 
-// TestIsEnabled_UsesRegistryDefaults keeps the existing behaviour wired to the
-// new source of truth rather than to DefaultFeatures directly.
-func TestIsEnabled_UsesRegistryDefaults(t *testing.T) {
+// TestResolvedSet_UsesRegistryDefaults keeps the existing behaviour wired to
+// the registry's defaults rather than to DefaultFeatures directly.
+func TestResolvedSet_UsesRegistryDefaults(t *testing.T) {
 	t.Parallel()
 
-	var tool Tool
+	set := enabledFor(t, Tool{})
 
-	assert.True(t, tool.IsEnabled(UpdateCmd), "update is default-enabled")
-	assert.False(t, tool.IsEnabled(AiCmd), "ai is default-disabled")
-	assert.False(t, tool.IsEnabled(FeatureID("unregistered")))
+	assert.True(t, set.Enabled(UpdateCmd), "update is default-enabled")
+	assert.False(t, set.Enabled(AiCmd), "ai is default-disabled")
+	assert.False(t, set.Enabled(FeatureID("unregistered")))
 }
 
 // TestRegisterFeature_OnAnOwnRegistry is spec 0199 D5: a test that declares a
@@ -196,7 +205,7 @@ func TestRegisterFeature_OnAnOwnRegistry(t *testing.T) {
 	require.NoError(t, registerFeature(r, late))
 	require.ErrorIs(t, registerFeature(r, late), ErrDuplicateFeature)
 
-	_, inDefault := DescriptorFor("latecomer")
+	_, inDefault := features.Default().Snapshot().Lookup("latecomer")
 	assert.False(t, inDefault, "the default registry never sees a test's feature")
 
 	got := descriptorsOf(r.Snapshot())

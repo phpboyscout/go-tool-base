@@ -15,6 +15,7 @@ import (
 	"gitlab.com/phpboyscout/go/output"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -356,23 +357,44 @@ func TestCheckPermissions_InsufficientPerms(t *testing.T) {
 	assert.Contains(t, result.Message, "insufficient permissions")
 }
 
+// customFeatureSet declares id on a registry of the test's own beside the
+// built-ins, contributes the check providers under it, and resolves a Set
+// with the feature in the given state (spec 0199 D5).
+func customFeatureSet(t *testing.T, id p.FeatureID, enabled bool, providers ...setup.CheckProvider) features.Set {
+	t.Helper()
+
+	reg := features.NewRegistry()
+	for _, d := range p.DescriptorsIn(features.Default().Snapshot()) {
+		require.NoError(t, reg.Declare(d))
+	}
+
+	require.NoError(t, reg.Declare(p.FeatureDescriptor{ID: id, ConstName: "Custom", ConstPackage: "example.com/custom", Kind: "test"}))
+
+	for _, cp := range providers {
+		reg.Contribute(id, setup.SlotCheck, cp)
+	}
+
+	set, err := features.Resolve(reg.Snapshot(), []features.State{{ID: id, Enabled: enabled}})
+	require.NoError(t, err)
+
+	return set
+}
+
 func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 	t.Parallel()
 
 	customFeature := p.FeatureID("custom-test")
 
-	setup.RegisterChecks(customFeature, []setup.CheckProvider{
-		func(_ *p.Props) []setup.CheckFunc {
-			return []setup.CheckFunc{
-				func(_ context.Context, _ *p.Props) setup.CheckResult {
-					return setup.CheckResult{
-						Name:    "Custom check",
-						Status:  CheckPass,
-						Message: "custom check passed",
-					}
-				},
-			}
-		},
+	set := customFeatureSet(t, customFeature, true, func(_ *p.Props) []setup.CheckFunc {
+		return []setup.CheckFunc{
+			func(_ context.Context, _ *p.Props) setup.CheckResult {
+				return setup.CheckResult{
+					Name:    "Custom check",
+					Status:  CheckPass,
+					Message: "custom check passed",
+				}
+			},
+		}
 	})
 
 	mockCfg := testutil.StoreFromYAML(t, "{}\n")
@@ -382,10 +404,11 @@ func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 			Name:     "test-tool",
 			Features: []p.Feature{{ID: customFeature, Enabled: true}},
 		},
-		Version: ver.NewInfo("v1.0.0", "", ""),
-		Config:  mockCfg,
-		Logger:  logger.NewNoop(),
-		FS:      afero.NewMemMapFs(),
+		Features: set,
+		Version:  ver.NewInfo("v1.0.0", "", ""),
+		Config:   mockCfg,
+		Logger:   logger.NewNoop(),
+		FS:       afero.NewMemMapFs(),
 	}
 
 	report := RunChecks(context.Background(), props)
@@ -409,14 +432,12 @@ func TestDiscoverChecks_DisabledFeature(t *testing.T) {
 
 	disabledFeature := p.FeatureID("disabled-test")
 
-	setup.RegisterChecks(disabledFeature, []setup.CheckProvider{
-		func(_ *p.Props) []setup.CheckFunc {
-			return []setup.CheckFunc{
-				func(_ context.Context, _ *p.Props) setup.CheckResult {
-					return setup.CheckResult{Name: "Should not appear", Status: CheckFail}
-				},
-			}
-		},
+	set := customFeatureSet(t, disabledFeature, false, func(_ *p.Props) []setup.CheckFunc {
+		return []setup.CheckFunc{
+			func(_ context.Context, _ *p.Props) setup.CheckResult {
+				return setup.CheckResult{Name: "Should not appear", Status: CheckFail}
+			},
+		}
 	})
 
 	props := &p.Props{
@@ -424,6 +445,7 @@ func TestDiscoverChecks_DisabledFeature(t *testing.T) {
 			Name:     "test-tool",
 			Features: []p.Feature{{ID: disabledFeature, Enabled: false}},
 		},
+		Features: set,
 	}
 
 	checks := discoverChecks(props)

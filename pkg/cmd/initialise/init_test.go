@@ -34,29 +34,12 @@ func newTestProps() *p.Props {
 	return propstest.New(propstest.WithTool(testTool()))
 }
 
-// resetSkipFlags re-parses the registered feature flags with explicit false
-// values so that package-level skip vars (e.g. skipAI, skipLogin, skipKey)
-// are reset after tests that set them via command execution.
-func resetSkipFlags(t *testing.T) {
-	t.Helper()
-
-	t.Cleanup(func() {
-		resetCmd := &cobra.Command{Use: "reset"}
-		registerFeatureFlagsWhere(resetCmd, func(p.FeatureID) bool { return true })
-		_ = resetCmd.ParseFlags([]string{
-			"--skip-login=false",
-			"--skip-key=false",
-			"--skip-ai=false",
-		})
-	})
-}
-
 func TestDiscoverInitialisers_AiEnabled(t *testing.T) {
 	t.Parallel()
 	props := newTestProps()
 	props.Tool.Features = p.SetFeatures(p.Enable(p.AiCmd))
 
-	initialisers := discoverInitialisers(props)
+	initialisers := discoverInitialisers(props, nil)
 	// AiCmd has a registered provider — at least one should be returned
 	assert.NotEmpty(t, initialisers)
 }
@@ -74,7 +57,7 @@ func TestDiscoverInitialisers_AllDisabled(t *testing.T) {
 		p.Disable(p.AiCmd),
 	)
 
-	initialisers := discoverInitialisers(props)
+	initialisers := discoverInitialisers(props, nil)
 	assert.Empty(t, initialisers)
 }
 
@@ -89,7 +72,6 @@ func TestRegisterSubcommands_AiEnabled(t *testing.T) {
 }
 
 func TestNewCmdInit(t *testing.T) {
-	resetSkipFlags(t)
 
 	fs := afero.NewMemMapFs()
 	// Mock HOME for default config dir
@@ -123,7 +105,6 @@ func TestNewCmdInit(t *testing.T) {
 }
 
 func TestNewCmdInit_FlagCombinations(t *testing.T) {
-	resetSkipFlags(t)
 	t.Setenv("HOME", "/tmp/home")
 
 	tests := []struct {
@@ -183,7 +164,6 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 }
 
 func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
-	resetSkipFlags(t)
 	t.Setenv("HOME", "/tmp/home")
 
 	fs := afero.NewMemMapFs()
@@ -217,7 +197,6 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 }
 
 func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
-	resetSkipFlags(t)
 	t.Setenv("HOME", "/tmp/home")
 
 	fs := afero.NewMemMapFs()
@@ -252,7 +231,6 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 }
 
 func TestNewCmdInit_CustomDir(t *testing.T) {
-	resetSkipFlags(t)
 	t.Setenv("HOME", "/tmp/home")
 
 	fs := afero.NewMemMapFs()

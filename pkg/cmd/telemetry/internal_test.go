@@ -18,6 +18,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -26,7 +27,7 @@ import (
 func TestChecksRegistered(t *testing.T) {
 	t.Parallel()
 
-	providers := setup.GetChecks()[props.TelemetryCmd]
+	providers := setup.ChecksIn(features.Default().Snapshot())[props.TelemetryCmd]
 	require.NotEmpty(t, providers, "telemetry checks must be registered")
 
 	var checks []setup.CheckFunc

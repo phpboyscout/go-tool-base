@@ -82,7 +82,7 @@ import (
 )
 ```
 
-When the feature is enabled via `props.Tool.IsEnabled()`, the doctor command will automatically discover and run your checks.
+When the feature is enabled in the tool's resolved set (`props.GetFeatures().Enabled()`), the doctor command discovers and runs your checks.
 
 ## Combining with Initialisers
 

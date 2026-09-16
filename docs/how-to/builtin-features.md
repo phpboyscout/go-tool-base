@@ -162,8 +162,8 @@ You can check at runtime whether a feature is enabled or disabled:
 
 ```go
 func isFeatureEnabled(p *props.Props, feature props.FeatureID) bool {
-    // Smart default logic is handled internally by gtb
-    return p.Tool.IsEnabled(feature)
+    // The resolved set on Props: the registry's defaults, then Tool.Features.
+    return p.GetFeatures().Enabled(feature)
 }
 ```
 

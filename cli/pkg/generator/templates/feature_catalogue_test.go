@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -36,15 +38,18 @@ func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 	//
 	// Ranging over AllFeatures() would still be wrong: a downstream tool may
 	// register features of its own, and those are not GTB's to scaffold.
-	scaffoldable := append(
-		props.FeaturesOfKind(props.KindBuiltin),
-		props.FeaturesOfKind(props.KindForge)...,
-	)
+	snapshot := features.Default().Snapshot()
+
+	var scaffoldable []props.FeatureID
+	for _, d := range append(snapshot.OfKind(props.KindBuiltin), snapshot.OfKind(props.KindForge)...) {
+		scaffoldable = append(scaffoldable, d.FeatureID())
+	}
 
 	assert.Lenf(t, FeatureCatalogue, len(scaffoldable),
 		"FeatureCatalogue must cover exactly the builtin and forge features — a new one needs a catalogue entry")
 
-	defaultTool := props.Tool{Features: props.SetFeatures()}
+	defaults, err := features.Resolve(snapshot, props.StatesOf(props.SetFeatures()))
+	require.NoError(t, err)
 
 	for _, cmd := range scaffoldable {
 		d, ok := byCmd[cmd]
@@ -52,14 +57,15 @@ func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 			continue
 		}
 
-		assert.Equalf(t, defaultTool.IsEnabled(cmd), d.Default,
+		assert.Equalf(t, defaults.Enabled(cmd), d.Default,
 			"catalogue Default for %q disagrees with the registry", cmd)
 
 		// The registry already records where each constant is declared. Cross-
 		// checking it here means the emitter's qualifier cannot drift from the
 		// package that actually declares the identifier.
-		reg, found := props.DescriptorFor(cmd)
-		if assert.Truef(t, found, "feature %q is not in the props registry", cmd) {
+		descriptor, found := snapshot.Lookup(cmd)
+		reg, isGTB := descriptor.(props.FeatureDescriptor)
+		if assert.Truef(t, found && isGTB, "feature %q is not in the props registry", cmd) {
 			assert.Equalf(t, reg.ConstPackage, d.ConstPackage,
 				"catalogue ConstPackage for %q disagrees with the registry", cmd)
 			assert.Equalf(t, reg.ConstName, d.ConstName,

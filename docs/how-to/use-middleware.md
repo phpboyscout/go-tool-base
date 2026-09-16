@@ -27,7 +27,7 @@ func init() {
 }
 ```
 
-The root takes a snapshot of the registry when it builds the command tree, so middleware registered after that is not in the tree it built (and nothing panics). Register at process start (`init()` or before `NewCmdRoot`).
+The root snapshots the registry when it resolves its feature set, so middleware registered after that is not in the tree it built (and nothing panics). Register at process start (`init()` or before `props.New`).
 
 ## Registering feature middleware
 
@@ -130,9 +130,11 @@ Either form works, `Register` is what runs under the hood for both.
 
 `Command.Register` does three things per child:
 
-1. If the child has a `RunE`, replace it with `setup.Chain(child.Feature, child.RunE)`. `Chain` wraps with all registered global middleware first, then any middleware registered for `child.Feature`.
-2. Call the embedded `(*cobra.Command).AddCommand` to splice the child into the cobra tree.
-3. Leave the child's own `Register` calls (its grandchildren) untouched: those wrap themselves with their own feature when *they* were constructed.
+1. Hand the child the root's `Chainer` and, if the child has a `RunE`, replace it with `chain.Chain(child.Feature, child.RunE)`. The default chain wraps with the root's built-in middleware first, then the enabled features' global contributions, then the middleware contributed for `child.Feature`.
+2. Walk the child's descendants and wrap any `RunE` not yet wrapped, each under its own feature (the annotation `gtb.chained` marks a wrapped command, so a subtree built bottom-up before it joined the root is wrapped exactly once).
+3. Call the embedded `(*cobra.Command).AddCommand` to splice the child into the cobra tree.
+
+The chain is the root's, built by `NewCmdRoot` from its own `Props` (spec 0199 D3), so two roots in one process share no middleware state and each root's telemetry middleware reports to its own collector. `root.WithChain` replaces it; a test hands in a recording `setup.Chainer`.
 
 The result: every command in the tree is wrapped exactly once with its own feature, regardless of how deep the nesting goes.
 

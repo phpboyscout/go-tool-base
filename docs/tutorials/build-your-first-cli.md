@@ -132,12 +132,17 @@ import (
 )
 
 func main() {
-	rootCmd, p := root.NewCmdRoot(version.Get())
+	rootCmd, p, err := root.NewCmdRoot(version.Get())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(errorhandling.ExitCodeUsage)
+	}
+
 	gtbRoot.Execute(rootCmd, p)
 }
 ```
 
-Two lines of body. `root.NewCmdRoot` (in your own `pkg/cmd/root/cmd.go`) 
+A construction error is a wiring defect in your root (a feature enabled that no import declares, say) and exits 2 before any command runs. Otherwise two lines of body. `root.NewCmdRoot` (in your own `pkg/cmd/root/cmd.go`) 
 builds the `Props` container that carries the logger, config, filesystem and
 version to every command. `gtbRoot.Execute` runs the tree under a signal-aware
 context and routes any failure through one error handler, so there is no

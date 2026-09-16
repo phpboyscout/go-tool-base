@@ -34,9 +34,9 @@ const (
 func DefaultFeatures() []FeatureState {
 	var states []FeatureState
 
-	for _, d := range FeatureDescriptors() {
-		if d.Default {
-			states = append(states, Enable(d.ID))
+	for _, d := range features.Default().Snapshot().Descriptors() {
+		if d.DefaultOn() {
+			states = append(states, Enable(d.FeatureID()))
 		}
 	}
 
@@ -302,23 +302,6 @@ type Tool struct {
 	// message referencing Name is shown — the framework never assumes a
 	// particular installer.
 	InstallHint string `json:"install_hint,omitempty" yaml:"install_hint,omitempty"`
-}
-
-// IsEnabled checks if a feature is enabled.
-// It checks the Features slice first, falling back to built-in defaults.
-func (t Tool) IsEnabled(cmd FeatureID) bool {
-	for _, f := range t.Features {
-		if f.ID == cmd {
-			return f.Enabled
-		}
-	}
-
-	return isDefaultEnabled(cmd)
-}
-
-// IsDisabled checks if a feature is disabled.
-func (t Tool) IsDisabled(cmd FeatureID) bool {
-	return !t.IsEnabled(cmd)
 }
 
 // GetReleaseSource returns the release source type, owner, and repo.

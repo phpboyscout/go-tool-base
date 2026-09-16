@@ -20,9 +20,16 @@ func SkeletonMain(modulePath string) *jen.File {
 	f.Comment("signal-aware context: SIGINT/SIGTERM cancel cmd.Context() for graceful")
 	f.Comment("shutdown, a second signal force-exits immediately, and a signal-terminated")
 	f.Comment("run exits 128+signum (130 SIGINT, 143 SIGTERM).")
+	f.Comment("A construction error (an unnamed tool, an undeclared feature enabled) is a")
+	f.Comment("defect in this project's wiring and exits 2, the usage code, before any")
+	f.Comment("command runs.")
 	f.Func().Id("main").Params().Block(
-		jen.List(jen.Id("rootCmd"), jen.Id("p")).Op(":=").Qual(modulePath+"/pkg/cmd/root", "NewCmdRoot").Call(
+		jen.List(jen.Id("rootCmd"), jen.Id("p"), jen.Id("err")).Op(":=").Qual(modulePath+"/pkg/cmd/root", "NewCmdRoot").Call(
 			jen.Qual(modulePath+"/internal/version", "Get").Call(),
+		),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Qual("fmt", "Fprintln").Call(jen.Qual("os", "Stderr"), jen.Id("err")),
+			jen.Qual("os", "Exit").Call(jen.Qual("gitlab.com/phpboyscout/go/errorhandling", "ExitCodeUsage")),
 		),
 		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "Execute").Call(jen.Id("rootCmd"), jen.Id("p")),
 	)

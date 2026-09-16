@@ -4,32 +4,45 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 )
+
+// enabledFor resolves a tool's features against the default snapshot, the
+// way New does, so a test asks the Set rather than the removed Tool.IsEnabled.
+func enabledFor(t *testing.T, tool Tool) features.Set {
+	t.Helper()
+
+	set, err := features.Resolve(features.Default().Snapshot(), StatesOf(tool.Features))
+	require.NoError(t, err)
+
+	return set
+}
 
 func TestSetFeatures_DefaultsPlusOverrides(t *testing.T) {
 	t.Parallel()
 
-	features := SetFeatures(Disable(UpdateCmd), Enable(AiCmd))
-	tool := Tool{Features: features}
+	set := enabledFor(t, Tool{Features: SetFeatures(Disable(UpdateCmd), Enable(AiCmd))})
 
-	assert.False(t, tool.IsEnabled(UpdateCmd))
-	assert.True(t, tool.IsEnabled(InitCmd))
-	assert.True(t, tool.IsEnabled(McpCmd))
-	assert.True(t, tool.IsEnabled(DocsCmd))
-	assert.True(t, tool.IsEnabled(DoctorCmd))
-	assert.True(t, tool.IsEnabled(AiCmd))
+	assert.False(t, set.Enabled(UpdateCmd))
+	assert.True(t, set.Enabled(InitCmd))
+	assert.True(t, set.Enabled(McpCmd))
+	assert.True(t, set.Enabled(DocsCmd))
+	assert.True(t, set.Enabled(DoctorCmd))
+	assert.True(t, set.Enabled(AiCmd))
 	// ManCmd is default-off: absent from DefaultFeatures, opt-in only.
-	assert.False(t, tool.IsEnabled(ManCmd))
+	assert.False(t, set.Enabled(ManCmd))
 }
 
 func TestManCmd_OptIn(t *testing.T) {
 	t.Parallel()
 
-	off := Tool{Features: SetFeatures()}
-	assert.False(t, off.IsEnabled(ManCmd), "man must be disabled by default")
+	off := enabledFor(t, Tool{Features: SetFeatures()})
+	assert.False(t, off.Enabled(ManCmd), "man must be disabled by default")
 
-	on := Tool{Features: SetFeatures(Enable(ManCmd))}
-	assert.True(t, on.IsEnabled(ManCmd), "man must enable when opted in")
+	on := enabledFor(t, Tool{Features: SetFeatures(Enable(ManCmd))})
+	assert.True(t, on.Enabled(ManCmd), "man must enable when opted in")
 }
 
 func TestEnable_NoDuplicates(t *testing.T) {
@@ -93,33 +106,25 @@ func TestIsDefaultEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.cmd), func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.enabled, isDefaultEnabled(tt.cmd))
+			assert.Equal(t, tt.enabled, enabledFor(t, Tool{}).Enabled(tt.cmd))
 		})
 	}
 }
 
-func TestIsEnabled_FromSlice(t *testing.T) {
+func TestResolvedSet_FromSlice(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool{Features: []Feature{{ID: UpdateCmd, Enabled: false}}}
-	assert.False(t, tool.IsEnabled(UpdateCmd))
-	assert.True(t, tool.IsEnabled(InitCmd)) // falls back to default
+	set := enabledFor(t, Tool{Features: []Feature{{ID: UpdateCmd, Enabled: false}}})
+	assert.False(t, set.Enabled(UpdateCmd))
+	assert.True(t, set.Enabled(InitCmd)) // falls back to default
 }
 
-func TestIsEnabled_Fallback(t *testing.T) {
+func TestResolvedSet_Fallback(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool{} // no features set — all fall back to defaults
-	assert.True(t, tool.IsEnabled(UpdateCmd))
-	assert.False(t, tool.IsEnabled(AiCmd))
-}
-
-func TestIsDisabled(t *testing.T) {
-	t.Parallel()
-
-	tool := Tool{}
-	assert.False(t, tool.IsDisabled(UpdateCmd))
-	assert.True(t, tool.IsDisabled(AiCmd))
+	set := enabledFor(t, Tool{}) // no features set: all fall back to defaults
+	assert.True(t, set.Enabled(UpdateCmd))
+	assert.False(t, set.Enabled(AiCmd))
 }
 
 func TestGetReleaseSource(t *testing.T) {

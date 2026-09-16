@@ -6,6 +6,7 @@ import (
 	"testing/fstest"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +24,7 @@ const (
 )
 
 func newInitialiserProvider() InitialiserProvider {
-	return func(_ *props.Props) Initialiser { return nil }
+	return func(_ *props.Props, _ *pflag.FlagSet) Initialiser { return nil }
 }
 
 func newSubcommandProvider() SubcommandProvider {
@@ -163,9 +164,10 @@ func TestRegister_ContributesToTheDefault(t *testing.T) {
 	RegisterChecks(id, []CheckProvider{newCheckProvider()})
 	RegisterAssets(id, "probe", fstest.MapFS{})
 
-	assert.Len(t, GetInitialisers()[id], 1)
-	assert.Len(t, GetSubcommands()[id], 1)
-	assert.Len(t, GetFeatureFlags()[id], 1)
-	assert.Len(t, GetChecks()[id], 1)
-	assert.Len(t, GetAssets()[id], 1)
+	s := features.Default().Snapshot()
+	assert.Len(t, InitialisersIn(s)[id], 1)
+	assert.Len(t, SubcommandsIn(s)[id], 1)
+	assert.Len(t, FeatureFlagsIn(s)[id], 1)
+	assert.Len(t, ChecksIn(s)[id], 1)
+	assert.Len(t, AssetsIn(s)[id], 1)
 }

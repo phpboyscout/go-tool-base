@@ -4,9 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -156,19 +158,23 @@ func TestSingleTokenProfilesHaveDistinctConfigPrefixes(t *testing.T) {
 // sets Initialiser.SkipKey directly passes either way, so this drives the
 // registered provider the flag actually feeds.
 func TestSkipKeyFlagReachesEveryForgeThatOffersSSH(t *testing.T) {
-	t.Setenv("CI", "")
+	t.Parallel()
 
 	p := newTestProps(t)
 
-	preserveSkipFlags(t)
+	// --skip-key is the init command's own flag (spec 0199 D3); a provider
+	// reads it from the run's flags, so bind it the way init does and set it.
+	flags := pflag.NewFlagSet("init", pflag.ContinueOnError)
+	flags.Bool(setup.SkipKeyFlag, false, "")
+	require.NoError(t, flags.Set(setup.SkipKeyFlag, "true"))
 
-	skipKey = true
+	snapshot := features.Default().Snapshot()
 
 	for _, id := range []props.FeatureID{GithubFeature, GitlabFeature, GiteaFeature, BitbucketFeature} {
-		providers := setup.GetInitialisers()[id]
+		providers := setup.InitialisersIn(snapshot)[id]
 		require.NotEmptyf(t, providers, "forge %q has no initialiser", id)
 
-		built := providers[0](p)
+		built := providers[0](p, flags)
 		require.NotNilf(t, built, "forge %q yielded no initialiser", id)
 
 		i, ok := built.(*Initialiser)

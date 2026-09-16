@@ -144,7 +144,12 @@ The scaffold produces a fully wired project. The key entry points are:
 **`cmd/mytool/main.go`.** The entry point, reading version from `internal/version`. `Execute` runs the tree with a signal-aware context: SIGINT/SIGTERM cancel `cmd.Context()` for graceful shutdown, a second signal force-exits, and a signal-terminated run exits `128+signum`:
 ```go
 func main() {
-    rootCmd, p := root.NewCmdRoot(version.Get())
+    rootCmd, p, err := root.NewCmdRoot(version.Get())
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(errorhandling.ExitCodeUsage)
+    }
+
     gtbRoot.Execute(rootCmd, p)
 }
 ```

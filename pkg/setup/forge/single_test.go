@@ -20,6 +20,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -584,28 +585,34 @@ func TestDefaultConfigDirUsedForFlag(t *testing.T) {
 // --- init(): registered closures ---
 
 func TestRegisteredInitialiserProvider(t *testing.T) {
+	t.Parallel()
+
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	ips := setup.GetInitialisers()[props.FeatureID("github")]
+	snapshot := features.Default().Snapshot()
+	ips := setup.InitialisersIn(snapshot)[props.FeatureID("github")]
 	require.NotEmpty(t, ips)
 
-	// Default flags: skipLogin/skipKey both false → a real initialiser.
-	skipLogin = false
-	skipKey = false
-	init := ips[0](p)
+	// Bind --skip-login the way init does, plus init's own --skip-key.
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().Bool(setup.SkipKeyFlag, false, "")
+	setup.FeatureFlagsIn(snapshot)[props.FeatureID("github")][0](cmd)
+	// The skip flags default on under CI=true; pin the unskipped case.
+	require.NoError(t, cmd.Flags().Set("skip-login", "false"))
+
+	// Neither skipped: a real initialiser.
+	init := ips[0](p, cmd.Flags())
 	require.NotNil(t, init)
 	assert.Equal(t, "GitHub integration", init.Name())
 
-	// Both skipped → provider returns nil.
-	skipLogin = true
-	skipKey = true
-
-	t.Cleanup(func() { skipLogin = false; skipKey = false })
-	assert.Nil(t, ips[0](p))
+	// Both skipped: the provider returns nil.
+	require.NoError(t, cmd.Flags().Set("skip-login", "true"))
+	require.NoError(t, cmd.Flags().Set(setup.SkipKeyFlag, "true"))
+	assert.Nil(t, ips[0](p, cmd.Flags()))
 }
 
 func TestRegisteredSubcommandProvider(t *testing.T) {
@@ -617,7 +624,7 @@ func TestRegisteredSubcommandProvider(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	sps := setup.GetSubcommands()[props.FeatureID("github")]
+	sps := setup.SubcommandsIn(features.Default().Snapshot())[props.FeatureID("github")]
 	require.NotEmpty(t, sps)
 
 	cmds := sps[0](p)
@@ -626,15 +633,14 @@ func TestRegisteredSubcommandProvider(t *testing.T) {
 }
 
 func TestRegisteredFeatureFlag(t *testing.T) {
-	// Not parallel: registering these flags writes their CI-derived defaults
-	// into package-level variables the rest of the suite reads.
-	preserveSkipFlags(t)
+	t.Parallel()
 
-	fps := setup.GetFeatureFlags()[props.FeatureID("github")]
+	fps := setup.FeatureFlagsIn(features.Default().Snapshot())[props.FeatureID("github")]
 	require.NotEmpty(t, fps)
 
+	// The target is the command's own; binding writes nothing outside it.
 	cmd := &cobra.Command{Use: "init"}
 	fps[0](cmd)
 	require.NotNil(t, cmd.Flags().Lookup("skip-login"))
-	require.NotNil(t, cmd.Flags().Lookup("skip-key"))
+	assert.Nil(t, cmd.Flags().Lookup(setup.SkipKeyFlag), "--skip-key is the init command's own flag, not GitHub's")
 }

@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,33 +17,30 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-// TestRegisteredProviders exercises the closures registered in init()
-// by reading them back from the setup registry and invoking them. The
-// init() body only runs at import time; calling the closures here
-// covers the provider/subcommand/feature-flag bodies.
+// TestRegisteredProviders drives the init-time registrations through a
+// snapshot of the default registry; the flag is bound on a command of the
+// test's own and read back through the provider (spec 0199 D3).
 func TestRegisteredProviders(t *testing.T) {
-	// NOT t.Parallel(), and the sub-tests below are serial too: the registered
-	// AI closures both READ the package-level skipAI flag (InitialiserProvider)
-	// and WRITE it (FeatureFlag binds &skipAI via pflag.BoolVarP). Running the
-	// read and write sub-tests concurrently is a data race on process-global
-	// flag state — exactly the pattern CLAUDE.md's "no package-level mocking
-	// hooks" guidance forbids under t.Parallel(). Keep them sequential.
+	t.Parallel()
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
+	snapshot := features.Default().Snapshot()
 
 	t.Run("initialiser provider returns AIInitialiser when not skipped", func(t *testing.T) {
-		ips := setup.GetInitialisers()[p.AiCmd]
+		t.Parallel()
+
+		ips := setup.InitialisersIn(snapshot)[p.AiCmd]
 		require.NotEmpty(t, ips, "AI initialiser provider must be registered")
 
-		// skipAI defaults to false; the provider should yield a live
-		// initialiser whose name matches.
 		var got setup.Initialiser
 		for _, ip := range ips {
-			if i := ip(props); i != nil {
+			if i := ip(props, nil); i != nil {
 				got = i
 			}
 		}
@@ -51,7 +50,9 @@ func TestRegisteredProviders(t *testing.T) {
 	})
 
 	t.Run("subcommand provider yields the init ai command", func(t *testing.T) {
-		sps := setup.GetSubcommands()[p.AiCmd]
+		t.Parallel()
+
+		sps := setup.SubcommandsIn(snapshot)[p.AiCmd]
 		require.NotEmpty(t, sps, "AI subcommand provider must be registered")
 
 		found := false
@@ -67,7 +68,9 @@ func TestRegisteredProviders(t *testing.T) {
 	})
 
 	t.Run("feature flag registers --skip-ai", func(t *testing.T) {
-		fps := setup.GetFeatureFlags()[p.AiCmd]
+		t.Parallel()
+
+		fps := setup.FeatureFlagsIn(snapshot)[p.AiCmd]
 		require.NotEmpty(t, fps, "AI feature-flag provider must be registered")
 
 		cmd := NewCmdInitAI(props)
@@ -80,22 +83,27 @@ func TestRegisteredProviders(t *testing.T) {
 	})
 }
 
-// TestInitialiserProviderSkips covers the skipAI=true branch of the
-// registered initialiser provider closure. Serial: mutates the
-// package-level skipAI flag.
+// TestInitialiserProviderSkips covers the skip branch of the registered
+// initialiser provider, read from the run's flags.
 func TestInitialiserProviderSkips(t *testing.T) {
-	prev := skipAI
-	skipAI = true
-	t.Cleanup(func() { skipAI = prev })
+	t.Parallel()
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
+	snapshot := features.Default().Snapshot()
 
-	ips := setup.GetInitialisers()[p.AiCmd]
+	cmd := &cobra.Command{Use: "init"}
+	for _, fp := range setup.FeatureFlagsIn(snapshot)[p.AiCmd] {
+		fp(cmd)
+	}
+
+	require.NoError(t, cmd.Flags().Set("skip-ai", "true"))
+
+	ips := setup.InitialisersIn(snapshot)[p.AiCmd]
 	require.NotEmpty(t, ips)
 
 	for _, ip := range ips {
-		assert.Nil(t, ip(props), "provider must return nil when skipAI is set")
+		assert.Nil(t, ip(props, cmd.Flags()), "provider must return nil when skip-ai is set")
 	}
 }
 

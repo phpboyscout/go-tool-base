@@ -22,9 +22,11 @@ func TestNoSealsAndNoRegistryResets(t *testing.T) {
 	root := repoRoot(t)
 	banned := regexp.MustCompile(`\b(ResetRegistryForTesting|SealRegistry|SealFeatures)\b`)
 	// A test declaring or contributing on the default registry would leak
-	// into every other test's enumeration; RegisterFeature at init is the
-	// production path and stays out of test files.
-	defaultWrite := regexp.MustCompile(`features\.Default\(\)\.(Declare|Contribute)\(|\bRegisterFeature\(`)
+	// into every other test's enumeration, and a middleware contributed there
+	// runs in every root built afterwards (a data race on whatever the test
+	// closure writes); RegisterFeature at init is the production path and
+	// stays out of test files.
+	defaultWrite := regexp.MustCompile(`features\.Default\(\)\.(Declare|Contribute)\(|\bRegisterFeature\(|\bRegister(Global)?Middleware\(`)
 	comment := regexp.MustCompile(`^\s*//`)
 
 	var offenders []string

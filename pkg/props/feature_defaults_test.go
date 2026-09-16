@@ -6,12 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestDefaultEnabledDerivedFromDefaultFeatures pins that isDefaultEnabled is
-// derived from DefaultFeatures rather than being an independently-maintained
-// switch. For every known feature the two agree: a feature is default-enabled
-// iff it appears (enabled) in SetFeatures()'s default output. This is the
-// guard the old keep-in-sync comment asked humans to enforce.
-func TestDefaultEnabledDerivedFromDefaultFeatures(t *testing.T) {
+// TestDefaultsAgree pins that a Set resolved with no states and the
+// SetFeatures() default output describe the same posture: a feature is
+// default-enabled in one iff it is in the other. Both derive from the
+// descriptors' Default, so this is the guard against a second switch.
+func TestDefaultsAgree(t *testing.T) {
 	t.Parallel()
 
 	defaults := map[FeatureID]bool{}
@@ -19,15 +18,17 @@ func TestDefaultEnabledDerivedFromDefaultFeatures(t *testing.T) {
 		defaults[f.ID] = f.Enabled
 	}
 
-	for _, feature := range AllFeatures() {
-		assert.Equal(t, defaults[feature], isDefaultEnabled(feature),
-			"isDefaultEnabled(%q) must agree with the default feature set", feature)
+	set := enabledFor(t, Tool{})
+
+	for _, d := range set.Descriptors() {
+		assert.Equal(t, defaults[d.FeatureID()], set.Enabled(d.FeatureID()),
+			"default for %q must agree between SetFeatures and the resolved Set", d.FeatureID())
 	}
 
 	// Spot-check the intended default posture so the derivation itself is pinned.
-	assert.True(t, isDefaultEnabled(UpdateCmd))
-	assert.True(t, isDefaultEnabled(ChangelogCmd))
-	assert.False(t, isDefaultEnabled(AiCmd))
-	assert.False(t, isDefaultEnabled(ConfigCmd))
-	assert.False(t, isDefaultEnabled(ManCmd))
+	assert.True(t, set.Enabled(UpdateCmd))
+	assert.True(t, set.Enabled(ChangelogCmd))
+	assert.False(t, set.Enabled(AiCmd))
+	assert.False(t, set.Enabled(ConfigCmd))
+	assert.False(t, set.Enabled(ManCmd))
 }
