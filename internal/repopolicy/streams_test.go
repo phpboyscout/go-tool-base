@@ -23,7 +23,6 @@ var streamsAllowlist = map[string]bool{
 	"pkg/cmd/doctor/doctor.go":  true, // 0198 phase 3
 	"pkg/cmd/root/root.go":      true, // 0198 phase 3
 	"pkg/cmd/update/update.go":  true, // 0198 phase 3
-	"pkg/setup/forge/single.go": true, // 0198 phase 3
 	"pkg/utils/main.go":         true, // deprecated IsInteractive; goes with it
 }
 

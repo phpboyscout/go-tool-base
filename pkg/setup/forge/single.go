@@ -3,7 +3,6 @@ package forge
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -15,7 +14,6 @@ import (
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -42,60 +40,6 @@ type AuthConfig struct {
 	// has been written (or displayed for env-var mode) so it does not linger in
 	// the AuthConfig longer than necessary.
 	Token string
-}
-
-// AuthFormOption configures form creators for the single-token auth wizard.
-// Used by tests to inject deterministic form-answering creators without driving
-// a real TTY.
-type AuthFormOption func(*authFormConfig)
-
-type authFormConfig struct {
-	storageModeFormCreator func(*AuthConfig) *huh.Form
-	envVarNameFormCreator  func(*AuthConfig) *huh.Form
-	fetchTokenFormCreator  func(*AuthConfig) *huh.Form
-	displayOnceFormCreator func(envVarName, token string) *huh.Form
-}
-
-// Form-slot indices used by [WithAuthForm] for the slice-returning creator. The
-// display-once form takes a different signature and is not indexed here.
-const (
-	authFormSlotStorageMode = 0
-	authFormSlotEnvVarName  = 1
-	authFormSlotFetchToken  = 2
-)
-
-// WithAuthForm injects custom form creators into the single-token flow for
-// testability. The creator returns forms in order:
-//
-//	[0] storage-mode selector
-//	[1] env-var name input
-//	[2] "fetch token now?" confirm
-//	[3] display-once token view (takes envVarName, token)
-//
-// Returning fewer forms is allowed — the runner skips stages whose slot is nil
-// or absent. The display-once creator has a different signature because it
-// needs the captured token passed in.
-func WithAuthForm(
-	creator func(*AuthConfig) []*huh.Form,
-	displayOnceCreator func(envVarName, token string) *huh.Form,
-) AuthFormOption {
-	return func(c *authFormConfig) {
-		c.storageModeFormCreator = authFormAtIndex(creator, authFormSlotStorageMode)
-		c.envVarNameFormCreator = authFormAtIndex(creator, authFormSlotEnvVarName)
-		c.fetchTokenFormCreator = authFormAtIndex(creator, authFormSlotFetchToken)
-		c.displayOnceFormCreator = displayOnceCreator
-	}
-}
-
-func authFormAtIndex(creator func(*AuthConfig) []*huh.Form, i int) func(*AuthConfig) *huh.Form {
-	return func(cfg *AuthConfig) *huh.Form {
-		forms := creator(cfg)
-		if i < len(forms) {
-			return forms[i]
-		}
-
-		return nil
-	}
 }
 
 // configureSingle runs the interactive login for a single-token profile.
@@ -160,20 +104,22 @@ func (i *Initialiser) configureAuth(ctx context.Context, p *props.Props, cfg set
 		return nil
 	}
 
-	authCfg := &AuthConfig{}
-	fCfg := newAuthFormConfig(profile, i.authOpts...) //nolint:contextcheck // form creators are ctx-free seams; the storage-mode form derives its own per-op KeychainOpTimeout ctx for the availability Probe by design
+	authCfg := &AuthConfig{FetchToken: true}
 
-	if err := runAuthFormStage(fCfg.storageModeFormCreator, authCfg); err != nil {
-		return err
+	if err := setup.RunForm(ctx, p, authForm(ctx, profile, authCfg)); err != nil {
+		return errors.Wrap(err, "auth form cancelled")
 	}
 
-	// CI belt-and-braces: refuse literal even if a test-injected form creator
-	// bypassed the selector.
+	// CI belt-and-braces: refuse literal even if the selector somehow offered it.
 	if err := credentials.RefuseLiteralUnderCI(authCfg.StorageMode); err != nil {
 		return err
 	}
 
-	return i.runAuthCredentialStage(ctx, p, cfg, fCfg, authCfg)
+	if authCfg.StorageMode == credentials.ModeEnvVar && authCfg.EnvVarName == "" {
+		authCfg.EnvVarName = profile.FallbackEnv
+	}
+
+	return i.runAuthCredentialStage(ctx, p, cfg, authCfg)
 }
 
 // runAuthCredentialStage dispatches to the per-mode branch and writes the
@@ -183,14 +129,13 @@ func (i *Initialiser) runAuthCredentialStage(
 	ctx context.Context,
 	p *props.Props,
 	cfg setup.Editor,
-	fCfg *authFormConfig,
 	authCfg *AuthConfig,
 ) error {
 	var err error
 
 	switch authCfg.StorageMode {
 	case credentials.ModeEnvVar:
-		err = i.runEnvVarAuth(ctx, p, cfg.View(), fCfg, authCfg)
+		err = i.runEnvVarAuth(ctx, p, cfg.View(), authCfg)
 	case credentials.ModeKeychain, credentials.ModeLiteral, "":
 		authCfg.Token, err = i.captureToken(ctx, p, cfg.View())
 	default:
@@ -213,24 +158,15 @@ func (i *Initialiser) runAuthCredentialStage(
 	return nil
 }
 
-// runEnvVarAuth drives the env-var branch: prompts for the env-var name, then
-// (optionally) runs OAuth and displays the token once for the user to copy into
-// their shell profile.
+// runEnvVarAuth drives the env-var branch after the form: optionally runs
+// OAuth and displays the token once for the user to copy into their shell
+// profile. The env-var name and the fetch decision are the form's.
 func (i *Initialiser) runEnvVarAuth(
 	ctx context.Context,
 	p *props.Props,
 	cfg config.Reader,
-	fCfg *authFormConfig,
 	authCfg *AuthConfig,
 ) error {
-	if err := runAuthFormStage(fCfg.envVarNameFormCreator, authCfg); err != nil {
-		return err
-	}
-
-	if err := runAuthFormStage(fCfg.fetchTokenFormCreator, authCfg); err != nil {
-		return err
-	}
-
 	if !authCfg.FetchToken {
 		// User already has a token via other means (shell profile, 1Password
 		// CLI, etc.). We write only the env-var reference.
@@ -242,11 +178,8 @@ func (i *Initialiser) runEnvVarAuth(
 		return err
 	}
 
-	displayForm := fCfg.displayOnceFormCreator(authCfg.EnvVarName, token)
-	if displayForm != nil {
-		if err := displayForm.Run(); err != nil {
-			return errors.Wrap(err, "token display cancelled")
-		}
+	if err := setup.RunForm(ctx, p, singleDisplayOnceForm(authCfg.EnvVarName, token)); err != nil {
+		return errors.Wrap(err, "token display cancelled")
 	}
 
 	// Token is not written to config in env-var mode. The user has seen it and
@@ -262,7 +195,7 @@ func (i *Initialiser) runEnvVarAuth(
 // OAuth device flow), falling back to manual token entry when the provider does
 // not support interactive login ([forgeapi.ErrNotSupported]), cannot be built,
 // or the flow fails (e.g. a headless server with no browser).
-func (i *Initialiser) captureToken(ctx context.Context, p props.LoggerProvider, cfg config.Reader) (string, error) {
+func (i *Initialiser) captureToken(ctx context.Context, p *props.Props, cfg config.Reader) (string, error) {
 	log := p.GetLogger()
 
 	auth, err := i.authenticator(ctx, cfg)
@@ -270,7 +203,7 @@ func (i *Initialiser) captureToken(ctx context.Context, p props.LoggerProvider, 
 		log.Warn("interactive login unavailable, falling back to manual token entry",
 			"provider", i.profile.Label, "reason", err)
 
-		return promptManualToken(i.profile)
+		return promptManualToken(ctx, p, i.profile)
 	}
 
 	log.Info("Logging in", "provider", i.profile.Label, "host", i.profile.Host)
@@ -283,7 +216,7 @@ func (i *Initialiser) captureToken(ctx context.Context, p props.LoggerProvider, 
 	log.Warn("OAuth flow unavailable, falling back to manual token entry",
 		"provider", i.profile.Label, "reason", err)
 
-	return promptManualToken(i.profile)
+	return promptManualToken(ctx, p, i.profile)
 }
 
 // authenticator builds the forge provider and type-asserts it for the optional
@@ -369,83 +302,41 @@ func writeSingleLiteral(profile Profile, cfg setup.Editor, authCfg *AuthConfig) 
 		map[string]any{profile.authValueKey(): authCfg.Token}, profile.singleCredentialKeys())
 }
 
-// singleStorageModeForm presents the three-mode selector. Literal mode is
-// hidden when the process runs under CI=true; keychain is hidden unless
-// [credentials.Probe] succeeds against the registered backend.
-func singleStorageModeForm(profile Profile, cfg *AuthConfig) *huh.Form {
-	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
-	defer cancel()
-
-	choices, defaultMode := credentialposture.StorageModeOptions(ctx, credentialposture.ModeLabels{
-		Env:      "Environment variable reference",
-		Keychain: "OS keychain",
-		Literal:  "Literal value in config file (plaintext)",
-	})
-
-	options := make([]huh.Option[credentials.Mode], len(choices))
-	for i, c := range choices {
-		options[i] = huh.NewOption(c.Label, c.Mode)
-	}
-
-	if cfg.StorageMode == "" {
-		cfg.StorageMode = defaultMode
-	}
+// authForm is the single-token wizard's one form (spec 0198): the storage
+// mode, then, for env-var mode, the variable's name and whether to fetch a
+// token now. The OAuth capture and the display-once page follow it, because
+// a token has to exist before it can be shown.
+func authForm(ctx context.Context, profile Profile, cfg *AuthConfig) *huh.Form {
+	notEnvVar := func() bool { return cfg.StorageMode != credentials.ModeEnvVar }
 
 	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[credentials.Mode]().
-				Title(profile.Label + " Credential Storage").
-				Description(singleStorageModeDescription(credentials.IsCI())).
-				Options(options...).
-				Value(&cfg.StorageMode),
-		),
-	)
-}
-
-func singleStorageModeDescription(ci bool) string {
-	if ci {
-		return "CI environment detected — only environment variable references are permitted."
-	}
-
-	return "Env-var reference is recommended; keychain keeps the token out of config; literal writes the token to config as plaintext."
-}
-
-// singleEnvVarNameForm prompts for the env var name, defaulting to the
-// profile's well-known token env var (the ecosystem standard).
-func singleEnvVarNameForm(profile Profile, cfg *AuthConfig) *huh.Form {
-	if cfg.EnvVarName == "" {
-		cfg.EnvVarName = profile.FallbackEnv
-	}
-
-	return huh.NewForm(
+		setup.StorageModeGroup(ctx, &cfg.StorageMode, func() bool { return false }).
+			Title(profile.Label+" Credential Storage"),
 		huh.NewGroup(
 			huh.NewInput().
+				Key("env-var").
 				Title("Environment Variable Name").
 				Description(fmt.Sprintf("Name of the env var that will hold your %s token. "+
-					"`%s` is the upstream standard; override if you run "+
+					"`%s` is the upstream standard and is what blank means; override if you run "+
 					"multiple tools with conflicting tokens.", profile.Label, profile.FallbackEnv)).
 				Placeholder(profile.FallbackEnv).
 				Value(&cfg.EnvVarName).
-				Validate(credentials.ValidateEnvVarName),
-		),
-	)
-}
+				Validate(func(s string) error {
+					if s == "" {
+						return nil
+					}
 
-// singleFetchTokenForm asks whether the user wants the wizard to run OAuth and
-// display the token once. Default is yes.
-func singleFetchTokenForm(cfg *AuthConfig) *huh.Form {
-	cfg.FetchToken = true
-
-	return huh.NewForm(
-		huh.NewGroup(
+					return credentials.ValidateEnvVarName(s)
+				}),
 			huh.NewConfirm().
+				Key("fetch-token").
 				Title("Fetch a token now?").
-				Description("Select Yes to run OAuth and have the wizard display the token once for you to copy into your shell profile. " +
+				Description("Select Yes to run OAuth and have the wizard display the token once for you to copy into your shell profile. "+
 					"Select No if you already have a token (e.g. from 1Password, a password manager, or manual PAT creation).").
 				Affirmative("Yes, run OAuth").
 				Negative("No, I already have one").
 				Value(&cfg.FetchToken),
-		),
+		).WithHideFunc(notEnvVar),
 	)
 }
 
@@ -476,42 +367,6 @@ func singleDisplayOnceForm(envVarName, token string) *huh.Form {
 				Value(&acknowledged),
 		),
 	)
-}
-
-// newAuthFormConfig constructs the default form creators (bound to the profile)
-// and applies caller-supplied overrides (typically from tests).
-func newAuthFormConfig(profile Profile, opts ...AuthFormOption) *authFormConfig {
-	c := &authFormConfig{
-		storageModeFormCreator: func(cfg *AuthConfig) *huh.Form { return singleStorageModeForm(profile, cfg) },
-		envVarNameFormCreator:  func(cfg *AuthConfig) *huh.Form { return singleEnvVarNameForm(profile, cfg) },
-		fetchTokenFormCreator:  singleFetchTokenForm,
-		displayOnceFormCreator: singleDisplayOnceForm,
-	}
-
-	for _, opt := range opts {
-		opt(c)
-	}
-
-	return c
-}
-
-// runAuthFormStage runs a single form stage, wrapping any error in a
-// cancellation message.
-func runAuthFormStage(creator func(*AuthConfig) *huh.Form, cfg *AuthConfig) error {
-	if creator == nil {
-		return nil
-	}
-
-	form := creator(cfg)
-	if form == nil {
-		return nil
-	}
-
-	if err := form.Run(); err != nil {
-		return errors.Wrap(err, "auth form cancelled")
-	}
-
-	return nil
 }
 
 // manualTokenInstructions returns the stderr guidance shown before prompting
@@ -577,6 +432,10 @@ func hostlessTokenInstructions(profile Profile) string {
 	return strings.Join(lines, "\n")
 }
 
+// ErrNoTokenEntered is returned when the manual token prompt closes without a
+// token.
+var ErrNoTokenEntered = errors.NewSentinel("gtb.setup.forge.no_token_entered", "no token was entered")
+
 // promptManualToken is the fallback authentication path used when the OAuth
 // device flow cannot complete — typically on headless servers where no web
 // browser is available to launch.
@@ -585,17 +444,18 @@ func hostlessTokenInstructions(profile Profile) string {
 // then prompts for the token via a password input that does not echo to the
 // terminal. The resulting token is indistinguishable from one issued by OAuth
 // and is returned to the caller for mode-specific persistence.
-func promptManualToken(profile Profile) (string, error) {
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, manualTokenInstructions(profile))
-	fmt.Fprintln(os.Stderr)
+func promptManualToken(ctx context.Context, p *props.Props, profile Profile) (string, error) {
+	out := p.GetIO().Err()
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, manualTokenInstructions(profile))
+	_, _ = fmt.Fprintln(out)
 
 	var token string
 
-	err := huh.NewForm(
+	err := setup.RunForm(ctx, p, huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title(profile.Label + " Personal Access Token").
+				Title(profile.Label+" Personal Access Token").
 				Description("Paste the token you just generated. Input is hidden.").
 				EchoMode(huh.EchoModePassword).
 				Value(&token).
@@ -607,9 +467,15 @@ func promptManualToken(profile Profile) (string, error) {
 					return nil
 				}),
 		),
-	).Run()
+	))
 	if err != nil {
 		return "", errors.Wrap(err, "manual token prompt cancelled")
+	}
+
+	// huh's accessible mode swallows a field's error (a password prompt with
+	// no terminal behind it), so an empty answer is the only trace of it.
+	if strings.TrimSpace(token) == "" {
+		return "", ErrNoTokenEntered
 	}
 
 	return strings.TrimSpace(token), nil

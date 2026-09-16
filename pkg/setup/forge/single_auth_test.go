@@ -1,10 +1,10 @@
 package forge
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,21 +17,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
-
-// authFormOverride composes the slice-returning creator and the display-once
-// creator into a single [AuthFormOption]. Keeps the test call sites tight.
-func authFormOverride(
-	cfgMutate func(*AuthConfig),
-	displayOnce func(string, string) *huh.Form,
-) AuthFormOption {
-	return WithAuthForm(
-		func(cfg *AuthConfig) []*huh.Form {
-			cfgMutate(cfg)
-			return nil
-		},
-		displayOnce,
-	)
-}
 
 // newAuthProps constructs the Props fixture used by the auth tests plus a real
 // store-backed editor over a memfs config file, and also neutralises env vars
@@ -59,12 +44,9 @@ func newAuthProps(t *testing.T) (*props.Props, setup.Editor) {
 func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 	p, cfg := newAuthProps(t)
 
+	p.IO, _ = singleAuthIO(t, credentials.ModeLiteral, "", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("ghp_lit_token", nil)),
-		WithAuthForms(authFormOverride(
-			func(c *AuthConfig) { c.StorageMode = credentials.ModeLiteral },
-			nil,
-		)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -80,16 +62,9 @@ func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 	p, cfg := newAuthProps(t)
 
+	p.IO, _ = singleAuthIO(t, credentials.ModeEnvVar, "MYTOOL_GH_TOKEN", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(fatalOnLoginProvider(t)),
-		WithAuthForms(authFormOverride(
-			func(c *AuthConfig) {
-				c.StorageMode = credentials.ModeEnvVar
-				c.EnvVarName = "MYTOOL_GH_TOKEN"
-				c.FetchToken = false
-			},
-			nil,
-		)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -105,37 +80,15 @@ func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 	p, cfg := newAuthProps(t)
 
-	var (
-		displayCalled   bool
-		tokenShown      string
-		envVarNameShown string
-	)
+	var shown *bytes.Buffer
+	p.IO, shown = singleAuthIO(t, credentials.ModeEnvVar, "GITHUB_TOKEN", true)
 
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("ghp_envvar_token", nil)),
-		WithAuthForms(authFormOverride(
-			func(c *AuthConfig) {
-				c.StorageMode = credentials.ModeEnvVar
-				c.EnvVarName = "GITHUB_TOKEN"
-				c.FetchToken = true
-			},
-			func(envVarName, token string) *huh.Form {
-				displayCalled = true
-				tokenShown = token
-				envVarNameShown = envVarName
-
-				// Returning nil causes the wizard to skip the render step, which
-				// is what we want under test — we've already captured the token
-				// and env-var name by the time the creator is called.
-				return nil
-			},
-		)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
-	assert.True(t, displayCalled, "display-once form should be invoked")
-	assert.Equal(t, "ghp_envvar_token", tokenShown)
-	assert.Equal(t, "GITHUB_TOKEN", envVarNameShown)
+	assert.Contains(t, shown.String(), "export GITHUB_TOKEN=ghp_envvar_token", "the display-once page shows the token under the chosen name")
 
 	view := cfg.View()
 	assert.Equal(t, "GITHUB_TOKEN", view.GetString("github.auth.env"))
@@ -151,12 +104,9 @@ func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 
 	p, cfg := newAuthProps(t)
 
+	p.IO, _ = singleAuthIO(t, credentials.ModeKeychain, "", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("ghp_kc_token", nil)),
-		WithAuthForms(authFormOverride(
-			func(c *AuthConfig) { c.StorageMode = credentials.ModeKeychain },
-			nil,
-		)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -234,10 +184,6 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 // provided by the go/credentials module (ModeChoices / ValidateEnvVarName) and
 // exercised in that module's tests — a single source of truth shared by every
 // setup wizard.
-
-// Compile-time guard: AuthFormOption is exposed and composable with WithAuthForm.
-// Protects the public test-extension surface from accidental unexport.
-var _ AuthFormOption = WithAuthForm(nil, nil)
 
 // Compile-time guard: writeSingleCredential's signature matches what
 // configureAuth expects.

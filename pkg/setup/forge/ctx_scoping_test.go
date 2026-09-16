@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,16 +59,10 @@ func TestConfigureAuth_LoginNotBoundByKeychainTimeout(t *testing.T) {
 
 	var invoked, hasDeadline bool
 
+	// Literal mode: the OAuth capture path with no display-once page.
+	p.IO, _ = singleAuthIO(t, credentials.ModeLiteral, "", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(ctxCapturingProviderFactory("ghp_regression", &invoked, &hasDeadline)),
-		WithAuthForms(WithAuthForm(
-			func(cfg *AuthConfig) []*huh.Form {
-				cfg.StorageMode = "" // OAuth capture path, no storage-mode form
-
-				return nil
-			},
-			func(_ string, _ string) *huh.Form { return nil },
-		)),
 	)
 
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
@@ -84,14 +77,30 @@ func TestConfigureAuth_LoginNotBoundByKeychainTimeout(t *testing.T) {
 // they receive derives from the caller, not from context.Background().
 type ctxScopeKey struct{}
 
-// deadlineRecordingBackend captures the context each Store receives.
+// deadlineRecordingBackend captures the context the credential's Store
+// receives. The storage-mode selector probes the backend with a throwaway
+// item first, so the fake keeps what it is given (the probe reads it back)
+// and records only the write that is not the probe's.
 type deadlineRecordingBackend struct {
+	items            map[string]string
 	storeHasDeadline bool
 	storeHasMarker   bool
 	stored           bool
 }
 
-func (b *deadlineRecordingBackend) Store(ctx context.Context, _, _, _ string) error {
+const probeService = "credentials-keychain-probe"
+
+func (b *deadlineRecordingBackend) Store(ctx context.Context, service, account, value string) error {
+	if b.items == nil {
+		b.items = map[string]string{}
+	}
+
+	b.items[service+"/"+account] = value
+
+	if service == probeService {
+		return nil
+	}
+
 	_, b.storeHasDeadline = ctx.Deadline()
 	b.storeHasMarker = ctx.Value(ctxScopeKey{}) != nil
 	b.stored = true
@@ -99,12 +108,21 @@ func (b *deadlineRecordingBackend) Store(ctx context.Context, _, _, _ string) er
 	return nil
 }
 
-func (b *deadlineRecordingBackend) Retrieve(context.Context, string, string) (string, error) {
+func (b *deadlineRecordingBackend) Retrieve(_ context.Context, service, account string) (string, error) {
+	if v, ok := b.items[service+"/"+account]; ok {
+		return v, nil
+	}
+
 	return "", credentials.ErrCredentialNotFound
 }
 
-func (b *deadlineRecordingBackend) Delete(context.Context, string, string) error { return nil }
-func (b *deadlineRecordingBackend) Available() bool                              { return true }
+func (b *deadlineRecordingBackend) Delete(_ context.Context, service, account string) error {
+	delete(b.items, service+"/"+account)
+
+	return nil
+}
+
+func (b *deadlineRecordingBackend) Available() bool { return true }
 
 // unavailableBackend restores the default-stub behaviour after a test swapped
 // in a fake (RegisterBackend has no undo; the stub type is unexported).
@@ -151,16 +169,9 @@ func TestConfigureAuth_KeychainStoreScopedPerOperation(t *testing.T) {
 	}
 	cfg := newTestEditor(t, p, "")
 
+	p.IO, _ = singleAuthIO(t, credentials.ModeKeychain, "", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("ghp_keychain", nil)),
-		WithAuthForms(WithAuthForm(
-			func(cfg *AuthConfig) []*huh.Form {
-				cfg.StorageMode = credentials.ModeKeychain
-
-				return nil
-			},
-			func(_ string, _ string) *huh.Form { return nil },
-		)),
 	)
 
 	ctx := context.WithValue(t.Context(), ctxScopeKey{}, "caller")

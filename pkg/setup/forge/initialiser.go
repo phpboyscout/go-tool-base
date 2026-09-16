@@ -36,10 +36,8 @@ type Initialiser struct {
 	// Login flow. Presentation lives here in the CLI, never in the forge module.
 	prompter forgeapi.Prompter
 
-	// authOpts / dualOpts inject deterministic form creators for the
-	// single-token and dual-credential flows respectively. sshOpts does the
-	// same for the SSH stage, which both shapes now reach.
-	authOpts []AuthFormOption
+	// dualOpts injects deterministic form creators for the dual-credential
+	// flow; sshOpts does the same for the SSH stage. Both leave with spec 0198.
 	dualOpts []DualFormOption
 	sshOpts  []ConfigureSSHKeyOption
 }
@@ -53,12 +51,6 @@ type InitialiserOption func(*Initialiser)
 // registered provider.
 func WithProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provider, error)) InitialiserOption {
 	return func(i *Initialiser) { i.providerFactory = fn }
-}
-
-// WithAuthForms propagates [AuthFormOption]s into the single-token wizard.
-// Tests use this to inject deterministic form creators via [WithAuthForm].
-func WithAuthForms(opts ...AuthFormOption) InitialiserOption {
-	return func(i *Initialiser) { i.authOpts = append(i.authOpts, opts...) }
 }
 
 // WithDualForms propagates [DualFormOption]s into the dual-credential wizard.

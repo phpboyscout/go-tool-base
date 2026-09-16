@@ -3,8 +3,8 @@ package forge
 import (
 	"context"
 	"testing"
+	"time"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -12,10 +12,13 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
+	credtest "gitlab.com/phpboyscout/go/credentials/test"
 	"gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -49,16 +52,9 @@ func TestGitHubInitialiser(t *testing.T) {
 
 	cfg := newTestEditor(t, p, "")
 
+	p.IO, _ = singleAuthIO(t, credentials.ModeLiteral, "", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("mock-token", nil)),
-		WithAuthForms(WithAuthForm(
-			func(cfg *AuthConfig) []*huh.Form {
-				cfg.StorageMode = credentials.ModeLiteral
-
-				return nil // skip every staged form
-			},
-			func(_ string, _ string) *huh.Form { return nil },
-		)),
 	)
 	require.NoError(t, init.Configure(t.Context(), p, cfg))
 
@@ -238,61 +234,65 @@ func TestIsConfigured_KeychainRef(t *testing.T) {
 	assert.True(t, i.IsConfigured(cfg))
 }
 
-// --- default auth form creators (construction only; not run against a TTY) ---
+// --- authForm: one form, its pages follow the storage mode ---
 
-func TestSingleStorageModeForm(t *testing.T) {
-	t.Parallel()
-
-	cfg := &AuthConfig{}
-	form := singleStorageModeForm(gitHubProfile, cfg)
-	require.NotNil(t, form)
-	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
-}
-
-func TestSingleStorageModeForm_PreservesExistingMode(t *testing.T) {
-	// CI runners set CI=true, which drops the literal option (refused under CI)
-	// from the select; huh then resets the bound value off the missing option.
-	// Force non-CI so the existing-mode preservation is deterministic.
+// The env-var page is hidden for every other mode. Only the TUI honours a
+// hide function (accessible mode asks everything), so this drives keys: the
+// cursor starts on the recommended mode, and literal is the last choice.
+func TestAuthForm_LiteralModeAsksNothingElse(t *testing.T) {
 	t.Setenv("CI", "")
 
-	cfg := &AuthConfig{StorageMode: credentials.ModeLiteral}
-	form := singleStorageModeForm(gitHubProfile, cfg)
-	require.NotNil(t, form)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	choices, _ := credentialposture.StorageModeOptions(ctx, credentialposture.ModeLabels{})
+	seqs := make([]string, 0, len(choices)+1)
+
+	for range len(choices) - 1 {
+		seqs = append(seqs, formtest.Down)
+	}
+
+	seqs = append(seqs, formtest.Enter)
+
+	p := newTestProps(t)
+	p.IO = formtest.TUI(formtest.Keys(seqs...))
+
+	cfg := &AuthConfig{FetchToken: true}
+	require.NoError(t, setup.RunForm(ctx, p, authForm(ctx, gitHubProfile, cfg)))
 	assert.Equal(t, credentials.ModeLiteral, cfg.StorageMode)
+	assert.Empty(t, cfg.EnvVarName)
+	assert.True(t, cfg.FetchToken, "the fetch question was never shown, so the default stands")
 }
 
-func TestSingleStorageModeDescription(t *testing.T) {
-	t.Parallel()
+func TestAuthForm_EnvVarModeAsksNameAndFetch(t *testing.T) {
+	t.Setenv("CI", "")
 
-	assert.Contains(t, singleStorageModeDescription(true), "CI environment detected")
-	assert.Contains(t, singleStorageModeDescription(false), "recommended")
-}
+	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "MYTOOL_GH", "n")
+	p := newTestProps(t)
+	p.IO = io
 
-func TestSingleEnvVarNameForm(t *testing.T) {
-	t.Parallel()
-
-	cfg := &AuthConfig{}
-	form := singleEnvVarNameForm(gitHubProfile, cfg)
-	require.NotNil(t, form)
-	assert.Equal(t, "GITHUB_TOKEN", cfg.EnvVarName)
-}
-
-func TestSingleEnvVarNameForm_PreservesExistingName(t *testing.T) {
-	t.Parallel()
-
-	cfg := &AuthConfig{EnvVarName: "MYTOOL_GH"}
-	form := singleEnvVarNameForm(gitHubProfile, cfg)
-	require.NotNil(t, form)
+	cfg := &AuthConfig{FetchToken: true}
+	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), gitHubProfile, cfg)))
+	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
 	assert.Equal(t, "MYTOOL_GH", cfg.EnvVarName)
+	assert.False(t, cfg.FetchToken)
+	assert.Contains(t, out.String(), "Environment Variable Name")
+	assert.Contains(t, out.String(), "Fetch a token now?")
 }
 
-func TestSingleFetchTokenForm(t *testing.T) {
-	t.Parallel()
+func TestAuthForm_RejectsAnInvalidEnvVarName(t *testing.T) {
+	t.Setenv("CI", "")
+
+	// The invalid answer is re-asked; the valid one that follows is kept.
+	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "not valid", "GH_OK", "y")
+	p := newTestProps(t)
+	p.IO = io
 
 	cfg := &AuthConfig{}
-	form := singleFetchTokenForm(cfg)
-	require.NotNil(t, form)
+	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), gitHubProfile, cfg)))
+	assert.Equal(t, "GH_OK", cfg.EnvVarName)
 	assert.True(t, cfg.FetchToken)
+	assert.Contains(t, out.String(), "env var name must match")
 }
 
 func TestSingleDisplayOnceForm(t *testing.T) {
@@ -300,16 +300,6 @@ func TestSingleDisplayOnceForm(t *testing.T) {
 
 	form := singleDisplayOnceForm("GITHUB_TOKEN", "ghp_secret")
 	require.NotNil(t, form)
-}
-
-func TestNewAuthFormConfig_Defaults(t *testing.T) {
-	t.Parallel()
-
-	c := newAuthFormConfig(gitHubProfile)
-	require.NotNil(t, c.storageModeFormCreator)
-	require.NotNil(t, c.envVarNameFormCreator)
-	require.NotNil(t, c.fetchTokenFormCreator)
-	require.NotNil(t, c.displayOnceFormCreator)
 }
 
 // --- captureToken: OAuth success and manual fallback ---
@@ -329,22 +319,24 @@ func TestCaptureToken_FallbackToManual(t *testing.T) {
 	t.Parallel()
 
 	p := newTestProps(t)
+	p.IO = nonInteractiveIO()
 	cfg := testutil.ViewFromYAML(t, "")
 	g := &Initialiser{profile: gitHubProfile, providerFactory: authProviderFactory("", assert.AnError)}
 	_, err := g.captureToken(t.Context(), p, cfg)
-	require.Error(t, err)
+	require.ErrorIs(t, err, setup.ErrNonInteractive, "the manual fallback opens a form, and nobody is there")
 }
 
 func TestCaptureToken_NotSupportedFallsBack(t *testing.T) {
 	t.Parallel()
 
 	p := newTestProps(t)
+	p.IO = nonInteractiveIO()
 	cfg := testutil.ViewFromYAML(t, "")
 	g := &Initialiser{profile: gitHubProfile, providerFactory: func(context.Context, config.Reader) (forge.Provider, error) {
 		return noAuthProvider{}, nil
 	}}
 	_, err := g.captureToken(t.Context(), p, cfg)
-	require.Error(t, err)
+	require.ErrorIs(t, err, setup.ErrNonInteractive)
 }
 
 // --- runAuthCredentialStage: unsupported mode ---
@@ -359,7 +351,7 @@ func TestRunAuthCredentialStage_UnsupportedMode(t *testing.T) {
 	g := &Initialiser{profile: gitHubProfile, providerFactory: authProviderFactory("tok", nil)}
 	authCfg := &AuthConfig{StorageMode: credentials.Mode("bogus")}
 
-	err := g.runAuthCredentialStage(t.Context(), p, cfg, newAuthFormConfig(gitHubProfile), authCfg)
+	err := g.runAuthCredentialStage(t.Context(), p, cfg, authCfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported credential storage mode")
 }
@@ -428,49 +420,6 @@ func TestWriteGitHubCredential_UnsupportedMode(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported credential storage mode")
 }
 
-// --- runAuthFormStage ---
-
-func TestRunAuthFormStage_NilCreator(t *testing.T) {
-	t.Parallel()
-	require.NoError(t, runAuthFormStage(nil, &AuthConfig{}))
-}
-
-func TestRunAuthFormStage_NilForm(t *testing.T) {
-	t.Parallel()
-	require.NoError(t, runAuthFormStage(func(_ *AuthConfig) *huh.Form { return nil }, &AuthConfig{}))
-}
-
-func TestRunAuthFormStage_FormRunError(t *testing.T) {
-	t.Parallel()
-
-	var v string
-
-	err := runAuthFormStage(func(_ *AuthConfig) *huh.Form {
-		return huh.NewForm(huh.NewGroup(huh.NewInput().Value(&v)))
-	}, &AuthConfig{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "auth form cancelled")
-}
-
-// --- authFormAtIndex ---
-
-func TestAuthFormAtIndex_OutOfRange(t *testing.T) {
-	t.Parallel()
-
-	getter := authFormAtIndex(func(_ *AuthConfig) []*huh.Form { return nil }, 5)
-	assert.Nil(t, getter(&AuthConfig{}))
-}
-
-func TestAuthFormAtIndex_InRange(t *testing.T) {
-	t.Parallel()
-
-	want := huh.NewForm(huh.NewGroup(huh.NewNote().Title("x")))
-	getter := authFormAtIndex(func(_ *AuthConfig) []*huh.Form {
-		return []*huh.Form{want}
-	}, 0)
-	assert.Same(t, want, getter(&AuthConfig{}))
-}
-
 // --- Configure error paths routed through the wizard ---
 
 func TestConfigure_EnvVarFetchTokenCaptureError(t *testing.T) {
@@ -480,19 +429,13 @@ func TestConfigure_EnvVarFetchTokenCaptureError(t *testing.T) {
 	p := newTestProps(t)
 	cfg := newTestEditor(t, p, "")
 
+	// OAuth fails; the manual prompt is a password field, which accessible
+	// mode cannot answer without a terminal, and the wizard refuses the blank.
+	p.IO, _ = singleAuthIO(t, credentials.ModeEnvVar, "GITHUB_TOKEN", true)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("", assert.AnError)),
-		WithAuthForms(authFormOverride(
-			func(c *AuthConfig) {
-				c.StorageMode = credentials.ModeEnvVar
-				c.EnvVarName = "GITHUB_TOKEN"
-				c.FetchToken = true
-			},
-			func(_, _ string) *huh.Form { return nil },
-		)),
 	)
-	// OAuth fails → manual prompt (no TTY) fails → error propagates.
-	require.Error(t, init.Configure(t.Context(), p, cfg))
+	require.ErrorIs(t, init.Configure(t.Context(), p, cfg), ErrNoTokenEntered)
 }
 
 func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {
@@ -506,69 +449,30 @@ func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {
 	}
 	cfg := newTestEditor(t, p, "")
 
+	credtest.Install(t)
+
+	p.IO, _ = singleAuthIO(t, credentials.ModeKeychain, "", false)
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("ghp_tok", nil)),
-		WithAuthForms(authFormOverride(
-			func(c *AuthConfig) { c.StorageMode = credentials.ModeKeychain },
-			nil,
-		)),
 	)
 	err := init.Configure(t.Context(), p, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "without a tool name")
 }
 
-func TestConfigure_EnvVarNameFormError(t *testing.T) {
+func TestConfigure_RefusesANonInteractiveRun(t *testing.T) {
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_TOKEN", "")
 
 	p := newTestProps(t)
+	p.IO = nonInteractiveIO()
 	cfg := newTestEditor(t, p, "")
-
-	var name string
 
 	init := NewGitHubInitialiser(p, false, true,
 		WithProviderFactory(authProviderFactory("tok", nil)),
-		WithAuthForms(WithAuthForm(
-			func(c *AuthConfig) []*huh.Form {
-				c.StorageMode = credentials.ModeEnvVar
-
-				return []*huh.Form{
-					nil, // storage-mode slot: skip
-					huh.NewForm(huh.NewGroup(huh.NewInput().Value(&name))), // env-var-name slot: real form (no TTY → error)
-				}
-			},
-			func(_, _ string) *huh.Form { return nil },
-		)),
 	)
-	require.Error(t, init.Configure(t.Context(), p, cfg))
-}
-
-func TestConfigure_StorageModeFormError(t *testing.T) {
-	t.Setenv("CI", "")
-	t.Setenv("GITHUB_TOKEN", "")
-
-	p := newTestProps(t)
-	cfg := newTestEditor(t, p, "")
-
-	var mode credentials.Mode
-
-	init := NewGitHubInitialiser(p, false, true,
-		WithProviderFactory(authProviderFactory("tok", nil)),
-		WithAuthForms(WithAuthForm(
-			func(_ *AuthConfig) []*huh.Form {
-				return []*huh.Form{
-					huh.NewForm(huh.NewGroup(
-						huh.NewSelect[credentials.Mode]().
-							Options(huh.NewOption("env", credentials.ModeEnvVar)).
-							Value(&mode),
-					)),
-				}
-			},
-			func(_, _ string) *huh.Form { return nil },
-		)),
-	)
-	require.Error(t, init.Configure(t.Context(), p, cfg))
+	err := init.Configure(t.Context(), p, cfg)
+	require.ErrorIs(t, err, setup.ErrNonInteractive)
 }
 
 // --- RunGitHubInit / command wiring ---

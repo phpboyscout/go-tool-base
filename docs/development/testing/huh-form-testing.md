@@ -58,7 +58,21 @@ together) and `TUI` is an IO that reports interactive so the form runs
 headless with no renderer. Slower (tens of milliseconds a key), so reach for it
 only when the accessible route cannot express the behaviour.
 
-Both are parallel-safe: nothing global is touched.
+Three facts about accessible mode decide which route a test takes (huh
+v2.0.3, `form.go` `runAccessible`):
+
+- **Every field of every group is asked**, in order. `WithHideFunc` is not
+  consulted, so an answers script covers the hidden pages too, and a test that
+  a page *is* hidden has to drive keys.
+- **Group titles and descriptions are not printed.** Assert on field titles.
+- **A field's error is swallowed.** A password input with no terminal behind
+  it fails with "password asking needs a tty" and the bound value stays blank.
+  A wizard that must have the value checks for the blank itself
+  (`promptManualToken` returns `ErrNoTokenEntered`).
+
+The answers route touches nothing global and is parallel-safe. The key route
+is time-paced (huh's group transitions are asynchronous commands), so tests
+that drive keys do not call `t.Parallel()`.
 
 ## How huh makes this possible: accessible mode
 
