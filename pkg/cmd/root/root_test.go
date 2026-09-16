@@ -1296,7 +1296,8 @@ func TestExecute_FatalError(t *testing.T) {
 func TestMiddleware_IntegrationWithCobra(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
-	t.Parallel()
+	// Not parallel: registers on the process-global middleware registry, which
+	// a parallel NewCmdRoot elsewhere seals (the register-after-seal panic).
 
 	var executed bool
 	cmd := &cobra.Command{
