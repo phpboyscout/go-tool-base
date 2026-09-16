@@ -175,6 +175,18 @@ func (g *Generator) currentVersion() string {
 	return g.props.Version.GetVersion()
 }
 
+// FrameworkReplaceEnv names a go-tool-base working tree the generated go.mod
+// should replace the module with. Development only: the e2e suite sets it so a
+// scaffold that references framework API newer than the latest release still
+// tidies, and a developer sets it to test templates against a branch (the
+// generator manual-test skill did this by hand). Never set it for a project
+// you intend to publish; the directive says so in the file.
+const FrameworkReplaceEnv = "GTB_FRAMEWORK_REPLACE"
+
+func frameworkReplace() string {
+	return os.Getenv(FrameworkReplaceEnv)
+}
+
 func resolveGoVersion(configured string) string {
 	if configured != "" {
 		return configured
@@ -428,6 +440,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		ForgeBackend:          config.ForgeBackend,
 		GoToolBaseVersion:     g.currentVersion(),
 		GoVersion:             resolveGoVersion(config.GoVersion),
+		FrameworkReplace:      frameworkReplace(),
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
 		KeychainEnabled:       featureEnabledIn(config.Features, KeychainFeature),
@@ -1251,14 +1264,14 @@ func lintCacheDir(dir string) (string, error) {
 
 // calculateDisabledFeatures returns the default-on features whose effective
 // state is off — the ones the rendered SetFeatures must Disable. Derived from
-// templates.FeatureCatalogue (the single source of truth), so it stays complete
+// the catalogue (templates.Catalogue), so it stays complete
 // as features are added and is correct whether the manifest is delta-normalised
 // or lists every feature explicitly.
 func calculateDisabledFeatures(features []ManifestFeature) []string {
 	disabled := []string{}
 
-	for _, d := range templates.FeatureCatalogue {
-		name := string(d.Cmd)
+	for _, d := range templates.Catalogue() {
+		name := string(d.ID)
 		if d.Default && !featureEnabledIn(features, name) {
 			disabled = append(disabled, name)
 		}
@@ -1269,12 +1282,17 @@ func calculateDisabledFeatures(features []ManifestFeature) []string {
 
 // calculateEnabledFeatures returns the opt-in (default-off) features whose
 // effective state is on — the ones the rendered SetFeatures must Enable. Derived
-// from templates.FeatureCatalogue for the same reasons as calculateDisabledFeatures.
+// from the catalogue for the same reasons as calculateDisabledFeatures.
 func calculateEnabledFeatures(features []ManifestFeature) []string {
 	enabled := []string{}
 
-	for _, d := range templates.FeatureCatalogue {
-		name := string(d.Cmd)
+	for _, d := range templates.Catalogue() {
+		// A link kind is its file, not a SetFeatures toggle.
+		if d.Kind == props.KindLink {
+			continue
+		}
+
+		name := string(d.ID)
 		if !d.Default && featureEnabledIn(features, name) {
 			enabled = append(enabled, name)
 		}
@@ -1287,8 +1305,7 @@ func calculateEnabledFeatures(features []ManifestFeature) []string {
 // default, so the manifest carries only the delta. This mirrors the
 // enable/disable path (upsertOrClearFeature) and keeps generate's manifest in
 // the same canonical form the scanner reconstructs, so a from-scratch rebuild
-// reproduces it. A feature with no catalogue default (keychain) is treated as
-// default-off and retained.
+// reproduces it. A link kind (keychain) has no default and is retained.
 func normaliseManifestFeatures(features []ManifestFeature) []ManifestFeature {
 	out := make([]ManifestFeature, 0, len(features))
 

@@ -138,4 +138,8 @@ func TestFeatureDescriptor_RankOnlyForBuiltins(t *testing.T) {
 
 	_, ok = FeatureDescriptor{ID: "gitlab", Kind: KindForge}.Rank()
 	assert.False(t, ok)
+
+	rank, ok = FeatureDescriptor{ID: "gitlab", Kind: KindForge, Order: 2}.Rank()
+	assert.True(t, ok)
+	assert.Equal(t, len(builtinOrder)+2, rank, "an ordered plugin follows every built-in in its declared order")
 }

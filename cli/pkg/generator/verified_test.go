@@ -91,3 +91,33 @@ func TestSkeletonGoMod_HasNoGTBToolLine(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(readme), "go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@", "the README says how to get the pinned gtb")
 }
+
+// TestSkeletonGoMod_FrameworkReplaceIsADevelopmentKnob: with
+// GTB_FRAMEWORK_REPLACE set, the generated go.mod replaces the framework with
+// that working tree so a scaffold tidies against unreleased API; without it
+// the file names no replace. It is read at render time and recorded nowhere.
+func TestSkeletonGoMod_FrameworkReplaceIsADevelopmentKnob(t *testing.T) {
+	t.Setenv(FrameworkReplaceEnv, "/work/go-tool-base")
+
+	fs := afero.NewMemMapFs()
+	g := newSkeletonGeneratorForTest(t, fs)
+	require.NoError(t, g.GenerateSkeleton(context.Background(), signingSkeletonConfig("/p", ManifestSigning{})))
+
+	data, err := afero.ReadFile(fs, "/p/go.mod")
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "replace gitlab.com/phpboyscout/go-tool-base => /work/go-tool-base")
+	assert.Contains(t, string(data), "Development only")
+
+	manifest, err := afero.ReadFile(fs, "/p/.gtb/manifest.yaml")
+	require.NoError(t, err)
+	assert.NotContains(t, string(manifest), "/work/go-tool-base", "the replace is not an author setting")
+
+	t.Setenv(FrameworkReplaceEnv, "")
+
+	g = newSkeletonGeneratorForTest(t, fs)
+	require.NoError(t, g.GenerateSkeleton(context.Background(), signingSkeletonConfig("/q", ManifestSigning{})))
+
+	data, err = afero.ReadFile(fs, "/q/go.mod")
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "replace ")
+}

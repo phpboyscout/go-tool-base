@@ -27,7 +27,6 @@ require (
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.1
 	gitlab.com/phpboyscout/go/config v0.18.0
 	gitlab.com/phpboyscout/go/controls v0.7.0
-	gitlab.com/phpboyscout/go/credentials v0.3.2
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/forge v0.27.1
@@ -107,7 +106,6 @@ require (
 	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
 	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
-	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -120,7 +118,6 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -176,7 +173,6 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yuin/goldmark v1.7.17 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
-	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/gitlab-org/api/client-go/v2 v2.62.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
@@ -186,6 +182,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-mcptools v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.11 // indirect
+	gitlab.com/phpboyscout/go/credentials v0.3.2 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/observability v0.3.2 // indirect

@@ -9,6 +9,12 @@ tool (
 	gitlab.com/phpboyscout/go-tool-base/cmd/changelog
 	gitlab.com/phpboyscout/go-tool-base/cmd/docs
 )
+{{- if .FrameworkReplace }}
+
+// Development only: GTB_FRAMEWORK_REPLACE pointed this scaffold at a framework
+// working tree. Regenerate without the variable set before publishing.
+replace gitlab.com/phpboyscout/go-tool-base => {{ .FrameworkReplace }}
+{{- end }}
 `
 
 // The tool block names only the framework's own commands. gtb is installed

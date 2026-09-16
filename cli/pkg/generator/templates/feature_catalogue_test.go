@@ -8,68 +8,87 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"
 )
 
-// TestFeatureCatalogue_CoversAllFeatures is the anti-fragility guard: it fails
-// if a props.FeatureID is added without a matching FeatureCatalogue entry (so
-// the generator's renderer and scanner would silently drop it), and if the
-// catalogue's default-enabled state disagrees with what SetFeatures resolves
-// from props.DefaultFeatures. Because the renderer (getFeatureCmd) and the
-// scanner (extractFeaturesFromSetFeatures) both loop over this one table, keeping
-// it complete and correct is what keeps them symmetric.
-func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
+// TestCatalogue_IsTheRegistry is spec 0199 T5: the catalogue is derived from
+// the registry, so every scaffoldable descriptor this binary declares appears
+// exactly once with its ConstName and ConstPackage, and its default agrees
+// with what SetFeatures resolves. There is no second table to keep in step.
+func TestCatalogue_IsTheRegistry(t *testing.T) {
 	t.Parallel()
 
-	byCmd := make(map[props.FeatureID]FeatureDescriptor, len(FeatureCatalogue))
-	for _, d := range FeatureCatalogue {
-		assert.NotEmptyf(t, d.ConstName, "descriptor for %q needs a ConstName", d.Cmd)
-		assert.NotEmptyf(t, d.ConstPackage, "descriptor for %q needs a ConstPackage", d.Cmd)
-		_, dup := byCmd[d.Cmd]
-		assert.Falsef(t, dup, "duplicate catalogue entry for %q", d.Cmd)
-		byCmd[d.Cmd] = d
-	}
-
-	// The catalogue must cover every builtin AND every forge feature. Builtins
-	// are always registered by props itself; the forge features are registered
-	// by pkg/setup/forge, which this package imports for its catalogue entries
-	// — so both sets are present here by construction rather than by accident
-	// of the import graph, which is what previously kept this guard scoped to
-	// builtins alone.
-	//
-	// Ranging over AllFeatures() would still be wrong: a downstream tool may
-	// register features of its own, and those are not GTB's to scaffold.
 	snapshot := features.Default().Snapshot()
+	catalogue := Catalogue()
 
-	var scaffoldable []props.FeatureID
-	for _, d := range append(snapshot.OfKind(props.KindBuiltin), snapshot.OfKind(props.KindForge)...) {
-		scaffoldable = append(scaffoldable, d.FeatureID())
+	seen := map[props.FeatureID]bool{}
+	for _, d := range catalogue {
+		assert.NotEmptyf(t, d.ConstName, "descriptor for %q needs a ConstName", d.ID)
+		assert.NotEmptyf(t, d.ConstPackage, "descriptor for %q needs a ConstPackage", d.ID)
+		assert.Falsef(t, seen[d.ID], "duplicate catalogue entry for %q", d.ID)
+		seen[d.ID] = true
 	}
 
-	assert.Lenf(t, FeatureCatalogue, len(scaffoldable),
-		"FeatureCatalogue must cover exactly the builtin and forge features — a new one needs a catalogue entry")
+	var want []props.FeatureID
+	for _, k := range []props.FeatureKind{props.KindBuiltin, props.KindForge, props.KindLink} {
+		for _, d := range snapshot.OfKind(k) {
+			want = append(want, d.FeatureID())
+		}
+	}
+
+	assert.Len(t, catalogue, len(want), "the catalogue is every builtin, forge and link the generator links")
+	for _, id := range want {
+		assert.Truef(t, seen[id], "%q is declared but not in the catalogue", id)
+	}
 
 	defaults, err := features.Resolve(snapshot, props.StatesOf(props.SetFeatures()))
 	require.NoError(t, err)
 
-	for _, cmd := range scaffoldable {
-		d, ok := byCmd[cmd]
-		if !assert.Truef(t, ok, "feature %q is missing from FeatureCatalogue", cmd) {
-			continue
-		}
-
-		assert.Equalf(t, defaults.Enabled(cmd), d.Default,
-			"catalogue Default for %q disagrees with the registry", cmd)
-
-		// The registry already records where each constant is declared. Cross-
-		// checking it here means the emitter's qualifier cannot drift from the
-		// package that actually declares the identifier.
-		descriptor, found := snapshot.Lookup(cmd)
-		reg, isGTB := descriptor.(props.FeatureDescriptor)
-		if assert.Truef(t, found && isGTB, "feature %q is not in the props registry", cmd) {
-			assert.Equalf(t, reg.ConstPackage, d.ConstPackage,
-				"catalogue ConstPackage for %q disagrees with the registry", cmd)
-			assert.Equalf(t, reg.ConstName, d.ConstName,
-				"catalogue ConstName for %q disagrees with the registry", cmd)
-		}
+	for _, d := range catalogue {
+		assert.Equalf(t, defaults.Enabled(d.ID), d.Default, "catalogue Default for %q disagrees with the registry", d.ID)
 	}
+}
+
+// TestCatalogue_LinksEveryScaffoldableFeature: the generator's catalogue is
+// complete because this package links the forges and the keychain link. A
+// forge or the keychain missing here would be a project the generator could
+// not scaffold.
+func TestCatalogue_LinksEveryScaffoldableFeature(t *testing.T) {
+	t.Parallel()
+
+	ids := map[props.FeatureID]props.FeatureKind{}
+	for _, d := range Catalogue() {
+		ids[d.ID] = d.Kind
+	}
+
+	for _, id := range []props.FeatureID{forge.GithubFeature, forge.GitlabFeature, forge.GiteaFeature, forge.CodebergFeature, forge.BitbucketFeature} {
+		assert.Equalf(t, props.KindForge, ids[id], "%q must be a forge in the catalogue", id)
+	}
+
+	assert.Equal(t, props.KindLink, ids[keychain.KeychainFeature], "keychain is a link kind in the catalogue")
+
+	d, ok := CatalogueEntry(string(keychain.KeychainFeature))
+	require.True(t, ok)
+	assert.Equal(t, "KeychainFeature", d.ConstName)
+	assert.Equal(t, keychain.PackagePath, d.ConstPackage)
+	assert.False(t, d.Default, "a link's presence is its enablement; the manifest entry decides")
+}
+
+// TestCatalogueIn_FollowsTheRegistryGiven: adding a descriptor to a registry
+// adds a catalogue row; a plugin kind a downstream declares is not GTB's to
+// scaffold and is filtered.
+func TestCatalogueIn_FollowsTheRegistryGiven(t *testing.T) {
+	t.Parallel()
+
+	r := features.NewRegistry()
+	require.NoError(t, r.Declare(props.FeatureDescriptor{ID: "extra", ConstName: "ExtraCmd", ConstPackage: "example.com/extra", Kind: props.KindBuiltin}))
+	require.NoError(t, r.Declare(props.FeatureDescriptor{ID: "theirs", ConstName: "Theirs", ConstPackage: "example.com/theirs", Kind: "plugin"}))
+
+	rows := CatalogueIn(r.Snapshot())
+	require.Len(t, rows, 1)
+	assert.Equal(t, props.FeatureID("extra"), rows[0].ID)
+
+	_, ok := CatalogueEntry("nope")
+	assert.False(t, ok)
 }

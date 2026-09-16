@@ -522,7 +522,14 @@ type skeletonTemplateData struct {
 	ForgeBackend      props.FeatureID
 	GoToolBaseVersion string
 	GoVersion         string
-	DisabledFeatures  []string
+	// FrameworkReplace, when set, points the generated go.mod at a framework
+	// working tree with a replace directive. It is read from
+	// GTB_FRAMEWORK_REPLACE at every render (generate and regenerate alike)
+	// and recorded nowhere, so a scaffold can be built against unreleased
+	// framework API during development and the e2e suite, and the same tree
+	// regenerated later without the directive is a normal project.
+	FrameworkReplace string
+	DisabledFeatures []string
 	// KeychainEnabled says whether cmd/<name>/keychain.go is emitted; the
 	// manifest's explicit keychain entry decides (spec 0197 D8).
 	KeychainEnabled bool
@@ -595,6 +602,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		ReleaseProvider:       m.ReleaseSource.Type,
 		ForgeBackend:          m.ReleaseSource.Backend,
 		GoVersion:             resolveGoVersion(m.Version.Go),
+		FrameworkReplace:      frameworkReplace(),
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
 		KeychainEnabled:       featureEnabledIn(m.Properties.Features, KeychainFeature),

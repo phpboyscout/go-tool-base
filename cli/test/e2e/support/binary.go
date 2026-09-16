@@ -85,6 +85,28 @@ func CleanupBinary() {
 }
 
 // projectRoot walks up from the current working directory to find go.mod.
+// FrameworkRoot is the go-tool-base working tree: the directory holding
+// go.work, above the cli module. Generator scenarios hand it to gtb as
+// GTB_FRAMEWORK_REPLACE so a scaffold that references framework API newer than
+// the latest release still tidies; the workspace keeps the cli and the
+// framework in step, and this keeps the scaffolds in step with both.
+func FrameworkRoot() string {
+	dir := projectRoot()
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return projectRoot()
+		}
+
+		dir = parent
+	}
+}
+
 func projectRoot() string {
 	dir, err := os.Getwd()
 	if err != nil {

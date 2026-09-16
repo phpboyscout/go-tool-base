@@ -1,8 +1,9 @@
 package main
 
 // Side-effect import: activates OS keychain support for the shipped
-// gtb binary by registering the go-keyring-backed backend via
-// pkg/credentials/keychain's init().
+// gtb binary. pkg/setup/keychain registers the go-keyring-backed
+// backend and declares the keychain feature as a link kind, so doctor
+// and the generator's catalogue know this binary carries it.
 //
 // This file is the single on/off switch for keychain in the shipped
 // gtb binary. Regulated builds that must carry no IPC-to-keychain
@@ -12,4 +13,4 @@ package main
 // posture simply omit the equivalent blank import from their own
 // cmd package; consumer binaries only link the keychain chain when
 // the consumer opts in.
-import _ "gitlab.com/phpboyscout/go/credentials/keychain"
+import _ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"

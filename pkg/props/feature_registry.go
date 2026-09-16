@@ -23,6 +23,12 @@ const (
 	KindBuiltin FeatureKind = "builtin"
 	// KindForge is a forge integration contributed by a blank-imported package.
 	KindForge FeatureKind = "forge"
+	// KindLink is a feature whose only effect is a blank import: declaring it
+	// is what links the backend (the OS keychain), so its presence in a binary
+	// is its enablement, and the generator toggles it by writing or removing
+	// the file that imports it (spec 0199 OQ3). It has no runtime switch and
+	// never appears in SetFeatures.
+	KindLink FeatureKind = "link"
 )
 
 // FeatureDescriptor is everything the framework needs to know about a feature.
@@ -58,6 +64,12 @@ type FeatureDescriptor struct {
 	// Dynamic reports whether a flag backend may override the static state at
 	// evaluation time (spec 0199 D7). Every built-in is static.
 	Dynamic bool
+	// Order places a non-builtin feature among its kind: features with an
+	// Order sort by it after the built-ins, features without one sort after
+	// those by kind and ID. The forges use it so a chooser lists them as the
+	// framework intends (GitHub first, the default backend) rather than
+	// alphabetically. Zero means unordered.
+	Order int
 }
 
 // FeatureID implements features.Descriptor.
@@ -73,10 +85,15 @@ func (d FeatureDescriptor) DefaultOn() bool { return d.Default }
 func (d FeatureDescriptor) IsDynamic() bool { return d.Dynamic }
 
 // Rank implements features.Ranked: built-ins keep the order the constant block
-// declares, everything else is unranked and sorts by kind and ID.
+// declares, a feature with an Order follows them in that order, and everything
+// else is unranked and sorts by kind and ID.
 func (d FeatureDescriptor) Rank() (int, bool) {
 	if i := slices.Index(builtinOrder, d.ID); i >= 0 {
 		return i, true
+	}
+
+	if d.Order > 0 {
+		return len(builtinOrder) + d.Order, true
 	}
 
 	return 0, false

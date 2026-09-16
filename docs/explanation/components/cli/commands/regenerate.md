@@ -75,9 +75,9 @@ Feature-state handling depends on whether a manifest already exists:
 - **From scratch** (`.gtb/` deleted, no manifest): feature state is **fully
   re-derived** from in-tree source. The built-in features come from the root
   command's `props.SetFeatures(...)` literal via the shared
-  `templates.FeatureCatalogue`, and the scaffold-only `keychain` feature, which
-  has no `FeatureID` and so never appears in that literal, is recovered from
-  the presence of `cmd/<name>/keychain.go` (`recoverNonLiteralProperties`).
+  `templates.Catalogue()`, and the `keychain` link kind, which is toggled by
+  its file and so never appears in that literal, is recovered from the presence
+  of `cmd/<name>/keychain.go` (`recoverNonLiteralProperties`).
 
 So the manifest is a convenience, not the only record: a from-scratch rebuild
 reconstructs the full feature set (keychain included) from the source tree. See

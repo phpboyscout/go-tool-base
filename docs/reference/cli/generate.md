@@ -197,6 +197,12 @@ the end user's, captured by `init ai` or supplied through the environment.
 | `--signing-kms-region` | *(eu-west-2)* | AWS region for the `aws-kms` backend. |
 | `--signing-public-key` | *(internal/trustkeys/keys/signing-key-v1.asc)* | Path to the embedded public key the signature identifies. |
 
+#### Environment
+
+| Variable | Effect |
+|---|---|
+| `GTB_FRAMEWORK_REPLACE=<dir>` | **Development only.** Every `go.mod` the generator writes (on `generate project` and on `regenerate`) gains `replace gitlab.com/phpboyscout/go-tool-base => <dir>`, so a scaffold tidies and builds against that framework working tree rather than the latest release. The e2e suite sets it to the repo root; set it yourself to test a template change against a branch. It is read at render time and recorded nowhere: regenerate with it unset and the directive is gone. Never publish a project with it set. |
+
 ### `generate command`
 
 Generate a new command or subcommand (optionally AI-converted from a script).

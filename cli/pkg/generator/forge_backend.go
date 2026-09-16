@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
 // Release channels a self-updating tool can be generated with (spec 0195 D7).
@@ -35,9 +34,9 @@ var (
 func ForgeBackends() []props.FeatureID {
 	var backends []props.FeatureID
 
-	for _, d := range templates.FeatureCatalogue {
-		if d.ConstPackage == forge.PackagePath {
-			backends = append(backends, d.Cmd)
+	for _, d := range templates.Catalogue() {
+		if d.Kind == props.KindForge {
+			backends = append(backends, d.ID)
 		}
 	}
 

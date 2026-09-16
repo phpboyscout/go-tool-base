@@ -327,32 +327,37 @@ We use Go's `text/template` engine to render code. Templates are stored as strin
 
 #### The Feature Catalogue (`templates/feature_catalogue.go`)
 
-`templates.FeatureCatalogue` is the **single source of truth** for the built-in
-feature set. It is an ordered table mapping each `props.FeatureID` across three
-facts that must stay aligned:
+`templates.Catalogue()` is the ordered table of every scaffoldable feature,
+**derived from the feature registry** rather than written out (spec 0199 D6):
+a snapshot of `features.Default()`, narrowed to the kinds a generated project
+may select (`builtin`, `forge`, `link`). Each row is the framework's own
+`props.FeatureDescriptor`, so the three facts the generator needs cannot drift
+from the package that declares the feature:
 
-- **name**: the config/manifest string (e.g. `ai`);
-- **`ConstName`**: the exported Go identifier as it appears in generated source
-    (e.g. `AiCmd`). This cannot be derived reliably from the value (`mcp` →
-    `McpCmd`), so it is recorded explicitly;
-- **`Default`**: the framework default-enabled state, mirroring
-    `props.DefaultFeatures`.
+- **`ID`**: the config/manifest string (e.g. `ai`);
+- **`ConstName`** and **`ConstPackage`**: the exported Go identifier as it
+    appears in generated source and the package that declares it (`AiCmd` in
+    `pkg/props`, `GitlabFeature` in `pkg/setup/forge`). `mcp` yields `McpCmd`,
+    so the name is carried rather than computed;
+- **`Default`**: the framework default-enabled state, the same field
+    `props.SetFeatures` resolves from.
 
-Both directions of feature handling derive from this one table: the
+Both directions of feature handling read this one derivation: the
 `props.SetFeatures(...)` renderer emits toggles from it, and the manifest scanner
-(`extractFeaturesFromSetFeatures`) reads toggles back through it. Because the two
-sides share one origin, they **cannot drift**. This exists to fix a specific
-historical bug: the feature scanner once **froze at the original four features**
-while the framework's feature set kept growing, so newer features were silently
-dropped on `regenerate manifest`. A test guards `FeatureCatalogue` against
-`props.AllFeatures`, so adding a framework feature without registering its
-generator handling fails CI.
+(`extractFeaturesFromSetFeatures`) reads toggles back through it. The catalogue
+is complete because the templates package blank-imports every forge and the
+keychain link; a downstream tool's own registrations are a different kind and
+are not GTB's to scaffold. The table was hand-written, and guarded against the
+registry by a test that proved two tables agreed, until the registry stopped
+sealing on read; a snapshot can be taken at any time, so the second table went.
 
-`keychain` is **deliberately absent** from the catalogue: it has no `FeatureID`
-and is a build-time blank-import decision (the scaffolded
-`cmd/<name>/keychain.go`), so it is toggled by adding/removing that file and
-recovered from the artefact rather than from a `SetFeatures` call. This is why
-`ToggleableFeatures` (derived from the catalogue) excludes it.
+`keychain` is in the catalogue as a **link kind** (`props.KindLink`, declared
+by `pkg/setup/keychain`, spec 0199 OQ3): a feature whose only effect is a blank
+import. It is toggled by writing or removing `cmd/<name>/keychain.go`, never by
+`SetFeatures`, so the renderer and the scanner skip link kinds and the
+from-scratch recovery reads the file. It is selected by default at generation
+(a generator policy for link kinds) while declaring no runtime default, since
+its presence is its enablement.
 
 The same pattern carries the chat providers and forge adapters
 (`adapters.go`, spec 0194): `cmd/<name>/chat.go` blank-imports the modules for

@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"
 
 	"github.com/spf13/afero"
 
@@ -12,18 +13,15 @@ import (
 )
 
 // ToggleableFeatures is the set of features that `gtb enable <feature>` and
-// `gtb disable <feature>` can flip in a generated project's manifest. It is
-// derived from templates.FeatureCatalogue — the single source of truth — so it
-// stays complete as features are added, plus keychain: a build-time blank
-// import (cmd/<name>/keychain.go) rather than a FeatureID, which the shared
-// sync writes or removes from the manifest's entry (spec 0197 D8).
-var ToggleableFeatures = append(featureNamesFromCatalogue(), KeychainFeature)
+// `gtb disable <feature>` can flip in a generated project's manifest: every
+// catalogue feature, the keychain link included, which the shared sync writes
+// or removes as cmd/<name>/keychain.go from the manifest's entry (spec 0197
+// D8, spec 0199 OQ3).
+var ToggleableFeatures = featureNamesFromCatalogue()
 
-// KeychainFeature is the one `--features` value with no FeatureID behind it: it
-// selects the scaffolded cmd/<name>/keychain.go blank import rather than a
-// SetFeatures toggle, which is why it is absent from the catalogue and from
-// ToggleableFeatures.
-const KeychainFeature = "keychain"
+// KeychainFeature is the keychain link's manifest name. It is a catalogue
+// feature of kind link: selected by its file rather than a SetFeatures toggle.
+const KeychainFeature = string(keychain.KeychainFeature)
 
 // SelectableFeatures is the set `gtb generate project --features` accepts:
 // every toggleable feature that is not a forge, plus keychain. Keychain is a
@@ -49,43 +47,47 @@ func nonForgeFeatures() []string {
 
 // DefaultSelectedFeatures is what `gtb generate project` selects when --features
 // is omitted: every catalogue feature that is default-enabled in the framework,
-// plus keychain. It is derived rather than written out so a change to a
-// framework default cannot leave the generator's default set stale — and so the
-// flag default and resolveFeatures cannot disagree about what "default" means.
+// plus every link kind. A link (keychain) declares no runtime default because
+// its presence is its enablement, but a new project gets it unless the author
+// opts out, so selecting it by default is the generator's policy rather than
+// the framework's. Derived rather than written out so a change to a framework
+// default cannot leave the generator's default set stale.
 //
 // Forge features are Default:false, so they are correctly absent: a scaffolded
 // tool opts into a forge explicitly.
 var DefaultSelectedFeatures = defaultSelectedFromCatalogue()
 
 func defaultSelectedFromCatalogue() []string {
-	names := make([]string, 0, len(templates.FeatureCatalogue)+1)
+	catalogue := templates.Catalogue()
+	names := make([]string, 0, len(catalogue))
 
-	for _, d := range templates.FeatureCatalogue {
-		if d.Default {
-			names = append(names, string(d.Cmd))
+	for _, d := range catalogue {
+		if d.Default || d.Kind == props.KindLink {
+			names = append(names, string(d.ID))
 		}
 	}
 
-	return append(names, KeychainFeature)
+	return names
 }
 
 func featureNamesFromCatalogue() []string {
-	names := make([]string, 0, len(templates.FeatureCatalogue))
-	for _, d := range templates.FeatureCatalogue {
-		names = append(names, string(d.Cmd))
+	catalogue := templates.Catalogue()
+	names := make([]string, 0, len(catalogue))
+
+	for _, d := range catalogue {
+		names = append(names, string(d.ID))
 	}
 
 	return names
 }
 
 // featureDefaultEnabled reports the framework-default enabled state of a
-// toggleable feature, read from templates.FeatureCatalogue (mirrors
-// props.DefaultFeatures). Unknown names default to false.
+// toggleable feature, read from the catalogue (mirrors props.DefaultFeatures).
+// Unknown names and link kinds default to false: a link's manifest entry is
+// what turns it on.
 func featureDefaultEnabled(name string) bool {
-	for _, d := range templates.FeatureCatalogue {
-		if string(d.Cmd) == name {
-			return d.Default
-		}
+	if d, ok := templates.CatalogueEntry(name); ok {
+		return d.Default
 	}
 
 	return false

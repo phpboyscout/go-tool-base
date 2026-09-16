@@ -20,7 +20,7 @@ If you want the background on why we built this, see the [Credential Storage Har
 | **OS keychain** (opt-in via blank import) | A `<service>/<account>` reference | OS keychain (macOS Keychain / Linux Secret Service / Windows Credential Manager) |
 | **Literal** (legacy) | The secret itself | The config file: `~/.<toolname>/config.yaml` |
 
-Keychain mode is only offered if the tool's `main` package imports `gitlab.com/phpboyscout/go/credentials/keychain`. Regulated builds omit the import. The tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
+Keychain mode is only offered if the tool's `main` package imports `gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain` (the framework's link, which registers the `go/credentials/keychain` backend and declares the feature). Regulated builds omit the import. The tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
 
 ## When to pick which mode
 
@@ -229,16 +229,14 @@ No. The storage modes are additive. Phase 2 adds keychain as a third option, Pha
 
 **Q: How do I enable OS keychain support in a tool built on GTB?**
 
-Add a blank import of the optional keychain subpackage to your tool's `main`:
+A generated project has it already as `cmd/mytool/keychain.go`; `gtb enable keychain` writes it and `gtb disable keychain` removes it. By hand, add a blank import of the framework's keychain link to your tool's `main`:
 
 ```go
-// cmd/mytool/main.go
-import (
-    _ "gitlab.com/phpboyscout/go/credentials/keychain"
-)
+// cmd/mytool/keychain.go
+import _ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"
 ```
 
-The blank import registers a `go-keyring`-backed backend during package init. From that point on, `credentials.KeychainAvailable()` reports true and the setup wizard offers keychain mode when the OS backend is reachable. To strip keychain support from a regulated build, remove the import (or put it in a `//go:build !nokeychain`-tagged file and build with `-tags nokeychain`).
+The blank import registers a `go-keyring`-backed backend during package init and declares the `keychain` feature. From that point on, `credentials.KeychainAvailable()` reports true and the setup wizard offers keychain mode when the OS backend is reachable. To strip keychain support from a regulated build, remove the import (or put it in a `//go:build !nokeychain`-tagged file and build with `-tags nokeychain`).
 
 ## How a forge credential resolves
 

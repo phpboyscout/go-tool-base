@@ -34,7 +34,7 @@ a config-key shape:
 | Mode | Value | What GTB writes to config | Where the secret lives |
 |------|-------|---------------------------|-----------------------|
 | `ModeEnvVar` | `"env"` | the **name** of an env var (`GITHUB_TOKEN`, `ANTHROPIC_API_KEY`, …) | process environment / shell profile / CI secret injection |
-| `ModeKeychain` | `"keychain"` | a `<service>/<account>` reference | OS keychain: **only when the tool blank-imports `go/credentials/keychain`** |
+| `ModeKeychain` | `"keychain"` | a `<service>/<account>` reference | OS keychain: **only when the tool blank-imports `pkg/setup/keychain`** |
 | `ModeLiteral` | `"literal"` | the secret itself | the config file |
 
 `ModeEnvVar` is the default and the only mode permitted under `CI=true`. The setup
@@ -191,11 +191,15 @@ See [spec 0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-c
 
 ## Activating the keychain backend
 
-GTB itself blank-imports the module's keychain subpackage in `cli/cmd/gtb/keychain.go`:
+GTB itself blank-imports the framework's keychain link in `cli/cmd/gtb/keychain.go`:
 
 ```go
-import _ "gitlab.com/phpboyscout/go/credentials/keychain"
+import _ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"
 ```
+
+`pkg/setup/keychain` links the module's `go/credentials/keychain` backend and
+declares the `keychain` feature as a link kind (spec 0199 OQ3), so `doctor` and
+the generator's catalogue know the binary carries it.
 
 Deleting that one file and rebuilding produces a keychain-free `gtb` binary (the
 linker drops go-keyring). Scaffolded tools get the same file via `gtb generate`

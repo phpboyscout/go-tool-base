@@ -39,10 +39,15 @@ middleware of its own builds `NewRegistry()` and never writes to the default
 A `Descriptor` is an interface (`FeatureID`, `FeatureKind`, `DefaultOn`,
 `IsDynamic`) so a consumer carries its own facts beside it: GTB's
 `props.FeatureDescriptor` adds the generated-code identifiers the generator
-emits. `Kind` classifies (`builtin`, `forge`, more to come) so "every forge" is
-a query. A snapshot's order is derived from data, never from `init`
-sequencing: descriptors that report a `Rank` first (GTB's built-ins, in their
-declared order), then the rest by kind and ID.
+emits. `Kind` classifies so "every forge" is a query: `builtin` (the framework's
+commands), `forge` (a forge integration a blank import contributes) and `link`
+(a feature whose only effect is a blank import, the OS keychain; its presence
+is its enablement, it declares no runtime default, and the generator toggles it
+by writing or removing the file that imports it). A snapshot's order is derived
+from data, never from `init` sequencing: descriptors that report a `Rank`
+first (GTB's built-ins in their declared order, then any plugin that sets an
+`Order`, which the forges do so a chooser lists GitHub first), then the rest by
+kind and ID.
 
 ## Contributions and slots
 
@@ -54,7 +59,11 @@ core knows a slot is a name and a value; `setup` defines GTB's slots
 which is how global middleware is registered. A `Set` hands out only the
 contributions of enabled features; `ContributionsOf[T]` does the typed read,
 and that is how `init`, `doctor` and the root find their initialisers,
-checks, asset bundles and middleware.
+checks, asset bundles and middleware, and how `doctor` finds the credentials
+of enabled features (`credentialposture.SlotCredential`, read through
+`credentialposture.DeclaredFor(set)`). The generator's catalogue is another
+reader: `templates.Catalogue()` is the snapshot narrowed to the scaffoldable
+kinds, so there is no second table of features to keep in step.
 
 ## The set on Props, and the root that owns the rest
 

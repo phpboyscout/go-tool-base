@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
@@ -1183,19 +1185,26 @@ func extractReleaseSourceLiteral(comp *dst.CompositeLit, rs *ManifestReleaseSour
 // state and applies each Enable/Disable mutation found in the call arguments.
 //
 // The feature order, the seed defaults, and the constant-token->name map are all
-// derived from props.FeatureCatalogue — the single source of truth shared with
+// derived from the catalogue (templates.Catalogue) shared with
 // the SetFeatures renderer — so this scanner recovers every built-in feature and
 // stays complete as features are added. (It previously hardcoded only
 // init/update/mcp/docs, silently dropping every other feature on a from-scratch
 // manifest rebuild.)
 func extractFeaturesFromSetFeatures(expr dst.Expr) []ManifestFeature {
-	enabled := make(map[string]bool, len(templates.FeatureCatalogue))
-	defaults := make(map[string]bool, len(templates.FeatureCatalogue))
-	constToFeature := make(map[string]string, len(templates.FeatureCatalogue))
-	order := make([]string, 0, len(templates.FeatureCatalogue))
+	catalogue := templates.Catalogue()
+	enabled := make(map[string]bool, len(catalogue))
+	defaults := make(map[string]bool, len(catalogue))
+	constToFeature := make(map[string]string, len(catalogue))
+	order := make([]string, 0, len(catalogue))
 
-	for _, d := range templates.FeatureCatalogue {
-		name := string(d.Cmd)
+	for _, d := range catalogue {
+		// A link kind is toggled by its file, not by SetFeatures; the recover
+		// path reads its artefact instead.
+		if d.Kind == props.KindLink {
+			continue
+		}
+
+		name := string(d.ID)
 		enabled[name] = d.Default
 		defaults[name] = d.Default
 		constToFeature[d.ConstName] = name

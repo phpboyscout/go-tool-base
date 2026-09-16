@@ -26,7 +26,7 @@ func TestSyncAdapterFiles_KeychainFollowsTheManifest(t *testing.T) {
 
 	src, err := afero.ReadFile(fs, "/proj/cmd/tool/keychain.go")
 	require.NoError(t, err, "the file is written while the feature is enabled")
-	assert.Contains(t, string(src), "go/credentials/keychain")
+	assert.Contains(t, string(src), "pkg/setup/keychain")
 
 	disabled := &Manifest{Properties: ManifestProperties{Name: "tool"}}
 	require.NoError(t, g.syncAdapterFiles(disabled))

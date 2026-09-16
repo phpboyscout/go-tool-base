@@ -52,9 +52,9 @@ path and reconstructs every property from three in-tree artefacts
 - **The root `cmd.go` `Tool` literal (AST scan)**: name, description, release
     source, env prefix, update policy/interval, help channel, telemetry, and the
     feature set. Features are recovered from the `props.SetFeatures(...)` call via
-    the shared `templates.FeatureCatalogue`, so every built-in toggle round-trips.
-- **`cmd/<name>/keychain.go`**: the scaffold-only `keychain` feature has no
-    `FeatureID` and never appears in the `SetFeatures` literal, so its state is
+    the shared `templates.Catalogue()`, so every built-in toggle round-trips.
+- **`cmd/<name>/keychain.go`**: the `keychain` link kind is toggled by its
+    file and never appears in the `SetFeatures` literal, so its state is
     recovered from the presence of this blank-import file.
 - **`pkg/cmd/root/provenance.go`**: the signing posture, custom template-overlay
     pins, and `module_published`, which are recorded nowhere else in generated

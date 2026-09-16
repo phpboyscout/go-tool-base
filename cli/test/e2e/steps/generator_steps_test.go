@@ -64,7 +64,13 @@ type generatorWorld struct {
 // 193s to 809s, and the cost landed on every scenario that regenerates and none
 // of the pure-CLI ones.
 func (w *generatorWorld) isolatedEnv() []string {
-	env := append(os.Environ(), "HOME="+isolatedHome())
+	env := append(os.Environ(),
+		"HOME="+isolatedHome(),
+		// The scaffold tidies against this working tree, not the latest
+		// release, so a template may reference framework API in the same MR
+		// that adds it.
+		generator.FrameworkReplaceEnv+"="+support.FrameworkRoot(),
+	)
 
 	for name, value := range sharedCaches() {
 		env = append(env, name+"="+value)

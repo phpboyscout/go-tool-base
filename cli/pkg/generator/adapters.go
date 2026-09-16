@@ -212,14 +212,14 @@ func chatModules(providers []string) []string {
 func forgeModules(features []ManifestFeature) []string {
 	var modules []string
 
-	for _, d := range templates.FeatureCatalogue {
-		if !featureEnabledIn(features, string(d.Cmd)) {
+	for _, d := range templates.Catalogue() {
+		if d.Kind != props.KindForge || !featureEnabledIn(features, string(d.ID)) {
 			continue
 		}
 
 		// A forge feature's ID is its forge type (github, gitlab, gitea,
 		// codeberg, bitbucket), so the type table answers for the feature.
-		module, ok := forge.ModuleFor(string(d.Cmd))
+		module, ok := forge.ModuleFor(string(d.ID))
 		if !ok || slices.Contains(modules, module) {
 			continue
 		}

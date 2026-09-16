@@ -74,39 +74,29 @@ const gitLabAPIHost = "gitlab.com"
 // enumerates the feature set — most immediately the doctor support bundle,
 // which ranges over props.AllFeatures and had been silently omitting both.
 //
-// Neither may be default-enabled: a blank import changes what is available,
-// never what is on (props.ErrPluginDefaultOn).
+// None may be default-enabled: a blank import changes what is available,
+// never what is on (props.ErrPluginDefaultOn). Order is the chooser's: GitHub
+// first as the default backend, then the others as the wizard has always
+// listed them; the catalogue and the doctor report read it from the snapshot.
 func init() {
-	props.RegisterFeature(props.FeatureDescriptor{
-		ID:           GithubFeature,
-		ConstName:    "GithubFeature",
-		ConstPackage: PackagePath,
-		Kind:         props.KindForge,
-	})
-	props.RegisterFeature(props.FeatureDescriptor{
-		ID:           GitlabFeature,
-		ConstName:    "GitlabFeature",
-		ConstPackage: PackagePath,
-		Kind:         props.KindForge,
-	})
-	props.RegisterFeature(props.FeatureDescriptor{
-		ID:           GiteaFeature,
-		ConstName:    "GiteaFeature",
-		ConstPackage: PackagePath,
-		Kind:         props.KindForge,
-	})
-	props.RegisterFeature(props.FeatureDescriptor{
-		ID:           CodebergFeature,
-		ConstName:    "CodebergFeature",
-		ConstPackage: PackagePath,
-		Kind:         props.KindForge,
-	})
-	props.RegisterFeature(props.FeatureDescriptor{
-		ID:           BitbucketFeature,
-		ConstName:    "BitbucketFeature",
-		ConstPackage: PackagePath,
-		Kind:         props.KindForge,
-	})
+	for i, f := range []struct {
+		id        props.FeatureID
+		constName string
+	}{
+		{GithubFeature, "GithubFeature"},
+		{GitlabFeature, "GitlabFeature"},
+		{GiteaFeature, "GiteaFeature"},
+		{CodebergFeature, "CodebergFeature"},
+		{BitbucketFeature, "BitbucketFeature"},
+	} {
+		props.RegisterFeature(props.FeatureDescriptor{
+			ID:           f.id,
+			ConstName:    f.constName,
+			ConstPackage: PackagePath,
+			Kind:         props.KindForge,
+			Order:        i + 1,
+		})
+	}
 }
 
 // CredentialShape discriminates the credential layout a forge setup wizard

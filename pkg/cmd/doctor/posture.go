@@ -8,7 +8,6 @@ import (
 	gochat "gitlab.com/phpboyscout/go/chat"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -36,10 +35,10 @@ func checkCredentialResolution(ctx context.Context, props *p.Props) CheckResult 
 	}
 
 	// Only the credentials of enabled features: a tool with no forge and no
-	// ai has nothing to say about GitHub tokens or Anthropic keys (#55).
-	results := credentialposture.ReportWhere(ctx, props.Config.View(), func(d credentialposture.Descriptor) bool {
-		return descriptorApplies(props.GetFeatures(), d)
-	})
+	// ai has nothing to say about GitHub tokens or Anthropic keys (#55). The
+	// set gates by feature; the predicate keeps only chat credentials whose
+	// provider this binary links (spec 0196 D12).
+	results := credentialposture.ReportFor(ctx, props.Config.View(), props.GetFeatures(), providerLinked)
 	if len(results) == 0 {
 		return CheckResult{Name: credentialResolutionCheck, Status: CheckSkip, Message: "no credentials declared"}
 	}
@@ -116,14 +115,11 @@ func resolutionResult(lines []string, resolved, shadowed, broken int) CheckResul
 	}
 }
 
-// descriptorApplies is the doctor's predicate for a credential: its feature
-// enabled (#55) and, when it names the providers that consume it, at least one
-// of them registered in this binary (spec 0196 D12).
-func descriptorApplies(set features.Set, d credentialposture.Descriptor) bool {
-	if d.Feature != "" && !set.Enabled(p.FeatureID(d.Feature)) {
-		return false
-	}
-
+// providerLinked is the doctor's predicate on a credential the feature set
+// already admitted: when it names the providers that consume it, at least one
+// must be registered in this binary (spec 0196 D12). Feature gating is the
+// set's (credentialposture.DeclaredFor), not repeated here.
+func providerLinked(d credentialposture.Descriptor) bool {
 	if len(d.Providers) == 0 {
 		return true
 	}

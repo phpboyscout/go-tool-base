@@ -55,7 +55,7 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
 | `INT_TEST_E2E_CLI=1` | Enables only `@cli`-tagged E2E scenarios |
 | `INT_TEST_E2E_CHAT=1` | Enables only `@chat`-tagged E2E scenarios |
-| `INT_TEST_E2E_GENERATOR=1` | Enables only `@generator`-tagged E2E scenarios |
+| `INT_TEST_E2E_GENERATOR=1` | Enables only `@generator`-tagged E2E scenarios. These scaffold real projects and run `go mod tidy` in them, with `GTB_FRAMEWORK_REPLACE` set to the repo root so the scaffold builds against the working tree, not the latest release (a template may reference framework API in the same MR that adds it) |
 | `GTB_SKIP_LINT=true` | Skips the generator's `golangci-lint run --fix` pass. The E2E suite sets this for itself (see below); set it by hand to scaffold quickly. Only the literal `true` counts |
 
 #### Why the E2E suite skips the generator's lint pass
