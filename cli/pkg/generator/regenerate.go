@@ -70,19 +70,12 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 
 	g.conflicts.reset()
 
-	// Route the whole regeneration — docs migration, file writes and the
-	// manifest/hash persistence — through a staged overlay and commit it to the
-	// real filesystem only once every step succeeds. A mid-run failure then
-	// leaves the tree and manifest mutually consistent (the misclassification
-	// damage a partial real-FS write causes), rather than half-written.
-	base := g.props.FS
-	staged := newStagedFS(base)
-	g.props.FS = staged
-
-	genErr := g.stagedRegeneration(ctx)
-
-	g.props.FS = base
-
+	// Route the whole regeneration (docs migration, file writes and the
+	// manifest/hash persistence) through a staged overlay and commit it to the
+	// real filesystem only once every step succeeds; the commit rolls back if
+	// it fails part-way. A failure at either stage leaves the tree and manifest
+	// mutually consistent, rather than half-written.
+	staged, genErr := g.withStagedFS(ctx, g.stagedRegeneration)
 	if genErr != nil {
 		// Nothing was materialised: base tree and manifest are untouched.
 		return genErr
@@ -116,9 +109,22 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 	return nil
 }
 
+// withStagedFS runs body with a staged overlay installed as Props.FS and
+// hands the overlay back for the caller to commit. The restore is deferred
+// so a panic in body cannot leave the process reading through the overlay.
+func (g *Generator) withStagedFS(ctx context.Context, body func(context.Context) error) (*stagedFS, error) {
+	base := g.props.FS
+	staged := newStagedFS(base)
+	g.props.FS = staged
+
+	defer func() { g.props.FS = base }()
+
+	return staged, body(ctx)
+}
+
 // stagedRegeneration runs the docs migration and core regeneration against the
-// currently-installed (staged) filesystem. It is the buffered body committed
-// atomically by regenerateProject.
+// currently-installed (staged) filesystem. It is the buffered body that
+// regenerateProject commits, with rollback, once it succeeds.
 func (g *Generator) stagedRegeneration(ctx context.Context) error {
 	// `regenerate project --force` migrates a flat-layout project to the Diátaxis
 	// layout before regeneration, so the re-emitted docs and indexes land in the
