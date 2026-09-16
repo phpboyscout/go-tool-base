@@ -76,37 +76,6 @@ func TestCheckConfig_Missing(t *testing.T) {
 	assert.Equal(t, "no configuration loaded", result.Message)
 }
 
-func TestCheckAPIKeys_None(t *testing.T) {
-	t.Parallel()
-
-	props := &p.Props{Config: testutil.StoreFromYAML(t, "{}\n")}
-
-	result := checkAPIKeys(context.Background(), props)
-	assert.Equal(t, "API keys", result.Name)
-	assert.Equal(t, CheckWarn, result.Status)
-	assert.Contains(t, result.Message, "no AI provider")
-}
-
-func TestCheckAPIKeys_Some(t *testing.T) {
-	t.Parallel()
-
-	props := &p.Props{Config: testutil.StoreFromYAML(t, "anthropic:\n  api:\n    key: sk-test\n")}
-
-	result := checkAPIKeys(context.Background(), props)
-	assert.Equal(t, "API keys", result.Name)
-	assert.Equal(t, CheckPass, result.Status)
-	assert.Contains(t, result.Message, "1 provider(s) configured")
-}
-
-func TestCheckAPIKeys_NoConfig(t *testing.T) {
-	t.Parallel()
-
-	props := &p.Props{}
-
-	result := checkAPIKeys(context.Background(), props)
-	assert.Equal(t, CheckSkip, result.Status)
-}
-
 func TestRunChecks(t *testing.T) {
 	t.Parallel()
 
@@ -148,32 +117,36 @@ func TestRunChecks(t *testing.T) {
 func TestDefaultChecks_FeatureAware(t *testing.T) {
 	t.Parallel()
 
-	names := func(props *p.Props) map[string]bool {
-		got := map[string]bool{}
+	results := func(props *p.Props) map[string]CheckResult {
+		got := map[string]CheckResult{}
 		for _, check := range DefaultChecks(props) {
-			got[check(context.Background(), props).Name] = true
+			r := check(context.Background(), props)
+			got[r.Name] = r
 		}
 
 		return got
 	}
 
-	// Default-features tool: AI disabled -> no API-key check, and never a Git check.
+	// Default-features tool: the chat check skips, and there is never a Git check.
 	base := &p.Props{
 		Tool:   p.Tool{Name: "t"},
 		Config: testutil.StoreFromYAML(t, "{}\n"),
 		FS:     afero.NewMemMapFs(),
 	}
-	def := names(base)
-	assert.False(t, def["API keys"], "AI-disabled tool must not run the API-key check")
-	assert.False(t, def["Git"], "Git must never be a built-in check")
+	def := results(base)
+	assert.Equal(t, CheckSkip, def["Chat providers"].Status, "AI-disabled tool has nothing to say about chat providers")
+	_, hasGit := def["Git"]
+	assert.False(t, hasGit, "Git must never be a built-in check")
+	_, hasAPIKeys := def["API keys"]
+	assert.False(t, hasAPIKeys, "the three-key count is gone (spec 0196 D8)")
 
-	// AI-enabled tool: the API-key check is included.
+	// AI-enabled tool: the chat check speaks.
 	ai := &p.Props{
 		Tool:   p.Tool{Name: "t", Features: []p.Feature{{ID: p.AiCmd, Enabled: true}}},
 		Config: testutil.StoreFromYAML(t, "{}\n"),
 		FS:     afero.NewMemMapFs(),
 	}
-	assert.True(t, names(ai)["API keys"], "AI-enabled tool must run the API-key check")
+	assert.NotEqual(t, CheckSkip, results(ai)["Chat providers"].Status, "AI-enabled tool runs the chat providers check")
 }
 
 func TestDoctorReport_JSONOutput(t *testing.T) {

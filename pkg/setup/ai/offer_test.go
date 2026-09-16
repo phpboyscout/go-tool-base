@@ -19,7 +19,7 @@ import (
 func TestProviderOptions_OfferEveryDisplayedProvider(t *testing.T) {
 	t.Parallel()
 
-	opts := providerOptions()
+	opts := providerOptions(func(gochat.Provider) bool { return true })
 	displays := chat.ProviderDisplays()
 	require.Len(t, opts, len(displays))
 

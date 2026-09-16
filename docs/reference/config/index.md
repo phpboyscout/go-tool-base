@@ -278,8 +278,10 @@ endpoint; a model name is provider-specific and an endpoint doubly so.
 
 When `ai.provider` is unset in every config layer, the framework reads the
 `AI_PROVIDER` environment variable (directly, without the tool's config
-prefix). When that is unset too, constructing a chat client fails with
-`no AI provider is configured` and a hint naming `ai.provider` and `init ai`.
+prefix). When that is unset too and the binary links exactly one provider,
+that provider is used. Otherwise constructing a chat client fails with
+`no AI provider is configured` and a hint naming `ai.provider`, `init ai`
+and the providers the binary links.
 The framework names no vendor as a default: a generated tool ships its
 author's default as its lowest config layer (see the
 [generate reference](../cli/generate.md#chat-defaults)), and an end user

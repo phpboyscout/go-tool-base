@@ -80,8 +80,11 @@ framework integration on top:
 - **Provider to module table.** `chat.ProviderModule(p)` and
   `chat.ProviderModules()` name the module whose blank import registers each
   `chat.Provider`. The generator, `doctor` and error hints read this one table.
-  When `chat.New` fails because a provider is not registered, the adapter adds
-  a hint naming the import to add.
+  When `chat.New` fails because a provider is not registered
+  (`gochat.ErrProviderNotRegistered`), the adapter adds a hint naming the
+  import to add. `gochat.ProviderRegistered` and `RegisteredProviders` are how
+  `init ai`, `doctor` and the default-provider rung ask what this binary
+  links, the same way the forge side asks `forge.Registered`.
 
 ## Related how-to guides
 

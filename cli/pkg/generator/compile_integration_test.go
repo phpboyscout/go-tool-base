@@ -237,6 +237,7 @@ func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
 			{Name: string(props.AiCmd), Enabled: true},
 			{Name: string(props.ConfigCmd), Enabled: true},
 			{Name: string(props.InitCmd), Enabled: true},
+			{Name: string(props.DoctorCmd), Enabled: true},
 			{Name: "github", Enabled: true},
 		},
 		Chat: ManifestChat{
@@ -286,4 +287,11 @@ func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
 		require.NoErrorf(t, err, "config get %s:\n%s", key, out)
 		assert.Containsf(t, string(out), want, "the built tool reads %s from its embedded chat defaults\n%s", key, out)
 	}
+
+	// Spec 0196 D8: the built tool's doctor knows which providers it links.
+	doctorCmd := exec.Command(bin, "doctor")
+	doctorCmd.Env = env
+	doctorOut, _ := doctorCmd.CombinedOutput()
+	assert.Contains(t, string(doctorOut), "Chat providers: claude, claude-local linked",
+		"the tool links chat-anthropic, which registers both claude names\n%s", doctorOut)
 }

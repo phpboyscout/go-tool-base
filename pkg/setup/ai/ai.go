@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -80,6 +81,25 @@ type formConfig struct {
 	storageModeFormCreator func(*AIConfig) *huh.Form
 	envVarFormCreator      func(*AIConfig) *huh.Form
 	keyFormCreator         func(*AIConfig) *huh.Form
+	// linked reports whether this binary registers a provider; the select
+	// offers only those and a chosen provider must be one (spec 0196 D7).
+	linked func(gochat.Provider) bool
+}
+
+// ErrProviderNotLinked is a provider chosen for init ai that this binary does
+// not register: writing it to config would only fail at first use.
+var ErrProviderNotLinked = errors.NewSentinel("gtb.setup.ai.provider_not_linked", "this tool does not link the chosen chat provider")
+
+// linkedProviders builds the predicate from the registry. A binary that
+// registers no provider at all cannot narrow, so every known provider is
+// offered and doctor's Chat providers check is what reports the gap.
+func linkedProviders(registered func() []gochat.Provider) func(gochat.Provider) bool {
+	names := registered()
+	if len(names) == 0 {
+		return func(gochat.Provider) bool { return true }
+	}
+
+	return func(p gochat.Provider) bool { return slices.Contains(names, p) }
 }
 
 // Form-slot indices used by [WithAIForm]. The creator callback
@@ -128,14 +148,17 @@ func providerLabel(provider string) string {
 	return provider
 }
 
-// providerOptions offers every provider the framework knows, labelled and
-// glossed from the one display table (spec 0196 D7). Whether the running
-// binary links a given provider is a later refinement.
-func providerOptions() []huh.Option[string] {
+// providerOptions offers the providers this binary links, labelled and
+// glossed from the one display table (spec 0196 D7).
+func providerOptions(linked func(gochat.Provider) bool) []huh.Option[string] {
 	displays := chat.ProviderDisplays()
 	opts := make([]huh.Option[string], 0, len(displays))
 
 	for _, d := range displays {
+		if !linked(d.ID) {
+			continue
+		}
+
 		opts = append(opts, huh.NewOption(d.Label+"  ("+d.Gloss+")", string(d.ID)))
 	}
 
@@ -159,12 +182,16 @@ func envOverrideNote() string {
 }
 
 func defaultProviderForm(cfg *AIConfig) *huh.Form {
+	return providerFormFor(cfg, linkedProviders(gochat.RegisteredProviders))
+}
+
+func providerFormFor(cfg *AIConfig, linked func(gochat.Provider) bool) *huh.Form {
 	// huh sizes an auto-height select to its options and then subtracts the
 	// title and description lines, so the last options render off-screen
 	// until the cursor reaches them (#43); the height is set explicitly.
 	const titleAndDescriptionLines = 2
 
-	options := providerOptions()
+	options := providerOptions(linked)
 
 	providerFields := []huh.Field{
 		huh.NewSelect[string]().
@@ -542,6 +569,15 @@ func runAIForms(existingCfg config.Reader, opts ...FormOption) (*AIConfig, error
 		return nil, err
 	}
 
+	if provider := gochat.Provider(aiCfg.Provider); !fCfg.linked(provider) {
+		err := errors.Wrapf(ErrProviderNotLinked, "%s", provider)
+		if module, ok := chat.ProviderModule(provider); ok {
+			err = errors.WithHintf(err, "Add to the tool's main package:\n\nimport _ %q", module)
+		}
+
+		return nil, err
+	}
+
 	// A local CLI or bedrock authenticates on its own: the provider is the
 	// whole answer, and the storage and key forms have nothing to ask.
 	if !chat.NeedsCredential(gochat.Provider(aiCfg.Provider)) {
@@ -566,13 +602,17 @@ func runAIForms(existingCfg config.Reader, opts ...FormOption) (*AIConfig, error
 // newAIFormConfig constructs the default formConfig and applies options.
 func newAIFormConfig(opts ...FormOption) *formConfig {
 	c := &formConfig{
-		providerFormCreator:    defaultProviderForm,
 		storageModeFormCreator: defaultStorageModeForm,
 		envVarFormCreator:      defaultEnvVarForm,
 		keyFormCreator:         defaultKeyForm,
+		linked:                 linkedProviders(gochat.RegisteredProviders),
 	}
 	for _, opt := range opts {
 		opt(c)
+	}
+
+	if c.providerFormCreator == nil {
+		c.providerFormCreator = func(cfg *AIConfig) *huh.Form { return providerFormFor(cfg, c.linked) }
 	}
 
 	return c

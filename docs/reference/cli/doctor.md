@@ -37,10 +37,10 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | **Go version** | Runtime Go version is 1.22+ |
 | **Configuration** | Config is loaded and accessible |
 | **Git** | `git` binary is available and the current directory is a repository |
-| **API keys** | At least one AI provider API key is configured |
+| **Chat providers** | With the `ai` feature enabled: `ai.provider` and every `ai.fallback.providers` member is a provider this binary registers. A failure names the module to blank-import, the way Forge adapters does; no `ai.provider` at all warns and lists what the binary links. Skipped without `ai`. Replaced the old **API keys** count, which the credential resolution check had made redundant |
 | **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config: warns and lists the offending key *names* (never values), pointing to env-var migration |
 | **Forge adapters** | Every enabled forge feature has its adapter module linked into the binary. Fixed at build time, so a failure names the blank import to add rather than a config key to set. Skipped when no forge feature is enabled |
-| **`<Forge>` credential** | Whether that forge's credential actually **resolves**, and from which rung: `auth.env`, `auth.keychain`, `auth.value`, or the well-known fallback variable. One per enabled single-token forge. Reports the key name only, never the value |
+| **Credential resolution** | Whether each declared credential actually **resolves**, and from which rung: `auth.env`/`api.env`, the keychain, the literal, or the well-known fallback variable. Only credentials of enabled features are reported, and a chat credential only when one of the providers it serves is linked in this binary (a `claude-local`-only tool hears nothing about an Anthropic key). Reports the key name only, never the value |
 | **Permissions** | Config directory exists with correct owner permissions (rwx) |
 
 ## Output Example
@@ -51,7 +51,7 @@ mytool v1.2.3
   [OK] Go version: go1.26.0
   [OK] Configuration: loaded successfully
   [OK] Git: repository accessible
-  [!!] API keys: no AI provider API keys configured
+  [OK] Chat providers: claude, claude-local linked
   [OK] Permissions: config dir: /home/user/.config/mytool (drwxr-xr-x)
   [OK] GitHub credential: resolves from auth.env
   [!!] GitLab credential: credential configured but does not resolve

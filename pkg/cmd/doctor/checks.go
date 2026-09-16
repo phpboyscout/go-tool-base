@@ -6,9 +6,13 @@ import (
 	goversion "go/version"
 	"os"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
+	"gitlab.com/phpboyscout/go/config"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
@@ -114,35 +118,80 @@ func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 	}
 }
 
-func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
+// checkChatProviders is the chat side of checkForgeAdapters (spec 0196 D8,
+// D12): the provider ai.provider names, and every fallback member, must be
+// one this binary registers, and the fix is the module to import. It replaced
+// the three-key "API keys" count, which the credential resolution check had
+// made redundant (#55).
+func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
+	const name = "Chat providers"
+
+	if props == nil || !props.Tool.IsEnabled(p.AiCmd) {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "ai feature not enabled"}
+	}
+
 	if props.Config == nil {
-		return CheckResult{Name: "API keys", Status: CheckSkip, Message: "no configuration loaded"}
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no configuration loaded"}
 	}
 
-	keys := map[string]string{
-		"anthropic": chat.ConfigKeyClaudeKey,
-		"openai":    chat.ConfigKeyOpenAIKey,
-		"gemini":    chat.ConfigKeyGeminiKey,
+	registered := gochat.RegisteredProviders()
+
+	linked := make([]string, len(registered))
+	for i, r := range registered {
+		linked[i] = string(r)
 	}
 
-	cfg := props.Config.View()
-	configured := 0
-
-	for _, configKey := range keys {
-		if cfg.GetString(configKey) != "" {
-			configured++
+	configured := chatProvidersInUse(props.Config.View())
+	if len(configured) == 0 {
+		return CheckResult{
+			Name:    name,
+			Status:  CheckWarn,
+			Message: "no " + chat.ConfigKeyAIProvider + " configured; this binary links: " + strings.Join(linked, ", "),
 		}
 	}
 
-	if configured == 0 {
-		return CheckResult{Name: "API keys", Status: CheckWarn, Message: "no AI provider API keys configured"}
+	var missing []string
+
+	for _, provider := range configured {
+		if gochat.ProviderRegistered(provider) {
+			continue
+		}
+
+		module, ok := chat.ProviderModule(provider)
+		if !ok {
+			module = "no known module"
+		}
+
+		missing = append(missing, fmt.Sprintf("%s (import %s)", provider, module))
 	}
 
-	return CheckResult{
-		Name:    "API keys",
-		Status:  CheckPass,
-		Message: fmt.Sprintf("%d provider(s) configured", configured),
+	if len(missing) > 0 {
+		return CheckResult{Name: name, Status: CheckFail, Message: "configured but not linked: " + strings.Join(missing, "; ")}
 	}
+
+	return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(linked, ", ") + " linked"}
+}
+
+// chatProvidersInUse is ai.provider followed by the fallback chain, without
+// duplicates and without empties.
+func chatProvidersInUse(cfg config.Reader) []gochat.Provider {
+	var out []gochat.Provider
+
+	add := func(name string) {
+		if name == "" || slices.Contains(out, gochat.Provider(name)) {
+			return
+		}
+
+		out = append(out, gochat.Provider(name))
+	}
+
+	add(cfg.GetString(chat.ConfigKeyAIProvider))
+
+	for _, name := range cfg.GetStringSlice(chat.ConfigKeyAIFallback + ".providers") {
+		add(name)
+	}
+
+	return out
 }
 
 func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {

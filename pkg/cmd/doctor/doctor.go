@@ -147,14 +147,14 @@ func discoverChecks(props *p.Props) []CheckFunc {
 // DefaultChecks returns the standard set of diagnostic checks, tailored to the
 // tool's enabled features. The always-on checks validate state every tool has
 // (the Go runtime, configuration presence, credential hygiene, config-dir
-// permissions). Feature-specific checks are only included when their feature is
-// enabled, so a default-features tool does not, for example, warn "no AI
-// provider API keys configured" when the AI feature is switched off.
+// permissions). Feature-specific checks skip themselves when their feature is
+// disabled, so a default-features tool has nothing said to it about chat
+// providers. The parameter is kept for callers and downstream check lists.
 //
 // Git availability is deliberately NOT a built-in check: it is only meaningful
 // to a tool with a git-consuming feature, so such tools register their own via
 // setup.RegisterChecks rather than every tool warning about a missing git.
-func DefaultChecks(props *p.Props) []CheckFunc {
+func DefaultChecks(_ *p.Props) []CheckFunc {
 	checks := []CheckFunc{
 		checkGoVersion,
 		checkConfig,
@@ -163,13 +163,7 @@ func DefaultChecks(props *p.Props) []CheckFunc {
 		checkPermissions,
 		checkForgeAdapters,
 		checkReleaseSource,
-	}
-
-	// The AI-key check is only relevant when the AI feature is enabled — it is
-	// the feature that consumes those keys. Off by default, so a default-
-	// features tool never nags about unconfigured AI credentials.
-	if props != nil && props.Tool.IsEnabled(p.AiCmd) {
-		checks = append(checks, checkAPIKeys)
+		checkChatProviders,
 	}
 
 	return checks
