@@ -148,18 +148,13 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return errors.Newf("manifest validation failed: %w", err)
 	}
 
-	// Derived fields are recorded before anything renders, so the render
-	// reads them and the later hash persistence (which re-reads the manifest
-	// from disk) keeps them; a write from this in-memory copy after that
-	// persistence would drop the hashes it recorded.
-	if err := g.syncDerivedManifestFields(m); err != nil {
-		return err
-	}
-
 	g.props.Logger.Info("Regenerating project from manifest...")
 	g.props.Logger.Debug("manifest loaded", "name", m.Properties.Name, "commands", len(m.Commands))
 
-	if err := g.regenerateRootCommand(*m); err != nil {
+	// The shared sync (derived fields, root, signing files, adapter files)
+	// runs first so the commands and skeleton files below render against a
+	// manifest whose derived fields are recorded (spec 0197 D7).
+	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
 	}
 
@@ -177,15 +172,7 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return err
 	}
 
-	// Keep the signing-owned files in sync with the manifest posture:
-	// the trustkeys package, keys/.gitkeep and signing.go are emitted
-	// when signing is enabled, and signing.go is dropped when disabled.
-	// (cmd.go's Signing: field was handled by regenerateRootCommand.)
-	if err := g.syncSigningFiles(*m); err != nil {
-		return err
-	}
-
-	return g.syncAdapterFiles(m)
+	return nil
 }
 
 // sanitiseManifest removes manifest commands that fail validation so the
@@ -511,7 +498,10 @@ type skeletonTemplateData struct {
 	GoToolBaseVersion string
 	GoVersion         string
 	DisabledFeatures  []string
-	EnabledFeatures   []string
+	// KeychainEnabled says whether cmd/<name>/keychain.go is emitted; the
+	// manifest's explicit keychain entry decides (spec 0197 D8).
+	KeychainEnabled bool
+	EnabledFeatures []string
 	// ChatModules and ForgeModules are the blank imports cmd/<name>/chat.go and
 	// forge.go carry, derived from the manifest's chat.providers and enabled
 	// forge features (spec 0194 D4, D6).
@@ -582,6 +572,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		GoVersion:             resolveGoVersion(m.Version.Go),
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
+		KeychainEnabled:       featureEnabledIn(m.Properties.Features, KeychainFeature),
 		ChatModules:           chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
 		ChatDefault:           chatDefaultsFor(m.Properties),
 		ForgeModules:          forgeModules(m.Properties.Features),

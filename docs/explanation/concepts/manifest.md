@@ -129,7 +129,15 @@ its manifest path, and how `regenerate` reads it back. A test walks the struct
 and fails on a field the table does not name, and a round-trip test proves each
 setting survives generate → manifest → regenerate. `version.go` records the Go
 directive the project was generated with, so a newer toolchain on the author's
-machine no longer rewrites `go.mod`. Spec
+machine no longer rewrites `go.mod`.
+
+Two consequences follow. Every command that writes the manifest (`regenerate`,
+`enable`/`disable`, `enable signing`, `attach`) runs one sync that brings the
+generated files into line with it, so no command leaves a tree that needs a
+second one. And a durable override is a manifest field, never a deleted file:
+the `DO NOT EDIT` files are re-emitted from the manifest, so `chat.providers:
+[]`, `disable keychain` and `disable signing` are how a thing is switched off,
+and a hand-deleted `chat.go` or `keychain.go` comes back. Spec
 [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface).
 
 ### Why `provenance.go` exists

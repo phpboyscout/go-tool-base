@@ -210,14 +210,9 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 
 	m.Properties.Signing = signing
 
-	// Re-render the one root-command file so the Signing: field is added
-	// (enable) or dropped (disable). regenerateRootCommand reads the
-	// in-memory manifest values via buildSkeletonRootData.
-	if err := g.regenerateRootCommand(*m); err != nil {
-		return err
-	}
-
-	if err := g.syncSigningFiles(*m); err != nil {
+	// The shared sync re-renders the root (the Signing: field is added or
+	// dropped) and the signing-owned files (spec 0197 D7).
+	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
 	}
 

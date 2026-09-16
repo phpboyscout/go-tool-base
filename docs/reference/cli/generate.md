@@ -89,15 +89,18 @@ manifest.
 | Built-in commands (default on) | `update`, `init`, `mcp`, `docs`, `doctor`, `changelog` | Wired via `props.SetFeatures`. |
 | Built-in commands (opt-in) | `ai`, `config`, `telemetry`, `man` | |
 | Forges | *(not selectable here)* | A forge feature is implied by `--forge-backend` (one) and `--forge-credentials` (more). Each enabled forge feature adds that forge's `init <forge>` credential wizard, config section, embedded asset bundle and linked adapter. After generation `gtb enable <forge>` / `gtb disable <forge>` still toggle them. Constants live in `pkg/setup/forge`, not `props`. |
-| Build-time | `keychain` | Not a `SetFeatures` toggle: selects the `cmd/<name>/keychain.go` blank import. Cannot be flipped later by `gtb enable`/`gtb disable`. |
+| Build-time | `keychain` | Not a `SetFeatures` toggle: selects the `cmd/<name>/keychain.go` blank import, which the manifest's `keychain` entry owns. `gtb enable keychain`/`gtb disable keychain` write or remove the file; a hand-deleted file comes back on the next regenerate. |
 
 `--features` replaces the default set rather than extending it, so a selection
 must name every feature the tool should ship with: `--features gitlab` alone
 yields a tool with the six default built-ins **off**. An unrecognised name is
 rejected before anything is written.
 
-Everything except `keychain` can also be toggled after generation with
-[`gtb enable`/`gtb disable`](enable-disable.md).
+Every feature can be toggled after generation with
+[`gtb enable`/`gtb disable`](enable-disable.md), which leaves the tree in line
+in one command: the root command, the adapter files and any derived field a
+newly enabled feature needs (the `ai` feature's provider list) are written by
+the same run, and no `regenerate` is needed afterwards.
 
 **Adapters.** A chat provider or a forge is a module the tool blank-imports
 from its own `main` package, and the generator writes those imports from the
@@ -115,12 +118,18 @@ import; what the running tool's `init` wizard and `doctor` can set up for a
 provider is a separate, narrower question (today: the three API-key providers
 and the local CLIs, which need nothing; Vertex, Bedrock and Azure are
 configured through `go/chat`'s own settings). A name no module registers is
-refused, at generation and at regenerate. Both files are rewritten by
-`regenerate project` from the manifest, so deleting one only lasts until the
-next regenerate; to ship no chat provider, set `chat.providers: []` in the
-manifest, which regenerate keeps as written. A project generated before the
-`chat:` block existed has no block at all, and gets the full list written into
-its manifest the first time it is regenerated with `ai` enabled.
+refused, at generation and at regenerate.
+
+**A durable override is a manifest field, never a deleted file.** Every `DO
+NOT EDIT` file under `cmd/<name>/` (`chat.go`, `forge.go`, `keychain.go`, the
+`chat/assets` bundle) and `pkg/cmd/root/signing.go` is re-emitted from the
+manifest by every command that writes the manifest, so its presence is a fact
+about the manifest and its absence is temporary. To ship no chat provider, set
+`chat.providers: []`; to drop the keychain, `gtb disable keychain`; to turn
+signing off, `gtb disable signing`. A project generated before the `chat:`
+block existed has no block at all, and gets the full list written into its
+manifest the first time it is regenerated (or `enable ai` is run) with `ai`
+enabled.
 
 **Every author setting has one home.** Each flag above that says "recorded as" names the manifest field it writes, and `regenerate` reads that field back unchanged; `cli/pkg/generator/author_settings.go` is the table, and a test holds it and `SkeletonConfig` to each other (spec [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface) D1, D2). Nothing about a generated project depends on the machine `regenerate` runs on.
 

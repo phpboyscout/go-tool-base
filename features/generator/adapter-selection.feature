@@ -117,11 +117,9 @@ Feature: A generated tool links only the adapters it selects
     Then the project exit code is not zero
     And the project output contains "not one a known module registers"
 
-  Scenario: Enabling ai on a project with no chat block records the default providers
+  Scenario: Enabling ai is one command, and records the default providers
     Given a freshly generated gtb project
     When I run gtb in the project with "enable ai"
-    Then the project exit code is 0
-    When I run gtb in the project with "regenerate project"
     Then the project exit code is 0
     And the project manifest contains "- claude-local"
     And the project manifest contains "- openai-compatible"

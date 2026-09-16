@@ -178,7 +178,8 @@ func TestValidateFeatureName(t *testing.T) {
 		require.NoErrorf(t, ValidateFeatureName(name), "%q should be valid", name)
 	}
 
-	for _, bad := range []string{"", "keychain", "signing", "AI", "unknown"} {
+	// keychain is toggleable since spec 0197 D8; signing has its own command.
+	for _, bad := range []string{"", "signing", "AI", "unknown"} {
 		err := ValidateFeatureName(bad)
 		require.Errorf(t, err, "%q should be rejected", bad)
 		require.ErrorIs(t, err, ErrInvalidInput)

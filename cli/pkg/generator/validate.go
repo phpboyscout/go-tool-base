@@ -799,8 +799,8 @@ func ValidateFeatureName(name string) error {
 }
 
 // ValidateSelectableFeatureName rejects any name that `gtb generate project
-// --features` cannot act on. Its valid set is wider than ValidateFeatureName's:
-// keychain is a real choice at generation time but cannot be flipped afterwards.
+// --features` cannot act on: the toggleable features, forges excluded (a forge
+// is chosen with --forge-backend).
 //
 // Without it an unknown name was written verbatim into the manifest and then
 // silently dropped at emission, so the generated tool quietly lacked the feature

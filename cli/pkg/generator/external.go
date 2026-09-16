@@ -62,7 +62,7 @@ func (g *Generator) AttachExternalCommand(ctx context.Context, spec ExternalComm
 		return err
 	}
 
-	if err := g.regenerateRootCommand(*m); err != nil {
+	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
 	}
 
@@ -124,7 +124,7 @@ func (g *Generator) AttachExternalAdapter(ctx context.Context) error {
 
 	m.Properties.ExternalCommandsAdapter = true
 
-	if err := g.regenerateRootCommand(*m); err != nil {
+	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
 	}
 
@@ -173,7 +173,7 @@ func (g *Generator) DetachExternalCommand(ctx context.Context, module string) er
 
 	m.Properties.ExternalCommands = kept
 
-	if err := g.regenerateRootCommand(*m); err != nil {
+	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
 	}
 

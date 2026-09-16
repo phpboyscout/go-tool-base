@@ -11,15 +11,13 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 )
 
-// ToggleableFeatures is the set of built-in features that `gtb enable <feature>`
-// and `gtb disable <feature>` can flip in a generated project's manifest. It is
-// derived from templates.FeatureCatalogue — the single source of truth — so it stays
-// complete as features are added.
-//
-// keychain is intentionally excluded: it is a build-time blank-import decision
-// (the scaffolded cmd/<name>/keychain.go), not a FeatureID, so it is changed by
-// adding/removing that file, not by a SetFeatures toggle.
-var ToggleableFeatures = featureNamesFromCatalogue()
+// ToggleableFeatures is the set of features that `gtb enable <feature>` and
+// `gtb disable <feature>` can flip in a generated project's manifest. It is
+// derived from templates.FeatureCatalogue — the single source of truth — so it
+// stays complete as features are added, plus keychain: a build-time blank
+// import (cmd/<name>/keychain.go) rather than a FeatureID, which the shared
+// sync writes or removes from the manifest's entry (spec 0197 D8).
+var ToggleableFeatures = append(featureNamesFromCatalogue(), KeychainFeature)
 
 // KeychainFeature is the one `--features` value with no FeatureID behind it: it
 // selects the scaffolded cmd/<name>/keychain.go blank import rather than a
@@ -168,10 +166,10 @@ func (g *Generator) ApplyFeatures(ctx context.Context, desired map[string]bool) 
 
 	m.Properties.Features = features
 
-	// Re-render the one generated root-command file so the SetFeatures wiring
-	// matches the manifest. cmd.go is a DO-NOT-EDIT generated file, so it is
-	// always re-rendered — mirrors applySigningPosture.
-	if err := g.regenerateRootCommand(*m); err != nil {
+	// One command leaves a consistent tree: the root's SetFeatures wiring,
+	// the derived fields a newly enabled feature needs (the ai feature's
+	// provider list), and the adapter files that follow them (spec 0197 D7).
+	if err := g.syncDerivedFromManifest(m); err != nil {
 		return nil, err
 	}
 

@@ -6,7 +6,7 @@ Feature: The manifest owns every author setting
   machine, is one the author cannot rely on.
 
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface
-  D3 and D4.
+  D3, D4, D7, D8 and D9.
 
   Scenario: The Go version is recorded and regenerate leaves the go line alone
     Given a freshly generated gtb project
@@ -34,3 +34,17 @@ Feature: The manifest owns every author setting
     Given I generate a gtb project with the flags "--config-layers flags,bogus"
     Then the project exit code is not zero
     And the project output contains "config layer"
+
+  Scenario: The keychain follows the manifest, and a deleted file comes back
+    Given a freshly generated gtb project
+    Then the generated "cmd/feattool/keychain.go" file exists
+    When I delete the generated "cmd/feattool/keychain.go" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/keychain.go" file exists
+    When I run gtb in the project with "disable keychain"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/keychain.go" file does not exist
+    When I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/keychain.go" file does not exist

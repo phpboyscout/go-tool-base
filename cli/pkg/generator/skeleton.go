@@ -375,6 +375,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		GoVersion:             resolveGoVersion(config.GoVersion),
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
+		KeychainEnabled:       featureEnabledIn(config.Features, KeychainFeature),
 		ChatModules:           chatModulesFor(config.Chat.Providers, config.Features),
 		ChatDefault:           chatDefaultsFor(ManifestProperties{Features: config.Features, Chat: config.Chat}),
 		ForgeModules:          forgeModules(config.Features),
@@ -672,7 +673,10 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	// interactive multi-select. Deleting the scaffolded file later is
 	// the escape hatch for regulated builds — linker dead-code elimination
 	// then keeps go-keyring, godbus, and wincred out of the linked artefact.
-	if !slices.Contains(data.DisabledFeatures, KeychainFeature) {
+	// Keychain has no catalogue entry, so it never reached DisabledFeatures
+	// and the file was written whatever the manifest said; the manifest's
+	// explicit entry is the record now (spec 0197 D8).
+	if data.KeychainEnabled {
 		goFiles[filepath.Join("cmd", data.Name, "keychain.go")] = templates.SkeletonKeychain()
 	}
 
