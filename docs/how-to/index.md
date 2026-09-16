@@ -58,6 +58,9 @@ A hands-on guide to creating and registering your own domain-specific middleware
 ### [Configuring Built-in Features](builtin-features.md)
 How to toggle and tune framework features like Self-Updates, MCP, and AI documentation.
 
+### [Dynamic feature flags](dynamic-feature-flags.md)
+Declare a feature a backend may override at request time, wire the evaluator into a service with the config store as the first backend, and see where a vendor adapter plugs in.
+
 ### [Adding Custom Commands](custom-commands.md)
 A hands-on guide to implementing domain-specific logic and registering it with the command tree.
 

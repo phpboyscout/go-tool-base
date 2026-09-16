@@ -92,7 +92,25 @@ cannot switch on what you did not link).
 Anything that shapes the command tree, `--help`, completion, `doctor` or a
 generated project is **static** and reads `Set.Enabled`, fixed at construction.
 A descriptor reporting `IsDynamic()` may be overridden at evaluation time by a
-`Backend`; the built-ins never are. The dynamic half (`Backend`, `Dynamic`, the
-config-store backend) lands in a later phase of the spec; `Set` already
-implements `Evaluator` so a service wired with a set today takes a dynamic
-evaluator later without a call-site change.
+`Backend`; the built-ins never are.
+
+The dynamic half is three layers (D10). `Evaluator` is what a service holds
+(`Evaluate(ctx, id, EvalContext) (Decision, error)`; `Decision` carries
+`Enabled`, a `Reason` and a `Variant`). `Backend` is what a vendor adapter
+implements: `Resolve(ctx, id, fallback, ec)`, where the fallback is the caller's
+static state and is what the backend returns for a flag it does not know or has
+disabled (OpenFeature's `defaultValue`), plus `Init`, `Ready`, `Watch` and
+`Close`. `features.Dynamic(set, backend, opts...)` is the one production
+evaluator: static-only features never reach the backend; a dynamic one is
+resolved with the `Set` state as fallback; `disabled` is a clean answer that
+applies it; any error, a not-ready backend or an unknown flag answers the `Set`
+state with `ReasonFallback` and the error alongside. `WithInitTimeout` is how a
+short-lived process bounds a backend's start; `WithOnFallback` is where a
+service logs. `features.SetBackend(set)` is the vendor-free backend.
+
+GTB's own backend is `pkg/setup/flags.NewConfigBackend(store)`, which reads
+`features.<id>.enabled` from the tool's config store and forwards every reload
+on `Watch`; `flags.RegisterBackend(controller, name, backend)` gives any
+backend the controller's lifecycle. A vendor is an adapter module that
+implements `Backend` (D11). See the
+[dynamic feature flags how-to](../../how-to/dynamic-feature-flags.md).
