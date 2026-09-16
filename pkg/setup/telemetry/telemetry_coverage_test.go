@@ -138,7 +138,7 @@ func TestConsentForm_NamesTheTool(t *testing.T) {
 
 	var optIn bool
 
-	require.NoError(t, setup.RunForm(t.Context(), props, consentForm(props, &optIn)))
+	require.NoError(t, setup.RunForm(t.Context(), props, ConsentForm(props, &optIn)))
 	assert.True(t, optIn)
 	assert.Contains(t, out.String(), "Anonymous usage telemetry")
 }

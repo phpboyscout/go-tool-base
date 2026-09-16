@@ -127,6 +127,22 @@ const (
 	headlessHeight = 40
 )
 
+// AccessibleTTY is an IO for a terminal in accessible mode (a screen reader,
+// or TERM=dumb): interactive, so a prompt that is gated on a terminal is
+// reached, and accessible, so it takes Answers. Parallel-safe, unlike the
+// key route.
+func AccessibleTTY(answers io.Reader) props.IO {
+	return accessibleTTY{in: answers}
+}
+
+type accessibleTTY struct{ in io.Reader }
+
+func (a accessibleTTY) In() io.Reader   { return a.in }
+func (accessibleTTY) Out() io.Writer    { return io.Discard }
+func (accessibleTTY) Err() io.Writer    { return io.Discard }
+func (accessibleTTY) Interactive() bool { return true }
+func (accessibleTTY) Accessible() bool  { return true }
+
 // TUIForms is TUI for a wizard that runs several forms in turn: each In()
 // hands the next script to the next form. A form's program reads its input
 // ahead of the keys it has handled and does not give the surplus back when

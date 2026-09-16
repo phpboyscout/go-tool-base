@@ -34,8 +34,8 @@ import (
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+	setuptelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
@@ -76,7 +76,6 @@ type rootState struct {
 	cfgPaths            []string
 	redirectingToUpdate bool
 	watching            bool
-	formCreator         func(*bool) *huh.Form
 	// watchStop tears down the config watcher started by startConfigWatch.
 	// Retained (rather than discarded) so shutdown is deterministic instead of
 	// purely contextual — an embedder driving the tree with a background
@@ -89,9 +88,7 @@ type rootState struct {
 }
 
 func newRootState() *rootState {
-	return &rootState{
-		formCreator: createUpdatePromptForm,
-	}
+	return &rootState{}
 }
 
 // FlagValues holds the command-line flag values extracted from cobra command.
@@ -619,10 +616,11 @@ func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command
 	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
 }
 
-func createUpdatePromptForm(runUpdate *bool) *huh.Form {
+func updatePromptForm(runUpdate *bool) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
+				Key("run-update").
 				Title("Do you want to run the update now?").
 				Description("using an out of date version may result in incorrect functionality or configuration").
 				Affirmative("Yes!").
@@ -631,30 +629,7 @@ func createUpdatePromptForm(runUpdate *bool) *huh.Form {
 		))
 }
 
-// OutdatedVersionOption configures handleOutdatedVersion behavior.
-type OutdatedVersionOption func(*outdatedVersionConfig)
-
-type outdatedVersionConfig struct {
-	formCreator   func(*bool) *huh.Form
-	isInteractive func() bool
-}
-
-// WithForm allows providing a custom form creator for testing.
-func WithForm(formCreator func(*bool) *huh.Form) OutdatedVersionOption {
-	return func(cfg *outdatedVersionConfig) {
-		cfg.formCreator = formCreator
-	}
-}
-
-// WithInteractive overrides the TTY gate (default: utils.IsInteractive) so tests
-// can exercise the interactive prompt path without a real terminal.
-func WithInteractive(isInteractive func() bool) OutdatedVersionOption {
-	return func(cfg *outdatedVersionConfig) {
-		cfg.isInteractive = isInteractive
-	}
-}
-
-func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, result *UpdateCheckResult, state *rootState, policy p.UpdatePolicy, opts ...OutdatedVersionOption) {
+func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, result *UpdateCheckResult, state *rootState, policy p.UpdatePolicy) {
 	props.Logger.Warn(message)
 
 	// disabled: log that an update is available and carry on — no prompt, no
@@ -665,35 +640,24 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 		return
 	}
 
-	// Apply options
-	cfg := &outdatedVersionConfig{
-		formCreator:   state.formCreator,
-		isInteractive: utils.IsInteractive,
-	}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
 	// Default to declining: without a usable TTY (cron, CI, piped stdin, MCP
 	// stdio) the prompt cannot be answered, so runUpdate must stay false.
 	// Defaulting to true here would silently self-update without consent.
 	var runUpdate = false
 
-	// Gate the prompt on interactivity rather than relying on form.Run to error
+	// Gate the prompt on a terminal rather than relying on the form to error
 	// out on a non-terminal stdin — the assumption the MR !157 incident
-	// disproved (huh forms hung the e2e suite on piped stdin). When
+	// disproved (huh forms hung the e2e suite on piped stdin). An unsolicited
+	// prompt on the startup path does not get accessible mode's piped-stdin
+	// route either: on MCP stdio that stdin is the protocol. When
 	// non-interactive we skip the prompt deterministically without touching
 	// stdin; the policy semantics below are unchanged (enabled still blocks with
 	// the "update required" error, prompt still warns and continues).
-	if cfg.isInteractive() {
-		form := cfg.formCreator(&runUpdate)
-		// Allow nil form for testing (form creator can set the value and return nil)
-		if form != nil {
-			if err := form.Run(); err != nil {
-				runUpdate = false
+	if props.GetIO().Interactive() {
+		if err := setup.RunForm(ctx, props, updatePromptForm(&runUpdate)); err != nil {
+			runUpdate = false
 
-				props.Logger.Debug("update prompt unavailable; declining update", "error", err)
-			}
+			props.Logger.Debug("update prompt unavailable; declining update", "error", err)
 		}
 	} else {
 		props.Logger.Debug("update prompt skipped: non-interactive stdin")
@@ -1352,28 +1316,13 @@ func mcpSelectors() []ophis.Selector {
 
 const telemetryFlushTimeout = 2 * time.Second
 
-// ConsentOption configures promptTelemetryConsent behaviour.
-type ConsentOption func(*consentConfig)
-
-type consentConfig struct {
-	isInteractive func() bool
-}
-
-// WithConsentInteractive overrides the TTY gate (default: utils.IsInteractive)
-// so tests can exercise the interactive consent path without a real terminal.
-func WithConsentInteractive(isInteractive func() bool) ConsentOption {
-	return func(cfg *consentConfig) {
-		cfg.isInteractive = isInteractive
-	}
-}
-
 // consentPromptDeferred reports whether the one-time telemetry consent prompt
 // must be skipped without touching stdin, logging the reason for the CI and
 // non-interactive defers. It centralises the guard chain so the prompt body
 // stays simple. The order matters: author/config decisions (disabled,
 // force-enabled, env var, already-answered) short-circuit before the
 // environment gates (CI, then interactivity).
-func consentPromptDeferred(props *p.Props, view *config.View, isInteractive func() bool) bool {
+func consentPromptDeferred(props *p.Props, view *config.View) bool {
 	_, telemetryEnvSet := os.LookupEnv("TELEMETRY_ENABLED")
 
 	switch {
@@ -1393,11 +1342,12 @@ func consentPromptDeferred(props *p.Props, view *config.View, isInteractive func
 		props.Logger.Debug("telemetry consent deferred: CI environment")
 
 		return true
-	case !isInteractive():
+	case !props.GetIO().Interactive():
 		// Non-interactive stdin (cron, piped input, MCP stdio) — defer silently
 		// rather than relying on huh to error out on a non-terminal (the
-		// assumption the MR !157 incident disproved). Persist nothing; the opt-in
-		// reappears on the next interactive run.
+		// assumption the MR !157 incident disproved), and without accessible
+		// mode's piped-stdin route, which on MCP stdio would read the protocol.
+		// Persist nothing; the opt-in reappears on the next interactive run.
 		props.Logger.Debug("telemetry consent deferred: non-interactive stdin")
 
 		return true
@@ -1414,32 +1364,16 @@ func consentPromptDeferred(props *p.Props, view *config.View, isInteractive func
 // stdin is not a terminal. A skipped prompt persists nothing: absence of consent
 // is not refusal, so the one-time opt-in simply reappears on the next
 // interactive run.
-func promptTelemetryConsent(ctx context.Context, props *p.Props, opts ...ConsentOption) {
-	cfg := &consentConfig{isInteractive: utils.IsInteractive}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func promptTelemetryConsent(ctx context.Context, props *p.Props) {
 	view := props.Config.View()
 
-	if consentPromptDeferred(props, view, cfg.isInteractive) {
+	if consentPromptDeferred(props, view) {
 		return
 	}
 
 	var optIn bool
 
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
-			Title("Anonymous usage telemetry").
-			Description(
-				"Help improve " + props.Tool.Name + " by sending anonymous usage statistics.\n" +
-					"No personally identifiable information is collected.\n" +
-					"You can change this at any time with `" + props.Tool.Name + " telemetry enable/disable`.",
-			).
-			Value(&optIn),
-	))
-
-	if err := form.Run(); err != nil {
+	if err := setup.RunForm(ctx, props, setuptelemetry.ConsentForm(props, &optIn)); err != nil {
 		props.Logger.Debug("telemetry consent prompt skipped", "error", err)
 
 		return

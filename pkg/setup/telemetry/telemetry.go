@@ -85,14 +85,16 @@ func (t *TelemetryInitialiser) Configure(ctx context.Context, p *props.Props, cf
 
 	var optIn bool
 
-	if err := setup.RunForm(ctx, p, consentForm(p, &optIn)); err != nil {
+	if err := setup.RunForm(ctx, p, ConsentForm(p, &optIn)); err != nil {
 		return errors.Wrap(err, "telemetry consent form")
 	}
 
 	return cfg.Set(setup.ConfigKeyTelemetryEnabled, optIn)
 }
 
-func consentForm(p *props.Props, optIn *bool) *huh.Form {
+// ConsentForm asks the one-time opt-in question in the tool's name. The root
+// pre-run asks it too, for tools that never run init.
+func ConsentForm(p *props.Props, optIn *bool) *huh.Form {
 	return huh.NewForm(huh.NewGroup(
 		huh.NewConfirm().
 			Key("telemetry").

@@ -2,43 +2,17 @@ package root
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"charm.land/huh/v2"
-
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
-
-// nonInteractiveStdin replaces os.Stdin with the read end of a pipe whose write
-// end is closed, so utils.IsInteractive() deterministically reports false (a
-// pipe is not a character device) regardless of whether the test runner itself
-// holds a terminal. Reads return EOF immediately, so any huh form reached on the
-// pre-fix code path errors out rather than hanging. Restored on cleanup. Not
-// safe for t.Parallel — it mutates the process-global os.Stdin.
-func nonInteractiveStdin(t *testing.T) {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	require.NoError(t, w.Close())
-
-	orig := os.Stdin
-	os.Stdin = r
-
-	t.Cleanup(func() {
-		os.Stdin = orig
-
-		_ = r.Close()
-	})
-}
 
 // msgContainer is satisfied by the buffer logger (logger.NewBuffer), exposing
 // its captured-message search so a test can assert whether a given log line was
@@ -85,41 +59,39 @@ func TestPromptTelemetryConsent_CIEnvVarSkipsPrompt(t *testing.T) {
 func TestPromptTelemetryConsent_NonInteractiveSkipsPrompt(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
-	// Not parallel: neutralises any ambient CI so only interactivity gates, and
-	// swaps os.Stdin for a non-terminal.
+	// Not parallel: neutralises any ambient CI so only interactivity gates.
 	t.Setenv("CI", "")
-	nonInteractiveStdin(t)
 
 	props := consentProps(t, "", true)
+	props.IO = nonInteractiveIO()
 	buf := consentBuffer(t, props)
 
 	promptTelemetryConsent(t.Context(), props)
 
 	assert.False(t, buf.Contains("telemetry consent prompt skipped"),
 		"non-interactive stdin must skip the consent prompt without attempting the form")
+	assert.True(t, buf.Contains("telemetry consent deferred: non-interactive stdin"))
 }
 
 // TestHandleOutdatedVersion_NonInteractiveSkipsPrompt proves the update prompt
-// is not attempted when stdin is not a terminal. On origin/main the form
-// creator is always invoked; after the fix a non-interactive run skips the form
-// entirely and, under the prompt policy, warns and continues.
+// is not attempted when stdin is not a terminal: a non-interactive run skips
+// the form entirely and, under the prompt policy, warns and continues.
 func TestHandleOutdatedVersion_NonInteractiveSkipsPrompt(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
-	// Not parallel: neutralises any ambient CI and swaps os.Stdin.
+	// Not parallel: neutralises any ambient CI.
 	t.Setenv("CI", "")
-	nonInteractiveStdin(t)
-
-	formCalled := false
-	form := func(_ *bool) *huh.Form { formCalled = true; return nil }
 
 	props := newUpdateProps(t, "v1.0.0", forgetest.New(forgetest.WithRelease("v2.0.0")))
+	props.IO = nonInteractiveIO()
+	buf := consentBuffer(t, props)
 	result := &UpdateCheckResult{}
 	state := newRootState()
 
-	handleOutdatedVersion(context.Background(), props, "v2 available", result, state, p.UpdatePolicyPrompt, WithForm(form))
+	handleOutdatedVersion(context.Background(), props, "v2 available", result, state, p.UpdatePolicyPrompt)
 
-	assert.False(t, formCalled, "non-interactive stdin must not attempt the update prompt")
+	assert.True(t, buf.Contains("update prompt skipped: non-interactive stdin"),
+		"non-interactive stdin must not attempt the update prompt")
 	assert.NoError(t, result.Error, "prompt policy continues (warn only) when non-interactive")
 }
 
@@ -169,45 +141,45 @@ func TestCheckForUpdates_CIEnvSuppressesBehindReminder(t *testing.T) {
 // --- green: interactive paths and mcp exemption preserved ------------------
 
 // TestHandleOutdatedVersion_InteractiveAttemptsPrompt proves the update prompt
-// is still attempted on an interactive terminal: with the TTY gate forced true,
-// the form creator is invoked exactly as before the fix.
+// is still attempted on an interactive terminal: the answer at the prompt is
+// what decides.
 func TestHandleOutdatedVersion_InteractiveAttemptsPrompt(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	formCalled := false
-	form := func(runUpdate *bool) *huh.Form { formCalled = true; *runUpdate = false; return nil }
-
 	props := newUpdateProps(t, "v1.0.0", forgetest.New(forgetest.WithRelease("v2.0.0")))
+	props.IO = promptIO("n")
+	buf := consentBuffer(t, props)
 	result := &UpdateCheckResult{}
 	state := newRootState()
 
-	handleOutdatedVersion(context.Background(), props, "v2 available", result, state, p.UpdatePolicyPrompt,
-		WithForm(form), WithInteractive(func() bool { return true }))
+	handleOutdatedVersion(context.Background(), props, "v2 available", result, state, p.UpdatePolicyPrompt)
 
-	assert.True(t, formCalled, "interactive stdin must still attempt the update prompt")
+	assert.False(t, buf.Contains("update prompt skipped"), "interactive stdin must still attempt the update prompt")
+	assert.True(t, buf.Contains("Continuing with an out of date version"), "the answer was no")
 	assert.NoError(t, result.Error)
 }
 
 // TestPromptTelemetryConsent_InteractiveReachesForm proves the consent form is
-// still reached on an interactive terminal. The TTY gate is forced true while
-// stdin is a non-terminal returning EOF, so the form runs and fails immediately
-// (covering the form-error tail) rather than hanging.
+// reached on an interactive terminal: the answer goes on to the persistence
+// step (the fixture's in-memory store cannot take the write, which is the
+// step's own debug line; the file write is covered in pkg/cmd/telemetry).
 func TestPromptTelemetryConsent_InteractiveReachesForm(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
-	// Not parallel: neutralises CI and swaps os.Stdin for a non-terminal.
+	// Not parallel: neutralises CI.
 	t.Setenv("CI", "")
-	nonInteractiveStdin(t)
 
 	props := consentProps(t, "", true)
+	props.IO = promptIO("y")
 	buf := consentBuffer(t, props)
 
-	promptTelemetryConsent(t.Context(), props, WithConsentInteractive(func() bool { return true }))
+	promptTelemetryConsent(t.Context(), props)
 
-	assert.True(t, buf.Contains("telemetry consent prompt skipped"),
-		"with the TTY gate satisfied the consent form must be reached")
+	assert.False(t, buf.Contains("telemetry consent deferred"), "a terminal reaches the form")
+	assert.False(t, buf.Contains("telemetry consent prompt skipped"), "the answer was read")
+	assert.True(t, buf.Contains("failed to persist telemetry consent"), "the answer reached the persistence step")
 }
 
 // TestPromptTelemetryConsent_NonInteractiveDoesNotPersist proves a deferred
@@ -217,9 +189,9 @@ func TestPromptTelemetryConsent_NonInteractiveDoesNotPersist(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Setenv("CI", "")
-	nonInteractiveStdin(t)
 
 	props := consentProps(t, "", true)
+	props.IO = nonInteractiveIO()
 	require.False(t, props.Config.View().IsSet("telemetry.enabled"))
 
 	promptTelemetryConsent(t.Context(), props)

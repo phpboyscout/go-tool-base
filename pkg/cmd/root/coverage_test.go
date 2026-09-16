@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -150,10 +149,10 @@ func TestCheckForUpdates_EnabledPolicyBlocks(t *testing.T) {
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
 	props.Tool.UpdatePolicy = p.UpdatePolicyEnabled
-	// Decline deterministically: a nil-returning form creator that leaves
-	// runUpdate false simulates a non-interactive environment.
+	// Decline deterministically: nobody is at the terminal, so the prompt is
+	// skipped and the update stays declined.
+	props.IO = nonInteractiveIO()
 	state := newRootState()
-	state.formCreator = func(runUpdate *bool) *huh.Form { *runUpdate = false; return nil }
 
 	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
@@ -946,10 +945,11 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 		},
 	}
 
+	// Accept the update at the prompt.
+	props.IO = promptIO("y")
+
 	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
-	// Accept the update deterministically (no TTY).
-	state.formCreator = func(runUpdate *bool) *huh.Form { *runUpdate = true; return nil }
 
 	preRun := newRootPreRunE(props, nil, mcpLogLevel, state, map[string]*pflag.Flag{})
 

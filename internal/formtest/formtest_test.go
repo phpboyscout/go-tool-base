@@ -77,3 +77,15 @@ func TestTUIForms_HandsEachFormItsOwnScript(t *testing.T) {
 	assert.True(t, io.Interactive())
 	assert.False(t, io.Accessible())
 }
+
+func TestAccessibleTTY_IsInteractiveAndAccessible(t *testing.T) {
+	t.Parallel()
+
+	io := formtest.AccessibleTTY(formtest.Answers("y"))
+
+	assert.True(t, io.Interactive())
+	assert.True(t, io.Accessible())
+	assert.Equal(t, []string{"y\n"}, readAll(t, io.In()))
+	assert.NotNil(t, io.Out())
+	assert.NotNil(t, io.Err())
+}

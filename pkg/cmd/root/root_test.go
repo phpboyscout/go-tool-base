@@ -7,11 +7,9 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -23,6 +21,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -753,7 +752,7 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 	}
 }
 
-func TestCreateUpdatePromptForm(t *testing.T) {
+func TestUpdatePromptForm(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
@@ -777,7 +776,7 @@ func TestCreateUpdatePromptForm(t *testing.T) {
 			t.Parallel()
 
 			runUpdate := tt.initialValue
-			form := createUpdatePromptForm(&runUpdate)
+			form := updatePromptForm(&runUpdate)
 
 			// Verify the form was created successfully
 			assert.NotNil(t, form)
@@ -788,97 +787,52 @@ func TestCreateUpdatePromptForm(t *testing.T) {
 	}
 }
 
-func TestHandleOutdatedVersion_WithMockForm(t *testing.T) {
+func TestHandleOutdatedVersion_Declined(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	// NOTE: The "user accepts update" path is not unit-testable here.
 	// When the user accepts, handleOutdatedVersion calls update.Update()
-	// directly (a package-level function, not behind a mockable interface).
-	// update.Update creates a real setup.Updater that requires VCS clients,
-	// network access, and binary replacement. Injecting a mock would require
-	// refactoring handleOutdatedVersion to accept an updater interface, which
-	// is out of scope for this test file. The accept path is exercised via
-	// integration tests and the update command's own test suite instead.
-	tests := []struct {
-		name              string
-		message           string
-		userChoosesUpdate bool
-		expectedUpdate    bool
-		expectedExit      bool
-	}{
-		{
-			name:              "user declines update",
-			message:           "Version 2.0.0 is available",
-			userChoosesUpdate: false,
-			expectedUpdate:    false,
-			expectedExit:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			// Create a mock form that simulates user choice without requiring terminal
-			mockFormCreator := func(runUpdate *bool) *huh.Form {
-				// Set the value to simulate user choice - bypass the form entirely
-				*runUpdate = tt.userChoosesUpdate
-				// Return a form that skips rendering by immediately completing
-				// Since we've already set the value, the form doesn't need to actually run
-				return nil
-			}
-
-			// Create test props
-			props := &p.Props{
-				Logger: logger.NewNoop(),
-				Tool: p.Tool{
-					Name: "test-tool",
-				},
-			}
-
-			state := newRootState()
-			result := &UpdateCheckResult{}
-
-			// Test with custom form using WithForm option
-			handleOutdatedVersion(context.Background(), props, tt.message, result, state, p.UpdatePolicyPrompt, WithForm(mockFormCreator))
-
-			// Verify results
-			assert.Equal(t, tt.expectedUpdate, result.HasUpdated)
-			assert.Equal(t, tt.expectedExit, result.ShouldExit)
-		})
-	}
-}
-
-// TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate proves that a
-// failed update prompt (no TTY, Ctrl-C abort, timeout) is treated as "No" —
-// not as consent to self-update. The form runs headless with an empty input
-// and a short timeout so Run() deterministically returns an error
-// (huh.ErrTimeout) without needing a terminal, simulating the cron/CI/pipe
-// environments where the prompt cannot be answered.
-func TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-	t.Parallel()
-
-	failingFormCreator := func(runUpdate *bool) *huh.Form {
-		return createUpdatePromptForm(runUpdate).
-			WithInput(strings.NewReader("")).
-			WithOutput(io.Discard).
-			WithTimeout(100 * time.Millisecond)
-	}
-
+	// directly, which creates a real setup.Updater that requires VCS clients,
+	// network access, and binary replacement. The accept path is exercised via
+	// TestNewRootPreRunE_UpdateAccepted against a fake release provider.
 	props := &p.Props{
 		Logger: logger.NewNoop(),
-		FS:     afero.NewMemMapFs(),
 		Tool:   p.Tool{Name: "test-tool"},
+		IO:     promptIO("n"),
 	}
 
 	state := newRootState()
 	result := &UpdateCheckResult{}
 
-	handleOutdatedVersion(context.Background(), props, "Version 2.0.0 is available", result, state, p.UpdatePolicyPrompt, WithForm(failingFormCreator))
+	handleOutdatedVersion(context.Background(), props, "Version 2.0.0 is available", result, state, p.UpdatePolicyPrompt)
+
+	assert.False(t, result.HasUpdated)
+	assert.False(t, result.ShouldExit)
+}
+
+// TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate proves that a
+// prompt that cannot be answered (a terminal whose input has gone away) is
+// treated as "No", not as consent to self-update.
+func TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	props := &p.Props{
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+		Tool:   p.Tool{Name: "test-tool"},
+		// A terminal with nothing on it: the prompt reads EOF, and the
+		// default answer stands.
+		IO: formtest.AccessibleTTY(strings.NewReader("")),
+	}
+
+	state := newRootState()
+	result := &UpdateCheckResult{}
+
+	handleOutdatedVersion(context.Background(), props, "Version 2.0.0 is available", result, state, p.UpdatePolicyPrompt)
 
 	assert.False(t, state.redirectingToUpdate, "a failed prompt must not redirect to update")
 	assert.False(t, result.HasUpdated, "a failed prompt must not run the update")
@@ -894,21 +848,19 @@ func TestHandleOutdatedVersion_Policies(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	newProps := func() *p.Props {
-		return &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Tool: p.Tool{Name: "test-tool"}}
+	newProps := func(io p.IO) *p.Props {
+		return &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Tool: p.Tool{Name: "test-tool"}, IO: io}
 	}
 
 	t.Run("disabled: warn only, no prompt, no error or exit", func(t *testing.T) {
 		t.Parallel()
 
-		formCalled := false
-		form := func(_ *bool) *huh.Form { formCalled = true; return nil }
+		// An answer of yes that must never be read.
 		result := &UpdateCheckResult{}
 
-		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyDisabled, WithForm(form))
+		handleOutdatedVersion(context.Background(), newProps(promptIO("y")), "v2 available", result, newRootState(), p.UpdatePolicyDisabled)
 
-		assert.False(t, formCalled, "disabled must not prompt")
-		assert.False(t, result.HasUpdated)
+		assert.False(t, result.HasUpdated, "disabled must not prompt")
 		assert.False(t, result.ShouldExit)
 		assert.NoError(t, result.Error)
 	})
@@ -916,10 +868,9 @@ func TestHandleOutdatedVersion_Policies(t *testing.T) {
 	t.Run("prompt + decline: continue with no error", func(t *testing.T) {
 		t.Parallel()
 
-		form := func(runUpdate *bool) *huh.Form { *runUpdate = false; return nil }
 		result := &UpdateCheckResult{}
 
-		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyPrompt, WithForm(form))
+		handleOutdatedVersion(context.Background(), newProps(promptIO("n")), "v2 available", result, newRootState(), p.UpdatePolicyPrompt)
 
 		require.NoError(t, result.Error, "prompt-decline continues with the command")
 		assert.False(t, result.ShouldExit)
@@ -929,10 +880,9 @@ func TestHandleOutdatedVersion_Policies(t *testing.T) {
 	t.Run("enabled + decline: blocked with non-zero error", func(t *testing.T) {
 		t.Parallel()
 
-		form := func(runUpdate *bool) *huh.Form { *runUpdate = false; return nil }
 		result := &UpdateCheckResult{}
 
-		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyEnabled, WithForm(form))
+		handleOutdatedVersion(context.Background(), newProps(promptIO("n")), "v2 available", result, newRootState(), p.UpdatePolicyEnabled)
 
 		require.Error(t, result.Error, "enabled blocks when a required update is declined")
 		assert.False(t, result.HasUpdated)
@@ -942,48 +892,12 @@ func TestHandleOutdatedVersion_Policies(t *testing.T) {
 	t.Run("enabled + no answerable prompt: blocked with non-zero error", func(t *testing.T) {
 		t.Parallel()
 
-		failing := func(runUpdate *bool) *huh.Form {
-			return createUpdatePromptForm(runUpdate).
-				WithInput(strings.NewReader("")).
-				WithOutput(io.Discard).
-				WithTimeout(100 * time.Millisecond)
-		}
 		result := &UpdateCheckResult{}
 
-		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyEnabled, WithForm(failing))
+		handleOutdatedVersion(context.Background(), newProps(nonInteractiveIO()), "v2 available", result, newRootState(), p.UpdatePolicyEnabled)
 
 		require.Error(t, result.Error, "enabled blocks when no prompt can be answered (cron/CI/pipe)")
 	})
-}
-
-func TestWithFormOption(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-	t.Parallel()
-
-	// Test that the WithForm option correctly sets the form creator
-	called := false
-	testFormCreator := func(runUpdate *bool) *huh.Form {
-		called = true
-		*runUpdate = false
-		// Return nil to skip form rendering (value already set)
-		return nil
-	}
-
-	opt := WithForm(testFormCreator)
-	cfg := &outdatedVersionConfig{
-		formCreator: createUpdatePromptForm,
-	}
-
-	// Apply the option
-	opt(cfg)
-
-	// Verify the form creator was replaced
-	runUpdate := true
-	_ = cfg.formCreator(&runUpdate)
-
-	assert.True(t, called, "custom form creator should have been called")
-	assert.False(t, runUpdate, "value should have been set by custom form creator")
 }
 
 func TestRootState_Isolation(t *testing.T) {
@@ -1071,13 +985,12 @@ func TestNewCmdRoot_SecondConstructionDoesNotPanic(t *testing.T) {
 	}, "second NewCmdRoot must not panic after the first sealed the registry")
 }
 
-func TestRootState_DefaultFormCreator(t *testing.T) {
+func TestRootState_Defaults(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	state := newRootState()
-	assert.NotNil(t, state.formCreator, "default form creator should not be nil")
 	assert.False(t, state.redirectingToUpdate, "redirectingToUpdate should default to false")
 }
 
@@ -1102,16 +1015,10 @@ func TestHandleOutdatedVersion_SetsStateFlag(t *testing.T) {
 
 	state := newRootState()
 
-	// Mock form that declines update
-	mockFormCreator := func(runUpdate *bool) *huh.Form {
-		*runUpdate = false
-		return nil
-	}
-	state.formCreator = mockFormCreator
-
 	props := &p.Props{
 		Logger: logger.NewNoop(),
 		Tool:   p.Tool{Name: "test-tool"},
+		IO:     promptIO("n"),
 	}
 
 	result := &UpdateCheckResult{}
