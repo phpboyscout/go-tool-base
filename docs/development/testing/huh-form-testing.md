@@ -15,12 +15,50 @@ Interactive prompts in GTB are built on [`charm.land/huh`](https://github.com/ch
 
 | Situation | Approach | Parallel-safe? |
 |-----------|----------|----------------|
-| Code calls `huh.NewForm(...).Run()` **internally** and you can't/won't change it | **A. Accessible mode + scripted stdin** | No (serial) |
-| You're **writing new** form code, or can refactor it | **B. Inject the form** (`WithForm` pattern) | Yes |
-| You need to assert **field-level keystroke behaviour** | **C. Drive the form as a `tea.Model`** | Yes |
-| The field is a **password** (`EchoMode(huh.EchoModePassword)`) | B or C (A can't script it, see [gotchas](#gotchas)) | — |
+| Code runs its form through `setup.RunForm(ctx, p, form)` (every form in `pkg/`) | **D. `Props.IO` with `internal/formtest`** | Yes |
+| You need to assert **field-level keystroke behaviour** (a hide function, a dynamic select) | **C. Drive the form as a `tea.Model`**, or D with `formtest.Keys` | Yes |
+| Legacy code calls `huh.NewForm(...).Run()` directly and you can't change it | **A. Accessible mode + scripted stdin** (`TERM=dumb`, swap `os.Stdin`) | No (serial) |
+| The field is a **password** (`EchoMode(huh.EchoModePassword)`) | D with `formtest.Keys`, or C (accessible mode can't script it, see [gotchas](#gotchas)) | — |
 
-The default and lowest-friction choice for existing code is **A**.
+The default for framework code is **D**. Injecting a form creator (the old
+"B, `WithForm` pattern") is gone: it left the wizard's own forms untested and
+put test-only options in the public API (spec 0198).
+
+## D. `Props.IO` and `internal/formtest`
+
+`Props.IO` is the invocation's streams (`props.StdIO{}` is the process's).
+`setup.RunForm` runs every form on them, applies the IO's accessible decision,
+and refuses a stdin that is neither a terminal nor accessible before the form
+opens. A test sets the IO and drives the real form:
+
+```go
+p := &props.Props{IO: props.StdIO{
+    Stdin:          formtest.Answers("2", "MY_VAR", "y"), // one answer per field
+    Stdout:         io.Discard,
+    Stderr:         io.Discard,
+    AccessibleMode: true,
+}}
+require.NoError(t, RunAIInit(ctx, p, dir))
+```
+
+`formtest.Answers` is what a person types at accessible prompts: an option's
+number for a select, a line for an input, `y`/`n` for a confirm. It yields one
+answer per `Read`, because huh reads each field through a fresh buffered
+reader and a plain `strings.Reader` would lose every answer after the first.
+
+For behaviour that only the TUI path has (a hide function, `OptionsFunc`, a
+password field), drive keys instead:
+
+```go
+p := &props.Props{IO: formtest.TUI(formtest.Keys(formtest.Down, formtest.Enter, "MY_VAR", formtest.Enter))}
+```
+
+`Keys` paces one sequence per `Read` (the parser merges bytes that arrive
+together) and `TUI` is an IO that reports interactive so the form runs
+headless with no renderer. Slower (tens of milliseconds a key), so reach for it
+only when the accessible route cannot express the behaviour.
+
+Both are parallel-safe: nothing global is touched.
 
 ## How huh makes this possible: accessible mode
 

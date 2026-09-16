@@ -927,6 +927,13 @@ func commandTreeHasPersistentPreRun(cmd *cobra.Command) bool {
 
 func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState, boundFlags map[string]*pflag.Flag) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		// The invocation's streams, from cobra in the one place cobra may touch
+		// Props (spec 0198 D1). At execution rather than construction because
+		// cobra resolves InOrStdin by walking to the root at call time, so a
+		// test's SetIn after construction is honoured; before the fast path so
+		// `init <provider>` sees it; only when nothing wired an IO already.
+		fillIO(props, cmd)
+
 		// Stamp THIS root's Props onto the command context so the process-global
 		// middleware chain resolves the right Props at execution time — a second
 		// root in the same process must not report through the first root's
@@ -1212,6 +1219,7 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	rootCmd.PersistentFlags().Bool("debug", false, "forces debug log output")
 
 	rootCmd.PersistentFlags().Bool("ci", false, "flag to indicate the tools is running in a CI environment")
+	rootCmd.PersistentFlags().Bool("accessible", false, "run wizards as line prompts rather than a full-screen form (also GTB_ACCESSIBLE=true)")
 	rootCmd.PersistentFlags().String("output", "text", "output format (text, json)")
 }
 
@@ -1583,4 +1591,28 @@ func validateConfig(cfg config.Reader, l logger.Logger) {
 			l.Warn(key + " is set but empty — operations using this key will fail")
 		}
 	}
+}
+
+// fillIO gives Props the command's streams when nothing wired an IO already.
+func fillIO(props *p.Props, cmd *cobra.Command) {
+	if props.IO != nil {
+		return
+	}
+
+	props.IO = p.StdIO{
+		Stdin:          cmd.InOrStdin(),
+		Stdout:         cmd.OutOrStdout(),
+		Stderr:         cmd.ErrOrStderr(),
+		AccessibleMode: accessibleRequested(cmd),
+	}
+}
+
+// accessibleRequested reads the --accessible flag or GTB_ACCESSIBLE, the two
+// ways a person asks for line prompts without faking TERM (spec 0198 D1).
+func accessibleRequested(cmd *cobra.Command) bool {
+	if v, err := cmd.Flags().GetBool("accessible"); err == nil && v {
+		return true
+	}
+
+	return os.Getenv("GTB_ACCESSIBLE") == "true"
 }

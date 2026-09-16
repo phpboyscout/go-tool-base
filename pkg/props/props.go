@@ -36,6 +36,10 @@ type Props struct {
 	// bootstrap defaults it to a NoopCollector and later replaces it with the
 	// resolved *telemetry.Collector. Consumers may call it unconditionally.
 	Collector TelemetryCollector
+	// IO is this invocation's streams and whether a person is at them. Nil
+	// reads as StdIO{}, the process's; the root fills it from the command once
+	// (spec 0198 D1). Read through GetIO.
+	IO IO
 }
 
 // GetLogger returns the application logger.

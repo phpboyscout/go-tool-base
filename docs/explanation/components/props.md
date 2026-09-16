@@ -69,6 +69,27 @@ Props makes dependencies explicit and discoverable:
 !!! note "ErrorHandler is an Interface"
     The `ErrorHandler` field is an interface type, not a pointer. This enables easy mocking and custom implementations for testing.
 
+## The invocation's streams: `IO`
+
+`Props.IO` says where this invocation reads and writes, and whether a person is
+at the other end. It is one field of interface type `props.IO` (`In`, `Out`,
+`Err`, `Interactive`, `Accessible`) with `props.StdIO` as the default
+implementation, whose zero value is the process's stdin, stdout and stderr.
+`GetIO()` returns `StdIO{}` when nothing set the field, so a hand-built
+`Props` behaves as before. The root command fills it from cobra once, in its
+pre-run, which is the one place cobra touches Props; a `--accessible` flag or
+`GTB_ACCESSIBLE=true` asks for line prompts instead of a full-screen form.
+
+Every huh form in the framework runs through `setup.RunForm(ctx, p, form)`,
+which reads the IO, so a test drives a real wizard by setting `Props.IO` and
+nothing else (see [Testing huh forms](../../development/testing/huh-form-testing.md)),
+and a tool can redirect its terminal by supplying its own `IO`. `Interactive`
+is decided by "is stdin a terminal", not "is stdin a character device", which
+is why a `/dev/null` stdin no longer opens a wizard. No package under `pkg/`
+names `os.Stdin`, `os.Stdout` or `os.Stderr` directly; a guard in
+`internal/repopolicy` keeps it so. Spec
+[0198](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0198-the-setup-wizards-run-real-forms).
+
 ## Constants and Types
 
 ### Feature Commands
