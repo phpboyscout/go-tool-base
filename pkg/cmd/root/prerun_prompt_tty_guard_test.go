@@ -37,8 +37,6 @@ func consentBuffer(t *testing.T, props *p.Props) msgContainer {
 // attempted and, on a non-TTY, logs "telemetry consent prompt skipped" — which
 // this test asserts must NOT happen.
 func TestPromptTelemetryConsent_CIEnvVarSkipsPrompt(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: mutates the CI env var.
 	t.Setenv("CI", "true")
 
@@ -57,8 +55,6 @@ func TestPromptTelemetryConsent_CIEnvVarSkipsPrompt(t *testing.T) {
 // On origin/main there is no such gate, so the form is attempted and logs
 // "telemetry consent prompt skipped" on the non-TTY error path.
 func TestPromptTelemetryConsent_NonInteractiveSkipsPrompt(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: neutralises any ambient CI so only interactivity gates.
 	t.Setenv("CI", "")
 
@@ -77,8 +73,6 @@ func TestPromptTelemetryConsent_NonInteractiveSkipsPrompt(t *testing.T) {
 // is not attempted when stdin is not a terminal: a non-interactive run skips
 // the form entirely and, under the prompt policy, warns and continues.
 func TestHandleOutdatedVersion_NonInteractiveSkipsPrompt(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: neutralises any ambient CI.
 	t.Setenv("CI", "")
 
@@ -100,8 +94,6 @@ func TestHandleOutdatedVersion_NonInteractiveSkipsPrompt(t *testing.T) {
 // origin/main only the config key is consulted, so the bare env var does not
 // skip the check.
 func TestShouldSkipUpdateCheck_CIEnvVar(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: mutates the CI env var.
 	t.Setenv("CI", "true")
 
@@ -119,8 +111,6 @@ func TestShouldSkipUpdateCheck_CIEnvVar(t *testing.T) {
 // is gated only on the `ci` config key, so a bare env var does not suppress it
 // and the "a newer …" warning is emitted.
 func TestCheckForUpdates_CIEnvSuppressesBehindReminder(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: mutates CI and HOME (marker path is HOME-derived).
 	t.Setenv("CI", "true")
 	t.Setenv("HOME", t.TempDir())
@@ -144,8 +134,6 @@ func TestCheckForUpdates_CIEnvSuppressesBehindReminder(t *testing.T) {
 // is still attempted on an interactive terminal: the answer at the prompt is
 // what decides.
 func TestHandleOutdatedVersion_InteractiveAttemptsPrompt(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := newUpdateProps(t, "v1.0.0", forgetest.New(forgetest.WithRelease("v2.0.0")))
@@ -166,8 +154,6 @@ func TestHandleOutdatedVersion_InteractiveAttemptsPrompt(t *testing.T) {
 // step (the fixture's in-memory store cannot take the write, which is the
 // step's own debug line; the file write is covered in pkg/cmd/telemetry).
 func TestPromptTelemetryConsent_InteractiveReachesForm(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: neutralises CI.
 	t.Setenv("CI", "")
 
@@ -186,8 +172,6 @@ func TestPromptTelemetryConsent_InteractiveReachesForm(t *testing.T) {
 // (non-interactive) consent prompt persists nothing: absence of consent is not
 // refusal, so telemetry.enabled stays unset and the opt-in reappears later.
 func TestPromptTelemetryConsent_NonInteractiveDoesNotPersist(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Setenv("CI", "")
 
 	props := consentProps(t, "", true)
@@ -204,8 +188,6 @@ func TestPromptTelemetryConsent_NonInteractiveDoesNotPersist(t *testing.T) {
 // feature annotation (stamped by setup.Wrap), across the whole subtree, and
 // never on a name match alone.
 func TestIsMCPFeatureSubtree(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	mcp := &cobra.Command{Use: "mcp"}

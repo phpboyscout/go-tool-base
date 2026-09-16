@@ -138,33 +138,6 @@ func TestWriteExclusive_SurfacesWriteError(t *testing.T) {
 	assert.Contains(t, err.Error(), "write refused")
 }
 
-// TestRegisterAssets_RoundTrip covers the feature-asset registry slot: a
-// registered bundle comes back from GetAssets under its feature, and the
-// snapshot is a copy of the live map.
-func TestRegisterAssets_RoundTrip(t *testing.T) {
-	ResetRegistryForTesting()
-	t.Cleanup(ResetRegistryForTesting)
-
-	bundle := fstest.MapFS{"assets/config.yaml": &fstest.MapFile{Data: []byte("x: 1\n")}}
-	RegisterAssets("examplefeature", "example", bundle)
-
-	got := GetAssets()
-	require.Len(t, got["examplefeature"], 1)
-	assert.Equal(t, "example", got["examplefeature"][0].Name)
-	assert.Equal(t, bundle, got["examplefeature"][0].Bundle)
-}
-
-func TestRegisterAssets_PanicsWhenSealed(t *testing.T) {
-	ResetRegistryForTesting()
-	t.Cleanup(ResetRegistryForTesting)
-
-	SealRegistry()
-
-	assert.Panics(t, func() {
-		RegisterAssets("late", "late", fstest.MapFS{})
-	})
-}
-
 // TestMergeExistingOverTemplate covers the re-init merge branches directly.
 func TestMergeExistingOverTemplate(t *testing.T) {
 	t.Parallel()

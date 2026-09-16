@@ -84,8 +84,6 @@ func mkUpdateCmd(t *testing.T) *cobra.Command {
 // binary already matches the latest release: no error, no exit, and the latest
 // version is reported via the logger.
 func TestCheckForUpdates_UpToDate(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
@@ -104,8 +102,6 @@ func TestCheckForUpdates_UpToDate(t *testing.T) {
 // binary, so handleOutdatedVersion runs, logs availability, and records the
 // cached version — but does not block or exit.
 func TestCheckForUpdates_OutdatedDeclines(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
@@ -122,8 +118,6 @@ func TestCheckForUpdates_OutdatedDeclines(t *testing.T) {
 // TestCheckForUpdates_SkippedWhenDevelopment proves the skip path: a
 // development version short-circuits before any provider call.
 func TestCheckForUpdates_SkippedWhenDevelopment(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
@@ -140,8 +134,6 @@ func TestCheckForUpdates_SkippedWhenDevelopment(t *testing.T) {
 // policy an outdated binary with a declined (non-interactive) prompt becomes a
 // hard error rather than a masked continue.
 func TestCheckForUpdates_EnabledPolicyBlocks(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: neutralises any ambient CI env so the update check is not
 	// skipped (Config.GetBool("ci") reads the CI env via viper AutomaticEnv).
 	t.Setenv("CI", "")
@@ -162,8 +154,6 @@ func TestCheckForUpdates_EnabledPolicyBlocks(t *testing.T) {
 
 // TestWarnIfBehindCached covers the cached-version reminder path.
 func TestWarnIfBehindCached(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: writes the cached-version marker via HOME-derived dir.
 	t.Setenv("HOME", t.TempDir())
 
@@ -190,8 +180,6 @@ func TestWarnIfBehindCached(t *testing.T) {
 // TestWarnIfBehindCached_DevelopmentSkips proves a development build never
 // emits the cached reminder.
 func TestWarnIfBehindCached_DevelopmentSkips(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	log := logger.NewBuffer()
@@ -208,8 +196,6 @@ func TestWarnIfBehindCached_DevelopmentSkips(t *testing.T) {
 
 // TestWarnIfBehindCached_NilVersion proves the nil-Version guard.
 func TestWarnIfBehindCached_NilVersion(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	log := logger.NewBuffer()
@@ -225,8 +211,6 @@ func TestWarnIfBehindCached_NilVersion(t *testing.T) {
 // TestRecordCheckedVersion_Outdated stores the latest version in the marker
 // body when the binary is behind.
 func TestRecordCheckedVersion_Outdated(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: writes the marker via HOME-derived dir.
 	t.Setenv("HOME", t.TempDir())
 
@@ -251,8 +235,6 @@ func TestRecordCheckedVersion_Outdated(t *testing.T) {
 
 // TestRecordCheckedVersion_UpToDate clears the marker body when current.
 func TestRecordCheckedVersion_UpToDate(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Setenv("HOME", t.TempDir())
 
 	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
@@ -281,8 +263,6 @@ func TestRecordCheckedVersion_UpToDate(t *testing.T) {
 // the in-memory release source: a tar.gz binary asset is served and extracted,
 // and the result flags exit-and-rerun.
 func TestPerformUpdate_Success(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: update.Update writes the extracted binary + markers to the
 	// HOME-derived data dir on a real FS.
 	t.Setenv("HOME", t.TempDir())
@@ -331,8 +311,6 @@ func TestPerformUpdate_Success(t *testing.T) {
 // TestPerformUpdate_DownloadError covers the failure tail: a provider that
 // errors on download surfaces result.Error without HasUpdated/ShouldExit.
 func TestPerformUpdate_DownloadError(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Setenv("HOME", t.TempDir())
 
 	const tool = "covupderrtool"
@@ -403,8 +381,6 @@ func telemetryProps(t *testing.T, tcfg p.TelemetryConfig, enabledFeature bool) *
 }
 
 func TestBuildTelemetryCollector_FeatureDisabled(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{}, false)
@@ -414,8 +390,6 @@ func TestBuildTelemetryCollector_FeatureDisabled(t *testing.T) {
 }
 
 func TestBuildTelemetryCollector_EnabledFeatureButConfigOff(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	// Feature enabled but telemetry.enabled is false in config -> noop.
@@ -426,8 +400,6 @@ func TestBuildTelemetryCollector_EnabledFeatureButConfigOff(t *testing.T) {
 }
 
 func TestBuildTelemetryCollector_ForceEnabledHTTPBackend(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{
@@ -442,8 +414,6 @@ func TestBuildTelemetryCollector_ForceEnabledHTTPBackend(t *testing.T) {
 }
 
 func TestBuildTelemetryCollector_EnvOverrideEnablesLocalFile(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: sets TELEMETRY_ENABLED / TELEMETRY_LOCAL env vars.
 	t.Setenv("TELEMETRY_ENABLED", "true")
 	t.Setenv("TELEMETRY_LOCAL", "true")
@@ -460,8 +430,6 @@ func TestBuildTelemetryCollector_EnvOverrideEnablesLocalFile(t *testing.T) {
 // --- selectTelemetryBackend branches --------------------------------------
 
 func TestSelectTelemetryBackend_CustomBackend(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{
@@ -474,8 +442,6 @@ func TestSelectTelemetryBackend_CustomBackend(t *testing.T) {
 }
 
 func TestSelectTelemetryBackend_InvalidCustomBackend(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{
@@ -488,8 +454,6 @@ func TestSelectTelemetryBackend_InvalidCustomBackend(t *testing.T) {
 }
 
 func TestSelectTelemetryBackend_LocalOnly(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{}, true)
@@ -500,8 +464,6 @@ func TestSelectTelemetryBackend_LocalOnly(t *testing.T) {
 }
 
 func TestSelectTelemetryBackend_OTel(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{
@@ -516,8 +478,6 @@ func TestSelectTelemetryBackend_OTel(t *testing.T) {
 }
 
 func TestSelectTelemetryBackend_HTTP(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{
@@ -530,8 +490,6 @@ func TestSelectTelemetryBackend_HTTP(t *testing.T) {
 }
 
 func TestSelectTelemetryBackend_DefaultNoop(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := telemetryProps(t, p.TelemetryConfig{}, true)
@@ -544,8 +502,6 @@ func TestSelectTelemetryBackend_DefaultNoop(t *testing.T) {
 // --- resolveVersionString --------------------------------------------------
 
 func TestResolveVersionString(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	withVersion := &p.Props{Version: ver.NewInfo("v1.2.3", "", "")}
@@ -563,8 +519,6 @@ func TestResolveVersionString(t *testing.T) {
 // the prompt's persistence degrades to a debug log rather than writing to a
 // bogus relative path.
 func TestPromptTelemetryConsent_NoConfigDirDoesNotWrite(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: clears HOME so os.UserHomeDir fails.
 	t.Setenv("HOME", "")
 	t.Setenv("USERPROFILE", "") // windows fallback
@@ -578,8 +532,6 @@ func TestPromptTelemetryConsent_NoConfigDirDoesNotWrite(t *testing.T) {
 // --- NewCmdRootWithConfig --------------------------------------------------
 
 func TestNewCmdRootWithConfig(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: NewCmdRoot seals the process-global middleware registry.
 
 	props := &p.Props{
@@ -606,8 +558,6 @@ func TestNewCmdRootWithConfig(t *testing.T) {
 // --- commandTreeHasPersistentPreRun ----------------------------------------
 
 func TestCommandTreeHasPersistentPreRun(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	// No hooks anywhere.
@@ -673,8 +623,6 @@ func consentProps(t *testing.T, cfgYAML string, featureEnabled bool) *p.Props {
 }
 
 func TestPromptTelemetryConsent_FeatureDisabled(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := consentProps(t, "", false)
@@ -684,8 +632,6 @@ func TestPromptTelemetryConsent_FeatureDisabled(t *testing.T) {
 }
 
 func TestPromptTelemetryConsent_ForceEnabled(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := consentProps(t, "", true)
@@ -696,8 +642,6 @@ func TestPromptTelemetryConsent_ForceEnabled(t *testing.T) {
 }
 
 func TestPromptTelemetryConsent_EnvSet(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: sets TELEMETRY_ENABLED.
 	t.Setenv("TELEMETRY_ENABLED", "true")
 
@@ -708,8 +652,6 @@ func TestPromptTelemetryConsent_EnvSet(t *testing.T) {
 }
 
 func TestPromptTelemetryConsent_AlreadyConfigured(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := consentProps(t, "telemetry:\n  enabled: true\n", true)
@@ -720,8 +662,6 @@ func TestPromptTelemetryConsent_AlreadyConfigured(t *testing.T) {
 }
 
 func TestPromptTelemetryConsent_CIFlagSkips(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	// The --ci flag reaches config through the flags layer, so the CI skip is
@@ -744,8 +684,6 @@ func TestPromptTelemetryConsent_CIFlagSkips(t *testing.T) {
 // --- registerFeatureCommands: ConfigCmd + TelemetryCmd enabled --------------
 
 func TestRegisterFeatureCommands_ConfigAndTelemetryEnabled(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: seals the process-global middleware registry.
 
 	props := &p.Props{
@@ -784,8 +722,6 @@ func TestRegisterFeatureCommands_ConfigAndTelemetryEnabled(t *testing.T) {
 // skip-config-check annotation, so they run on a fresh install before any
 // config file exists — while a config-dependent command (config) does not.
 func TestConfigIndependentBuiltinsSkipConfigGate(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := &p.Props{
 		Logger: logger.NewNoop(),
@@ -870,8 +806,6 @@ func preRunCmd(t *testing.T) *cobra.Command {
 // dispatched command is the init feature, config loading is skipped and only
 // the debug log level is applied.
 func TestNewRootPreRunE_InitCmdSkipsConfig(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := &p.Props{
@@ -902,8 +836,6 @@ func TestNewRootPreRunE_InitCmdSkipsConfig(t *testing.T) {
 // when an accepted update reports ShouldExit. Driven hermetically via the
 // injected release source and an accepting form creator.
 func TestNewRootPreRunE_UpdateExit(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: update.Update writes the extracted binary to the
 	// HOME-derived data dir on a real FS. Neutralise any ambient CI env so the
 	// update check is not skipped (Config.GetBool("ci") reads CI via AutomaticEnv).
@@ -963,8 +895,6 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 // up-to-date release source: config is loaded, telemetry collector wired, and
 // the update check returns no exit.
 func TestNewRootPreRunE_UpToDate(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: the update check stamps a HOME-derived marker file.
 	t.Setenv("HOME", t.TempDir())
 
@@ -985,8 +915,6 @@ func TestNewRootPreRunE_UpToDate(t *testing.T) {
 // TestNewRootPreRunE_UpdateDisabledReturnsEarly covers the UpdateCmd-disabled
 // branch that returns before any update check.
 func TestNewRootPreRunE_UpdateDisabledReturnsEarly(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()

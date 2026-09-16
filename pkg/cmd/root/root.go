@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/njayp/ophis"
@@ -1183,22 +1184,22 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	rootCmd.PersistentFlags().String("output", "text", "output format (text, json)")
 }
 
-// registerGlobalMiddlewareOnce registers the built-in global middleware and
-// seals the registry, but only on the first call per process. The middleware
-// registry is process-global, so a second NewCmdRoot reuses the already-sealed
-// registry rather than panicking on re-registration after seal.
+// builtinMiddlewareOnce guards the one-per-process contribution of the
+// built-in global middleware. The registry is append-only, so a second
+// NewCmdRoot would otherwise contribute a second copy. This is phase 1 of
+// spec 0199; phase 2 gives each root its own chain and removes the Once (and
+// with it the defect that every root's telemetry middleware closes over the
+// first root's Props).
+var builtinMiddlewareOnce sync.Once
+
 func registerGlobalMiddlewareOnce(props *p.Props) {
-	if setup.IsSealed() {
-		return
-	}
-
-	setup.RegisterGlobalMiddleware(
-		setup.WithRecovery(props.Logger),
-		setup.WithTiming(props.Logger),
-		setup.WithTelemetry(props),
-	)
-
-	setup.Seal()
+	builtinMiddlewareOnce.Do(func() {
+		setup.RegisterGlobalMiddleware(
+			setup.WithRecovery(props.Logger),
+			setup.WithTiming(props.Logger),
+			setup.WithTelemetry(props),
+		)
+	})
 }
 
 // registerFeatureAssets applies the asset bundles of enabled features onto

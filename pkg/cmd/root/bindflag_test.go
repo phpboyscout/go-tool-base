@@ -77,8 +77,6 @@ func TestBindBoundFlags_RootOption(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			setup.ResetRegistryForTesting()
-			t.Cleanup(setup.ResetRegistryForTesting)
 
 			fs := afero.NewMemMapFs()
 			writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")
@@ -116,8 +114,6 @@ func TestBindBoundFlags_RootOption(t *testing.T) {
 // TestBindConventionFlags exercises WithConventionBoundFlags: --server-port maps
 // to server.port automatically.
 func TestBindConventionFlags(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	fs := afero.NewMemMapFs()
 	writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")
@@ -164,8 +160,6 @@ func TestBindPrecedence(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			setup.ResetRegistryForTesting()
-			t.Cleanup(setup.ResetRegistryForTesting)
 
 			if tc.setEnv {
 				t.Setenv("BINDTOOL_SERVER_PORT", "9000")
@@ -213,8 +207,6 @@ func TestBindPrecedence(t *testing.T) {
 // TestBindBuiltins confirms --debug still sets the log level and --ci is visible
 // in config after binding (verification plan item 3).
 func TestBindBuiltins(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	fs := afero.NewMemMapFs()
 	writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")
@@ -248,8 +240,6 @@ func TestBindBuiltins(t *testing.T) {
 // that command's RunE via the hyphen-to-dot convention (verification plan item
 // 4 / D5).
 func TestBindPerCommandFlags(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	fs := afero.NewMemMapFs()
 	writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")

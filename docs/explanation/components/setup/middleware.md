@@ -230,7 +230,7 @@ if pluginEnabled {
 }
 ```
 
-The `Register` call is idempotent against double-attachment (the underlying cobra parent rejects duplicates) and always wires middleware correctly, regardless of when it fires relative to `setup.Seal()`.
+The `Register` call is idempotent against double-attachment (the underlying cobra parent rejects duplicates) and always wires middleware correctly from the registry's snapshot at the time it fires.
 
 !!! warning "Removed: `AddCommandWithMiddleware`"
     Gone since v0.20, not deprecated: code calling it will not compile. Use

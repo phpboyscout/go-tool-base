@@ -3,17 +3,19 @@ package setup
 import (
 	"context"
 	"testing"
+	"testing/fstest"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// These tests mutate the package-global feature registry, so they must not run
-// with t.Parallel(); each resets the registry first via resetRegistry (defined
-// in middleware_test.go), which clears both the middleware and feature state.
+// Every test contributes to a registry of its own and reads it through the
+// *In accessors (spec 0199 D5), so the default registry is never written and
+// the tests run in parallel.
 
 const (
 	regFeatureA = props.FeatureID("feature-a")
@@ -36,106 +38,134 @@ func newCheckProvider() CheckProvider {
 	return func(_ *props.Props) []CheckFunc { return nil }
 }
 
-func TestRegister_AddsProvidersForFeature(t *testing.T) {
-	resetRegistry(t)
+func TestRegisterOn_AddsProvidersForFeature(t *testing.T) {
+	t.Parallel()
 
-	Register(regFeatureA,
+	r := features.NewRegistry()
+	RegisterOn(r, regFeatureA,
 		[]InitialiserProvider{newInitialiserProvider()},
 		[]SubcommandProvider{newSubcommandProvider()},
 		[]FeatureFlag{newFeatureFlag()},
 	)
 
-	require.Len(t, GetInitialisers()[regFeatureA], 1)
-	require.Len(t, GetSubcommands()[regFeatureA], 1)
-	require.Len(t, GetFeatureFlags()[regFeatureA], 1)
+	s := r.Snapshot()
+	require.Len(t, InitialisersIn(s)[regFeatureA], 1)
+	require.Len(t, SubcommandsIn(s)[regFeatureA], 1)
+	require.Len(t, FeatureFlagsIn(s)[regFeatureA], 1)
 }
 
-func TestRegister_AppendsAcrossCalls(t *testing.T) {
-	resetRegistry(t)
+func TestRegisterOn_AppendsAcrossCalls(t *testing.T) {
+	t.Parallel()
 
-	Register(regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
-	Register(regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
+	r := features.NewRegistry()
+	RegisterOn(r, regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
+	RegisterOn(r, regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
 
-	assert.Len(t, GetInitialisers()[regFeatureA], 2)
+	assert.Len(t, InitialisersIn(r.Snapshot())[regFeatureA], 2)
 }
 
-func TestRegister_NilSlicesAreIgnored(t *testing.T) {
-	resetRegistry(t)
+func TestRegisterOn_NilSlicesAreIgnored(t *testing.T) {
+	t.Parallel()
 
-	Register(regFeatureA, nil, nil, nil)
+	r := features.NewRegistry()
+	RegisterOn(r, regFeatureA, nil, nil, nil)
 
-	assert.Empty(t, GetInitialisers())
-	assert.Empty(t, GetSubcommands())
-	assert.Empty(t, GetFeatureFlags())
+	s := r.Snapshot()
+	assert.Empty(t, InitialisersIn(s))
+	assert.Empty(t, SubcommandsIn(s))
+	assert.Empty(t, FeatureFlagsIn(s))
 }
 
-func TestRegisterChecks_AddsAndAppends(t *testing.T) {
-	resetRegistry(t)
+func TestChecksIn_AddsAndAppends(t *testing.T) {
+	t.Parallel()
 
-	RegisterChecks(regFeatureA, []CheckProvider{newCheckProvider()})
-	RegisterChecks(regFeatureA, []CheckProvider{newCheckProvider()})
+	r := features.NewRegistry()
+	r.Contribute(regFeatureA, SlotCheck, newCheckProvider())
+	r.Contribute(regFeatureA, SlotCheck, newCheckProvider())
 
-	assert.Len(t, GetChecks()[regFeatureA], 2)
+	assert.Len(t, ChecksIn(r.Snapshot())[regFeatureA], 2)
 }
 
-func TestRegisterChecks_NilIgnored(t *testing.T) {
-	resetRegistry(t)
+// TestSnapshotsAreIsolated is what replaced the seal (spec 0199 D1): a
+// registration made after a snapshot is taken does not appear in it, a fresh
+// snapshot sees it, and nothing panics.
+func TestSnapshotsAreIsolated(t *testing.T) {
+	t.Parallel()
 
-	RegisterChecks(regFeatureA, nil)
+	r := features.NewRegistry()
+	RegisterOn(r, regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
 
-	assert.Empty(t, GetChecks())
+	first := InitialisersIn(r.Snapshot())
+	require.Contains(t, first, regFeatureA)
+	require.NotContains(t, first, regFeatureB)
+
+	RegisterOn(r, regFeatureB, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
+
+	assert.NotContains(t, first, regFeatureB, "an earlier snapshot must not observe a later registration")
+	assert.Contains(t, InitialisersIn(r.Snapshot()), regFeatureB, "a fresh snapshot must")
 }
 
-func TestSealRegistry_PanicsOnSubsequentRegistration(t *testing.T) {
-	resetRegistry(t)
+func TestChecksIn_ReturnsRegisteredProviders(t *testing.T) {
+	t.Parallel()
 
-	SealRegistry()
+	r := features.NewRegistry()
+	r.Contribute(regFeatureA, SlotCheck, CheckProvider(func(_ *props.Props) []CheckFunc {
+		return []CheckFunc{
+			func(_ context.Context, _ *props.Props) CheckResult {
+				return CheckResult{Name: "demo", Status: "ok"}
+			},
+		}
+	}))
 
-	assert.Panics(t, func() {
-		Register(regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
-	}, "Register must panic after the registry is sealed")
-
-	assert.Panics(t, func() {
-		RegisterChecks(regFeatureA, []CheckProvider{newCheckProvider()})
-	}, "RegisterChecks must panic after the registry is sealed")
-}
-
-// TestGetters_ReturnIsolatedSnapshots verifies the Get* accessors return a copy
-// of the registry map: a registration made after the snapshot is taken must not
-// appear in the earlier snapshot.
-func TestGetters_ReturnIsolatedSnapshots(t *testing.T) {
-	resetRegistry(t)
-
-	Register(regFeatureA, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
-
-	snapshot := GetInitialisers()
-	require.Contains(t, snapshot, regFeatureA)
-	require.NotContains(t, snapshot, regFeatureB)
-
-	// Register a second feature after the snapshot was taken.
-	Register(regFeatureB, []InitialiserProvider{newInitialiserProvider()}, nil, nil)
-
-	assert.NotContains(t, snapshot, regFeatureB, "earlier snapshot must not observe later registration")
-	assert.Contains(t, GetInitialisers(), regFeatureB, "a fresh snapshot must observe the new registration")
-}
-
-func TestGetChecks_ReturnsRegisteredProviders(t *testing.T) {
-	resetRegistry(t)
-
-	RegisterChecks(regFeatureA, []CheckProvider{
-		func(_ *props.Props) []CheckFunc {
-			return []CheckFunc{
-				func(_ context.Context, _ *props.Props) CheckResult {
-					return CheckResult{Name: "demo", Status: "ok"}
-				},
-			}
-		},
-	})
-
-	checks := GetChecks()
+	checks := ChecksIn(r.Snapshot())
 	require.Len(t, checks[regFeatureA], 1)
 
 	results := checks[regFeatureA][0](nil)
 	require.Len(t, results, 1)
 	assert.Equal(t, "demo", results[0](context.Background(), nil).Name)
+}
+
+func TestAssetsIn_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	bundle := fstest.MapFS{"assets/config.yaml": &fstest.MapFile{Data: []byte("x: 1\n")}}
+
+	r := features.NewRegistry()
+	r.Contribute("examplefeature", SlotAssets, AssetBundle{Name: "example", Bundle: bundle})
+
+	got := AssetsIn(r.Snapshot())
+	require.Len(t, got["examplefeature"], 1)
+	assert.Equal(t, "example", got["examplefeature"][0].Name)
+	assert.Equal(t, bundle, got["examplefeature"][0].Bundle)
+}
+
+// TestContributionsBy_SkipsOtherTypes: a value of another type under a slot is
+// somebody else's contribution, not an error for this reader.
+func TestContributionsBy_SkipsOtherTypes(t *testing.T) {
+	t.Parallel()
+
+	r := features.NewRegistry()
+	r.Contribute(regFeatureA, SlotCheck, "not a provider")
+	r.Contribute(regFeatureA, SlotCheck, newCheckProvider())
+
+	assert.Len(t, ChecksIn(r.Snapshot())[regFeatureA], 1)
+}
+
+// TestRegister_ContributesToTheDefault pins the init-time entry points onto
+// the default registry through IDs nobody else uses, the one write to the
+// default registry a test may make.
+func TestRegister_ContributesToTheDefault(t *testing.T) {
+	t.Parallel()
+
+	const id = props.FeatureID("test-registry-default-probe")
+
+	Register(id, []InitialiserProvider{newInitialiserProvider()}, []SubcommandProvider{newSubcommandProvider()}, []FeatureFlag{newFeatureFlag()})
+	RegisterChecks(id, []CheckProvider{newCheckProvider()})
+	RegisterAssets(id, "probe", fstest.MapFS{})
+
+	assert.Len(t, GetInitialisers()[id], 1)
+	assert.Len(t, GetSubcommands()[id], 1)
+	assert.Len(t, GetFeatureFlags()[id], 1)
+	assert.Len(t, GetChecks()[id], 1)
+	assert.Len(t, GetAssets()[id], 1)
 }

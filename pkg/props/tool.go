@@ -7,10 +7,12 @@ import (
 	"gitlab.com/phpboyscout/go/errorhandling"
 
 	"gitlab.com/phpboyscout/go/forge"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 )
 
 // FeatureID identifies a built-in feature that can be enabled or disabled.
-type FeatureID string
+type FeatureID = features.ID
 
 const (
 	UpdateCmd    = FeatureID("update")

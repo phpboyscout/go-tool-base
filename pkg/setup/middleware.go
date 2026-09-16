@@ -1,10 +1,9 @@
 package setup
 
 import (
-	"sync"
-
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -13,75 +12,36 @@ import (
 // a new handler that may execute logic before and/or after calling next.
 type Middleware func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error
 
-var (
-	mu                sync.RWMutex
-	globalMiddleware  []Middleware
-	featureMiddleware = make(map[props.FeatureID][]Middleware)
-	sealed            bool
-)
-
-// RegisterMiddleware adds middleware that will be applied to commands
-// belonging to the specified feature. Middleware is applied in
-// registration order.
+// RegisterMiddleware contributes middleware for the commands of one feature to
+// the default registry. Middleware is applied in registration order.
 func RegisterMiddleware(feature props.FeatureID, mw ...Middleware) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if sealed {
-		panic("cannot register middleware after command registration is complete")
+	for _, m := range mw {
+		features.Default().Contribute(feature, SlotMiddleware, m)
 	}
-
-	featureMiddleware[feature] = append(featureMiddleware[feature], mw...)
 }
 
-// RegisterGlobalMiddleware adds middleware that is applied to all
-// feature commands. Global middleware runs before feature-specific
-// middleware in the chain.
+// RegisterGlobalMiddleware contributes middleware applied to every feature
+// command. Global middleware runs before feature-specific middleware.
 func RegisterGlobalMiddleware(mw ...Middleware) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if sealed {
-		panic("cannot register global middleware after command registration is complete")
+	for _, m := range mw {
+		features.Default().Contribute(features.Global, SlotMiddleware, m)
 	}
-
-	globalMiddleware = append(globalMiddleware, mw...)
 }
 
-// Seal prevents further middleware registration. Called after all
-// commands have been registered.
-func Seal() {
-	mu.Lock()
-	defer mu.Unlock()
-
-	sealed = true
-}
-
-// IsSealed reports whether the middleware registry has been sealed. Callers
-// that register built-in middleware once per process use this to stay
-// idempotent — a second root construction reuses the already-sealed registry
-// instead of re-registering and panicking.
-func IsSealed() bool {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	return sealed
-}
-
-// Chain applies all registered middleware (global + feature-specific)
-// to the given RunE function and returns the wrapped function.
+// Chain applies the default registry's middleware (global, then the feature's)
+// to runE and returns the wrapped function.
 func Chain(feature props.FeatureID, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
-	mu.RLock()
-	defer mu.RUnlock()
+	return ChainIn(features.Default().Snapshot(), feature, runE)
+}
 
+// ChainIn is Chain over a snapshot.
+func ChainIn(s features.Snapshot, feature props.FeatureID, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	if runE == nil {
 		return nil
 	}
 
-	// Build the full chain: global first, then feature-specific.
-	chain := make([]Middleware, 0, len(globalMiddleware)+len(featureMiddleware[feature]))
-	chain = append(chain, globalMiddleware...)
-	chain = append(chain, featureMiddleware[feature]...)
+	chain := middlewareIn(s, features.Global)
+	chain = append(chain, middlewareIn(s, feature)...)
 
 	// Apply in reverse order so that the first registered middleware
 	// is the outermost wrapper (executes first).
@@ -93,14 +53,15 @@ func Chain(feature props.FeatureID, runE func(cmd *cobra.Command, args []string)
 	return wrapped
 }
 
-// ResetRegistryForTesting clears both the middleware and feature registries.
-// This should only be used in tests to avoid state leakage between test runs.
-func ResetRegistryForTesting() {
-	mu.Lock()
-	globalMiddleware = nil
-	featureMiddleware = make(map[props.FeatureID][]Middleware)
-	sealed = false
-	mu.Unlock()
+func middlewareIn(s features.Snapshot, id features.ID) []Middleware {
+	values := s.Contributions(id, SlotMiddleware)
+	out := make([]Middleware, 0, len(values))
 
-	resetFeatureRegistry()
+	for _, v := range values {
+		if m, ok := v.(Middleware); ok {
+			out = append(out, m)
+		}
+	}
+
+	return out
 }

@@ -60,9 +60,6 @@ func autoInitConfigPath(fs afero.Fs, name string) string {
 func execChild(t *testing.T, props *p.Props, child *cobra.Command) error {
 	t.Helper()
 
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-
 	rootCmd := NewCmdRoot(props, setup.Wrap("", child))
 	rootCmd.SetArgs([]string{"child"})
 	rootCmd.SetOut(io.Discard)

@@ -120,11 +120,29 @@ The `internal/exectest` package provides common fakes for `exec.LookPath` and `e
 
 ### Registry-aware tests
 
-The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegistry`) are package-level shared state protected by mutexes. Tests that call `ResetRegistryForTesting()` wipe this state, making them logically incompatible with `t.Parallel()` against other tests in the same package. The mutex prevents data races but does not prevent state interleaving.
+The feature registry (`features.Default()`) is process-wide because a blank
+import can reach nothing else, and it is append-only: nothing seals it and
+nothing resets it (spec 0199 D1, D5). A reader takes an immutable snapshot, so
+a registration made by another test is not a race, only a different snapshot.
 
-**Rule**: tests that call `setup.ResetRegistryForTesting()` or `setup.RegisterMiddleware()` / `setup.RegisterChecks()` must **not** use `t.Parallel()` unless they register to unique feature names and do not reset.
+**Rule**: a test never declares or contributes to the default registry. It
+builds its own and reads it through the snapshot-taking accessors:
 
-Tests that only _read_ from the registry (e.g. `setup.GetChecks()`) with distinct feature names _can_ use `t.Parallel()` safely, the mutex guarantees memory visibility.
+```go
+r := features.NewRegistry()
+setup.RegisterOn(r, "mine", []setup.InitialiserProvider{ip}, nil, nil)
+r.Contribute("mine", setup.SlotMiddleware, mw)
+
+inits := setup.InitialisersIn(r.Snapshot())
+wrapped := setup.ChainIn(r.Snapshot(), "mine", runE)
+```
+
+Such tests run under `t.Parallel()`. The one write to the default registry a
+test may make is through an init-time entry point (`setup.Register`,
+`setup.RegisterMiddleware`) under a feature ID nobody else uses, to pin that
+the entry point reaches the default; `internal/repopolicy` refuses
+`features.Default().Declare`/`Contribute` and `props.RegisterFeature` in test
+files.
 
 The release-provider registry (`forge.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`props.Tool.ReleaseProvider`) and drive it with the in-memory double from `forge/test`. See [Release Provider › `releasetest`](https://forge.go.phpboyscout.uk/how-to/testing/).
 

@@ -203,6 +203,7 @@ Every user-influenced field flowing into a skeleton template is validated by `cl
 - Table-driven tests with `t.Parallel()` is the standard pattern.
 - Use `logger.NewNoop()` for test loggers.
 - **No package-level mocking hooks.** Do not create `var execFoo = exec.Foo` for test mocking — this pattern races under `t.Parallel()`. Inject dependencies through functional options, struct fields, or `Config` fields. Use `internal/exectest` for common `exec.LookPath` / `exec.CommandContext` fakes. See `docs/how-to/testing.md` for the full race-avoidance guide and the `internal/exectest` API.
+- **No test writes to the default feature registry.** `features.Default()` is append-only and never reset or sealed (spec 0199); a test that needs a feature, an initialiser or a middleware builds `features.NewRegistry()`, contributes to it, and reads it through the `setup.*In` accessors or `root.WithRegistry`. `internal/repopolicy` enforces this.
 - **Integration tests** use env-var-based gating (not build tags) for compile-time safety and IDE discoverability:
   - Gate with `testutil.SkipIfNotIntegration(t, "tag")` from `internal/testutil/integration.go`.
   - `INT_TEST=1` enables all; `INT_TEST_<TAG>=1` enables a specific group (e.g. `INT_TEST_VCS=1`).

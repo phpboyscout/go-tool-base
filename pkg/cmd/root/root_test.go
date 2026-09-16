@@ -33,8 +33,6 @@ import (
 // functionality that was extracted from the PersistentPreRunE function for better testability.
 
 func TestExtractFlags(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	tests := []struct {
@@ -95,8 +93,6 @@ func TestExtractFlags(t *testing.T) {
 }
 
 func TestBuildConfigStore(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	l := logger.NewNoop()
@@ -241,8 +237,6 @@ database:
 // succeed: the absent file is excluded from the layers, so it can neither
 // capture the write nor break the store's candidate rebuild on Apply.
 func TestBuildConfigStore_WriteSucceedsWithMissingLowerPrecedenceFile(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Assets: p.NewAssets()}
@@ -270,8 +264,6 @@ func TestBuildConfigStore_WriteSucceedsWithMissingLowerPrecedenceFile(t *testing
 // target exception: with no config file on disk but writes allowed, the highest-
 // precedence path is still a valid write destination and the write creates it.
 func TestBuildConfigStore_CreatesWriteTargetWhenAllAbsent(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Assets: p.NewAssets()}
@@ -325,8 +317,6 @@ func TestDeclaredConfigPaths(t *testing.T) {
 // TestLoadAndMergeConfigWithOverrides tests that main config values override embedded config values
 // when both configs contain the same keys. This proves that cfg values take precedence over embeddedCfg.
 func TestLoadAndMergeConfigWithOverrides(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	l := logger.NewNoop()
@@ -512,8 +502,6 @@ plugins:
 }
 
 func TestConfigureLogging(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	tests := []struct {
@@ -619,8 +607,6 @@ func TestConfigureLogging(t *testing.T) {
 }
 
 func TestShouldSkipUpdateCheck(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	// Neutralise any ambient CI=true (set by the GitLab runner): the update
 	// check now also skips on the CI environment variable for flag/environment
@@ -753,8 +739,6 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 }
 
 func TestUpdatePromptForm(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	tests := []struct {
@@ -788,8 +772,6 @@ func TestUpdatePromptForm(t *testing.T) {
 }
 
 func TestHandleOutdatedVersion_Declined(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	// NOTE: The "user accepts update" path is not unit-testable here.
@@ -816,8 +798,6 @@ func TestHandleOutdatedVersion_Declined(t *testing.T) {
 // prompt that cannot be answered (a terminal whose input has gone away) is
 // treated as "No", not as consent to self-update.
 func TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	props := &p.Props{
@@ -844,8 +824,6 @@ func TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate(t *testing.T) {
 // (warn only), prompt-decline (continue), and enabled-decline / enabled with no
 // answerable prompt (blocked with a non-zero error — never a masked continue).
 func TestHandleOutdatedVersion_Policies(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	newProps := func(io p.IO) *p.Props {
@@ -903,8 +881,6 @@ func TestHandleOutdatedVersion_Policies(t *testing.T) {
 func TestRootState_Isolation(t *testing.T) {
 	// Not parallel: calls NewCmdRoot twice, each of which seals the middleware
 	// registry. Reset between calls to prevent the second from panicking.
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	// Two independent root commands should have independent state
 	props1 := &p.Props{
@@ -925,7 +901,6 @@ func TestRootState_Isolation(t *testing.T) {
 	}
 
 	cmd1 := NewCmdRoot(props1)
-	setup.ResetRegistryForTesting() // reset before second NewCmdRoot seals again
 	cmd2 := NewCmdRoot(props2)
 
 	// They should be independent commands
@@ -939,8 +914,6 @@ func TestRootState_Isolation(t *testing.T) {
 // the PersistentPreRunE ever runs.
 func TestNewCmdRoot_DefaultsCollector(t *testing.T) {
 	// Not parallel: NewCmdRoot seals the process-global middleware registry.
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := &p.Props{
 		Logger: logger.NewNoop(),
@@ -964,8 +937,6 @@ func TestNewCmdRoot_DefaultsCollector(t *testing.T) {
 // the registry was sealed by the first construction.
 func TestNewCmdRoot_SecondConstructionDoesNotPanic(t *testing.T) {
 	// Not parallel: mutates the process-global middleware registry.
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	mkProps := func(name string) *p.Props {
 		return &p.Props{
@@ -986,8 +957,6 @@ func TestNewCmdRoot_SecondConstructionDoesNotPanic(t *testing.T) {
 }
 
 func TestRootState_Defaults(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	state := newRootState()
@@ -995,8 +964,6 @@ func TestRootState_Defaults(t *testing.T) {
 }
 
 func TestErrUpdateComplete(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	// ErrUpdateComplete should be detectable via errors.Is
@@ -1009,8 +976,6 @@ func TestErrUpdateComplete(t *testing.T) {
 }
 
 func TestHandleOutdatedVersion_SetsStateFlag(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	state := newRootState()
@@ -1179,8 +1144,6 @@ func TestMapLogLevel_Default(t *testing.T) {
 }
 
 func TestBuildConfigStore_WithEmbeddedConfig(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	l := logger.NewNoop()
@@ -1216,8 +1179,6 @@ func TestBuildConfigStore_WithEmbeddedConfig(t *testing.T) {
 }
 
 func TestExecute_Success(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	var buf strings.Builder
@@ -1242,8 +1203,6 @@ func TestExecute_Success(t *testing.T) {
 }
 
 func TestExecute_ErrUpdateComplete(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	log := logger.NewBuffer()
@@ -1268,8 +1227,6 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 }
 
 func TestExecute_FatalError(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
 	log := logger.NewBuffer()
@@ -1294,8 +1251,6 @@ func TestExecute_FatalError(t *testing.T) {
 }
 
 func TestMiddleware_IntegrationWithCobra(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: registers on the process-global middleware registry, which
 	// a parallel NewCmdRoot elsewhere seals (the register-after-seal panic).
 
@@ -1318,8 +1273,6 @@ func TestMiddleware_IntegrationWithCobra(t *testing.T) {
 }
 
 func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	var middlewareExecuted bool
 	mw := func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
@@ -1419,8 +1372,6 @@ func bootstrapTestProps(t *testing.T) (*p.Props, string) {
 func TestBootstrapRunsDespiteChildPersistentPreRunE(t *testing.T) {
 	// Not parallel: NewCmdRoot seals the process-global middleware registry,
 	// and the test relies on cobra's process-global EnableTraverseRunHooks.
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props, cfgPath := bootstrapTestProps(t)
 
@@ -1463,8 +1414,6 @@ func TestBootstrapRunsDespiteChildPersistentPreRunE(t *testing.T) {
 // before the child's PersistentPreRunE (root→leaf), so the child can rely on
 // props.Config already being populated.
 func TestBootstrapOrdering_RootBeforeChild(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props, cfgPath := bootstrapTestProps(t)
 
@@ -1500,8 +1449,6 @@ func TestBootstrapOrdering_RootBeforeChild(t *testing.T) {
 // array (it is given spare capacity here so an aliasing append would corrupt the
 // element past len).
 func TestNewRootPreRunE_ConfigPathsNotAccumulated(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: exercises the process-global middleware registry path.
 
 	// A slice with spare capacity and a sentinel element past its length. An

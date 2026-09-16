@@ -27,7 +27,7 @@ func init() {
 }
 ```
 
-The framework calls `setup.Seal()` once before building the command tree, so further `Register*Middleware` calls after sealing panic. Register at process start (`init()` or before `NewCmdRoot`).
+The root takes a snapshot of the registry when it builds the command tree, so middleware registered after that is not in the tree it built (and nothing panics). Register at process start (`init()` or before `NewCmdRoot`).
 
 ## Registering feature middleware
 

@@ -107,7 +107,7 @@ func TestFeatureOf_IdentifiesByAnnotationNotUseString(t *testing.T) {
 }
 
 func TestRegister_WiresChildOwnFeatureMiddleware(t *testing.T) {
-	resetRegistry(t)
+	t.Parallel()
 
 	var order []string
 
@@ -137,7 +137,7 @@ func TestRegister_WiresChildOwnFeatureMiddleware(t *testing.T) {
 }
 
 func TestRegister_AddsChildToCobraTree(t *testing.T) {
-	resetRegistry(t)
+	t.Parallel()
 
 	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
 	child := Wrap(childFeature, &cobra.Command{Use: "child"})
@@ -151,7 +151,7 @@ func TestRegister_AddsChildToCobraTree(t *testing.T) {
 }
 
 func TestRegister_MultipleChildren(t *testing.T) {
-	resetRegistry(t)
+	t.Parallel()
 
 	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
 	a := Wrap(childFeature, &cobra.Command{Use: "a"})
@@ -163,7 +163,7 @@ func TestRegister_MultipleChildren(t *testing.T) {
 }
 
 func TestRegister_NilRunE_StillAttaches(t *testing.T) {
-	resetRegistry(t)
+	t.Parallel()
 
 	// A command-group with no RunE (just children) must register cleanly.
 	parent := Wrap(parentFeature, &cobra.Command{Use: "parent"})
@@ -176,7 +176,7 @@ func TestRegister_NilRunE_StillAttaches(t *testing.T) {
 }
 
 func TestRegister_DoesNotRewrapDescendants(t *testing.T) {
-	resetRegistry(t)
+	t.Parallel()
 
 	var order []string
 
@@ -211,7 +211,7 @@ func TestRegister_DoesNotRewrapDescendants(t *testing.T) {
 }
 
 func TestRegister_SkipsNilCommandEmbedded(t *testing.T) {
-	resetRegistry(t)
+	t.Parallel()
 
 	// Defensive: a *Command with no embedded cobra.Command shouldn't
 	// crash Register; it just gets skipped.

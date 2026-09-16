@@ -52,8 +52,6 @@ func TestNewCmdDocsServe_HostFlagDefaultsToLoopback(t *testing.T) {
 // command used Run instead of RunE the wrapping would be skipped and the
 // sentinel never fire.
 func TestNewCmdDocsServe_RoutesThroughMiddleware(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	called := false
 

@@ -46,7 +46,6 @@ imports, not a runtime condition, they surface as a panic through
 |-------|---------|-----------------|
 | `ErrInvalidDescriptor` | props: feature descriptor is incomplete | A `FeatureDescriptor` is missing one of `ID`, `ConstName`, `ConstPackage` or `Kind`. All four are required: the generator needs the constant's name *and* its package to emit a qualified reference. Fix the descriptor at its registration site. |
 | `ErrDuplicateFeature` | props: feature is already registered | Two registrations claim the same feature ID. Usually two plugins colliding on a name; rename one, since the ID is the key everything else keys off. |
-| `ErrRegistrySealed` | props: feature registry is sealed | Registration was attempted after the registry had been enumerated. Feature registration belongs in `init()`; anything registering later has already missed the enumeration that built the command tree. |
 | `ErrPluginDefaultOn` | props: only builtin features may be default-enabled | A non-builtin feature declared `Default: true`. Adding a blank import must change what is *available*, never what is *on*: otherwise an import list becomes a behavioural file and a downstream that omits a provider cannot reason about what its remaining imports switched on. Ship the feature default-off and let the tool enable it. |
 
 ---

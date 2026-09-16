@@ -46,8 +46,6 @@ func newTestProps(features ...p.FeatureState) *p.Props {
 
 func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := newTestProps() // all defaults
 	rootCmd := root.NewCmdRoot(props)
@@ -65,8 +63,6 @@ func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 
 func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := newTestProps(
 		p.Disable(p.UpdateCmd),
@@ -86,8 +82,6 @@ func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 
 func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := newTestProps(
 		p.Disable(p.UpdateCmd),
@@ -107,8 +101,6 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 
 func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	customCmd := &cobra.Command{Use: "custom", Run: func(_ *cobra.Command, _ []string) {}}
 	props := newTestProps(p.Disable(p.UpdateCmd))
@@ -121,8 +113,6 @@ func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 
 func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	// Disable all defaults, re-enable only doctor
 	props := newTestProps(
@@ -144,8 +134,6 @@ func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 
 func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := &p.Props{
 		Tool: p.Tool{
@@ -174,8 +162,6 @@ func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
 // and an observer registered on the live store must fire.
 func TestConfigWatch_FileChangeReachesObserver(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "cmd")
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")

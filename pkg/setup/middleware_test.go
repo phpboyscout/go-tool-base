@@ -7,15 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// resetRegistry is a test helper to clear the package-level middleware state.
-func resetRegistry(t *testing.T) {
-	t.Helper()
-	ResetRegistryForTesting()
-	t.Cleanup(ResetRegistryForTesting)
-}
+// Every test contributes to a registry of its own and chains over its
+// snapshot (spec 0199 D5), so the default registry is never written and the
+// tests run in parallel.
 
 func testMiddleware(name string, order *[]string) Middleware {
 	return func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
@@ -33,169 +31,129 @@ func testMiddleware(name string, order *[]string) Middleware {
 
 const testFeature = props.FeatureID("test-feature")
 
-func TestRegisterMiddleware_Single(t *testing.T) {
+func contributeMiddleware(r features.Registry, id features.ID, mws ...Middleware) {
+	for _, m := range mws {
+		r.Contribute(id, SlotMiddleware, m)
+	}
+}
 
-	resetRegistry(t)
+func runChained(t *testing.T, r features.Registry, order *[]string) {
+	t.Helper()
 
-	var order []string
+	wrapped := ChainIn(r.Snapshot(), testFeature, func(_ *cobra.Command, _ []string) error {
+		*order = append(*order, "handler")
 
-	RegisterMiddleware(testFeature, testMiddleware("feature", &order))
-
-	wrapped := Chain(testFeature, func(_ *cobra.Command, _ []string) error {
-		order = append(order, "handler")
 		return nil
 	})
 
-	err := wrapped(&cobra.Command{}, nil)
+	require.NoError(t, wrapped(&cobra.Command{}, nil))
+}
 
-	require.NoError(t, err)
+func TestChainIn_FeatureMiddleware(t *testing.T) {
+	t.Parallel()
+
+	var order []string
+
+	r := features.NewRegistry()
+	contributeMiddleware(r, testFeature, testMiddleware("feature", &order))
+
+	runChained(t, r, &order)
 	assert.Equal(t, []string{"feature:before", "handler", "feature:after"}, order)
 }
 
-func TestRegisterMiddleware_Multiple(t *testing.T) {
-
-	resetRegistry(t)
+func TestChainIn_MultipleKeepRegistrationOrder(t *testing.T) {
+	t.Parallel()
 
 	var order []string
 
-	RegisterMiddleware(testFeature, testMiddleware("f1", &order), testMiddleware("f2", &order))
+	r := features.NewRegistry()
+	contributeMiddleware(r, testFeature, testMiddleware("f1", &order), testMiddleware("f2", &order))
 
-	wrapped := Chain(testFeature, func(_ *cobra.Command, _ []string) error {
-		order = append(order, "handler")
-		return nil
-	})
-
-	err := wrapped(&cobra.Command{}, nil)
-
-	require.NoError(t, err)
-	assert.Equal(t, []string{
-		"f1:before",
-		"f2:before",
-		"handler",
-		"f2:after",
-		"f1:after",
-	}, order)
+	runChained(t, r, &order)
+	assert.Equal(t, []string{"f1:before", "f2:before", "handler", "f2:after", "f1:after"}, order)
 }
 
-func TestRegisterGlobalMiddleware(t *testing.T) {
-
-	resetRegistry(t)
+func TestChainIn_GlobalOnly(t *testing.T) {
+	t.Parallel()
 
 	var order []string
 
-	RegisterGlobalMiddleware(testMiddleware("global", &order))
+	r := features.NewRegistry()
+	contributeMiddleware(r, features.Global, testMiddleware("global", &order))
 
-	wrapped := Chain(testFeature, func(_ *cobra.Command, _ []string) error {
-		order = append(order, "handler")
-		return nil
-	})
-
-	err := wrapped(&cobra.Command{}, nil)
-
-	require.NoError(t, err)
+	runChained(t, r, &order)
 	assert.Equal(t, []string{"global:before", "handler", "global:after"}, order)
 }
 
-func TestSeal_PanicsOnRegistration(t *testing.T) {
-	resetRegistry(t)
-
-	Seal()
-
-	assert.Panics(t, func() { RegisterMiddleware(testFeature, testMiddleware("m", nil)) },
-		"RegisterMiddleware must panic after Seal")
-	assert.Panics(t, func() { RegisterGlobalMiddleware(testMiddleware("m", nil)) },
-		"RegisterGlobalMiddleware must panic after Seal")
-}
-
-func TestChain_GlobalBeforeFeature(t *testing.T) {
-
-	resetRegistry(t)
+func TestChainIn_GlobalBeforeFeature(t *testing.T) {
+	t.Parallel()
 
 	var order []string
 
-	RegisterGlobalMiddleware(testMiddleware("global", &order))
-	RegisterMiddleware(testFeature, testMiddleware("feature", &order))
+	r := features.NewRegistry()
+	contributeMiddleware(r, features.Global, testMiddleware("g1", &order), testMiddleware("g2", &order))
+	contributeMiddleware(r, testFeature, testMiddleware("f1", &order), testMiddleware("f2", &order))
 
-	wrapped := Chain(testFeature, func(_ *cobra.Command, _ []string) error {
-		order = append(order, "handler")
-		return nil
-	})
-
-	err := wrapped(&cobra.Command{}, nil)
-
-	require.NoError(t, err)
+	runChained(t, r, &order)
 	assert.Equal(t, []string{
-		"global:before",
-		"feature:before",
+		"g1:before", "g2:before", "f1:before", "f2:before",
 		"handler",
-		"feature:after",
-		"global:after",
+		"f2:after", "f1:after", "g2:after", "g1:after",
 	}, order)
 }
 
-func TestChain_EmptyRegistry(t *testing.T) {
-
-	resetRegistry(t)
+func TestChainIn_EmptyRegistry(t *testing.T) {
+	t.Parallel()
 
 	var order []string
 
-	wrapped := Chain(testFeature, func(_ *cobra.Command, _ []string) error {
-		order = append(order, "handler")
-		return nil
-	})
-
-	err := wrapped(&cobra.Command{}, nil)
-
-	require.NoError(t, err)
+	runChained(t, features.NewRegistry(), &order)
 	assert.Equal(t, []string{"handler"}, order)
 }
 
-func TestChain_ExecutionOrder(t *testing.T) {
+func TestChainIn_NilRunE(t *testing.T) {
+	t.Parallel()
 
-	resetRegistry(t)
+	assert.Nil(t, ChainIn(features.NewRegistry().Snapshot(), testFeature, nil))
+}
+
+// TestChainIn_SnapshotIsFixed is what replaced the seal (spec 0199 D1): a
+// chain built from a snapshot does not change when middleware is contributed
+// afterwards, and the later contribution does not panic.
+func TestChainIn_SnapshotIsFixed(t *testing.T) {
+	t.Parallel()
 
 	var order []string
 
-	RegisterGlobalMiddleware(testMiddleware("g1", &order))
-	RegisterGlobalMiddleware(testMiddleware("g2", &order))
-	RegisterMiddleware(testFeature, testMiddleware("f1", &order))
-	RegisterMiddleware(testFeature, testMiddleware("f2", &order))
+	r := features.NewRegistry()
+	contributeMiddleware(r, testFeature, testMiddleware("early", &order))
+	snap := r.Snapshot()
 
-	wrapped := Chain(testFeature, func(_ *cobra.Command, _ []string) error {
-		order = append(order, "handler")
-		return nil
-	})
+	contributeMiddleware(r, testFeature, testMiddleware("late", &order))
 
-	err := wrapped(&cobra.Command{}, nil)
+	wrapped := ChainIn(snap, testFeature, func(_ *cobra.Command, _ []string) error { return nil })
+	require.NoError(t, wrapped(&cobra.Command{}, nil))
+	assert.Equal(t, []string{"early:before", "early:after"}, order)
 
-	require.NoError(t, err)
-	assert.Equal(t, []string{
-		"g1:before",
-		"g2:before",
-		"f1:before",
-		"f2:before",
-		"handler",
-		"f2:after",
-		"f1:after",
-		"g2:after",
-		"g1:after",
-	}, order)
+	order = nil
+	wrapped = ChainIn(r.Snapshot(), testFeature, func(_ *cobra.Command, _ []string) error { return nil })
+	require.NoError(t, wrapped(&cobra.Command{}, nil))
+	assert.Equal(t, []string{"early:before", "late:before", "late:after", "early:after"}, order)
 }
 
-func TestChain_NilRunE(t *testing.T) {
+// TestRegisterMiddleware_ContributesToTheDefault pins the init-time entry
+// points onto the default registry through a unique feature ID, which is the
+// one write to the default registry a test may make: an ID nobody else uses.
+func TestRegisterMiddleware_ContributesToTheDefault(t *testing.T) {
+	t.Parallel()
 
-	resetRegistry(t)
+	const id = props.FeatureID("test-middleware-default-probe")
 
-	wrapped := Chain(testFeature, nil)
-	assert.Nil(t, wrapped)
-}
+	var order []string
 
-func TestIsSealed(t *testing.T) {
-	resetRegistry(t)
+	RegisterMiddleware(id, testMiddleware("probe", &order))
 
-	assert.False(t, IsSealed(), "registry must report unsealed after reset")
-
-	Seal()
-
-	assert.True(t, IsSealed(), "registry must report sealed after Seal")
+	wrapped := Chain(id, func(_ *cobra.Command, _ []string) error { return nil })
+	require.NoError(t, wrapped(&cobra.Command{}, nil))
+	assert.Contains(t, order, "probe:before")
 }

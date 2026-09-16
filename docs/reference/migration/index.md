@@ -45,6 +45,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [Chat defaults in the manifest; the fallback chain is the module's](v0.x-chat-defaults-in-the-manifest.md) |
 | v0.x | v0.x | [Author settings as one surface](v0.x-author-settings.md) |
 | v0.x | v0.x | [`Props.IO`, and the setup wizards' test seams](v0.x-props-io.md) |
+| v0.x | v0.x | [features as a value, and a root that owns its registries](v0.x-features-as-a-value.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

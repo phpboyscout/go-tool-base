@@ -122,10 +122,10 @@ Replaced dual-library logging (charmbracelet/log + slog) with a unified `Logger`
 
 Props is an intentional god object. This is by design. Narrow role-based interfaces (`LoggerProvider`, `ConfigProvider`, etc.) allow consumers to declare minimal dependencies without replacing Props. New code should accept the narrowest interface that satisfies its needs.
 
-### Middleware: Function Wrappers with Sealed Registry
+### Middleware: Function Wrappers over a Snapshotted Registry
 **Spec:** `2026-03-24-command-middleware-system.md`
 
-Middleware uses `func(next RunEFunc) RunEFunc`. The same pattern as Go HTTP middleware. Global middleware runs before feature-specific. The registry is sealed after command registration to prevent race conditions. No late registration is allowed.
+Middleware uses `func(next RunEFunc) RunEFunc`. The same pattern as Go HTTP middleware. Global middleware runs before feature-specific. The root chains from an immutable snapshot of the registry taken when it builds the tree, so a late registration is not in that tree and cannot race it (spec 0199 replaced the earlier seal, which panicked).
 
 ### Security: Shared TLS Config, Scheme Protection
 **Specs:** `2026-03-24-secure-http-client.md`, `2026-03-24-security-server-hardening.md`

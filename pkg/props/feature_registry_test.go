@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 )
 
 // TestBuiltinsAreRegistered pins the built-in seed: every constant in the
@@ -177,22 +179,27 @@ func TestIsEnabled_UsesRegistryDefaults(t *testing.T) {
 	assert.False(t, tool.IsEnabled(FeatureID("unregistered")))
 }
 
-// TestRegisterFeature_RejectsAfterSeal guards D7: once anything has enumerated,
-// a late registration fails loudly instead of producing a set that depends on
-// when it was read.
-//
-// Deliberately not parallel — it asserts on the registry's sealed state, which
-// the parallel tests reach by enumerating.
-func TestRegisterFeature_RejectsAfterSeal(t *testing.T) {
-	SealFeatures()
+// TestRegisterFeature_OnAnOwnRegistry is spec 0199 D5: a test that declares a
+// feature declares it on a Registry of its own, so the default registry is a
+// function of the import graph and every enumeration test can run in parallel.
+func TestRegisterFeature_OnAnOwnRegistry(t *testing.T) {
+	t.Parallel()
 
-	err := registerFeature(FeatureDescriptor{
+	r := features.NewRegistry()
+	late := FeatureDescriptor{
 		ID:           FeatureID("latecomer"),
 		ConstName:    "LatecomerFeature",
 		ConstPackage: "example.com/latecomer",
 		Kind:         KindForge,
-	})
+	}
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrRegistrySealed)
+	require.NoError(t, registerFeature(r, late))
+	require.ErrorIs(t, registerFeature(r, late), ErrDuplicateFeature)
+
+	_, inDefault := DescriptorFor("latecomer")
+	assert.False(t, inDefault, "the default registry never sees a test's feature")
+
+	got := descriptorsOf(r.Snapshot())
+	require.Len(t, got, 1)
+	assert.Equal(t, late, got[0])
 }

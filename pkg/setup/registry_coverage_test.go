@@ -9,95 +9,35 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// These tests touch the process-global feature registry and middleware
-// registry. They MUST NOT use t.Parallel() and must reset the registry via
-// resetRegistry so they cannot race the other registry-touching tests.
+// TestRegisterOn_PopulatesEveryReader contributes every slot to a registry of
+// its own and reads each back through its *In accessor.
+func TestRegisterOn_PopulatesEveryReader(t *testing.T) {
+	t.Parallel()
 
-func TestRegister_PopulatesSnapshots(t *testing.T) {
-	resetRegistry(t)
-
-	const feature = props.FeatureID("registry-coverage-feature")
-
+	feature := props.FeatureID("cov-feature")
 	ip := func(_ *props.Props) Initialiser { return nil }
-	sp := func(_ *props.Props) []*cobra.Command { return []*cobra.Command{{Use: "sub"}} }
+	sp := func(_ *props.Props) []*cobra.Command { return nil }
 	fp := func(_ *cobra.Command) {}
-	cp := func(_ *props.Props) []CheckFunc {
-		return []CheckFunc{
-			func(_ context.Context, _ *props.Props) CheckResult {
-				return CheckResult{Name: "c", Status: "ok"}
-			},
-		}
-	}
+	cp := func(_ *props.Props) []CheckFunc { return nil }
 
-	Register(feature, []InitialiserProvider{ip}, []SubcommandProvider{sp}, []FeatureFlag{fp})
-	RegisterChecks(feature, []CheckProvider{cp})
+	r := features.NewRegistry()
+	RegisterOn(r, feature, []InitialiserProvider{ip}, []SubcommandProvider{sp}, []FeatureFlag{fp})
+	r.Contribute(feature, SlotCheck, CheckProvider(cp))
 
-	inits := GetInitialisers()
-	require.Contains(t, inits, feature)
-	assert.Len(t, inits[feature], 1)
+	s := r.Snapshot()
+	assert.Len(t, InitialisersIn(s)[feature], 1)
+	assert.Len(t, SubcommandsIn(s)[feature], 1)
+	assert.Len(t, FeatureFlagsIn(s)[feature], 1)
+	assert.Len(t, ChecksIn(s)[feature], 1)
 
-	subs := GetSubcommands()
-	require.Contains(t, subs, feature)
-	assert.Len(t, subs[feature], 1)
-
-	flags := GetFeatureFlags()
-	require.Contains(t, flags, feature)
-	assert.Len(t, flags[feature], 1)
-
-	checks := GetChecks()
-	require.Contains(t, checks, feature)
-	assert.Len(t, checks[feature], 1)
-
-	// The returned maps are snapshots: mutating them must not affect the
-	// registry's internal state.
+	// The maps are the reader's own: mutating one does not reach the registry.
+	inits := InitialisersIn(s)
 	delete(inits, feature)
-	assert.Contains(t, GetInitialisers(), feature, "snapshot mutation must not leak into registry")
-}
-
-func TestRegister_NilSlicesAreNoops(t *testing.T) {
-	resetRegistry(t)
-
-	const feature = props.FeatureID("registry-nil-feature")
-
-	// nil provider slices must be skipped without creating entries.
-	Register(feature, nil, nil, nil)
-	RegisterChecks(feature, nil)
-
-	assert.NotContains(t, GetInitialisers(), feature)
-	assert.NotContains(t, GetSubcommands(), feature)
-	assert.NotContains(t, GetFeatureFlags(), feature)
-	assert.NotContains(t, GetChecks(), feature)
-}
-
-func TestSealRegistry_PanicsOnRegister(t *testing.T) {
-	resetRegistry(t)
-
-	const feature = props.FeatureID("registry-seal-feature")
-
-	SealRegistry()
-
-	assert.Panics(t, func() {
-		Register(feature, []InitialiserProvider{func(_ *props.Props) Initialiser { return nil }}, nil, nil)
-	}, "Register must panic once the registry is sealed")
-
-	assert.Panics(t, func() {
-		RegisterChecks(feature, []CheckProvider{
-			func(_ *props.Props) []CheckFunc { return nil },
-		})
-	}, "RegisterChecks must panic once the registry is sealed")
-}
-
-func TestIsSealed_ReflectsSealState(t *testing.T) {
-	resetRegistry(t)
-
-	assert.False(t, IsSealed(), "registry should not be sealed after reset")
-
-	Seal()
-
-	assert.True(t, IsSealed(), "registry should report sealed after Seal")
+	assert.Contains(t, InitialisersIn(s), feature)
 }
 
 // fakeCollector records TrackCommand invocations for WithTelemetry coverage.

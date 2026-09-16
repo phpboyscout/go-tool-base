@@ -24,9 +24,6 @@ import (
 func execArgs(t *testing.T, props *p.Props, args []string, extra ...*setup.Command) error {
 	t.Helper()
 
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-
 	rootCmd := NewCmdRoot(props, extra...)
 	rootCmd.SetArgs(args)
 	rootCmd.SetOut(io.Discard)

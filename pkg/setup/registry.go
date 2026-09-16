@@ -3,11 +3,10 @@ package setup
 import (
 	"context"
 	"io/fs"
-	"maps"
-	"sync"
 
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/features"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -31,7 +30,7 @@ type CheckResult struct {
 	//
 	// Most warnings are advice: "no AI provider API keys configured" is a
 	// perfectly good state for a tool that does not use AI, and failing its
-	// pipeline over that would be absurd — which is exactly what happened when
+	// pipeline over that would be absurd, which is exactly what happened when
 	// the exit code keyed on severity alone. A warning gates only when the
 	// check says the condition is a policy failure, and a check author has to
 	// opt in deliberately.
@@ -54,168 +53,118 @@ type AssetBundle struct {
 	Bundle fs.FS
 }
 
-// FeatureRegistry holds the registered initialisers, subcommands, flags, and
-// checks for features. All access is serialised by registryMu so concurrent
-// init() calls and parallel tests are race-free.
-type FeatureRegistry struct {
-	initialisers map[props.FeatureID][]InitialiserProvider
-	subcommands  map[props.FeatureID][]SubcommandProvider
-	flags        map[props.FeatureID][]FeatureFlag
-	checks       map[props.FeatureID][]CheckProvider
-	assets       map[props.FeatureID][]AssetBundle
-}
-
-// registryMu protects globalRegistry and registrySealed. Acquired for write
-// by all Register* and Reset/Seal helpers; acquired for read by all Get*
-// accessors. The mutex is required for memory visibility of registrySealed
-// across goroutines, not only mutual exclusion on the maps — see
-// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0058-test-race-remediation.
-var (
-	registryMu     sync.RWMutex
-	registrySealed bool
+// The contribution slots GTB reads from the feature registry (spec 0199 D2).
+// A package contributes under its feature's ID at init; the root and the
+// commands read the contributions of enabled features.
+const (
+	SlotInitialiser features.Slot = "initialiser"
+	SlotSubcommand  features.Slot = "subcommand"
+	SlotInitFlag    features.Slot = "init-flag"
+	SlotCheck       features.Slot = "check"
+	SlotAssets      features.Slot = "assets"
+	SlotMiddleware  features.Slot = "middleware"
 )
 
-var globalRegistry = &FeatureRegistry{
-	initialisers: make(map[props.FeatureID][]InitialiserProvider),
-	subcommands:  make(map[props.FeatureID][]SubcommandProvider),
-	flags:        make(map[props.FeatureID][]FeatureFlag),
-	checks:       make(map[props.FeatureID][]CheckProvider),
-	assets:       make(map[props.FeatureID][]AssetBundle),
-}
-
-// SealRegistry prevents further feature registration. Called after all
-// commands have been registered. Subsequent Register* calls will panic.
-func SealRegistry() {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-
-	registrySealed = true
-}
-
-// Register adds initialisers, subcommands, and flags for a specific feature.
-// Panics if the registry has been sealed.
+// Register contributes initialisers, subcommands and init flags for a feature
+// to the default registry. Nil slices contribute nothing.
 func Register(feature props.FeatureID, ips []InitialiserProvider, sps []SubcommandProvider, fps []FeatureFlag) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
+	RegisterOn(features.Default(), feature, ips, sps, fps)
+}
 
-	if registrySealed {
-		panic("cannot register feature providers after the registry has been sealed")
+// RegisterOn is Register against a caller's registry.
+func RegisterOn(r features.Registry, feature props.FeatureID, ips []InitialiserProvider, sps []SubcommandProvider, fps []FeatureFlag) {
+	for _, ip := range ips {
+		r.Contribute(feature, SlotInitialiser, ip)
 	}
 
-	if ips != nil {
-		globalRegistry.initialisers[feature] = append(globalRegistry.initialisers[feature], ips...)
+	for _, sp := range sps {
+		r.Contribute(feature, SlotSubcommand, sp)
 	}
 
-	if sps != nil {
-		globalRegistry.subcommands[feature] = append(globalRegistry.subcommands[feature], sps...)
-	}
-
-	if fps != nil {
-		globalRegistry.flags[feature] = append(globalRegistry.flags[feature], fps...)
+	for _, fp := range fps {
+		r.Contribute(feature, SlotInitFlag, fp)
 	}
 }
 
-// RegisterChecks adds diagnostic check providers for a specific feature.
-// Panics if the registry has been sealed.
+// RegisterChecks contributes diagnostic check providers for a feature.
 func RegisterChecks(feature props.FeatureID, cps []CheckProvider) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-
-	if registrySealed {
-		panic("cannot register checks after the registry has been sealed")
-	}
-
-	if cps != nil {
-		globalRegistry.checks[feature] = append(globalRegistry.checks[feature], cps...)
+	for _, cp := range cps {
+		features.Default().Contribute(feature, SlotCheck, cp)
 	}
 }
 
-// GetInitialisers returns a snapshot of all registered initialiser providers.
-func GetInitialisers() map[props.FeatureID][]InitialiserProvider {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-
-	cp := make(map[props.FeatureID][]InitialiserProvider, len(globalRegistry.initialisers))
-	maps.Copy(cp, globalRegistry.initialisers)
-
-	return cp
-}
-
-// GetSubcommands returns a snapshot of all registered subcommand providers.
-func GetSubcommands() map[props.FeatureID][]SubcommandProvider {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-
-	cp := make(map[props.FeatureID][]SubcommandProvider, len(globalRegistry.subcommands))
-	maps.Copy(cp, globalRegistry.subcommands)
-
-	return cp
-}
-
-// GetFeatureFlags returns a snapshot of all registered feature flag providers.
-func GetFeatureFlags() map[props.FeatureID][]FeatureFlag {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-
-	cp := make(map[props.FeatureID][]FeatureFlag, len(globalRegistry.flags))
-	maps.Copy(cp, globalRegistry.flags)
-
-	return cp
-}
-
-// RegisterAssets adds an embedded asset bundle for a feature. The root command
+// RegisterAssets contributes an embedded asset bundle for a feature. The root
 // registers the bundles of enabled features onto props.Assets during
 // construction, so a feature's assets/config.yaml (defaults) and
 // assets/init/config.yaml (init template) participate in the merged reads only
-// when the feature is enabled — see the segregated-default-config spec.
-// Panics if the registry has been sealed.
+// when the feature is enabled; see the segregated-default-config spec.
 func RegisterAssets(feature props.FeatureID, name string, bundle fs.FS) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-
-	if registrySealed {
-		panic("cannot register assets after the registry has been sealed")
-	}
-
-	globalRegistry.assets[feature] = append(globalRegistry.assets[feature], AssetBundle{Name: name, Bundle: bundle})
+	features.Default().Contribute(feature, SlotAssets, AssetBundle{Name: name, Bundle: bundle})
 }
 
-// GetAssets returns a snapshot of all registered asset bundles.
+// GetInitialisers returns every registered initialiser provider by feature.
+func GetInitialisers() map[props.FeatureID][]InitialiserProvider {
+	return InitialisersIn(features.Default().Snapshot())
+}
+
+// InitialisersIn is GetInitialisers over a snapshot.
+func InitialisersIn(s features.Snapshot) map[props.FeatureID][]InitialiserProvider {
+	return contributionsBy[InitialiserProvider](s, SlotInitialiser)
+}
+
+// GetSubcommands returns every registered subcommand provider by feature.
+func GetSubcommands() map[props.FeatureID][]SubcommandProvider {
+	return SubcommandsIn(features.Default().Snapshot())
+}
+
+// SubcommandsIn is GetSubcommands over a snapshot.
+func SubcommandsIn(s features.Snapshot) map[props.FeatureID][]SubcommandProvider {
+	return contributionsBy[SubcommandProvider](s, SlotSubcommand)
+}
+
+// GetFeatureFlags returns every registered init-flag binder by feature.
+func GetFeatureFlags() map[props.FeatureID][]FeatureFlag {
+	return FeatureFlagsIn(features.Default().Snapshot())
+}
+
+// FeatureFlagsIn is GetFeatureFlags over a snapshot.
+func FeatureFlagsIn(s features.Snapshot) map[props.FeatureID][]FeatureFlag {
+	return contributionsBy[FeatureFlag](s, SlotInitFlag)
+}
+
+// GetAssets returns every registered asset bundle by feature.
 func GetAssets() map[props.FeatureID][]AssetBundle {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-
-	cp := make(map[props.FeatureID][]AssetBundle, len(globalRegistry.assets))
-	maps.Copy(cp, globalRegistry.assets)
-
-	return cp
+	return AssetsIn(features.Default().Snapshot())
 }
 
-// GetChecks returns a snapshot of all registered check providers.
+// AssetsIn is GetAssets over a snapshot.
+func AssetsIn(s features.Snapshot) map[props.FeatureID][]AssetBundle {
+	return contributionsBy[AssetBundle](s, SlotAssets)
+}
+
+// GetChecks returns every registered check provider by feature.
 func GetChecks() map[props.FeatureID][]CheckProvider {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-
-	cp := make(map[props.FeatureID][]CheckProvider, len(globalRegistry.checks))
-	maps.Copy(cp, globalRegistry.checks)
-
-	return cp
+	return ChecksIn(features.Default().Snapshot())
 }
 
-// resetFeatureRegistry clears the feature registry under registryMu.
-// Internal helper called from ResetRegistryForTesting (in middleware.go) so
-// a single reset call clears both middleware and feature state — preserving
-// the existing one-call API surface used across the codebase's tests.
-func resetFeatureRegistry() {
-	registryMu.Lock()
-	defer registryMu.Unlock()
+// ChecksIn is GetChecks over a snapshot.
+func ChecksIn(s features.Snapshot) map[props.FeatureID][]CheckProvider {
+	return contributionsBy[CheckProvider](s, SlotCheck)
+}
 
-	globalRegistry = &FeatureRegistry{
-		initialisers: make(map[props.FeatureID][]InitialiserProvider),
-		subcommands:  make(map[props.FeatureID][]SubcommandProvider),
-		flags:        make(map[props.FeatureID][]FeatureFlag),
-		checks:       make(map[props.FeatureID][]CheckProvider),
-		assets:       make(map[props.FeatureID][]AssetBundle),
+// contributionsBy collects one slot's contributions of type T across every
+// contributing feature. A value of another type under the slot is somebody
+// else's contribution and is skipped.
+func contributionsBy[T any](s features.Snapshot, slot features.Slot) map[props.FeatureID][]T {
+	out := map[props.FeatureID][]T{}
+
+	for _, id := range s.Contributed() {
+		for _, v := range s.Contributions(id, slot) {
+			if typed, ok := v.(T); ok {
+				out[id] = append(out[id], typed)
+			}
+		}
 	}
-	registrySealed = false
+
+	return out
 }

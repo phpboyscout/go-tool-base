@@ -166,11 +166,11 @@ for _, id := range props.FeaturesOfKind(props.KindForge) {
 }
 ```
 
-#### Ordering and sealing
+#### Ordering and snapshots
 
 Enumeration order never consults `init()` sequencing: built-ins hold their declared order and everything else sorts by `(kind, id)`. Go runs `init` in dependency-then-filename order, which is stable for one build but shifts with the import graph, and both the doctor report and the generator's golden files depend on this order.
 
-Reading the registry **seals** it. A registration afterwards fails with `ErrRegistrySealed` rather than yielding a set that depends on when it was read.
+The registry is `features.Default()`, the core in `pkg/features`: `RegisterFeature` declares on it, and every reader (`FeatureDescriptors`, `AllFeatures`, `FeaturesOfKind`, `DescriptorFor`) takes an immutable **snapshot**. A registration after a snapshot is simply not in that snapshot; nothing seals, and nothing after `main` begins panics (spec 0199 D1). A test that needs a feature of its own declares it on `features.NewRegistry()`, never on the default.
 
 !!! info "`AllFeatures()` reflects what this binary linked"
     A tool that blank-imports fewer providers enumerates fewer features. That is the correct *runtime* answer. The generator needs the complete **possible** set instead. Every feature a scaffolded project could choose, including adapters the generator itself does not link, and takes it from its own catalogue rather than from this registry.

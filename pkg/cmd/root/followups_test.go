@@ -13,7 +13,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // TestNewCmdRoot_DefaultsNilVersion is the nil-Version regression: a Props built
@@ -26,8 +25,6 @@ func TestNewCmdRoot_DefaultsNilVersion(t *testing.T) {
 	// it must not run concurrently with the parallel registry-resetting tests
 	// (TestMiddleware_IntegrationWithCobra). Reset + cleanup mirrors the sibling
 	// NewCmdRoot tests.
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
 
 	props := &p.Props{
 		Tool:   p.Tool{Name: "t"},

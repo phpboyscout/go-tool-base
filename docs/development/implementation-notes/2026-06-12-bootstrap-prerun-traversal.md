@@ -48,8 +48,9 @@ Added to `pkg/cmd/root/root_test.go`:
 
 Both use a `bootstrapTestProps` helper (network/prompt features disabled,
 `logger.NewNoop()`, a real in-memory config file pointed at via `--config`).
-They follow the existing non-parallel + `setup.ResetRegistryForTesting()` +
-`t.Cleanup` pattern because `NewCmdRoot` seals the global middleware registry.
+They followed the then-current non-parallel + `setup.ResetRegistryForTesting()`
+pattern because `NewCmdRoot` sealed the global middleware registry; the seal and
+the reset went with spec 0199 phase 1.
 
 ## Judgment calls
 
