@@ -41,7 +41,21 @@ go run main.go regenerate project
 - **Injects Imports**: Ensures all subcommands are correctly imported and registered in parent commands.
 - **Manages Lifecycle Files**: Creates or removes `init.go` based on the `withInitializer` value in the manifest for each command. If `withInitializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
 - **Runs Linting**: Automatically executes `golangci-lint run --fix` to ensure the generated code is squeaky clean.
-- **Conflict Detection**: Checks if `cmd.go` files have been manually modified and prompts for confirmation before overwriting (unless `--force` is used).
+- **Conflict Detection**: Checks whether a generated file (a `cmd.go`, or a skeleton file such as `.goreleaser.yaml`) has been modified since it was written and, under the default `--overwrite ask`, prompts per file before overwriting; `deny` keeps every diverged file and `allow` re-emits the skeleton's version wholesale.
+
+### When a skeleton fix reaches a file you have customised
+
+A fix to a skeleton template lands in your project only where the file is
+unmodified. A customised file is a conflict, and `--overwrite allow` would
+replace your whole file with the skeleton's, so apply such a fix by hand.
+
+The worked case: gtb releases before v0.43 emitted `.goreleaser.yaml` with
+`main: cmd/<name>/main.go`, which builds one file and drops the other
+`package main` files the generator writes beside it (`keychain.go`,
+`signing.go`), so released binaries lacked the keychain and signing backends
+their source declared. The skeleton now emits `main: ./cmd/<name>`. A project
+whose `.goreleaser.yaml` carries a `signs:`, `notarize:` or `uploads:` block
+picks that up by editing the `main:` line, not by regenerating.
 
 ### Migrating docs to the Diátaxis layout
 
