@@ -46,28 +46,15 @@ func init() {
 	)
 }
 
-// FormOption configures the telemetry init form for testability.
-type FormOption func(*formConfig)
-
-type formConfig struct {
-	formCreator func(*props.Props, *bool) *huh.Form
-}
-
-// WithForm allows injecting a custom form creator for testing.
-func WithForm(creator func(*props.Props, *bool) *huh.Form) FormOption {
-	return func(c *formConfig) { c.formCreator = creator }
-}
-
 // TelemetryInitialiser implements setup.Initialiser.
 // It prompts the user to opt into telemetry during init.
 type TelemetryInitialiser struct {
-	props    *props.Props
-	formOpts []FormOption
+	props *props.Props
 }
 
 // NewTelemetryInitialiser creates a new TelemetryInitialiser.
-func NewTelemetryInitialiser(p *props.Props, opts ...FormOption) *TelemetryInitialiser {
-	return &TelemetryInitialiser{props: p, formOpts: opts}
+func NewTelemetryInitialiser(p *props.Props) *TelemetryInitialiser {
+	return &TelemetryInitialiser{props: p}
 }
 
 // Name returns the human-readable name for this initialiser.
@@ -88,7 +75,7 @@ func (t *TelemetryInitialiser) IsConfigured(cfg config.Reader) bool {
 
 // Configure prompts the user to opt into telemetry.
 // If TELEMETRY_ENABLED is set, applies it directly without prompting.
-func (t *TelemetryInitialiser) Configure(_ context.Context, p *props.Props, cfg setup.Editor) error {
+func (t *TelemetryInitialiser) Configure(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	// Non-interactive bypass
 	if val, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
 		enabled, _ := strconv.ParseBool(val)
@@ -96,28 +83,19 @@ func (t *TelemetryInitialiser) Configure(_ context.Context, p *props.Props, cfg 
 		return cfg.Set(setup.ConfigKeyTelemetryEnabled, enabled)
 	}
 
-	fCfg := &formConfig{
-		formCreator: defaultTelemetryForm,
-	}
-	for _, opt := range t.formOpts {
-		opt(fCfg)
-	}
-
 	var optIn bool
 
-	form := fCfg.formCreator(p, &optIn)
-	if form != nil {
-		if err := form.Run(); err != nil {
-			return errors.Wrap(err, "telemetry consent form")
-		}
+	if err := setup.RunForm(ctx, p, consentForm(p, &optIn)); err != nil {
+		return errors.Wrap(err, "telemetry consent form")
 	}
 
 	return cfg.Set(setup.ConfigKeyTelemetryEnabled, optIn)
 }
 
-func defaultTelemetryForm(p *props.Props, optIn *bool) *huh.Form {
+func consentForm(p *props.Props, optIn *bool) *huh.Form {
 	return huh.NewForm(huh.NewGroup(
 		huh.NewConfirm().
+			Key("telemetry").
 			Title("Anonymous usage telemetry").
 			Description(
 				"Help improve " + p.Tool.Name + " by sending anonymous usage statistics.\n" +

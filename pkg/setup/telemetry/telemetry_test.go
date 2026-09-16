@@ -1,19 +1,26 @@
 package telemetry
 
 import (
+	"io"
 	"testing"
+
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 
 	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 
-	"charm.land/huh/v2"
 	testifymock "github.com/stretchr/testify/mock"
 
 	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
+
+// consentIO answers the consent question at an accessible prompt.
+func consentIO(answer string) props.IO {
+	return props.StdIO{Stdin: formtest.Answers(answer), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: true}
+}
 
 func newTestProps(t *testing.T) *props.Props {
 	t.Helper()
@@ -111,11 +118,8 @@ func TestTelemetryInitialiser_Configure_FormOptIn(t *testing.T) {
 	}).Return(nil)
 
 	p := newTestProps(t)
-	init := NewTelemetryInitialiser(p, WithForm(func(_ *props.Props, optIn *bool) *huh.Form {
-		*optIn = true
-
-		return nil // skip form rendering
-	}))
+	p.IO = consentIO("y")
+	init := NewTelemetryInitialiser(p)
 
 	if err := init.Configure(t.Context(), p, mock); err != nil {
 		t.Fatalf("Configure error: %v", err)
@@ -133,11 +137,8 @@ func TestTelemetryInitialiser_Configure_FormOptOut(t *testing.T) {
 	}).Return(nil)
 
 	p := newTestProps(t)
-	init := NewTelemetryInitialiser(p, WithForm(func(_ *props.Props, optIn *bool) *huh.Form {
-		*optIn = false
-
-		return nil // skip form rendering
-	}))
+	p.IO = consentIO("n")
+	init := NewTelemetryInitialiser(p)
 
 	if err := init.Configure(t.Context(), p, mock); err != nil {
 		t.Fatalf("Configure error: %v", err)

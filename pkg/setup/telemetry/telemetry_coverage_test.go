@@ -1,13 +1,16 @@
 package telemetry
 
 import (
+	"bytes"
+	"io"
+	"strings"
 	"testing"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -124,21 +127,24 @@ func TestInitialiserProviderSkips(t *testing.T) {
 	require.NoError(t, cmd.Flags().Set("skip-telemetry", "false"))
 }
 
-// TestDefaultTelemetryForm covers the previously-uncovered
-// defaultTelemetryForm constructor and confirms it binds the opt-in pointer.
-func TestDefaultTelemetryForm(t *testing.T) {
+// TestConsentForm_NamesTheTool: the question is asked in the tool's name,
+// and the answer lands on the bound value.
+func TestConsentForm_NamesTheTool(t *testing.T) {
 	t.Parallel()
 
 	props := newTestProps(t)
+	out := &bytes.Buffer{}
+	props.IO = p.StdIO{Stdin: formtest.Answers("y"), Stdout: out, Stderr: out, AccessibleMode: true}
 
 	var optIn bool
 
-	form := defaultTelemetryForm(props, &optIn)
-	assert.NotNil(t, form, "defaultTelemetryForm must return a form")
+	require.NoError(t, setup.RunForm(t.Context(), props, consentForm(props, &optIn)))
+	assert.True(t, optIn)
+	assert.Contains(t, out.String(), "Anonymous usage telemetry")
 }
 
-// TestConfigure_FormRunError covers Configure's error branch: when the form
-// returned by the creator fails to run, the error is wrapped and returned,
+// TestConfigure_FormRunError covers Configure's error branch: with nobody at
+// the terminal the form refuses to run, the error is wrapped and returned,
 // and telemetry.enabled is NOT set.
 func TestConfigure_FormRunError(t *testing.T) {
 	t.Parallel()
@@ -147,14 +153,10 @@ func TestConfigure_FormRunError(t *testing.T) {
 	// Set must never be called on the error path.
 
 	props := newTestProps(t)
-	// A real form with no input fields and no TTY: Run() fails immediately
-	// (huh cannot drive an interactive form without a terminal), exercising
-	// the form.Run() error-wrap branch.
-	init := NewTelemetryInitialiser(props, WithForm(func(_ *p.Props, _ *bool) *huh.Form {
-		return huh.NewForm(huh.NewGroup(huh.NewConfirm().Title("x")))
-	}))
+	props.IO = p.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+	init := NewTelemetryInitialiser(props)
 
 	err := init.Configure(t.Context(), props, mock)
-	require.Error(t, err)
+	require.ErrorIs(t, err, setup.ErrNonInteractive)
 	assert.Contains(t, err.Error(), "telemetry consent form")
 }
