@@ -185,3 +185,18 @@ func TestValidateFeatureName(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidInput)
 	}
 }
+
+// TestSelectableFeatures_NoDuplicates: keychain joined ToggleableFeatures
+// (spec 0197 D8) and was for a while appended to SelectableFeatures a second
+// time, which the wizard rendered as two keychain rows.
+func TestSelectableFeatures_NoDuplicates(t *testing.T) {
+	t.Parallel()
+
+	seen := map[string]bool{}
+	for _, name := range SelectableFeatures {
+		assert.Falsef(t, seen[name], "%q is listed twice", name)
+		seen[name] = true
+	}
+
+	assert.Contains(t, SelectableFeatures, KeychainFeature)
+}

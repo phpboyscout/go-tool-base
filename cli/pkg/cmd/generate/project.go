@@ -881,20 +881,35 @@ func (o *SkeletonOptions) clearFeaturePages() {
 // seeded after the form is built never renders and is overwritten on blur
 // (#41). Later fields derive from these through reactive binders instead.
 func (o *SkeletonOptions) basicsGroup() *huh.Group {
-	return huh.NewGroup(
-		huh.NewInput().
+	// On a revisit (gtb wizard, spec 0197 D13) the name is shown, not asked:
+	// renaming moves cmd/<name> and every import path, which is not this
+	// wizard's job; and there is no destination to choose.
+	fields := make([]huh.Field, 0, 8) //nolint:mnd // the page's field count
+
+	if o.revisit {
+		fields = append(fields, huh.NewNote().Title("Project: "+o.Name).
+			Description("Settings are pre-filled from .gtb/manifest.yaml; accept a page to keep it."))
+	} else {
+		fields = append(fields, huh.NewInput().
 			Title("Project Name").
 			Value(&o.Name).
 			Validate(func(s string) error {
 				return hintedValidation(generator.ValidateName(s))
-			}),
-		huh.NewInput().
-			Title("Description").
-			Placeholder("A new tool").
-			Value(&o.Description),
-		huh.NewInput().
+			}))
+	}
+
+	fields = append(fields, huh.NewInput().
+		Title("Description").
+		Placeholder("A new tool").
+		Value(&o.Description))
+
+	if !o.revisit {
+		fields = append(fields, huh.NewInput().
 			Title("Destination Path").
-			Value(&o.Path),
+			Value(&o.Path))
+	}
+
+	return huh.NewGroup(append(fields,
 		newMultiSelect("Features", "", featureOptions(o.Features)).
 			Value(&o.Features),
 		huh.NewConfirm().
@@ -913,9 +928,17 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 				huh.NewOption("Microsoft Teams", "teams"),
 			).
 			Value(&o.HelpType),
-	).
-		Title("New CLI Project").
-		Description("Configure your new CLI tool. The pages that follow depend on what you choose here.\n")
+	)...).
+		Title(basicsTitle(o.revisit)).
+		Description("Configure your CLI tool. The pages that follow depend on what you choose here.\n")
+}
+
+func basicsTitle(revisit bool) string {
+	if revisit {
+		return "Project Settings"
+	}
+
+	return "New CLI Project"
 }
 
 // wizardForm assembles the single native form: the entry group plus the

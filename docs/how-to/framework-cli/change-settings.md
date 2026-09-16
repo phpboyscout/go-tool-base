@@ -36,6 +36,17 @@ derived field the feature needs in the same run. Enabling `ai` records the
 default provider list and writes `cmd/<name>/chat.go`; disabling `keychain`
 removes `cmd/<name>/keychain.go`.
 
+## Be asked instead
+
+```bash
+gtb wizard
+gtb wizard --dry-run
+```
+
+The generation wizard runs again with every page pre-filled from the manifest.
+Accept a page to keep it; change an answer to change the setting. `--dry-run`
+prints what would change and writes nothing.
+
 ## Clear a value or read one back
 
 ```bash

@@ -31,7 +31,7 @@ const KeychainFeature = "keychain"
 // afterwards. A forge is not chosen here: the backend implies one and
 // --forge-credentials adds the rest (spec 0195 D1, D6), though a forge stays
 // toggleable once the project exists.
-var SelectableFeatures = append(nonForgeFeatures(), KeychainFeature)
+var SelectableFeatures = nonForgeFeatures()
 
 func nonForgeFeatures() []string {
 	forges := ForgeBackends()
@@ -118,6 +118,12 @@ func (g *Generator) FeatureEnabled(name string) (bool, error) {
 	}
 
 	return featureEnabledIn(features, name), nil
+}
+
+// FeatureEnabledIn resolves a feature's effective enabled state from a
+// manifest feature list: an explicit entry wins, else the framework default.
+func FeatureEnabledIn(features []ManifestFeature, name string) bool {
+	return featureEnabledIn(features, name)
 }
 
 // featureEnabledIn resolves a feature's effective enabled state from a manifest

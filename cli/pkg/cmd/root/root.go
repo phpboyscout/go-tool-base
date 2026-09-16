@@ -118,6 +118,7 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),
+		generate.NewCmdWizard(p),
 		settings.NewCmdSet(p),
 		settings.NewCmdUnset(p),
 		settings.NewCmdGet(p),

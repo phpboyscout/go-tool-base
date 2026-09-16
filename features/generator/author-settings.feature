@@ -6,7 +6,7 @@ Feature: The manifest owns every author setting
   machine, is one the author cannot rely on.
 
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface
-  D3, D4, D6, D7, D8 and D9.
+  D3, D4, D6, D7, D8, D9, D10 and D13.
 
   Scenario: The Go version is recorded and regenerate leaves the go line alone
     Given a freshly generated gtb project
@@ -87,3 +87,9 @@ Feature: The manifest owns every author setting
     Given I generate a gtb project with the flags "--no-verify"
     Then the project exit code is 0
     And the project output contains "not verified"
+
+  Scenario: The wizard needs a terminal and says what to use instead
+    Given a freshly generated gtb project
+    When I run gtb in the project with "wizard --dry-run"
+    Then the project exit code is not zero
+    And the project output contains "gtb set"
