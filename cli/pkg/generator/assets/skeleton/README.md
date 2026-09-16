@@ -95,7 +95,14 @@ under `pkg/`.
 
 `{{ .Name }}` is scaffolded and kept in sync by GTB's generator. The
 `.gtb/manifest.yaml` file is the source of truth for the command tree and
-project settings. Two flows operate on it:
+project settings, and records the `gtb` version it was generated with
+(`version.gtb`); `regenerate` refuses an older one. Install that version:
+
+```bash
+go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@{{ .GoToolBaseVersion | escapeMarkdownCodeBlock }}
+```
+
+Two flows operate on the manifest:
 
 - **`gtb generate command <name>`** — scaffold a new command, recording it in
   the manifest.

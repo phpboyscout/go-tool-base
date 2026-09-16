@@ -82,3 +82,8 @@ Feature: The manifest owns every author setting
     When I run gtb in the project with "set features ai"
     Then the project exit code is not zero
     And the project output contains "enable"
+
+  Scenario: Verification can be skipped, and the run says so
+    Given I generate a gtb project with the flags "--no-verify"
+    Then the project exit code is 0
+    And the project output contains "not verified"

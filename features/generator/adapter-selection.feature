@@ -154,6 +154,8 @@ Feature: A generated tool links only the adapters it selects
     And the generated "cmd/feattool/forge.go" file does not contain "forge-github"
     And the generated "cmd/feattool/forge.go" file contains "forge-gitlab"
 
-  Scenario: The generated go.mod pins gtb by its nested-module path
+  Scenario: The generated go.mod names no gtb or linter tool line, and the README says how to install gtb
     Given a freshly generated gtb project
-    Then the generated "go.mod" file contains "gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb"
+    Then the generated "go.mod" file does not contain "cli/cmd/gtb"
+    And the generated "go.mod" file does not contain "golangci-lint"
+    And the generated "README.md" file contains "go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@"

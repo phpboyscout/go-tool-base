@@ -73,6 +73,7 @@ manifest.
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
 | `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. |
+| `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` after generation; exit 0 unverified. Without it a failed step exits 3 (see [regenerate's exit codes](regenerate.md#exit-codes-emitted-is-not-verified)). |
 | `--env-prefix` | — | Env-var prefix for config overrides (e.g. `MY_APP`). |
 | `--update-policy` | *(framework default: disabled)* | Self-update posture: `disabled`, `prompt`, or `enabled`. |
 | `--update-check-interval` | *(framework default: 24h)* | Interval between self-update checks, as a Go duration (e.g. `24h`, `168h`). |
@@ -130,6 +131,15 @@ signing off, `gtb disable signing`. A project generated before the `chat:`
 block existed has no block at all, and gets the full list written into its
 manifest the first time it is regenerated (or `enable ai` is run) with `ai`
 enabled.
+
+**The generated `go.mod` names no `gtb` tool line.** The manifest's
+`version.gtb` is the pin, `regenerate` refuses an older gtb, and the README
+carries `go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@<version>`.
+Nor does it name golangci-lint or mockery: the justfile and CI run the installed
+binaries, and the golangci-lint tool line pinned v1 and dragged an old viper
+whose `cloud.google.com/go/compute` made `go mod tidy` ambiguous the moment
+`chat-gemini` was linked. Only the framework's own `cmd/changelog` and
+`cmd/docs` remain.
 
 **Every author setting has one home.** Each flag above that says "recorded as" names the manifest field it writes, and `regenerate` reads that field back unchanged; `cli/pkg/generator/author_settings.go` is the table, and a test holds it and `SkeletonConfig` to each other (spec [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface) D1, D2). Nothing about a generated project depends on the machine `regenerate` runs on.
 
