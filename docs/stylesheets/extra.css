@@ -274,12 +274,15 @@ code, kbd, pre {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
   background: #0f172a;
   border: 1px solid rgba(0, 242, 254, 0.2);
   border-radius: 8px;
   padding: 0.8rem 1.2rem;
   margin: 1.5rem 0 2rem;
-  max-width: 520px;
+  /* Wide enough for the install command on one line at this size. */
+  max-width: 640px;
+  width: fit-content;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.85rem;
@@ -287,6 +290,10 @@ code, kbd, pre {
 
 .install-command {
   color: #00f2fe;
+  white-space: nowrap;
+  overflow-x: auto;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .install-copy {
@@ -294,6 +301,15 @@ code, kbd, pre {
   cursor: pointer;
   transition: color 0.2s;
   font-size: 1.1rem;
+  flex: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.install-copy.copied {
+  color: #00f2fe;
 }
 
 .install-copy:hover {
@@ -340,6 +356,12 @@ code, kbd, pre {
     text-align: center;
     gap: 2rem;
   }
+  /* The column is sized by its widest child (the logo video's intrinsic
+     width); cap it so the hero never scrolls sideways on a phone. */
+  .hero-text {
+    min-width: 0;
+    max-width: 100%;
+  }
   .hero-buttons {
     justify-content: center;
     flex-wrap: wrap;
@@ -349,6 +371,9 @@ code, kbd, pre {
   }
   .install-box {
     margin: 1.5rem auto 2rem;
+    width: auto;
+    max-width: 100%;
+    font-size: 0.75rem;
   }
   .cta-buttons {
     flex-direction: column;

@@ -23,7 +23,7 @@ hide:
     </p>
     <div class="install-box" style="margin-left: auto; margin-right: auto;">
       <span class="install-command">curl -sSL https://gtb.phpboyscout.uk/install.sh | bash</span>
-      <span class="install-copy" title="Copy to clipboard">📋</span>
+      <button type="button" class="install-copy" title="Copy to clipboard" aria-label="Copy install command">📋</button>
     </div>
     <div class="hero-buttons">
       <a href="tutorials/build-your-first-cli/" class="btn btn-primary">Get Started</a>

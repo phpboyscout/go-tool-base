@@ -25,12 +25,12 @@ To install the `gtb` automation CLI, use the recommended installation script for
 
 **macOS/Linux (bash/zsh):**
 ```bash
-curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | bash
+curl -sSL https://gtb.phpboyscout.uk/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
+irm https://gtb.phpboyscout.uk/install.ps1 | iex
 ```
 
 ### Homebrew (macOS)

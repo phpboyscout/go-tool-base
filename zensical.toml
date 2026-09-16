@@ -7,7 +7,7 @@ repo_url = "https://gitlab.com/phpboyscout/go-tool-base"
 repo_name = "go-tool-base"
 copyright = "Copyright &copy; 2026 Matt Cockayne"
 extra_css = ["stylesheets/extra.css"]
-extra_javascript = ["javascripts/nav-specs.js"]
+extra_javascript = ["javascripts/nav-specs.js", "javascripts/install-copy.js"]
 exclude_docs = "_template.md"
 
 [project.theme]
