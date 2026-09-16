@@ -24,6 +24,7 @@ import (
 	ignorecmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/ignore"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/remove"
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/settings"
 	tmplcmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/template"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/trustkeys"
 
@@ -117,6 +118,9 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),
+		settings.NewCmdSet(p),
+		settings.NewCmdUnset(p),
+		settings.NewCmdGet(p),
 		attach.NewCmdAttach(p),
 		detach.NewCmdDetach(p),
 		tmplcmd.NewCmdTemplate(p),

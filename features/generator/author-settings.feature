@@ -6,7 +6,7 @@ Feature: The manifest owns every author setting
   machine, is one the author cannot rely on.
 
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface
-  D3, D4, D7, D8 and D9.
+  D3, D4, D6, D7, D8 and D9.
 
   Scenario: The Go version is recorded and regenerate leaves the go line alone
     Given a freshly generated gtb project
@@ -48,3 +48,37 @@ Feature: The manifest owns every author setting
     When I run gtb in the project with "regenerate project --overwrite allow"
     Then the project exit code is 0
     And the generated "cmd/feattool/keychain.go" file does not exist
+
+  Scenario: A setting is changed after generation with one command
+    Given I generate a gtb project with the flags "--features update,init,telemetry"
+    Then the project exit code is 0
+    When I run gtb in the project with "set telemetry.endpoint https://t.example.internal"
+    Then the project exit code is 0
+    And the project manifest contains "endpoint: https://t.example.internal"
+    And the generated "pkg/cmd/root/cmd.go" file contains "t.example.internal"
+    When I run gtb in the project with "get telemetry.endpoint"
+    Then the project exit code is 0
+    And the project output contains "https://t.example.internal"
+    When I run gtb in the project with "unset telemetry.endpoint"
+    Then the project exit code is 0
+    And the project manifest does not contain "t.example.internal"
+
+  Scenario: Setting the chat default rewrites the defaults bundle
+    Given I generate a gtb project with features "init,update,ai", chat providers "claude,openai" and chat default "claude"
+    Then the project exit code is 0
+    When I run gtb in the project with "set chat.default.provider openai"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat/assets/config.yaml" file contains "openai"
+    And the generated "cmd/feattool/chat/assets/config.yaml" file does not contain "claude"
+    When I run gtb in the project with "set chat.default.provider gemini"
+    Then the project exit code is not zero
+    And the project output contains "not one the tool links"
+
+  Scenario: A path the table does not name is refused with the list
+    Given a freshly generated gtb project
+    When I run gtb in the project with "set bogus.path x"
+    Then the project exit code is not zero
+    And the project output contains "chat.default.provider"
+    When I run gtb in the project with "set features ai"
+    Then the project exit code is not zero
+    And the project output contains "enable"

@@ -20,6 +20,9 @@ A conceptual translation guide if you're coming to Go from Laravel, Rails, or Dj
 ### [Scaffolding a New Project](framework-cli/scaffold-project.md)
 Get up and running in seconds using the `gtb` CLI generator.
 
+### [Change a generated tool's settings](framework-cli/change-settings.md)
+Change a value with `gtb set`, toggle a feature with `enable`/`disable`, and never hand-edit the manifest.
+
 ### [Generating Commands](framework-cli/generate-commands.md)
 Add functionality and build your command tree with ease.
 

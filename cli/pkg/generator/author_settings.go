@@ -71,7 +71,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "ModulePath", Kind: KindSetting, Flag: "module", Wizard: "module", Manifest: "properties.module_path"},
 	{Field: "ForgeCredentials", Kind: KindSetting, Flag: "forge-credentials", Wizard: "forge-credentials", Manifest: "properties.forge_credentials"},
 	{Field: "ForgeBackend", Kind: KindSetting, Flag: "forge-backend", Wizard: "backend", Manifest: "release_source.backend"},
-	{Field: "Repo", Kind: KindSetting, Flag: "repo", Wizard: "repo", Manifest: "release_source.owner, release_source.repo"},
+	{Field: "Repo", Kind: KindSetting, Flag: "repo", Wizard: "repo", Manifest: "release_source.repo"},
 	{Field: "Host", Kind: KindSetting, Flag: "host", Wizard: "host", Manifest: "release_source.host"},
 	{Field: "Private", Kind: KindSetting, Flag: "private", Manifest: "release_source.private"},
 	{Field: "ReleaseChannel", Kind: KindSetting, Flag: "release-channel", Wizard: "channel", Manifest: "release_source.type"},

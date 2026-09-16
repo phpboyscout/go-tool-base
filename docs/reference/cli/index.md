@@ -39,6 +39,7 @@ a CLI on GTB. They are not shipped in your generated tool.
 | **[keys](keys.md)** | Generate, mint, and publish OpenPGP signing keys. |
 | **[sign](sign.md)** | Produce an OpenPGP detached signature for a file. |
 | **[enable / disable](enable-disable.md)** | Toggle capabilities (signing, MCP, features) on a project. |
+| **[set / unset / get](set.md)** | Change an author setting by its manifest path, with the same validation and sync as the flags. |
 | **[template](template.md)** | Manage custom template-overlay sources. |
 
 ---

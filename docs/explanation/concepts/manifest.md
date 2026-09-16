@@ -183,9 +183,17 @@ You rarely need to edit this file manually! The `generate` commands handle it fo
 - `generate command`: Adds new entries to the `commands` list.
 - `generate add-flag`: Updates the `flags` list for a specific command.
 
-### Manual Edits 🛠️
+### Changing a setting 🛠️
 
-If you need to make a quick text change (like fixing a typo in a description) you can edit `manifest.yaml` directly.
+`gtb set <path> <value>...`, `gtb unset <path>` and `gtb get <path>` read and
+write the manifest's author settings by dotted path (`chat.default.provider`,
+`telemetry.endpoint`, `bootstrap.skip_config_check`, `release_source.repo`,
+`version.go`; the `properties.` prefix may be left off). `set` validates the
+value the way the generate flags are validated and runs the derived-file sync,
+so the generated files match without a regenerate. Features and templates have
+their own commands (`enable`/`disable`, `template`) and fields the generator
+records (`hashes`, `commands`) are refused. See the
+[set reference](../../reference/cli/set.md).
 
-!!! warning "Manual Updates"
-    Changes made manually to the manifest won't be reflected in your Go code until you run a regeneration command. For structural changes, always rely on `generate add-flag` to ensure your code stays in sync!
+Editing `manifest.yaml` by hand still works for a quick text change, but the Go
+code will not reflect it until `gtb regenerate project` runs.
