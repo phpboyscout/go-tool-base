@@ -279,7 +279,7 @@ gtb-embedded-assets:
 # miss on the MR that caused it.
 go-work-sync:
   stage: lint
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.1
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.3.0
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -296,7 +296,7 @@ go-work-sync:
 
 apidiff:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.1
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.3.0
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -325,7 +325,7 @@ apidiff:
 # package to .coverage-policy.yaml `excluded:` with a rationale.
 coverage-policy:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.1
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.3.0
   # Reads go-test's cover.out rather than running the module's tests a second
   # time (cicd spec 0079 D8). `optional: true` so a drift between this rule and
   # go-test's `changes` surfaces as this job failing with a reason, rather than
