@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
-	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -61,14 +60,8 @@ func TestDualProfileReachesTheSSHStage(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
-	i := NewBitbucketInitialiser(p,
-		WithDualForms(mockForms(func(c *DualConfig) {
-			c.StorageMode = credentials.ModeEnvVar
-			c.UsernameEnvName = "BB_USER"
-			c.AppPasswordEnvName = "BB_APP_PW"
-		})),
-		noSSHPrompts(true, km, nil),
-	)
+	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
+	i := NewBitbucketInitialiser(p, noSSHPrompts(true, km, nil))
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
 
@@ -90,12 +83,8 @@ func TestDualSSHRunsAfterCredentialCapture(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
+	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
 	i := NewBitbucketInitialiser(p,
-		WithDualForms(mockForms(func(c *DualConfig) {
-			c.StorageMode = credentials.ModeEnvVar
-			c.UsernameEnvName = "BB_USER"
-			c.AppPasswordEnvName = "BB_APP_PW"
-		})),
 		WithSSHForms(
 			selectGenerateNewKey(),
 			WithGenerateKeyOptions(
@@ -125,14 +114,8 @@ func TestDualSkipKeySuppressesTheStage(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
-	i := NewBitbucketInitialiser(p,
-		WithDualForms(mockForms(func(c *DualConfig) {
-			c.StorageMode = credentials.ModeEnvVar
-			c.UsernameEnvName = "BB_USER"
-			c.AppPasswordEnvName = "BB_APP_PW"
-		})),
-		noSSHPrompts(true, km, nil),
-	)
+	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
+	i := NewBitbucketInitialiser(p, noSSHPrompts(true, km, nil))
 	i.SkipKey = true
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
@@ -153,12 +136,8 @@ func TestProfileWithoutSSHNeverConstructsAKeyManager(t *testing.T) {
 
 	factoryCalled := false
 
+	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
 	i := New(p, noSSHProfile,
-		WithDualForms(mockForms(func(c *DualConfig) {
-			c.StorageMode = credentials.ModeEnvVar
-			c.UsernameEnvName = "BB_USER"
-			c.AppPasswordEnvName = "BB_APP_PW"
-		})),
 		WithSSHForms(WithGenerateKeyOptions(
 			WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
 				factoryCalled = true

@@ -131,11 +131,9 @@ func RunForgeInitCmd(ctx context.Context, p *props.Props, dir string, profile Pr
 }
 
 // RunBitbucketInit executes the wizard against an existing config container,
-// typically invoked by [NewCmdInitBitbucket]. Optional [DualFormOption]s are
-// propagated into the wizard so tests can inject deterministic form creators,
-// mirroring [pkg/setup/ai.RunAIInit].
-func RunBitbucketInit(ctx context.Context, p *props.Props, cfg setup.Editor, opts ...DualFormOption) error {
-	i := NewBitbucketInitialiser(p, WithDualForms(opts...))
+// typically invoked by [NewCmdInitBitbucket]. The forms run on p's IO.
+func RunBitbucketInit(ctx context.Context, p *props.Props, cfg setup.Editor) error {
+	i := NewBitbucketInitialiser(p)
 
 	return i.Configure(ctx, p, cfg)
 }
@@ -175,14 +173,12 @@ credentials just captured. Pass --skip-key to leave keys alone.`,
 
 // RunBitbucketInitCmd materialises the target config (seeded from the merged
 // init template when absent) and runs the wizard over it; writes land in the
-// file as they are applied, with 0600 permissions. Optional [DualFormOption]s
-// are propagated into the wizard so tests can inject deterministic form
-// creators, mirroring [pkg/setup/ai.RunAIInit].
-func RunBitbucketInitCmd(ctx context.Context, p *props.Props, dir string, opts ...DualFormOption) error {
+// file as they are applied, with 0600 permissions.
+func RunBitbucketInitCmd(ctx context.Context, p *props.Props, dir string) error {
 	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
 	if err != nil {
 		return err
 	}
 
-	return RunBitbucketInit(ctx, p, editor, opts...)
+	return RunBitbucketInit(ctx, p, editor)
 }

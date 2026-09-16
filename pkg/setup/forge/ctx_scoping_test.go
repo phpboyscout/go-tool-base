@@ -201,11 +201,8 @@ func TestConfigureDual_KeychainStoreScopedPerOperation(t *testing.T) {
 	// and this test is about the keychain store's ctx scoping, not the key.
 	cfg := newTestEditor(t, p, "bitbucket:\n  ssh:\n    key:\n      path: /home/u/.ssh/id_x\n")
 
-	init := NewBitbucketInitialiser(p, WithDualForms(mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeKeychain
-		c.Username = "user"
-		c.AppPassword = "app-pw"
-	})))
+	p.IO = dualCredentialIO(t, credentials.ModeKeychain, "user", "app-pw")
+	init := NewBitbucketInitialiser(p)
 
 	ctx := context.WithValue(t.Context(), ctxScopeKey{}, "caller")
 	require.NoError(t, init.Configure(ctx, p, cfg))

@@ -3,12 +3,10 @@ package forge
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"path/filepath"
-	"strings"
 	"testing"
+	"time"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,28 +31,6 @@ func newDualTestProps(t *testing.T) *props.Props {
 	t.Setenv("CI", "")
 
 	return newTestProps(t)
-}
-
-// mockForms builds a DualFormOption that applies cfgMutate up-front and returns
-// nil forms for every stage — letting tests drive the wizard without a TTY.
-func mockForms(cfgMutate func(*DualConfig)) DualFormOption {
-	return WithDualForm(func(cfg *DualConfig) []*huh.Form {
-		cfgMutate(cfg)
-
-		return nil
-	})
-}
-
-// failingForm returns a form with a single input group that errors on Run in a
-// non-TTY env. Used to exercise the error-return branches of runForms.
-func failingForm() *huh.Form {
-	var s string
-
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Title("x").Value(&s),
-		),
-	)
 }
 
 // --- Name ---
@@ -94,11 +70,8 @@ func TestConfigure_EnvVarMode(t *testing.T) {
 		config.Remove("bitbucket.keychain"),
 	}).Return(nil)
 
-	i := NewBitbucketInitialiser(p, WithDualForms(mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeEnvVar
-		c.UsernameEnvName = "BB_USER"
-		c.AppPasswordEnvName = "BB_APP_PW"
-	})))
+	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
+	i := NewBitbucketInitialiser(p)
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
@@ -121,11 +94,8 @@ func TestConfigure_KeychainMode(t *testing.T) {
 		config.Remove("bitbucket.app_password"),
 	}).Return(nil)
 
-	i := NewBitbucketInitialiser(p, WithDualForms(mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeKeychain
-		c.Username = "alice"
-		c.AppPassword = "s3cret"
-	})))
+	p.IO = dualCredentialIO(t, credentials.ModeKeychain, "alice", "s3cret")
+	i := NewBitbucketInitialiser(p)
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
 
@@ -155,34 +125,63 @@ func TestConfigure_LiteralMode(t *testing.T) {
 		config.Remove("bitbucket.keychain"),
 	}).Return(nil)
 
-	i := NewBitbucketInitialiser(p, WithDualForms(mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeLiteral
-		c.Username = "alice"
-		c.AppPassword = "s3cret"
-	})))
+	p.IO = dualCredentialIO(t, credentials.ModeLiteral, "alice", "s3cret")
+	i := NewBitbucketInitialiser(p)
 
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
 
-// TestConfigure_CIRefusesLiteral — belt-and-braces guard: even if the form
-// selection bypassed the CI filter, the configure step refuses before writing
-// anything.
-func TestConfigure_CIRefusesLiteral(t *testing.T) {
-	p := newDualTestProps(t)
-	// newDualTestProps cleared CI — re-set after.
+// TestFinaliseDualConfig_CIRefusesLiteral — belt-and-braces guard: the
+// selector hides literal under CI, and the step after the form refuses it
+// too, before anything is written.
+func TestFinaliseDualConfig_CIRefusesLiteral(t *testing.T) {
 	t.Setenv("CI", "true")
 
-	cfg := setupmocks.NewMockEditor(t)
-
-	i := NewBitbucketInitialiser(p, WithDualForms(mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeLiteral
-		c.Username = "alice"
-		c.AppPassword = "s3cret"
-	})))
-
-	err := i.Configure(t.Context(), p, cfg)
+	err := finaliseDualConfig(bitbucketProfile, &DualConfig{
+		StorageMode: credentials.ModeLiteral,
+		Username:    "alice",
+		AppPassword: "s3cret",
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "literal credential storage is refused under CI")
+}
+
+func TestFinaliseDualConfig(t *testing.T) {
+	t.Setenv("CI", "")
+
+	t.Run("blank env names take the fallbacks", func(t *testing.T) {
+		cfg := &DualConfig{StorageMode: credentials.ModeEnvVar}
+		require.NoError(t, finaliseDualConfig(bitbucketProfile, cfg))
+		assert.Equal(t, "BITBUCKET_USERNAME", cfg.UsernameEnvName)
+		assert.Equal(t, "BITBUCKET_APP_PASSWORD", cfg.AppPasswordEnvName)
+	})
+
+	t.Run("given env names stand", func(t *testing.T) {
+		cfg := &DualConfig{StorageMode: credentials.ModeEnvVar, UsernameEnvName: "U", AppPasswordEnvName: "P"}
+		require.NoError(t, finaliseDualConfig(bitbucketProfile, cfg))
+		assert.Equal(t, "U", cfg.UsernameEnvName)
+		assert.Equal(t, "P", cfg.AppPasswordEnvName)
+	})
+
+	t.Run("a credential mode needs both values", func(t *testing.T) {
+		for _, mode := range []credentials.Mode{credentials.ModeKeychain, credentials.ModeLiteral} {
+			require.ErrorIs(t, finaliseDualConfig(bitbucketProfile, &DualConfig{StorageMode: mode, Username: "alice"}), ErrCredentialsIncomplete)
+			require.ErrorIs(t, finaliseDualConfig(bitbucketProfile, &DualConfig{StorageMode: mode, AppPassword: "pw"}), ErrCredentialsIncomplete)
+			require.NoError(t, finaliseDualConfig(bitbucketProfile, &DualConfig{StorageMode: mode, Username: "alice", AppPassword: "pw"}))
+		}
+	})
+}
+
+// A password cannot be read at an accessible prompt without a terminal; huh
+// leaves it blank and says nothing, so the wizard has to refuse the blank.
+func TestConfigure_AccessibleRunWithoutATerminalRefusesTheBlankPassword(t *testing.T) {
+	p := newDualTestProps(t)
+	cfg := setupmocks.NewMockEditor(t)
+
+	p.IO, _ = answersIO(modeNumber(t, credentials.ModeLiteral), "", "", "alice")
+	i := NewBitbucketInitialiser(p)
+
+	require.ErrorIs(t, i.Configure(t.Context(), p, cfg), ErrCredentialsIncomplete)
 }
 
 // --- IsConfigured ---
@@ -234,87 +233,57 @@ func TestIsConfigured(t *testing.T) {
 	}
 }
 
-// --- default form creators ---
+// --- dualForm: one form, its pages follow the storage mode ---
 
-// TestDualStorageModeForm constructs the storage-mode selector and asserts the
-// default mode is seeded to env-var when unset, and that a pre-set mode is
-// preserved.
-func TestDualStorageModeForm(t *testing.T) {
-	// CI runners set CI=true, which drops the literal option (refused under CI)
-	// from the select; force non-CI so existing-mode preservation is
-	// deterministic.
+func TestDualForm_EnvVarModeAsksTheTwoNames(t *testing.T) {
 	t.Setenv("CI", "")
 
+	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "U_VAR", "P_VAR", "ignored")
+	p := newTestProps(t)
+	p.IO = io
+
 	cfg := &DualConfig{}
-	form := dualStorageModeForm(bitbucketProfile, cfg)
-	require.NotNil(t, form)
+	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), bitbucketProfile, cfg)))
 	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
-
-	cfg2 := &DualConfig{StorageMode: credentials.ModeLiteral}
-	form2 := dualStorageModeForm(bitbucketProfile, cfg2)
-	require.NotNil(t, form2)
-	assert.Equal(t, credentials.ModeLiteral, cfg2.StorageMode)
+	assert.Equal(t, "U_VAR", cfg.UsernameEnvName)
+	assert.Equal(t, "P_VAR", cfg.AppPasswordEnvName)
+	assert.Contains(t, out.String(), "Username env var name")
+	assert.Contains(t, out.String(), "App password env var name")
 }
 
-func TestDualStorageModeDescription(t *testing.T) {
-	t.Parallel()
+func TestDualForm_RejectsAnInvalidEnvVarName(t *testing.T) {
+	t.Setenv("CI", "")
 
-	assert.Contains(t, dualStorageModeDescription(true), "CI environment detected")
-	assert.Contains(t, dualStorageModeDescription(false), "Env-var references")
-}
-
-func TestDualEnvVarNamesForm(t *testing.T) {
-	t.Parallel()
+	// The invalid name is re-asked; blank is accepted and means the fallback.
+	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "not valid", "", "P_VAR", "ignored")
+	p := newTestProps(t)
+	p.IO = io
 
 	cfg := &DualConfig{}
-	form := dualEnvVarNamesForm(bitbucketProfile, cfg)
-	require.NotNil(t, form)
-	assert.Equal(t, "BITBUCKET_USERNAME", cfg.UsernameEnvName)
-	assert.Equal(t, "BITBUCKET_APP_PASSWORD", cfg.AppPasswordEnvName)
-
-	cfg2 := &DualConfig{UsernameEnvName: "U", AppPasswordEnvName: "P"}
-	form2 := dualEnvVarNamesForm(bitbucketProfile, cfg2)
-	require.NotNil(t, form2)
-	assert.Equal(t, "U", cfg2.UsernameEnvName)
-	assert.Equal(t, "P", cfg2.AppPasswordEnvName)
+	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), bitbucketProfile, cfg)))
+	assert.Empty(t, cfg.UsernameEnvName)
+	assert.Equal(t, "P_VAR", cfg.AppPasswordEnvName)
+	assert.Contains(t, out.String(), "env var name must match")
 }
 
-func TestDualCredentialsForm(t *testing.T) {
-	t.Parallel()
+// The credential page needs the TUI (its password field), and only the TUI
+// honours the hide functions: literal mode skips the env-var page.
+func TestDualForm_LiteralModeTakesTheCredentials(t *testing.T) {
+	t.Setenv("CI", "")
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	p := newTestProps(t)
+	p.IO = dualCredentialIO(t, credentials.ModeLiteral, "alice", "s3cret")
 
 	cfg := &DualConfig{}
-	form := dualCredentialsForm(bitbucketProfile, cfg)
-	require.NotNil(t, form)
-}
-
-func TestFormAtIndex(t *testing.T) {
-	t.Parallel()
-
-	creator := func(_ *DualConfig) []*huh.Form {
-		return []*huh.Form{huh.NewForm()}
-	}
-
-	got := formAtIndex(creator, 0)(&DualConfig{})
-	assert.NotNil(t, got)
-
-	missing := formAtIndex(creator, 5)(&DualConfig{})
-	assert.Nil(t, missing)
-}
-
-func TestRunFormStage(t *testing.T) {
-	t.Parallel()
-
-	require.NoError(t, runFormStage(nil, &DualConfig{}))
-
-	nilForm := func(_ *DualConfig) *huh.Form { return nil }
-	require.NoError(t, runFormStage(nilForm, &DualConfig{}))
-}
-
-func TestRunFormStage_Success(t *testing.T) {
-	t.Parallel()
-
-	creator := func(_ *DualConfig) *huh.Form { return huh.NewForm() }
-	require.NoError(t, runFormStage(creator, &DualConfig{}))
+	require.NoError(t, setup.RunForm(ctx, p, dualForm(ctx, bitbucketProfile, cfg)))
+	assert.Equal(t, credentials.ModeLiteral, cfg.StorageMode)
+	assert.Equal(t, "alice", cfg.Username)
+	assert.Equal(t, "s3cret", cfg.AppPassword)
+	assert.Empty(t, cfg.UsernameEnvName)
+	assert.Empty(t, cfg.AppPasswordEnvName)
 }
 
 // --- writeDualCredentials branches ---
@@ -488,46 +457,16 @@ func TestWriteKeychainBlob_StoreError(t *testing.T) {
 	assert.Contains(t, err.Error(), "storing Bitbucket credentials in OS keychain")
 }
 
-// --- runForms error branches ---
+// --- the form refuses to run with nobody there ---
 
-func TestRunForms_EnvVarStageError(t *testing.T) {
-	t.Setenv("CI", "")
+func TestConfigureDual_RefusesANonInteractiveRun(t *testing.T) {
+	p := newDualTestProps(t)
+	p.IO = nonInteractiveIO()
 
-	opt := WithDualForm(func(cfg *DualConfig) []*huh.Form {
-		cfg.StorageMode = credentials.ModeEnvVar
-		// slot 0 (storage mode) nil → skipped; slot 1 (env-var) fails.
-		return []*huh.Form{nil, failingForm()}
-	})
+	cfg := setupmocks.NewMockEditor(t)
+	i := NewBitbucketInitialiser(p)
 
-	_, err := runForms(bitbucketProfile, opt)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "auth form cancelled")
-}
-
-func TestRunForms_CredentialsStageError(t *testing.T) {
-	t.Setenv("CI", "")
-
-	opt := WithDualForm(func(cfg *DualConfig) []*huh.Form {
-		cfg.StorageMode = credentials.ModeLiteral
-		// slot 0 nil → skipped; slot 2 (credentials) fails.
-		return []*huh.Form{nil, nil, failingForm()}
-	})
-
-	_, err := runForms(bitbucketProfile, opt)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "auth form cancelled")
-}
-
-func TestRunForms_StorageStageError(t *testing.T) {
-	t.Setenv("CI", "")
-
-	opt := WithDualForm(func(_ *DualConfig) []*huh.Form {
-		return []*huh.Form{failingForm()}
-	})
-
-	_, err := runForms(bitbucketProfile, opt)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "auth form cancelled")
+	require.ErrorIs(t, i.Configure(t.Context(), p, cfg), setup.ErrNonInteractive)
 }
 
 // --- registration ---
@@ -578,13 +517,6 @@ func TestInitRegistry(t *testing.T) {
 	assert.NotNil(t, target.Flags().Lookup("skip-bitbucket"))
 }
 
-func TestNewInitialiser_Options(t *testing.T) {
-	t.Parallel()
-
-	i := NewBitbucketInitialiser(nil, WithDualForms(mockForms(func(_ *DualConfig) {})))
-	assert.Len(t, i.dualOpts, 1)
-}
-
 func TestNewCmdInitBitbucket(t *testing.T) {
 	t.Parallel()
 
@@ -618,23 +550,17 @@ func TestRunBitbucketInit_Success(t *testing.T) {
 		config.Remove("bitbucket.keychain"),
 	}).Return(nil)
 
-	err := RunBitbucketInit(t.Context(), p, cfg, mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeEnvVar
-		c.UsernameEnvName = "BB_USER"
-		c.AppPasswordEnvName = "BB_APP_PW"
-	}))
-	require.NoError(t, err)
+	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
+	require.NoError(t, RunBitbucketInit(t.Context(), p, cfg))
 }
 
 func TestRunBitbucketInit_FormError(t *testing.T) {
 	p := newDualTestProps(t)
+	p.IO = nonInteractiveIO()
 
 	cfg := setupmocks.NewMockEditor(t)
 
-	err := RunBitbucketInit(t.Context(), p, cfg, WithDualForm(func(_ *DualConfig) []*huh.Form {
-		return []*huh.Form{failingForm()}
-	}))
-	require.Error(t, err)
+	require.ErrorIs(t, RunBitbucketInit(t.Context(), p, cfg), setup.ErrNonInteractive)
 }
 
 func TestRunInitCmd_LoadedConfig(t *testing.T) {
@@ -654,14 +580,10 @@ func TestRunInitCmd_LoadedConfig(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
+		IO:     dualEnvIO(t, "BB_USER", "BB_APP_PW"),
 	}
 
-	err := RunBitbucketInitCmd(t.Context(), p, dir, mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeEnvVar
-		c.UsernameEnvName = "BB_USER"
-		c.AppPasswordEnvName = "BB_APP_PW"
-	}))
-	require.NoError(t, err)
+	require.NoError(t, RunBitbucketInitCmd(t.Context(), p, dir))
 
 	// The config was written to disk with the captured env-var names.
 	written, rerr := afero.ReadFile(fs, target)
@@ -684,12 +606,10 @@ func TestRunInitCmd_FormError(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
+		IO:     nonInteractiveIO(),
 	}
 
-	err := RunBitbucketInitCmd(t.Context(), p, dir, WithDualForm(func(_ *DualConfig) []*huh.Form {
-		return []*huh.Form{failingForm()}
-	}))
-	require.Error(t, err)
+	require.ErrorIs(t, RunBitbucketInitCmd(t.Context(), p, dir), setup.ErrNonInteractive)
 }
 
 func TestRunInitCmd_MkdirError(t *testing.T) {
@@ -703,33 +623,27 @@ func TestRunInitCmd_MkdirError(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
+		IO:     dualEnvIO(t, "BB_USER", "BB_APP_PW"),
 	}
 
-	err := RunBitbucketInitCmd(t.Context(), p, dir, mockForms(func(c *DualConfig) {
-		c.StorageMode = credentials.ModeEnvVar
-		c.UsernameEnvName = "BB_USER"
-		c.AppPasswordEnvName = "BB_APP_PW"
-	}))
+	err := RunBitbucketInitCmd(t.Context(), p, dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Failed to create directory")
 }
 
-// TestCredentialsForm_UsernameValidator runs the username input from
-// dualCredentialsForm in accessible mode with scripted input: an empty line
-// trips the "username is required" validator (re-prompting), then a valid value
-// satisfies it.
-func TestCredentialsForm_UsernameValidator(t *testing.T) {
-	t.Parallel()
+// TestDualForm_UsernameIsRequired: a blank username is re-asked, then the
+// valid value is kept.
+func TestDualForm_UsernameIsRequired(t *testing.T) {
+	t.Setenv("CI", "")
+
+	io, out := answersIO(modeNumber(t, credentials.ModeLiteral), "", "", "", "alice")
+	p := newTestProps(t)
+	p.IO = io
 
 	cfg := &DualConfig{}
-	form := dualCredentialsForm(bitbucketProfile, cfg)
-	require.NotNil(t, form)
-
-	// Feed: blank (invalid) → "alice" (valid) for username, then EOF.
-	in := strings.NewReader("\nalice\n")
-	_ = form.WithAccessible(true).WithInput(in).WithOutput(io.Discard).Run()
-
+	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), bitbucketProfile, cfg)))
 	assert.Equal(t, "alice", cfg.Username)
+	assert.Contains(t, out.String(), "username is required")
 }
 
 func TestNewCmdInitBitbucket_RunE_Error(t *testing.T) {
@@ -744,6 +658,8 @@ func TestNewCmdInitBitbucket_RunE_Error(t *testing.T) {
 		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
+
+	p.IO = nonInteractiveIO()
 
 	cmd := NewCmdInitBitbucket(p)
 	require.NoError(t, cmd.Flags().Set("dir", dir))

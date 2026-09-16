@@ -19,22 +19,65 @@ import (
 // real forms, on Props.IO, at accessible prompts. What a form shows (the
 // display-once token) is read back from the IO's output.
 
-// modeNumber is the 1-based position of mode among the choices the selector
-// offers in this environment (keychain only when a backend is linked and
-// answers; literal only outside CI).
-func modeNumber(t *testing.T, mode credentials.Mode) string {
+// modeChoices are the storage modes the selector offers in this environment
+// (keychain only when a backend is linked and answers; literal only outside
+// CI) and the one the cursor starts on.
+func modeChoices(t *testing.T) ([]credentials.Mode, credentials.Mode) {
 	t.Helper()
 
-	choices, _ := credentialposture.StorageModeOptions(context.Background(), credentialposture.ModeLabels{Env: "e", Keychain: "k", Literal: "l"})
+	choices, def := credentialposture.StorageModeOptions(context.Background(), credentialposture.ModeLabels{Env: "e", Keychain: "k", Literal: "l"})
+
+	modes := make([]credentials.Mode, len(choices))
 	for i, c := range choices {
-		if c.Mode == mode {
-			return strconv.Itoa(i + 1)
+		modes[i] = c.Mode
+	}
+
+	return modes, def
+}
+
+func indexOf(t *testing.T, modes []credentials.Mode, mode credentials.Mode) int {
+	t.Helper()
+
+	for i, m := range modes {
+		if m == mode {
+			return i
 		}
 	}
 
-	t.Fatalf("mode %q is not offered here (choices: %v)", mode, choices)
+	t.Fatalf("mode %q is not offered here (choices: %v)", mode, modes)
 
-	return ""
+	return 0
+}
+
+// modeNumber is the 1-based position of mode among the offered choices, the
+// number an accessible prompt takes.
+func modeNumber(t *testing.T, mode credentials.Mode) string {
+	t.Helper()
+
+	modes, _ := modeChoices(t)
+
+	return strconv.Itoa(indexOf(t, modes, mode) + 1)
+}
+
+// modeKeys are the arrow presses that move the selector's cursor from the
+// mode it starts on (the recommended one) to mode, then Enter.
+func modeKeys(t *testing.T, mode credentials.Mode) []string {
+	t.Helper()
+
+	var seqs []string
+
+	modes, def := modeChoices(t)
+	for delta := indexOf(t, modes, mode) - indexOf(t, modes, def); delta != 0; {
+		if delta > 0 {
+			seqs = append(seqs, formtest.Down)
+			delta--
+		} else {
+			seqs = append(seqs, formtest.Up)
+			delta++
+		}
+	}
+
+	return append(seqs, formtest.Enter)
 }
 
 // yn is what a person types at a confirm.
@@ -74,4 +117,29 @@ func singleAuthIO(t *testing.T, mode credentials.Mode, envVar string, fetch bool
 // nonInteractiveIO is a stdin nobody is typing at: the wizard must refuse.
 func nonInteractiveIO() props.IO {
 	return props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+}
+
+// dualEnvIO answers the dual-credential wizard for env-var mode at accessible
+// prompts: the mode, the two variable names (blank keeps the fallback), and a
+// throwaway username for the credential page accessible mode asks anyway (its
+// password prompt cannot be answered without a terminal and is left blank).
+func dualEnvIO(t *testing.T, userEnv, passEnv string) props.IO {
+	t.Helper()
+
+	io, _ := answersIO(modeNumber(t, credentials.ModeEnvVar), userEnv, passEnv, "ignored")
+
+	return io
+}
+
+// dualCredentialIO drives the dual-credential wizard for a mode that takes
+// the username and app password themselves, which only the TUI can do (the
+// password field). Paced by time, so a test using it does not call
+// t.Parallel.
+func dualCredentialIO(t *testing.T, mode credentials.Mode, username, password string) props.IO {
+	t.Helper()
+
+	seqs := modeKeys(t, mode)
+	seqs = append(seqs, username, formtest.Enter, password, formtest.Enter)
+
+	return formtest.TUI(formtest.Keys(seqs...))
 }
