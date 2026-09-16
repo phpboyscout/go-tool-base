@@ -29,7 +29,7 @@ degraded on one.
 ### Linux and macOS
 
 ```bash
-curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | bash
+curl -sSL https://gtb.phpboyscout.uk/install.sh | bash
 ```
 
 The script installs to `$HOME/.local/bin`. Make sure that is on your `$PATH`.
@@ -37,7 +37,7 @@ The script installs to `$HOME/.local/bin`. Make sure that is on your `$PATH`.
 ### Windows (PowerShell)
 
 ```powershell
-irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
+irm https://gtb.phpboyscout.uk/install.ps1 | iex
 ```
 
 ### From source

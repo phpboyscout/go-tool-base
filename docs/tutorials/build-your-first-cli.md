@@ -29,7 +29,7 @@ first time; the scaffolding itself takes seconds.
 GTB ships an automation CLI called `gtb`. Install it with the script:
 
 ```bash
-curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | bash
+curl -sSL https://gtb.phpboyscout.uk/install.sh | bash
 ```
 
 That fetches a pre-built release (embedded docs and all) and puts `gtb` in
