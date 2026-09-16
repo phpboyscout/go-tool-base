@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"gitlab.com/phpboyscout/go/controls"
@@ -21,17 +20,9 @@ const (
 	cleanupTimeout = 5 * time.Second
 	listenAddress  = "127.0.0.1:0"
 	defaultOptsCap = 1
-	serviceOptsCap = 3
 )
 
 var errWaitTimeout = errors.New("timed out waiting for state")
-
-// StateCounters tracks service lifecycle invocations atomically.
-type StateCounters struct {
-	Started  atomic.Int64
-	Stopped  atomic.Int64
-	Statused atomic.Int64
-}
 
 // SyncBuffer is a thread-safe bytes.Buffer for capturing log output.
 type SyncBuffer struct {
@@ -53,25 +44,15 @@ func (b *SyncBuffer) String() string {
 	return b.buf.String()
 }
 
-// ControllerWorld holds per-scenario state for controls BDD tests.
+// ControllerWorld holds per-scenario state for the transport-adapter scenarios.
 type ControllerWorld struct {
 	Controller *controls.Controller
 	Ctx        context.Context
 	Cancel     context.CancelFunc
-	Counters   map[string]*StateCounters
 	LogBuf     *SyncBuffer
 	Logger     logger.Logger
 	HTTPPort   int
 	GRPCPort   int
-
-	// Health check tracking
-	CheckCounts map[string]*atomic.Int64
-
-	// Channels for coordination
-	RequestStarted  chan struct{}
-	RequestFinished chan struct{}
-	ClientResult    chan error
-	StartupDelay    chan struct{}
 
 	// RateLimitStatuses collects the HTTP status codes from a burst of requests
 	// sent by the rate-limiting scenarios.
@@ -86,12 +67,10 @@ func NewControllerWorld() *ControllerWorld {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ControllerWorld{
-		Ctx:         ctx,
-		Cancel:      cancel,
-		Counters:    make(map[string]*StateCounters),
-		CheckCounts: make(map[string]*atomic.Int64),
-		LogBuf:      buf,
-		Logger:      l,
+		Ctx:    ctx,
+		Cancel: cancel,
+		LogBuf: buf,
+		Logger: l,
 	}
 }
 
@@ -105,29 +84,6 @@ func (w *ControllerWorld) EnsureController(opts ...controls.ControllerOpt) {
 	defaults[0] = controls.WithLogger(logger.ToSlog(w.Logger))
 	opts = append(defaults, opts...)
 	w.Controller = controls.NewController(w.Ctx, opts...)
-}
-
-// RegisterService registers a service with atomic counters for tracking.
-func (w *ControllerWorld) RegisterService(name string, extraOpts ...controls.ServiceOption) *StateCounters {
-	cntrs := &StateCounters{}
-	w.Counters[name] = cntrs
-
-	opts := make([]controls.ServiceOption, serviceOptsCap, serviceOptsCap+len(extraOpts))
-	opts[0] = controls.WithStart(func(_ context.Context) error {
-		cntrs.Started.Add(1)
-
-		return nil
-	})
-	opts[1] = controls.WithStop(func(_ context.Context) { cntrs.Stopped.Add(1) })
-	opts[2] = controls.WithStatus(func() error {
-		cntrs.Statused.Add(1)
-
-		return nil
-	})
-	opts = append(opts, extraOpts...)
-	w.Controller.Register(name, opts...)
-
-	return cntrs
 }
 
 // FreePort obtains a free TCP port.

@@ -234,9 +234,7 @@ E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to ex
 
 | Feature File | Scenarios | Dependencies |
 | :--- | :--- | :--- |
-| `features/controls/lifecycle.feature` | State machine transitions, status messages, context cancellation, concurrent stop idempotency, start errors | None (in-process) |
-| `features/controls/graceful_shutdown.feature` | SIGINT with HTTP+gRPC, in-flight request draining, early signal during startup | Local network (localhost) |
-| `features/controls/health_monitoring.feature` | Health check types (readiness/liveness/both), status mapping, registration rules, async caching, health-triggered restarts | None (in-process) |
+| `features/controls/transport_adapters.feature` | HTTP and gRPC transports registered from config through `pkg/http` and `pkg/grpc` come up healthy and stop on SIGINT; a server option given to the adapter reaches the server. Controller lifecycle, health monitoring, shutdown and rate limiting are `go/controls` and `go/transport` behaviour, tested in those modules | Local network (localhost) |
 | `features/cli/help.feature` | Root help lists commands, unknown command error | Binary compilation |
 | `features/cli/version.feature` | Text output, JSON output, help flag | Binary compilation |
 | `features/cli/doctor.feature` | Text diagnostic output, JSON structured report | Binary compilation |
