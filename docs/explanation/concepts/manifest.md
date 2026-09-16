@@ -110,6 +110,9 @@ the generated Go source does not fully encode:
     surfaces.
 - **ci**: The CI component source override (`ci.component_source`) when a
     downstream repoints the include base away from the default.
+- **bootstrap**: `auto_initialise`, `skip_config_check`, `auxiliary_commands`,
+    the config-bootstrap posture the generated root wires into
+    `props.Tool.Bootstrap`.
 - **module_published**: Whether the project is a published module.
 - **docs_layout**: Which documentation tree shape (Diátaxis vs the legacy flat
     layout) the project uses.
@@ -117,6 +120,17 @@ the generated Go source does not fully encode:
 Per-command, the manifest also records **`mcp_enabled`**, whether a command is
 exposed over MCP, so that gating round-trips through both regeneration
 directions.
+
+### The rule: the manifest owns every author setting
+
+Every field of the generator's `SkeletonConfig` is classified in
+`cli/pkg/generator/author_settings.go`: its flag, whether the wizard asks it,
+its manifest path, and how `regenerate` reads it back. A test walks the struct
+and fails on a field the table does not name, and a round-trip test proves each
+setting survives generate → manifest → regenerate. `version.go` records the Go
+directive the project was generated with, so a newer toolchain on the author's
+machine no longer rewrites `go.mod`. Spec
+[0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface).
 
 ### Why `provenance.go` exists
 

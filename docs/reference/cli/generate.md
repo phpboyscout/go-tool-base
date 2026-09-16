@@ -63,7 +63,13 @@ manifest.
 | `--chat-api-version` | — | Dated API version. Required by `azure-openai`, which has no default. |
 | `--chat-project` | — | Cloud project, for `gemini-vertex` (optional; falls back to `GOOGLE_CLOUD_PROJECT` at runtime). |
 | `--chat-location` | — | Region, for `gemini-vertex` and `bedrock` (optional; falls back to the platform's environment at runtime). |
-| `--go-version` | *(running toolchain)* | Go version for `go.mod`. |
+| `--go-version` | *(running toolchain)* | Go version for `go.mod`. Recorded as `version.go`; `regenerate` renders that, never the toolchain it happens to run on. |
+| `--telemetry-endpoint` | — | Where the `telemetry` feature sends usage events (HTTPS). Recorded as `telemetry.endpoint`. |
+| `--telemetry-otel-endpoint` | — | OpenTelemetry collector endpoint. Recorded as `telemetry.otel_endpoint`. |
+| `--auto-initialise` | `false` | Run the first-run bootstrap automatically when the config is missing. Recorded as `bootstrap.auto_initialise`. |
+| `--skip-config-check` | — | Commands that run without a config file (repeatable). Recorded as `bootstrap.skip_config_check`. |
+| `--auxiliary-commands` | — | Commands that take the root pre-run's auxiliary fast path (repeatable). Recorded as `bootstrap.auxiliary_commands`. |
+| `--config-layers` | *(framework default)* | Config-stack layers the tool wires, in precedence order. Recorded as `config_layers`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
 | `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. |
@@ -116,6 +122,8 @@ manifest, which regenerate keeps as written. A project generated before the
 `chat:` block existed has no block at all, and gets the full list written into
 its manifest the first time it is regenerated with `ai` enabled.
 
+**Every author setting has one home.** Each flag above that says "recorded as" names the manifest field it writes, and `regenerate` reads that field back unchanged; `cli/pkg/generator/author_settings.go` is the table, and a test holds it and `SkeletonConfig` to each other (spec [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface) D1, D2). Nothing about a generated project depends on the machine `regenerate` runs on.
+
 **Chat defaults.** AI in a generated tool is one decision with several parts:
 which providers to link, which is the default, which model, and the endpoint a
 few providers need. The manifest records the answer under `chat:` and the
@@ -160,6 +168,8 @@ the end user's, captured by `init ai` or supplied through the environment.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--signing` | `false` | Enable consumer-side release-signature verification (scaffolds `internal/trustkeys`, wires `props.Signing`). |
+| `--signing-require-checksum` | `false` | Fail a self-update closed without a verified checksum. Safe from day one. Recorded as `signing.require_checksum`; renders `props.Tool.Signing.RequireChecksum`. |
+| `--signing-require-signature` | `false` | Fail a self-update closed without a valid signature. Not before your first signed release has shipped: an unsigned release then fails every consumer's update. Recorded as `signing.require_signature`. |
 | `--signing-email` | — | Release WKD email (`external_key_email`); enables the external trust-anchor leg. |
 | `--signing-key-source` | `both` | Trust-anchor source: `embedded`, `external`, or `both`. |
 | `--signing-require-external-crosscheck` | `false` | Fail signing closed when the external (WKD) resolver is unreachable. |

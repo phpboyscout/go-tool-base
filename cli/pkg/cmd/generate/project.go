@@ -104,6 +104,27 @@ type SkeletonOptions struct {
 	// with the ai feature selected is refused (spec 0194 D5, OQ4, OQ5).
 	ChatProviders []string
 
+	// TelemetryEndpoint and TelemetryOTelEndpoint are where the telemetry
+	// feature sends; recorded under properties.telemetry (spec 0197 D4).
+	TelemetryEndpoint     string
+	TelemetryOTelEndpoint string
+	// Bootstrap is the config-bootstrap posture (auto-initialise, the commands
+	// that skip the config check, the auxiliary fast-path commands).
+	Bootstrap generator.ManifestBootstrap
+	// ConfigLayers declares which config-stack layers the tool wires; empty
+	// inherits the framework default.
+	ConfigLayers []string
+	// SigningRequireSignature and SigningRequireChecksum are the enforcement
+	// baselines. Only the checksum one is asked on a first run; the signature
+	// one is a footgun before a signed release has shipped (0071), so the
+	// wizard asks it only on a revisit (spec 0197 D5).
+	SigningRequireSignature bool
+	SigningRequireChecksum  bool
+
+	// revisit marks a wizard run over an existing project (gtb wizard, spec
+	// 0197 D13), which asks what a first run holds back.
+	revisit bool
+
 	// ChatDefault is the author's default provider, model and addressing,
 	// recorded in the manifest and shipped as the tool's lowest config layer.
 	// Required when several providers are linked (spec 0196 D1, D9).
@@ -182,6 +203,12 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.ChatDefault.Project, "chat-project", "", "Cloud project, for gemini-vertex")
 	cmd.Flags().StringVar(&opts.ChatDefault.Location, "chat-location", "", "Region, for gemini-vertex and bedrock")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
+	cmd.Flags().StringVar(&opts.TelemetryEndpoint, "telemetry-endpoint", "", "Where the telemetry feature sends usage events (HTTPS)")
+	cmd.Flags().StringVar(&opts.TelemetryOTelEndpoint, "telemetry-otel-endpoint", "", "OpenTelemetry collector endpoint for the telemetry feature")
+	cmd.Flags().BoolVar(&opts.Bootstrap.AutoInitialise, "auto-initialise", false, "Run the first-run bootstrap automatically when the config is missing")
+	cmd.Flags().StringSliceVar(&opts.Bootstrap.SkipConfigCheck, "skip-config-check", nil, "Commands that run without a config file (repeatable)")
+	cmd.Flags().StringSliceVar(&opts.Bootstrap.AuxiliaryCommands, "auxiliary-commands", nil, "Commands that take the root pre-run's auxiliary fast path (repeatable)")
+	cmd.Flags().StringSliceVar(&opts.ConfigLayers, "config-layers", nil, "Config-stack layers the tool wires, in precedence order (default: the framework's)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().StringVar(&opts.SlackChannel, "slack-channel", "", "Slack channel for help (e.g. #my-team-help)")
@@ -196,6 +223,8 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.SigningEmail, "signing-email", "", "Release WKD email for signing (external_key_email); implies --signing")
 	cmd.Flags().StringVar(&opts.SigningKeySource, "signing-key-source", "both", "Signing trust-anchor source: embedded, external, or both")
 	cmd.Flags().BoolVar(&opts.SigningRequireExternalCrosscheck, "signing-require-external-crosscheck", false, "Fail signing closed when the external (WKD) resolver is unreachable")
+	cmd.Flags().BoolVar(&opts.SigningRequireSignature, "signing-require-signature", false, "Fail a self-update closed without a valid signature; not before your first signed release")
+	cmd.Flags().BoolVar(&opts.SigningRequireChecksum, "signing-require-checksum", false, "Fail a self-update closed without a verified checksum")
 	cmd.Flags().StringVar(&opts.SigningKeyID, "signing-key-id", "", "Signing key id/ARN/alias (or PEM path for local) the release pipeline signs with; wires the GoReleaser signs block")
 	cmd.Flags().StringVar(&opts.SigningBackend, "signing-backend", "", "gtb sign backend for the release pipeline (default aws-kms when --signing-key-id is set)")
 	cmd.Flags().StringVar(&opts.SigningKMSRegion, "signing-kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
@@ -254,6 +283,23 @@ func (o *SkeletonOptions) validateFields() error {
 	}
 
 	return generator.ValidateChatDefault(o.ChatDefault, o.ChatProviders, features)
+}
+
+// validatePostureFields checks the operational settings that have flags and
+// a manifest home but no wizard page (spec 0197 D4), with the validators
+// ValidateManifest applies.
+func (o *SkeletonOptions) validatePostureFields() error {
+	if err := generator.ValidateConfigLayers(o.ConfigLayers); err != nil {
+		return err
+	}
+
+	for _, endpoint := range []string{o.TelemetryEndpoint, o.TelemetryOTelEndpoint} {
+		if err := generator.ValidateTelemetryEndpoint(endpoint); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // validateHostingFields checks the forge half (backend, repository, host, org)
@@ -406,6 +452,10 @@ func (o *SkeletonOptions) validateCoreFields() error {
 	}
 
 	if err := o.validateUpdateFields(); err != nil {
+		return err
+	}
+
+	if err := o.validatePostureFields(); err != nil {
 		return err
 	}
 
@@ -783,8 +833,26 @@ func (o *SkeletonOptions) afterWizard() error {
 		o.SigningEmail = ""
 		o.SigningKeySource = ""
 		o.SigningKeyID = ""
+		o.SigningRequireSignature, o.SigningRequireChecksum = false, false
 	}
 
+	o.clearFeaturePages()
+
+	if o.HelpType != "slack" {
+		o.SlackChannel, o.SlackTeam = "", ""
+	}
+
+	if o.HelpType != "teams" {
+		o.TeamsChannel, o.TeamsTeam = "", ""
+	}
+
+	return nil
+}
+
+// clearFeaturePages drops the answers of the feature-gated pages whose
+// feature is not selected, and the addressing the chosen chat provider does
+// not use (spec 0196 D1, D2; 0197 D5).
+func (o *SkeletonOptions) clearFeaturePages() {
 	if !o.aiSelected() {
 		o.ChatDefault = generator.ManifestChatDefault{}
 	} else {
@@ -797,15 +865,9 @@ func (o *SkeletonOptions) afterWizard() error {
 		}
 	}
 
-	if o.HelpType != "slack" {
-		o.SlackChannel, o.SlackTeam = "", ""
+	if !slices.Contains(o.Features, string(props.TelemetryCmd)) {
+		o.TelemetryEndpoint, o.TelemetryOTelEndpoint = "", ""
 	}
-
-	if o.HelpType != "teams" {
-		o.TeamsChannel, o.TeamsTeam = "", ""
-	}
-
-	return nil
 }
 
 // basicsGroup is the entry group: project basics plus the backend and help-type
@@ -877,11 +939,49 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.chatProvidersGroup(),
 		o.chatEndpointGroup(),
 		o.chatCloudGroup(),
+		o.telemetryGroup(),
 		o.slackGroup(),
 		o.teamsGroup(),
 		o.signingEnableGroup(),
 		o.signingDetailGroup(),
+		o.signingEnforcementGroup(),
 	)
+}
+
+// telemetryGroup asks where telemetry goes, when the feature is selected
+// (spec 0197 D5). Both endpoints are optional: the feature ships with the
+// framework's defaults otherwise.
+func (o *SkeletonOptions) telemetryGroup() *huh.Group {
+	endpoint := func(s string) error { return hintedValidation(generator.ValidateTelemetryEndpoint(s)) }
+
+	return huh.NewGroup(
+		huh.NewInput().Key("telemetry-endpoint").Title("Telemetry endpoint (optional)").
+			Description("Where usage events are sent; HTTPS.").
+			Placeholder("https://telemetry.example.internal").
+			Value(&o.TelemetryEndpoint).Validate(endpoint),
+		huh.NewInput().Key("telemetry-otel-endpoint").Title("OpenTelemetry endpoint (optional)").
+			Description("An OTel collector for traces and metrics.").
+			Placeholder("https://otel.example.internal").
+			Value(&o.TelemetryOTelEndpoint).Validate(endpoint),
+	).
+		Title("Telemetry").
+		Description("Recorded under properties.telemetry in the manifest.\n").
+		WithHideFunc(func() bool { return !slices.Contains(o.Features, string(props.TelemetryCmd)) })
+}
+
+// signingEnforcementGroup asks the enforcement a first run holds back:
+// require_signature breaks every update until a signed release exists, so
+// it is asked only on a revisit (spec 0197 D5, OQ4).
+func (o *SkeletonOptions) signingEnforcementGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewConfirm().Key("signing-require-signature").
+			Title("Require a valid signature on every update?").
+			Description("Not before your first signed release has shipped: an unsigned release would then fail every consumer's update.").
+			Affirmative("Yes").Negative("No").
+			Value(&o.SigningRequireSignature),
+	).
+		Title("Signing enforcement").
+		WithHideFunc(func() bool { return !o.revisit || !o.updateSelected() || !o.Signing })
 }
 
 // updateSelected reports whether the update feature is among the chosen
@@ -1298,6 +1398,11 @@ func (o *SkeletonOptions) signingDetailGroup() *huh.Group {
 			Description("KMS key alias/ARN/id the release pipeline signs with. Leave blank to wire the GoReleaser signs block later via `gtb enable signing --key-id`.").
 			Placeholder("alias/myapp-release-signing-v1").
 			Value(&o.SigningKeyID),
+		huh.NewConfirm().Key("signing-require-checksum").
+			Title("Require a verified checksum on every update?").
+			Description("Safe from day one: every release ships checksums.").
+			Affirmative("Yes").Negative("No").
+			Value(&o.SigningRequireChecksum),
 	).
 		Title("Signing Configuration").
 		Description("These values are written to the manifest signing block.\n").
@@ -1427,24 +1532,28 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 	}
 
 	cfg := generator.SkeletonConfig{
-		Name:                o.Name,
-		Description:         o.Description,
-		Path:                o.Path,
-		GoVersion:           o.GoVersion,
-		Features:            features,
-		Chat:                chat,
-		HelpType:            helpType,
-		SlackChannel:        o.SlackChannel,
-		SlackTeam:           o.SlackTeam,
-		TeamsChannel:        o.TeamsChannel,
-		TeamsTeam:           o.TeamsTeam,
-		EnvPrefix:           o.EnvPrefix,
-		UpdatePolicy:        o.UpdatePolicy,
-		UpdateCheckInterval: o.UpdateCheckInterval,
-		CIComponentSource:   o.CIComponentSource,
-		Signing:             o.resolveSigning(),
-		Templates:           templates,
-		ModulePath:          o.Module,
+		Name:                  o.Name,
+		Description:           o.Description,
+		Path:                  o.Path,
+		GoVersion:             o.GoVersion,
+		Features:              features,
+		Chat:                  chat,
+		HelpType:              helpType,
+		SlackChannel:          o.SlackChannel,
+		SlackTeam:             o.SlackTeam,
+		TeamsChannel:          o.TeamsChannel,
+		TeamsTeam:             o.TeamsTeam,
+		EnvPrefix:             o.EnvPrefix,
+		TelemetryEndpoint:     o.TelemetryEndpoint,
+		TelemetryOTelEndpoint: o.TelemetryOTelEndpoint,
+		Bootstrap:             o.Bootstrap,
+		ConfigLayers:          o.ConfigLayers,
+		UpdatePolicy:          o.UpdatePolicy,
+		UpdateCheckInterval:   o.UpdateCheckInterval,
+		CIComponentSource:     o.CIComponentSource,
+		Signing:               o.resolveSigning(),
+		Templates:             templates,
+		ModulePath:            o.Module,
 	}
 
 	if !o.NoForge {
@@ -1532,7 +1641,9 @@ func (o *SkeletonOptions) resolveSigning() generator.ManifestSigning {
 		KeyID:                     o.SigningKeyID,
 		KMSRegion:                 o.SigningKMSRegion,
 		PublicKey:                 o.SigningPublicKey,
-		// RequireSignature is never set at generate time: it stays false
-		// until a signed release has shipped (flip via `gtb enable signing`).
+		// The wizard asks RequireSignature only on a revisit; the flag is the
+		// author's explicit call (spec 0197 D5).
+		RequireSignature: o.SigningRequireSignature,
+		RequireChecksum:  o.SigningRequireChecksum,
 	})
 }

@@ -648,6 +648,8 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			ModulePath:            data.ModulePath,
 			AutoInitialise:        data.Bootstrap.AutoInitialise,
 			SkipConfigCheck:       data.Bootstrap.SkipConfigCheck,
+			AuxiliaryCommands:     data.Bootstrap.AuxiliaryCommands,
+			RequireChecksum:       data.Signing.RequireChecksum,
 		}),
 	}
 
@@ -1079,6 +1081,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 		},
 		Version: ManifestVersion{
 			GoToolBase: gtbVersion,
+			Go:         resolveGoVersion(config.GoVersion),
 		},
 		Hashes: fileHashes,
 	}

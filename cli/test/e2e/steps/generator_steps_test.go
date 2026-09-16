@@ -31,6 +31,8 @@ type generatorWorld struct {
 	// snapshot is the recorded project tree, relative path → SHA256, taken by
 	// the "I record the state of the generated project" step.
 	snapshot map[string]string
+	// remembered holds file contents taken by "I remember the generated file".
+	remembered map[string][]byte
 }
 
 // isolatedEnv returns the environment for a gtb invocation: the real
@@ -163,6 +165,9 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 		aGTBProjectWithACommandWithMetadata)
 	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)"$`, iGenerateAGTBProjectWithFeatures)
+	ctx.Step(`^I generate a gtb project with the flags "([^"]*)"$`, iGenerateAGTBProjectWithTheFlags)
+	ctx.Step(`^I remember the generated "([^"]*)" file$`, iRememberTheGeneratedFile)
+	ctx.Step(`^the generated "([^"]*)" file is unchanged$`, theGeneratedFileIsUnchanged)
 	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" on host "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendOnHost)
 	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" and forge credentials "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendAndCredentials)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)" and chat providers "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesAndChatProviders)
@@ -387,6 +392,49 @@ func aFreshlyGeneratedGTBProject(ctx context.Context) (context.Context, error) {
 // the exit-code assertion instead of aborting the scenario.
 func iGenerateAGTBProjectWithFeatures(ctx context.Context, features string) (context.Context, error) {
 	return ctx, scaffoldProject(ctx, "gtb-e2e-featsel-*", "--features", features)
+}
+
+func iRememberTheGeneratedFile(ctx context.Context, relPath string) error {
+	w := getGeneratorWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.projectDir, relPath))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	if w.remembered == nil {
+		w.remembered = map[string][]byte{}
+	}
+
+	w.remembered[relPath] = content
+
+	return nil
+}
+
+func theGeneratedFileIsUnchanged(ctx context.Context, relPath string) error {
+	w := getGeneratorWorld(ctx)
+
+	before, ok := w.remembered[relPath]
+	if !ok {
+		return fmt.Errorf("%s was not remembered", relPath)
+	}
+
+	after, err := os.ReadFile(filepath.Join(w.projectDir, relPath))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	if string(before) != string(after) {
+		return fmt.Errorf("%s changed:\n--- before\n%s\n--- after\n%s", relPath, before, after)
+	}
+
+	return nil
+}
+
+// iGenerateAGTBProjectWithTheFlags passes any author-setting flags through,
+// space separated, so a scenario can exercise a flag without a step per flag.
+func iGenerateAGTBProjectWithTheFlags(ctx context.Context, flags string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-settings-*", strings.Fields(flags)...)
 }
 
 func iGenerateAGTBProjectWithForgeBackendOnHost(ctx context.Context, backend, host string) (context.Context, error) {

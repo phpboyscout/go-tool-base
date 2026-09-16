@@ -423,6 +423,8 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		ModulePath:            manifestModulePath(m),
 		AutoInitialise:        m.Properties.Bootstrap.AutoInitialise,
 		SkipConfigCheck:       m.Properties.Bootstrap.SkipConfigCheck,
+		AuxiliaryCommands:     m.Properties.Bootstrap.AuxiliaryCommands,
+		RequireChecksum:       m.Properties.Signing.RequireChecksum,
 		Subcommands:           subcommands,
 		ExternalCommands:      buildSkeletonExternalCommands(m.Properties.ExternalCommands),
 		ExternalAdapter:       m.Properties.ExternalCommandsAdapter,
@@ -554,8 +556,7 @@ func (d skeletonTemplateData) GetReleaseProvider() string { return d.ReleaseProv
 func (d skeletonTemplateData) GetForgeBackend() props.FeatureID { return d.ForgeBackend }
 
 // buildSkeletonTemplateData reconstructs the skeleton asset template data
-// from a manifest. GoVersion is not persisted, so it falls back to the
-// runtime default.
+// from a manifest.
 func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 	data := buildSkeletonTemplateDataFrom(m)
 	data.GoToolBaseVersion = g.currentVersion()
@@ -578,7 +579,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		RepoName:              repoName,
 		ReleaseProvider:       m.ReleaseSource.Type,
 		ForgeBackend:          m.ReleaseSource.Backend,
-		GoVersion:             resolveGoVersion(""),
+		GoVersion:             resolveGoVersion(m.Version.Go),
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
 		ChatModules:           chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
@@ -613,8 +614,6 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 	g.props.Logger.Info("Regenerating project skeleton files...")
 	g.props.Logger.Debug("existing hashes", "entries", len(m.Hashes))
 
-	// Reconstruct template data from the manifest. GoVersion is not persisted
-	// so we fall back to the current runtime version.
 	data := g.buildSkeletonTemplateData(m)
 
 	storedHashes := m.Hashes

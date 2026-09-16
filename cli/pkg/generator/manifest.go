@@ -279,6 +279,9 @@ type ManifestBootstrap struct {
 	// SkipConfigCheck lists commands (by Name() or full CommandPath()) whose
 	// missing-config gate is relaxed to a tolerant load so they own bootstrap.
 	SkipConfigCheck []string `yaml:"skip_config_check,omitempty"`
+	// AuxiliaryCommands names commands that take the root pre-run's
+	// auxiliary fast path (props.Tool.AuxiliaryCommands); spec 0197 D4.
+	AuxiliaryCommands []string `yaml:"auxiliary_commands,omitempty"`
 }
 
 // ManifestSigning holds self-update signature-verification configuration
@@ -298,6 +301,9 @@ type ManifestSigning struct {
 	// present. Stays false until a signed release has shipped (the N+1
 	// rollout); only ever flipped via `gtb enable signing --require-signature`.
 	RequireSignature bool `yaml:"require_signature,omitempty"`
+	// RequireChecksum is the author's baseline for checksum enforcement on
+	// self-update downloads (props.Tool.RequireChecksum); spec 0197 D4.
+	RequireChecksum bool `yaml:"require_checksum,omitempty"`
 	// KeySource selects the trust-anchor source: "embedded", "external"
 	// or "both" (the framework default when empty).
 	KeySource string `yaml:"key_source,omitempty"`
@@ -602,6 +608,10 @@ type ManifestDirectSource struct {
 
 type ManifestVersion struct {
 	GoToolBase string `yaml:"gtb"`
+	// Go is the go directive the project was generated with, so regenerate
+	// rewrites the go line only when this changes and never because the
+	// author's toolchain moved (spec 0197 D3). Absent in older manifests.
+	Go string `yaml:"go,omitempty"`
 }
 
 func (g *Generator) convertFlagsToManifest(parsedFlags []templates.CommandFlag) []ManifestFlag {

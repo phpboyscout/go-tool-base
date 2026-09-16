@@ -35,7 +35,41 @@ func applyLiteralToolField(mp *ManifestProperties, fieldName string, value dst.E
 		extractTelemetryLiteral(value, &mp.Telemetry)
 	case "Bootstrap":
 		extractBootstrapLiteral(value, &mp.Bootstrap)
+	case "Signing":
+		extractSigningLiteral(value, &mp.Signing)
 	}
+}
+
+// extractSigningLiteral recovers the author baselines a props.SigningConfig
+// literal carries. EmbeddedKeys is a call into the trust-keys package, not a
+// setting, and is skipped.
+func extractSigningLiteral(value dst.Expr, sg *ManifestSigning) {
+	comp, ok := value.(*dst.CompositeLit)
+	if !ok {
+		return
+	}
+
+	for _, elt := range comp.Elts {
+		kv, ok := elt.(*dst.KeyValueExpr)
+		if !ok {
+			continue
+		}
+
+		if key, ok := kv.Key.(*dst.Ident); ok && key.Name == "RequireChecksum" {
+			sg.RequireChecksum = boolPtrCallValue(kv.Value)
+		}
+	}
+}
+
+// boolPtrCallValue reads the argument of a props.BoolPtr(true|false) call,
+// the form the renderer emits for a tri-state baseline.
+func boolPtrCallValue(value dst.Expr) bool {
+	call, ok := value.(*dst.CallExpr)
+	if !ok || len(call.Args) != 1 {
+		return false
+	}
+
+	return boolLitValue(call.Args[0])
 }
 
 // updatePolicyFromExpr maps a props.UpdatePolicy* selector back to its manifest
@@ -174,6 +208,8 @@ func extractBootstrapLiteral(value dst.Expr, bs *ManifestBootstrap) {
 			bs.AutoInitialise = boolLitValue(kv.Value)
 		case "SkipConfigCheck":
 			bs.SkipConfigCheck = stringSliceLitValue(kv.Value)
+		case "AuxiliaryCommands":
+			bs.AuxiliaryCommands = stringSliceLitValue(kv.Value)
 		}
 	}
 }

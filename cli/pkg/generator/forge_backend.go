@@ -237,6 +237,13 @@ func deriveMissingManifestFields(m *Manifest) (bool, error) {
 		changed = true
 	}
 
+	// A manifest from before version.go existed keeps the go line it has
+	// today, which is the running toolchain's (spec 0197 D3).
+	if m.Version.Go == "" {
+		m.Version.Go = resolveGoVersion("")
+		changed = true
+	}
+
 	return changed, nil
 }
 

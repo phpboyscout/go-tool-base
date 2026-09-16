@@ -94,7 +94,8 @@ func TestDeriveMissingManifestFields_OneProviderIsItsOwnDefault(t *testing.T) {
 	assert.True(t, changed)
 	assert.Equal(t, "codex-local", single.Properties.Chat.Default.Provider)
 
-	several := &Manifest{Properties: ManifestProperties{Features: aiOn, Chat: ManifestChat{Providers: []string{"claude", "openai"}}}}
+	several := &Manifest{Properties: ManifestProperties{Features: aiOn, Chat: ManifestChat{Providers: []string{"claude", "openai"}}},
+		Version: ManifestVersion{Go: "1.26"}}
 	changed, err = deriveMissingManifestFields(several)
 	require.NoError(t, err)
 	assert.False(t, changed)

@@ -295,3 +295,43 @@ func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
 	assert.Contains(t, string(doctorOut), "Chat providers: claude, claude-local linked",
 		"the tool links chat-anthropic, which registers both claude names\n%s", doctorOut)
 }
+
+// TestGeneratedProjectWithPostureBuilds proves spec 0197 D4 end to end: the
+// rendered RequireChecksum and AuxiliaryCommands are real fields on real
+// types, and the built tool runs. A text assertion on cmd.go cannot tell a
+// field on the wrong struct from the right one; the compiler can.
+func TestGeneratedProjectWithPostureBuilds(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
+
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skipf("`go` not on PATH: %v", err)
+	}
+
+	localModule := localGoToolBasePath(t)
+	path := t.TempDir()
+
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: emptyTestStore(t)}
+	g := New(p, &Config{})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) { return nil, nil }
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name: "posturetool", Repo: "test/posturetool", Host: "github.com", Path: path,
+		ForgeBackend: "github", ReleaseChannel: ReleaseChannelForge,
+		Features:  []ManifestFeature{{Name: "github", Enabled: true}},
+		Signing:   ManifestSigning{RequireChecksum: true},
+		Bootstrap: ManifestBootstrap{AutoInitialise: true, AuxiliaryCommands: []string{"completion"}},
+	}))
+
+	injectGoToolBaseReplace(t, path, localModule)
+	runGo(t, path, "mod", "tidy")
+
+	bin := filepath.Join(t.TempDir(), "posturetool")
+	runGo(t, path, "build", "-buildvcs=false",
+		"-ldflags", "-X github.com/test/posturetool/internal/version.version=v1.0.0",
+		"-o", bin, "./cmd/posturetool")
+
+	cmd := exec.Command(bin, "version")
+	cmd.Env = []string{"HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")}
+	out, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "version:\n%s", out)
+}

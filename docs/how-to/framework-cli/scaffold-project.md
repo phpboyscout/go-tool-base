@@ -222,12 +222,19 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
 **AI cloud addressing** *(the default is `gemini-vertex` or `bedrock`)*
 : Optional project and region; the modules fall back to the platform's environment.
 
+**Telemetry** *(the `telemetry` feature selected)*
+: Where usage events and OpenTelemetry data go; both optional.
+
 **Help channel** *(Slack or Teams chosen)*
 : Slack channel and team, or Teams channel and team.
 
 **Release signing** *(the `update` feature selected)*
 : Whether to verify self-update downloads, and if so the WKD email, key
-  source and key id. Answering No after entering details discards them.
+  source, key id, and whether to require a verified checksum on every update.
+  Requiring a signature is not asked on a first run (it breaks every update
+  until a signed release exists); `--signing-require-signature` and
+  `gtb enable signing --require-signature` set it. Answering No after entering
+  details discards them.
 
 ### Available Flags
 

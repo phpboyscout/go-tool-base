@@ -72,6 +72,12 @@ type SkeletonRootData struct {
 	// SkipConfigCheck wires props.Tool.Bootstrap.SkipConfigCheck — commands
 	// (by Name() or full CommandPath()) whose missing-config gate is relaxed.
 	SkipConfigCheck []string
+	// AuxiliaryCommands wires props.Tool.Bootstrap.AuxiliaryCommands, the
+	// commands that take the root pre-run's fast path (spec 0197 D4).
+	AuxiliaryCommands []string
+	// RequireChecksum wires props.Tool.Signing.RequireChecksum when the author
+	// set it; false leaves the framework default (spec 0197 D4).
+	RequireChecksum bool
 	Subcommands     []SkeletonSubcommand
 	// ExternalCommands are declarative external-module attachments rendered as
 	// additional NewCmdRoot arguments (see the external-command-attachment spec).
@@ -313,12 +319,11 @@ func applyOptionalToolConfig(toolDict jen.Dict, data SkeletonRootData) {
 	}
 
 	// When signing is enabled, wire the embedded trust anchor from the
-	// generated internal/trustkeys package. Like Telemetry, a conditional
-	// dict entry driven entirely from manifest values.
-	if data.SigningEnabled && data.ModulePath != "" {
-		toolDict[jen.Id("Signing")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SigningConfig").Values(jen.Dict{
-			jen.Id("EmbeddedKeys"): jen.Qual(data.ModulePath+"/internal/trustkeys", "Keys").Call(),
-		})
+	// generated internal/trustkeys package; a required checksum is the
+	// author's baseline on the same SigningConfig (spec 0197 D4). Like
+	// Telemetry, a conditional dict entry driven entirely from manifest values.
+	if signing, ok := signingConfigValue(data); ok {
+		toolDict[jen.Id("Signing")] = signing
 	}
 
 	// Bootstrap policy: emit a props.BootstrapPolicy{...} literal only when a
@@ -326,6 +331,33 @@ func applyOptionalToolConfig(toolDict jen.Dict, data SkeletonRootData) {
 	if bootstrap, ok := bootstrapPolicyValue(data); ok {
 		toolDict[jen.Id("Bootstrap")] = bootstrap
 	}
+}
+
+func signingConfigValue(data SkeletonRootData) (jen.Code, bool) {
+	signingDict := jen.Dict{}
+
+	if data.SigningEnabled && data.ModulePath != "" {
+		signingDict[jen.Id("EmbeddedKeys")] = jen.Qual(data.ModulePath+"/internal/trustkeys", "Keys").Call()
+	}
+
+	if data.RequireChecksum {
+		signingDict[jen.Id("RequireChecksum")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "BoolPtr").Call(jen.True())
+	}
+
+	if len(signingDict) == 0 {
+		return nil, false
+	}
+
+	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SigningConfig").Values(signingDict), true
+}
+
+func stringSliceLit(values []string) jen.Code {
+	entries := make([]jen.Code, 0, len(values))
+	for _, v := range values {
+		entries = append(entries, jen.Lit(v))
+	}
+
+	return jen.Index().String().Values(entries...)
 }
 
 // bootstrapPolicyValue builds the props.BootstrapPolicy value from the manifest
@@ -339,12 +371,11 @@ func bootstrapPolicyValue(data SkeletonRootData) (jen.Code, bool) {
 	}
 
 	if len(data.SkipConfigCheck) > 0 {
-		entries := make([]jen.Code, 0, len(data.SkipConfigCheck))
-		for _, cmd := range data.SkipConfigCheck {
-			entries = append(entries, jen.Lit(cmd))
-		}
+		bootstrapDict[jen.Id("SkipConfigCheck")] = stringSliceLit(data.SkipConfigCheck)
+	}
 
-		bootstrapDict[jen.Id("SkipConfigCheck")] = jen.Index().String().Values(entries...)
+	if len(data.AuxiliaryCommands) > 0 {
+		bootstrapDict[jen.Id("AuxiliaryCommands")] = stringSliceLit(data.AuxiliaryCommands)
 	}
 
 	if len(bootstrapDict) == 0 {
