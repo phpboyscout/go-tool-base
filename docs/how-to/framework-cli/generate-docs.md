@@ -36,7 +36,7 @@ New projects scaffold a [Diátaxis](https://diataxis.fr/)-structured `docs/` tre
 The layout is recorded as `docs_layout: diataxis` in `.gtb/manifest.yaml`. Projects generated before this feature default to the legacy **flat** layout (`docs/commands/`, `docs/packages/`); run `regenerate project --force` to migrate them: it moves existing pages into the quadrant tree (preserving your content), updates the manifest, and removes the old trees.
 
 !!! note "No AI? Still structured"
-    With `--agentless` (or no AI provider configured), `generate docs` writes deterministic boilerplate: a reference-shaped command page (description, usage, flags/subcommands tables, `--help` pointer) or an explanation skeleton for packages, so the docset is coherent without an API call.
+    With `--agentless` (or no AI provider configured), `generate docs` writes deterministic boilerplate: a reference-shaped command page (description, usage, flags/subcommands tables, `--help` pointer) or an explanation skeleton for packages, so the docset is coherent without an API call. The flags table is read from the command's `cmd.go`, the same registrations the binary compiles, so it carries every declared flag with its shorthand (`-C, --repo`) whether or not the manifest lists it; the manifest answers only when the source is not there to read.
 
 ## Core Features
 
