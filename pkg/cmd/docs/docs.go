@@ -20,16 +20,19 @@ import (
 // set, otherwise a generic message — the framework never ships a hardcoded
 // installer for a specific product to downstream tools.
 func missingAssetsHint(tool props.Tool) string {
-	if tool.InstallHint != "" {
-		return tool.InstallHint
+	install := tool.InstallHint
+	if install == "" {
+		name := tool.Name
+		if name == "" {
+			name = "the tool"
+		}
+
+		install = "Reinstall " + name + " using its recommended installation method."
 	}
 
-	name := tool.Name
-	if name == "" {
-		name = "the tool"
-	}
-
-	return "Please reinstall " + name + " using its recommended installation method to get the full release binary."
+	return "This binary has no embedded documentation (assets/docs). A release build embeds it; " +
+		"a build from source with 'go install' or 'go build' does not, and a release built without " +
+		"the docs step ships without it too.\n" + install
 }
 
 // NewCmdDocs creates the docs command with the interactive documentation browser.
@@ -44,16 +47,12 @@ markdown browser.
 
 Use the "ask" subcommand for AI-assisted questions over the docs, or "serve"
 to host them as a static site. Requires a binary built with the embedded
-documentation assets (a plain "go install" build omits them).`,
+documentation assets, which a release build carries and a build from source
+does not.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			efs, err := p.Assets.Exists("assets/docs")
 			if err != nil {
-				return errors.WithHint(
-					errors.Wrap(err, "failed to load documentation assets"),
-					"This command requires pre-built documentation assets.\n"+
-						"It looks like you might have installed using 'go install', which builds from source and lacks these assets.\n"+
-						missingAssetsHint(p.Tool),
-				)
+				return errors.WithHint(errors.Wrap(err, "failed to load documentation assets"), missingAssetsHint(p.Tool))
 			}
 
 			subFS, err := fs.Sub(efs, "assets/docs")

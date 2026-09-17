@@ -211,21 +211,7 @@ func keyGroup(cfg *AIConfig, existing config.Reader, hide func() bool) *huh.Grou
 		huh.NewInput().
 			Key("api-key").
 			TitleFunc(func() string { return fmt.Sprintf("%s API Key", providerLabel(cfg.Provider)) }, &cfg.Provider).
-			DescriptionFunc(func() string {
-				var parts []string
-
-				if current := existing.GetString(providerConfigKey(cfg.Provider)); current != "" {
-					parts = append(parts, fmt.Sprintf("Current key: %s; leave blank to keep it.", maskKey(current)))
-				} else {
-					parts = append(parts, fmt.Sprintf("Enter your %s API key.", providerLabel(cfg.Provider)))
-				}
-
-				if envName := providerEnvVar(cfg.Provider); envName != "" && os.Getenv(envName) != "" {
-					parts = append(parts, fmt.Sprintf("%s is set and takes precedence over the config file until it is unset.", envName))
-				}
-
-				return strings.Join(parts, " ")
-			}, &cfg.Provider).
+			DescriptionFunc(func() string { return keyDescription(cfg.Provider, existing) }, &cfg.Provider).
 			Placeholder("paste new key or press enter to keep existing").
 			EchoMode(huh.EchoModePassword).
 			Value(&cfg.APIKey),
@@ -237,6 +223,26 @@ func providerEnvVar(provider string) string {
 	keys, _ := chat.CredentialKeysFor(gochat.Provider(provider))
 
 	return keys.FallbackEnv
+}
+
+// keyDescription is the key input's help: the masked current key when there
+// is one, and what the provider's well-known variable does when it is set.
+// That variable is the last rung of the credential chain (#73), so a key
+// written here wins over it rather than the other way round.
+func keyDescription(provider string, existing config.Reader) string {
+	var parts []string
+
+	if current := existing.GetString(providerConfigKey(provider)); current != "" {
+		parts = append(parts, fmt.Sprintf("Current key: %s; leave blank to keep it.", maskKey(current)))
+	} else {
+		parts = append(parts, fmt.Sprintf("Enter your %s API key.", providerLabel(provider)))
+	}
+
+	if envName := providerEnvVar(provider); envName != "" && os.Getenv(envName) != "" {
+		parts = append(parts, fmt.Sprintf("%s is set; it is used only when no key is configured here, so a key entered now takes effect once written.", envName))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // maskKey returns a masked version of the key showing only the last 4 characters.

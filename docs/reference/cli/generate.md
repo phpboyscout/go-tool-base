@@ -229,7 +229,7 @@ Generate a new command or subcommand (optionally AI-converted from a script).
 | `--mcp-enabled` | `true` | Expose this command as an MCP tool (tri-state: `--mcp-enabled=false` withholds it from the MCP surface; it stays runnable on the CLI). |
 | `--path, -p` | `.` | Filesystem project root (not a command path). |
 
-All `generate` subcommands also accept these persistent flags (for AI-assisted generation): `--provider` (AI provider: `openai`/`gemini`/`claude`), `--model` (AI model), and `--dry-run` (preview changes without writing files).
+All `generate` subcommands also accept these persistent flags (for AI-assisted generation): `--provider` (any chat provider the `gtb` binary links; `gtb generate --help` lists them, and the list is `chat.ProviderModules()`), `--model` (AI model), and `--dry-run` (preview changes without writing files).
 
 ### `generate add-flag`
 
