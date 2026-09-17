@@ -42,9 +42,9 @@ local data while requesting remote deletion.`,
 	// Subcommands are wrapped with the parent's feature key so every
 	// telemetry command carries the same middleware.
 	telCmd.Register(
-		setup.Wrap(props.TelemetryCmd, newEnableCmd(p)),
-		setup.Wrap(props.TelemetryCmd, newDisableCmd(p)),
-		setup.Wrap(props.TelemetryCmd, newStatusCmd(p)),
+		setup.AnnotateMCP(setup.Wrap(props.TelemetryCmd, newEnableCmd(p)), setup.MCPLocalWrite()),
+		setup.AnnotateMCP(setup.Wrap(props.TelemetryCmd, newDisableCmd(p)), setup.MCPLocalWrite()),
+		setup.AnnotateMCP(setup.Wrap(props.TelemetryCmd, newStatusCmd(p)), setup.MCPReadOnly()),
 		setup.Wrap(props.TelemetryCmd, newResetCmd(p)),
 	)
 

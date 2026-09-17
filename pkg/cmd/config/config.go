@@ -32,14 +32,14 @@ authentication, etc.), use "init <subsystem>" instead.`,
 
 	configCmd := setup.Wrap(p.ConfigCmd, cmd)
 	configCmd.Register(
-		setup.Wrap(p.ConfigCmd, NewCmdGet(props, masker)),
-		setup.Wrap(p.ConfigCmd, NewCmdList(props, masker)),
-		setup.Wrap(p.ConfigCmd, NewCmdSet(props)),
-		setup.Wrap(p.ConfigCmd, NewCmdUnset(props)),
+		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdGet(props, masker)), setup.MCPReadOnly()),
+		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdList(props, masker)), setup.MCPReadOnly()),
+		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdSet(props)), setup.MCPLocalWrite()),
+		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdUnset(props)), setup.MCPLocalWrite()),
 		setup.Wrap(p.ConfigCmd, NewCmdPath(props)),
 		setup.Wrap(p.ConfigCmd, NewCmdEdit(props)),
-		setup.Wrap(p.ConfigCmd, NewCmdValidate(props)),
-		setup.Wrap(p.ConfigCmd, NewCmdMigrate(props)),
+		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdValidate(props)), setup.MCPReadOnly()),
+		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdMigrate(props)), setup.MCPDestructive()),
 		setup.Wrap(p.ConfigCmd, NewCmdTrust(props)),
 	)
 

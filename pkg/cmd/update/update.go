@@ -141,7 +141,7 @@ access.`,
 	updateCmd.Flags().String("from-file", "", "path to a local .tar.gz release archive for offline installation")
 	updateCmd.MarkFlagsMutuallyExclusive("from-file", "version")
 
-	return setup.Wrap(p.UpdateCmd, updateCmd)
+	return setup.AnnotateMCP(setup.Wrap(p.UpdateCmd, updateCmd), setup.MCPOpenWorld())
 }
 
 // UpdateResult contains the outcome of a successful update.

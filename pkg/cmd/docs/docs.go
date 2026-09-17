@@ -75,7 +75,7 @@ does not.`,
 	}
 	cmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use ("+chat.ProviderNames()+")")
 
-	docsCmd := setup.Wrap(props.DocsCmd, cmd)
+	docsCmd := setup.AnnotateMCP(setup.Wrap(props.DocsCmd, cmd), setup.MCPReadOnly())
 	docsCmd.Register(setup.Wrap(props.DocsCmd, NewCmdDocsAsk(p)))
 
 	// Only add serve command if the static site exists

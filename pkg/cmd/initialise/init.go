@@ -72,7 +72,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 	// key honours it, whichever forges are linked (spec 0199 D3).
 	initCmd.Flags().BoolP(setup.SkipKeyFlag, "k", setup.CIDefault(), "skip configuring ssh key")
 
-	wrapped := setup.Wrap(p.InitCmd, initCmd)
+	wrapped := setup.AnnotateMCP(setup.Wrap(p.InitCmd, initCmd), setup.MCPOpenWorld())
 
 	// Dynamic Discovery of Flags
 	registerFeatureFlags(props, initCmd)
@@ -118,7 +118,7 @@ func registerSubcommands(props *p.Props, cmd *setup.Command) {
 		providers, _ := features.ContributionsOf[setup.SubcommandProvider](props.GetFeatures(), d.FeatureID(), setup.SlotSubcommand)
 		for _, provider := range providers {
 			for _, sub := range provider(props) {
-				cmd.Register(setup.Wrap(d.FeatureID(), sub))
+				cmd.Register(setup.AnnotateMCP(setup.Wrap(d.FeatureID(), sub), setup.MCPOpenWorld()))
 			}
 		}
 	}

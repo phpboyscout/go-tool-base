@@ -123,7 +123,7 @@ builds.`,
 		"fail with a non-zero exit when the release source is unreachable (also checks on development builds)")
 
 	// "" feature: version is a generic built-in (no feature-specific middleware).
-	return setup.Wrap("", cmd)
+	return setup.AnnotateMCP(setup.Wrap("", cmd), setup.MCPReadOnly())
 }
 
 // fetchLatestVersion constructs the self-updater and asks the release source

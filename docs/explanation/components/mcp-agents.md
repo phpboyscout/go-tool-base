@@ -133,6 +133,64 @@ See the [generated command exposure
 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating) for the
 full design, and `setup.IsExposedToMCP` / `setup.ExcludeFromMCP` for the API.
 
+## Telling a client what a command does
+
+Exposure says *whether* a command is a tool. MCP's tool annotations say *what
+kind* of tool it is: a display `title` and four behavioural hints,
+`readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint`. A
+client uses them to decide what to surface, what to confirm and what to call
+freely, without reading the description prose. They are hints, not permissions:
+a client may act on them, and nothing in GTB grants access because of one.
+
+### The model
+
+- **Per command, tri-state, no inheritance.** Each hint is `true`, `false` or
+  unset. Unset writes no key, so a client sees only what was actually declared.
+  A hint describes one executable command; a group states nothing about its
+  children, unlike exposure.
+- **Recorded in the manifest, rendered into the code.** The command's manifest
+  entry carries an `mcp_hints` block, and its `cmd.go` carries one
+  `setup.AnnotateMCP(cmd, setup.MCPHints{...})` call after the exposure marker.
+  `regenerate project` and `regenerate manifest` round-trip it in both
+  directions.
+- **Additive.** `setup.AnnotateMCP` adds its keys to `cmd.Annotations` beside
+  GTB's feature and exposure keys; it never replaces the map.
+- **The keys are ophis's spellings.** A tool that set them by hand under ophis
+  keeps working, and the go/mcp Cobra binding reads the same keys after the
+  replacement.
+
+### Built-in defaults
+
+Every command the framework ships declares its own hints, so a tool built on
+GTB gets them without saying anything:
+
+| Commands | read-only | destructive | idempotent | open-world |
+|---|---|---|---|---|
+| `version`, `docs`, `changelog`, `doctor`, `config get`, `config list`, `config validate`, `telemetry status` | true | false | true | false |
+| `config set`, `config unset`, `telemetry enable`, `telemetry disable` | false | false | true | false |
+| `update`, `init` and its subcommands | false | false | false | true |
+| `config migrate-credentials` | false | true | false | false |
+
+The four presets behind that table are `setup.MCPReadOnly()`,
+`setup.MCPLocalWrite()`, `setup.MCPOpenWorld()` and `setup.MCPDestructive()`; a
+hand-written command can apply one the same way:
+
+```go
+setup.AnnotateMCP(setup.Wrap("", cmd), setup.MCPReadOnly())
+```
+
+### Setting them on a generated command
+
+```bash
+gtb annotate report --read-only --title "Spend report"
+gtb annotate generate --open-world --idempotent=false
+gtb annotate generate --clear
+```
+
+See the [annotate reference](../../reference/cli/annotate.md) and
+[spec 0201](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0201-gtb-consumes-go-mcp),
+which answers [issue #36](https://gitlab.com/phpboyscout/go-tool-base/-/issues/36).
+
 ## Common Use Cases
 
 - Integrating your CLI with AI coding assistants (e.g., Cursor, Windsurf).

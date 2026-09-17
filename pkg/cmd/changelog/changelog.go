@@ -60,7 +60,7 @@ By default, shows the full changelog. Use flags to filter by version.`,
 	cmd.Flags().StringVar(&since, "since", "", "Show changes since a version (exclusive)")
 	cmd.Flags().BoolVar(&latest, "latest", false, "Show only the most recent release")
 
-	return setup.Wrap(props.ChangelogCmd, cmd)
+	return setup.AnnotateMCP(setup.Wrap(props.ChangelogCmd, cmd), setup.MCPReadOnly())
 }
 
 // loadChangelog reads CHANGELOG.md from the tool's embedded assets.
