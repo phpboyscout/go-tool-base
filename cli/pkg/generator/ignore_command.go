@@ -85,6 +85,10 @@ func (g *Generator) CheckIgnorePaths(paths []string) []IgnoreCheckResult {
 // against the project-level map alone made a live rule covering a command's
 // cmd.go report as stale while `ignore check` reported the same path ignored
 // (issue #13).
+// unhashedGeneratedFiles are the files the generator writes on every
+// regenerate without recording a hash for them.
+var unhashedGeneratedFiles = []string{"pkg/cmd/root/cmd.go", "pkg/cmd/root/generate.go"}
+
 func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 	manifest, err := g.loadManifest()
 	if err != nil {
@@ -99,9 +103,18 @@ func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 
 	files := manifest.TrackedFiles()
 
-	tracked := make([]string, 0, len(files))
+	tracked := make([]string, 0, len(files)+len(unhashedGeneratedFiles))
 	for path := range files {
 		tracked = append(tracked, path)
+	}
+
+	// Generated without a hash, so absent from TrackedFiles, yet a rule
+	// covering one is live: the root command is the file a project seals
+	// most (#32).
+	for _, path := range unhashedGeneratedFiles {
+		if _, hashed := files[path]; !hashed {
+			tracked = append(tracked, path)
+		}
 	}
 
 	sort.Strings(tracked)

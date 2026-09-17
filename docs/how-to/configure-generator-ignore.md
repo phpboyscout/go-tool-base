@@ -89,6 +89,14 @@ pkg/cmd/deploy/cmd.go sealed
 A sealed path is never rendered, never wired, never created and never deleted.
 Sealing implies ignoring, so one rule is enough.
 
+That includes `pkg/cmd/root/cmd.go`, the file a project most often has to
+edit by hand (a `BootstrapPolicy` the manifest cannot express, say). It
+carries no hash, so it cannot conflict, but a rule still outranks the write:
+sealed, it is left byte for byte and the run counts it as sealed; with a
+plain rule, its wholesale render is skipped while new commands are still
+wired into it, and `gtb ignore list` knows the rule is live rather than stale
+([#32](https://gitlab.com/phpboyscout/go-tool-base/-/issues/32)).
+
 When a sealed file would have been wired, the run says so and names what it
 could not register, then exits 0, you asked for this:
 
