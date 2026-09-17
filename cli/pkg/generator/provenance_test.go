@@ -41,7 +41,7 @@ func TestProvenanceFile_RoundTrip(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/proj"})
 
-	require.NoError(t, g.writeProvenanceFile(&Manifest{Properties: original}))
+	require.NoError(t, g.writeProvenanceFile(g.config.Path, &Manifest{Properties: original}))
 
 	// The emitted file must be a valid, generated, DO-NOT-EDIT Go source file.
 	content, err := afero.ReadFile(fs, provenancePath("/proj"))
@@ -92,13 +92,33 @@ func TestProvenanceFile_ExternalCommandsRoundTrip(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/proj"})
 
-	require.NoError(t, g.writeProvenanceFile(&Manifest{Properties: original}))
+	require.NoError(t, g.writeProvenanceFile(g.config.Path, &Manifest{Properties: original}))
 
 	var recovered ManifestProperties
 	g.applyProvenanceFile(&recovered)
 
 	assert.Equal(t, original.ExternalCommands, recovered.ExternalCommands)
 	assert.True(t, recovered.ExternalCommandsAdapter)
+}
+
+// TestProvenanceFile_FollowsTheManifestPath is the regression for a stray
+// pkg/cmd/root/provenance.go committed into this package: the skeleton wrote
+// its manifest at the skeleton's path and the provenance at the generator's,
+// which is the working directory when nothing set it.
+func TestProvenanceFile_FollowsTheManifestPath(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{})
+
+	m := &Manifest{Properties: ManifestProperties{Signing: ManifestSigning{Enabled: true, KeyID: "alias/k"}}}
+	require.NoError(t, g.marshalManifestFile(ManifestPathFor("/elsewhere"), m))
+
+	exists, _ := afero.Exists(fs, provenancePath("/elsewhere"))
+	assert.True(t, exists, "provenance belongs beside the manifest it records")
+
+	stray, _ := afero.Exists(fs, provenancePath(""))
+	assert.False(t, stray, "nothing may land in the working directory")
 }
 
 // TestProvenanceFile_RemovedWhenEmpty verifies a project with no recordable
@@ -112,7 +132,7 @@ func TestProvenanceFile_RemovedWhenEmpty(t *testing.T) {
 	// Pre-seed a stale provenance file.
 	require.NoError(t, afero.WriteFile(fs, provenancePath("/proj"), []byte("// stale\npackage root\n"), 0o644))
 
-	require.NoError(t, g.writeProvenanceFile(&Manifest{Properties: ManifestProperties{}}))
+	require.NoError(t, g.writeProvenanceFile(g.config.Path, &Manifest{Properties: ManifestProperties{}}))
 
 	exists, _ := afero.Exists(fs, provenancePath("/proj"))
 	assert.False(t, exists, "empty provenance must remove any stale file")

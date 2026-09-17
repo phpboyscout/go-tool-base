@@ -101,11 +101,13 @@ func (g *Generator) applyProvenanceFile(props *ManifestProperties) {
 	}
 }
 
-// writeProvenanceFile emits the provenance file when there is something to record
-// and removes it otherwise, keeping generate and regenerate in sync. It is a
-// no-op unless something is recorded / already present.
-func (g *Generator) writeProvenanceFile(m *Manifest) error {
-	path := provenancePath(g.config.Path)
+// writeProvenanceFile emits the provenance file for the project at projectPath
+// when there is something to record and removes it otherwise, keeping generate
+// and regenerate in sync. The path is the manifest's project, not the
+// generator's configured one: the skeleton writes to its own SkeletonConfig
+// path, and the two differ whenever the generator was built without one.
+func (g *Generator) writeProvenanceFile(projectPath string, m *Manifest) error {
+	path := provenancePath(projectPath)
 
 	content, ok := renderProvenanceFile(m)
 	if !ok {

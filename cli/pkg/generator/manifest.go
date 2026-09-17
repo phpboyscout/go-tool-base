@@ -106,7 +106,12 @@ func (g *Generator) marshalManifestFile(manifestPath string, m *Manifest) error 
 		return err
 	}
 
-	return g.writeProvenanceFile(m)
+	return g.writeProvenanceFile(projectPathOf(manifestPath), m)
+}
+
+// projectPathOf inverts ManifestPathFor.
+func projectPathOf(manifestPath string) string {
+	return filepath.Dir(filepath.Dir(manifestPath))
 }
 
 func (g *Generator) loadManifest() (*Manifest, error) {

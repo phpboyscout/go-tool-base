@@ -160,7 +160,7 @@ func TestProvenance_LocalLocationWithSpace(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/proj"})
 
-	require.NoError(t, g.writeProvenanceFile(&Manifest{Properties: original}))
+	require.NoError(t, g.writeProvenanceFile(g.config.Path, &Manifest{Properties: original}))
 
 	var recovered ManifestProperties
 	g.applyProvenanceFile(&recovered)
