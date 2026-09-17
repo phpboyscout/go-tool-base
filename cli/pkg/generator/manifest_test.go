@@ -15,6 +15,8 @@ import (
 )
 
 func TestVerifyProjectVersion(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{
@@ -59,6 +61,8 @@ func TestVerifyProjectVersion(t *testing.T) {
 }
 
 func TestManifest_MarshalYAML(t *testing.T) {
+	t.Parallel()
+
 	t.Run("ManifestCommand with warning", func(t *testing.T) {
 		cmd := ManifestCommand{
 			Name:    "warn-cmd",
@@ -129,6 +133,8 @@ func TestRemoveFromManifest_Success(t *testing.T) {
 }
 
 func TestRemoveFromManifest_Missing(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{FS: fs, Logger: l, Version: version.NewInfo("v1.0.0", "", "")}
@@ -148,4 +154,19 @@ func TestRemoveFromManifest_Missing(t *testing.T) {
 	err := g.removeFromManifest()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in manifest")
+}
+
+// TestCheckManifestVersion_DevManifestMessage is the 2.4.4 guard: a `gtb: dev`
+// manifest is refused with a message naming the dev-build condition, not the
+// misleading "your gtb is older than the manifest" wording.
+func TestCheckManifestVersion_DevManifestMessage(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{Logger: logger.NewNoop(), Version: version.NewInfo("v1.2.3", "", "")}
+	g := New(p, &Config{Path: "/proj"})
+
+	err := g.checkManifestVersion(&Manifest{Version: ManifestVersion{GoToolBase: "dev"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "development build")
+	assert.NotContains(t, err.Error(), "lower than")
 }

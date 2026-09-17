@@ -104,6 +104,8 @@ func generateAndReadGoreleaser(t *testing.T, signing ManifestSigning) string {
 // carries a complete, direct (shim-free) gtb sign invocation for the aws-kms
 // backend, with the concrete manifest values.
 func TestGenerateSkeleton_SignsBlock_AWSKMS(t *testing.T) {
+	t.Parallel()
+
 	out := generateAndReadGoreleaser(t, ApplySigningDefaults(ManifestSigning{
 		Enabled: true,
 		KeyID:   "alias/acme-release-signing-v1",
@@ -125,6 +127,8 @@ func TestGenerateSkeleton_SignsBlock_AWSKMS(t *testing.T) {
 // signing without a key id (the N+1 rollout step) leaves the release config
 // untouched — verify half on, produce half off.
 func TestGenerateSkeleton_SignsBlock_OmittedWithoutKeyID(t *testing.T) {
+	t.Parallel()
+
 	out := generateAndReadGoreleaser(t, ManifestSigning{
 		Enabled:          true,
 		ExternalKeyEmail: "release@example.test",
@@ -136,6 +140,8 @@ func TestGenerateSkeleton_SignsBlock_OmittedWithoutKeyID(t *testing.T) {
 // TestGenerateSkeleton_SignsBlock_LocalBackendNoRegion asserts the backend is
 // dynamic: the local backend emits its key id but no aws-kms-only --kms-region.
 func TestGenerateSkeleton_SignsBlock_LocalBackendNoRegion(t *testing.T) {
+	t.Parallel()
+
 	out := generateAndReadGoreleaser(t, ApplySigningDefaults(ManifestSigning{
 		Enabled: true,
 		Backend: "local",
@@ -151,6 +157,8 @@ func TestGenerateSkeleton_SignsBlock_LocalBackendNoRegion(t *testing.T) {
 // TestGenerateSkeleton_SignsBlock_DisabledNoBlock asserts the default
 // (disabled) posture renders no signs block at all.
 func TestGenerateSkeleton_SignsBlock_DisabledNoBlock(t *testing.T) {
+	t.Parallel()
+
 	out := generateAndReadGoreleaser(t, ManifestSigning{})
 
 	assert.NotContains(t, out, "signs:")
@@ -162,6 +170,8 @@ func TestGenerateSkeleton_SignsBlock_DisabledNoBlock(t *testing.T) {
 // escapeYAML pipe keeps it inside a double-quoted scalar so the GoReleaser
 // signs block cannot be broken out of.
 func TestGenerateSkeleton_SignsBlock_EscapesHostileValues(t *testing.T) {
+	t.Parallel()
+
 	out := generateAndReadGoreleaser(t, ManifestSigning{
 		Enabled:   true,
 		Backend:   "aws-kms",

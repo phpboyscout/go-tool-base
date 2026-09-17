@@ -29,6 +29,8 @@ import (
 // compiles end-to-end. A `replace` directive points go-tool-base at the
 // local checkout so the test passes against the module under development.
 func TestGeneratedProjectCompiles(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {
@@ -160,6 +162,8 @@ func injectGoToolBaseReplace(t *testing.T, projectPath, localGoToolBase string) 
 // generator scenarios do not build), which is how the default project shipped
 // unable to update itself.
 func TestGeneratedDefaultProjectCanCheckForUpdates(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {
@@ -217,6 +221,8 @@ func TestGeneratedDefaultProjectCanCheckForUpdates(t *testing.T) {
 // path per bundle and silently skips a bundle that lacks it, so a bundle at
 // the wrong path would pass every file-level assertion and change nothing.
 func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {
@@ -301,6 +307,8 @@ func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
 // types, and the built tool runs. A text assertion on cmd.go cannot tell a
 // field on the wrong struct from the right one; the compiler can.
 func TestGeneratedProjectWithPostureBuilds(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {

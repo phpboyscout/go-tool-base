@@ -1229,6 +1229,8 @@ func TestEnableThenDisableSigning_MemFS(t *testing.T) {
 }
 
 func TestEnableSigning_InvalidKeyIDRejected(t *testing.T) {
+	t.Parallel()
+
 	g, _ := newSigningProject(t)
 
 	// An invalid key id fails validateManifestSigning before any write.

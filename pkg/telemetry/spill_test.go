@@ -6,8 +6,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -273,5 +276,188 @@ func TestCollector_DeliveryAtMostOnce(t *testing.T) {
 	// Events should still have been sent
 	if spy.sendCount != 1 {
 		t.Errorf("expected 1 send, got %d", spy.sendCount)
+	}
+}
+
+func TestSplitSpillData_ChunksOversizedBuffer(t *testing.T) {
+	t.Parallel()
+
+	// Five ~300KiB events ≈ 1.5MiB > 1MiB cap → must split into >1 chunk.
+	events := []Event{
+		bigEvent("a"), bigEvent("b"), bigEvent("c"), bigEvent("d"), bigEvent("e"),
+	}
+
+	full, err := json.Marshal(events)
+	require.NoError(t, err)
+	require.Greater(t, len(full), maxSpillFileSize)
+
+	chunks := splitSpillData(events, full)
+	require.Greater(t, len(chunks), 1, "oversized buffer must split into multiple chunks")
+
+	// Every chunk must round-trip; together they must recover all events.
+	var recovered int
+
+	for _, ch := range chunks {
+		var batch []Event
+		require.NoError(t, json.Unmarshal(ch, &batch))
+
+		recovered += len(batch)
+	}
+
+	if recovered != len(events) {
+		t.Errorf("recovered %d events across chunks, want %d", recovered, len(events))
+	}
+}
+
+// TestSplitSpillData_SingleOversizedEvent drives the flushBatch single-event
+// branch: one event already exceeds the cap and must be emitted as a lone chunk.
+func TestSplitSpillData_SingleOversizedEvent(t *testing.T) {
+	t.Parallel()
+
+	giant := Event{
+		Type:     telemetrytypes.EventCommandInvocation,
+		Name:     "giant",
+		Metadata: map[string]string{"blob": strings.Repeat("y", maxSpillFileSize*2)},
+	}
+	events := []Event{giant}
+
+	full, err := json.Marshal(events)
+	require.NoError(t, err)
+	require.Greater(t, len(full), maxSpillFileSize)
+
+	chunks := splitSpillData(events, full)
+	require.NotEmpty(t, chunks)
+
+	var batch []Event
+	require.NoError(t, json.Unmarshal(chunks[0], &batch))
+	require.Len(t, batch, 1)
+}
+
+// TestSpillToDisk_SplitsAcrossFiles drives the spillToDisk → splitSpillData →
+// multi-file write path end to end through record(), then verifies all events
+// are recoverable across the produced spill files.
+func TestSpillToDisk_SplitsAcrossFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
+	names := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
+	c.maxBuffer = len(names)
+
+	// Eight big events (~2.4MiB) fill the buffer and trigger a spill whose
+	// serialised form exceeds the per-file cap, so multiple files are written.
+	// record() replaces evt.Metadata with the merged extra map, so the large
+	// payload is supplied via the extra argument (spaces keep it un-redacted).
+	blob := map[string]string{"blob": strings.Repeat("x y ", 75*1024)}
+	for _, n := range names {
+		c.record(Event{Type: telemetrytypes.EventCommandInvocation, Name: n}, blob)
+	}
+
+	files, _ := filepath.Glob(filepath.Join(dir, spillPattern))
+	require.GreaterOrEqual(t, len(files), 2, "expected the oversized spill to span multiple files")
+
+	var total int
+
+	for _, f := range files {
+		data, readErr := os.ReadFile(f)
+		require.NoError(t, readErr)
+
+		var evts []Event
+		require.NoError(t, json.Unmarshal(data, &evts))
+
+		total += len(evts)
+	}
+
+	if total != len(names) {
+		t.Errorf("recovered %d events across spill files, want %d", total, len(names))
+	}
+}
+
+func TestFlushSpillFiles_RemovesCorruptFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// A spill file with invalid JSON must be removed, not retried forever.
+	bad := filepath.Join(dir, "telemetry-spill-1.json")
+	require.NoError(t, os.WriteFile(bad, []byte("{not json"), 0o600))
+
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
+
+	require.NoError(t, c.flushSpillFiles(context.Background()))
+
+	if _, err := os.Stat(bad); !os.IsNotExist(err) {
+		t.Error("corrupt spill file should have been removed")
+	}
+
+	spy.mu.Lock()
+	sent := spy.sendCount
+	spy.mu.Unlock()
+
+	if sent != 0 {
+		t.Errorf("corrupt file should not produce a send, got %d", sent)
+	}
+}
+
+// TestFlushSpillFiles_SendErrorRetainsFile proves an at-least-once spill file is
+// kept when the backend send fails, so a later flush retries it.
+func TestFlushSpillFiles_SendErrorRetainsFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	events := []Event{{Type: telemetrytypes.EventCommandInvocation, Name: "spilled"}}
+	data, err := json.Marshal(events)
+	require.NoError(t, err)
+
+	good := filepath.Join(dir, "telemetry-spill-1.json")
+	require.NoError(t, os.WriteFile(good, data, 0o600))
+
+	spy := &spyBackend{sendErr: errBackend}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
+
+	require.NoError(t, c.flushSpillFiles(context.Background()))
+
+	if _, statErr := os.Stat(good); statErr != nil {
+		t.Error("at-least-once spill file must be retained when the send fails")
+	}
+}
+
+// TestDeleteSpillFiles_NoDataDir covers the early return when no data dir is set.
+func TestDeleteSpillFiles_NoDataDir(t *testing.T) {
+	t.Parallel()
+
+	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
+
+	if err := c.deleteSpillFiles(); err != nil {
+		t.Errorf("deleteSpillFiles with no data dir = %v, want nil", err)
+	}
+}
+
+// TestRemoveSpillFile_MissingIsNoError proves removing a non-existent spill file
+// is tolerated (os.ErrNotExist), exercising the not-exist branch.
+func TestRemoveSpillFile_MissingIsNoError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
+
+	c.removeSpillFile(filepath.Join(dir, "telemetry-spill-does-not-exist.json"))
+}
+
+// bigEvent returns an event whose JSON encoding is large enough that a handful
+// of them exceed maxSpillFileSize, forcing splitSpillData to chunk. The blob
+// contains spaces so redact.String's long-opaque-token collapse does not shrink
+// it when the event flows through record() → mergeMetadata().
+func bigEvent(name string) Event {
+	return Event{
+		Type:     telemetrytypes.EventCommandInvocation,
+		Name:     name,
+		Metadata: map[string]string{"blob": strings.Repeat("x y ", 75*1024)},
 	}
 }

@@ -1,6 +1,6 @@
 package generator
 
-// Regression coverage for GitLab issue #13 — `regenerate project` could not
+// Regenerate conflicts (#13): `regenerate project` could not
 // complete on a project containing any hand-modified command file, and neither
 // documented escape hatch worked. Implements spec 0187's testing section.
 //
@@ -86,7 +86,7 @@ func alphaRecordedHash(t *testing.T, fs afero.Fs) string {
 
 // D2 — declining one file must not abort the run, and D3 — the declined file's
 // stored hash must survive so it still conflicts next time.
-func TestIssue13_DeclinedFileSkipsAndRunContinues(t *testing.T) {
+func TestRegenerateConflicts_DeclinedFileSkipsAndRunContinues(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, fs, _ := newIssue13Project(t, "ask", "")
@@ -107,7 +107,7 @@ func TestIssue13_DeclinedFileSkipsAndRunContinues(t *testing.T) {
 
 // D5 — --overwrite allow must reach the command path, not be reset to "ask" by
 // the per-command config swap.
-func TestIssue13_OverwriteAllowReachesCommandFiles(t *testing.T) {
+func TestRegenerateConflicts_OverwriteAllowReachesCommandFiles(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, fs, _ := newIssue13Project(t, "allow", "")
@@ -125,7 +125,9 @@ func TestIssue13_OverwriteAllowReachesCommandFiles(t *testing.T) {
 
 // D5 — --overwrite deny is honoured as a deliberate keep rather than reaching
 // the prompt, and still does not abort.
-func TestIssue13_OverwriteDenyKeepsAndContinues(t *testing.T) {
+func TestRegenerateConflicts_OverwriteDenyKeepsAndContinues(t *testing.T) {
+	t.Parallel()
+
 	g, fs, _ := newIssue13Project(t, "deny", "")
 
 	require.NoError(t, g.RegenerateProject(context.Background()))
@@ -145,7 +147,7 @@ func TestIssue13_OverwriteDenyKeepsAndContinues(t *testing.T) {
 // what let `ignore add` → `ignore remove` destroy an edit silently. The stored
 // hash is now preserved, and TestSealed_IgnoringAPathDoesNotAdoptItsContentAsTheBaseline
 // guards it.
-func TestIssue13_IgnoreRuleGatesCommandFiles(t *testing.T) {
+func TestRegenerateConflicts_IgnoreRuleGatesCommandFiles(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, fs, buf := newIssue13Project(t, "ask", "pkg/cmd/alpha/cmd.go\n")
@@ -168,7 +170,7 @@ func TestIssue13_IgnoreRuleGatesCommandFiles(t *testing.T) {
 
 // D4 — .gtb/ignore outranks --force and --overwrite allow, matching the
 // precedence signing_goreleaser.go already states.
-func TestIssue13_IgnoreOutranksForceAndOverwriteAllow(t *testing.T) {
+func TestRegenerateConflicts_IgnoreOutranksForceAndOverwriteAllow(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	for _, tc := range []struct {
@@ -196,7 +198,7 @@ func TestIssue13_IgnoreOutranksForceAndOverwriteAllow(t *testing.T) {
 // D6 — the hint emitted for a conflicting command file must name a path that a
 // rule written from it actually matches. It used to print the absolute path,
 // which matchesRule can never match, so following the tool's own advice failed.
-func TestIssue13_ConflictHintNamesAMatchablePath(t *testing.T) {
+func TestRegenerateConflicts_ConflictHintNamesAMatchablePath(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, fs, buf := newIssue13Project(t, "ask", "")
@@ -259,7 +261,7 @@ func hintedIgnorePattern(t *testing.T, buf logBuffer) string {
 }
 
 // D8 — the run ends with a summary naming what it kept, with a working remedy.
-func TestIssue13_SummaryNamesKeptFilesAndRemedy(t *testing.T) {
+func TestRegenerateConflicts_SummaryNamesKeptFilesAndRemedy(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, _, buf := newIssue13Project(t, "ask", "")
@@ -276,7 +278,7 @@ func TestIssue13_SummaryNamesKeptFilesAndRemedy(t *testing.T) {
 }
 
 // D8 — ignored files are counted, not listed as skips.
-func TestIssue13_SummaryCountsIgnoredSeparatelyFromKept(t *testing.T) {
+func TestRegenerateConflicts_SummaryCountsIgnoredSeparatelyFromKept(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, _, buf := newIssue13Project(t, "ask", "pkg/cmd/alpha/cmd.go\n")
@@ -292,7 +294,7 @@ func TestIssue13_SummaryCountsIgnoredSeparatelyFromKept(t *testing.T) {
 // D12 — on the ordinary path a kept parent is not left broken: the child's own
 // registration step patches the kept file, so the check reports nothing. This
 // pins the behaviour the check must not contradict.
-func TestIssue13_KeptParentIsRepairedByChildRegistration(t *testing.T) {
+func TestRegenerateConflicts_KeptParentIsRepairedByChildRegistration(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	manifest := "properties:\n  name: mytool\nversion:\n  gtb: v1.0.0\ncommands:\n" +
@@ -318,7 +320,9 @@ func TestIssue13_KeptParentIsRepairedByChildRegistration(t *testing.T) {
 
 // D12 — when the kept parent genuinely does not register a manifest child, the
 // summary names the subcommand rather than leaving it to the compiler.
-func TestIssue13_UnregisteredChildIsNamedInSummary(t *testing.T) {
+func TestRegenerateConflicts_UnregisteredChildIsNamedInSummary(t *testing.T) {
+	t.Parallel()
+
 	g, fs, buf := newPerimeterTestProject(t, issue13Manifest)
 
 	require.NoError(t, fs.MkdirAll("/work/pkg/cmd/alpha", 0o755))
@@ -340,7 +344,9 @@ func TestIssue13_UnregisteredChildIsNamedInSummary(t *testing.T) {
 
 // D10 — both hash namespaces are one tracked-file view, so `ignore list` stops
 // calling a live rule stale and `doctor` can see a diverged command file.
-func TestIssue13_TrackedFilesSpansBothHashNamespaces(t *testing.T) {
+func TestRegenerateConflicts_TrackedFilesSpansBothHashNamespaces(t *testing.T) {
+	t.Parallel()
+
 	g, _, _ := newIssue13Project(t, "ask", "pkg/cmd/alpha/cmd.go\n")
 
 	listing, err := g.ListIgnoreRules()
@@ -355,7 +361,9 @@ func TestIssue13_TrackedFilesSpansBothHashNamespaces(t *testing.T) {
 	assert.True(t, checked[0].Ignored, "ignore check and ignore list must agree")
 }
 
-func TestIssue13_DivergedUnignoredSeesCommandFiles(t *testing.T) {
+func TestRegenerateConflicts_DivergedUnignoredSeesCommandFiles(t *testing.T) {
+	t.Parallel()
+
 	g, _, _ := newIssue13Project(t, "ask", "")
 
 	diverged, err := g.DivergedUnignoredFiles()
@@ -365,7 +373,9 @@ func TestIssue13_DivergedUnignoredSeesCommandFiles(t *testing.T) {
 		"doctor must see the command files that will block a regenerate")
 }
 
-func TestIssue13_DivergedUnignoredExcludesIgnoredCommandFiles(t *testing.T) {
+func TestRegenerateConflicts_DivergedUnignoredExcludesIgnoredCommandFiles(t *testing.T) {
+	t.Parallel()
+
 	g, _, _ := newIssue13Project(t, "ask", "pkg/cmd/alpha/cmd.go\n")
 
 	diverged, err := g.DivergedUnignoredFiles()
@@ -378,7 +388,7 @@ func TestIssue13_DivergedUnignoredExcludesIgnoredCommandFiles(t *testing.T) {
 // D7 — the --ci flag / `ci` config key implies non-interactive, as it does
 // everywhere else in the toolchain. Reading only the CI environment variable
 // meant --ci in a terminal still prompted.
-func TestIssue13_CIConfigKeyImpliesNonInteractive(t *testing.T) {
+func TestRegenerateConflicts_CIConfigKeyImpliesNonInteractive(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "")
 	t.Setenv("CI", "")
 
@@ -392,7 +402,7 @@ func TestIssue13_CIConfigKeyImpliesNonInteractive(t *testing.T) {
 }
 
 // D11 — a dry run must not log a manifest write it does not perform.
-func TestIssue13_DryRunDoesNotClaimAManifestWrite(t *testing.T) {
+func TestRegenerateConflicts_DryRunDoesNotClaimAManifestWrite(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	g, _, buf := newIssue13Project(t, "ask", "")
@@ -409,7 +419,7 @@ func TestIssue13_DryRunDoesNotClaimAManifestWrite(t *testing.T) {
 // `refreshProjectFileHashes` the manifest's whole skeleton map, not just this
 // run's writes, so without an explicit exclusion a kept file's divergence is
 // forgotten and the next run overwrites it without asking.
-func TestIssue13_KeptSkeletonFileKeepsItsStoredHashAfterPostProcessing(t *testing.T) {
+func TestRegenerateConflicts_KeptSkeletonFileKeepsItsStoredHashAfterPostProcessing(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newPerimeterTestProject(t, issue13Manifest)
@@ -436,7 +446,7 @@ func TestIssue13_KeptSkeletonFileKeepsItsStoredHashAfterPostProcessing(t *testin
 // An ignore rule must gate the per-command documentation pages, not just the
 // commands index. A project ignoring docs/** had a full docs tree written into
 // it regardless; the abort simply hid it on a drifted project.
-func TestIssue13_IgnoredDocsAreNotWritten(t *testing.T) {
+func TestRegenerateConflicts_IgnoredDocsAreNotWritten(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newIssue13Project(t, "ask", "docs/**\n")
@@ -447,7 +457,7 @@ func TestIssue13_IgnoredDocsAreNotWritten(t *testing.T) {
 	assert.False(t, exists, "an ignored documentation path must not be written")
 }
 
-func TestIssue13_UnignoredDocsAreStillWritten(t *testing.T) {
+func TestRegenerateConflicts_UnignoredDocsAreStillWritten(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newIssue13Project(t, "ask", "docs/reference/**\n")
@@ -462,7 +472,7 @@ func TestIssue13_UnignoredDocsAreStillWritten(t *testing.T) {
 // through writeDocFile, and it is the path that actually runs whenever
 // GenerateDocs errors — on keryx, for every one of 67 commands. It needs the
 // ignore check of its own.
-func TestIssue13_LegacyDocsFallbackHonoursIgnore(t *testing.T) {
+func TestRegenerateConflicts_LegacyDocsFallbackHonoursIgnore(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newIssue13Project(t, "ask", "docs/**\n")
@@ -474,7 +484,7 @@ func TestIssue13_LegacyDocsFallbackHonoursIgnore(t *testing.T) {
 	assert.False(t, exists, "the legacy docs fallback must honour .gtb/ignore too")
 }
 
-func TestIssue13_LegacyDocsFallbackWritesWhenNotIgnored(t *testing.T) {
+func TestRegenerateConflicts_LegacyDocsFallbackWritesWhenNotIgnored(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newIssue13Project(t, "ask", "")
@@ -488,7 +498,7 @@ func TestIssue13_LegacyDocsFallbackWritesWhenNotIgnored(t *testing.T) {
 
 // Skeleton files are skipped before their template renders, so they never reach
 // the shared resolver. They must still be counted in the run summary.
-func TestIssue13_PreRenderSkeletonSkipsAreCounted(t *testing.T) {
+func TestRegenerateConflicts_PreRenderSkeletonSkipsAreCounted(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newIssue13Project(t, "ask", "justfile\n")
@@ -506,7 +516,7 @@ func TestIssue13_PreRenderSkeletonSkipsAreCounted(t *testing.T) {
 // the generator owns — manufacturing exactly the drift 0187 exists to recover
 // from. Caught by CI, where no AI provider is configured so the boilerplate
 // docs path (which updates the index) actually runs.
-func TestIssue13_CommandsIndexHashIsPersisted(t *testing.T) {
+func TestRegenerateConflicts_CommandsIndexHashIsPersisted(t *testing.T) {
 	t.Parallel()
 
 	g, fs, _ := newIssue13Project(t, "ask", "")

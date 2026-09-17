@@ -8,13 +8,13 @@ package generator
 // These were written as an independent diagnosis of the report against the
 // CURRENT main tree (post generator-followups). They split into:
 //
-//   - A GREEN guard (TestIssue6_DocPostProcessing_PreservesHandEditedIndexPages)
+//   - A GREEN guard (TestDocsConflict_DocPostProcessing_PreservesHandEditedIndexPages)
 //     proving the PRIMARY report — how-to / concepts index pages reverted by the
 //     generate subcommands' documentation post-processing — no longer reproduces:
 //     the doc step only rewrites the manifest-derived CLI index, leaving the
 //     skeleton-owned index pages untouched.
 //
-//   - Two RED tests (TestIssue6_CommandsIndex_* and TestIssue6_ConflictPrompt_*)
+//   - Two RED tests (TestDocsConflict_CommandsIndex_* and TestDocsConflict_ConflictPrompt_*)
 //     capturing the behaviour that IS still present on main. They are expected to
 //     FAIL until the fix lands and MUST NOT be merged to a green branch.
 
@@ -68,12 +68,12 @@ func newIssue6Generator(t *testing.T, manifestYAML string) (*Generator, logCaptu
 	return g, buf, root
 }
 
-// TestIssue6_DocPostProcessing_PreservesHandEditedIndexPages is the GREEN guard
+// TestDocsConflict_DocPostProcessing_PreservesHandEditedIndexPages is the GREEN guard
 // for the primary report. The doc post-processing the generate subcommands run
 // (generateCommandsIndex) must not touch the skeleton-owned Diátaxis index pages
 // (docs/how-to/index.md, docs/explanation/concepts/index.md). A hand-added entry
 // in each must survive. This passes on current main and locks in the fix.
-func TestIssue6_DocPostProcessing_PreservesHandEditedIndexPages(t *testing.T) {
+func TestDocsConflict_DocPostProcessing_PreservesHandEditedIndexPages(t *testing.T) {
 	t.Parallel()
 
 	g, _, root := newIssue6Generator(t, diataxisManifest)
@@ -103,7 +103,7 @@ func TestIssue6_DocPostProcessing_PreservesHandEditedIndexPages(t *testing.T) {
 		"docs/explanation/concepts/index.md must survive the generate subcommands' doc post-processing (issue #6 primary report)")
 }
 
-// TestIssue6_CommandsIndex_ClobbersHandEditedIndex is a RED test for the ONE
+// TestDocsConflict_CommandsIndex_ClobbersHandEditedIndex is a RED test for the ONE
 // docs file the generate subcommands still rewrite destructively: the
 // manifest-derived CLI index (docs/reference/cli/index.md). generateCommandsIndex
 // performs an unconditional afero.WriteFile with no hash-conflict check and no
@@ -111,7 +111,7 @@ func TestIssue6_DocPostProcessing_PreservesHandEditedIndexPages(t *testing.T) {
 // residual, narrower instance of the issue #6 complaint about index-page
 // rewriting. Expected to FAIL on main until the index writer preserves or merges
 // manual content (see spec §4).
-func TestIssue6_CommandsIndex_ClobbersHandEditedIndex(t *testing.T) {
+func TestDocsConflict_CommandsIndex_ClobbersHandEditedIndex(t *testing.T) {
 	t.Parallel()
 
 	g, _, root := newIssue6Generator(t, diataxisManifest)
@@ -131,7 +131,7 @@ func TestIssue6_CommandsIndex_ClobbersHandEditedIndex(t *testing.T) {
 		"the CLI index writer must not silently discard hand-added content (issue #6 index-page sub-case)")
 }
 
-// TestIssue6_ConflictPrompt_NonInteractiveEmitsTTYNoise is the RED test for the
+// TestDocsConflict_ConflictPrompt_NonInteractiveEmitsTTYNoise is the RED test for the
 // SECOND bug. When a conflict is detected in a non-interactive environment
 // (no controlling terminal, GTB_NON_INTERACTIVE unset), the conflict resolver
 // invokes huh/bubbletea unconditionally. In a headless/CI environment the
@@ -145,7 +145,7 @@ func TestIssue6_CommandsIndex_ClobbersHandEditedIndex(t *testing.T) {
 // environments: headless -> "Prompt failed" is logged; TTY -> the call blocks and
 // the timeout fires. It goes GREEN only once the resolver short-circuits before
 // touching the terminal. Expected to FAIL on main.
-func TestIssue6_ConflictPrompt_NonInteractiveEmitsTTYNoise(t *testing.T) {
+func TestDocsConflict_ConflictPrompt_NonInteractiveEmitsTTYNoise(t *testing.T) {
 	// Not parallel: mutates GTB_NON_INTERACTIVE via t.Setenv.
 	t.Setenv("GTB_NON_INTERACTIVE", "") // explicitly NOT "true": force the ask path
 

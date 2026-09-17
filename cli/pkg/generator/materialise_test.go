@@ -195,3 +195,39 @@ func TestWithStagedFS_RestoresPropsFSAfterPanic(t *testing.T) {
 
 	assert.Same(t, base, p.FS, "Props.FS is the base again after the panic")
 }
+
+// TestStagedFS_MoveAndDeleteMaterialise covers the staged-overlay move/delete
+// semantics the atomic regenerate (2.2.1) relies on: a base-only file can be
+// renamed (the flat->Diátaxis docs migration) and removed (dropping signing.go)
+// through the buffer without EPERM, and materialise commits both to base.
+func TestStagedFS_MoveAndDeleteMaterialise(t *testing.T) {
+	t.Parallel()
+
+	base := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(base, "/p/docs/commands/foo/index.md", []byte("# foo\n"), 0o644))
+	require.NoError(t, afero.WriteFile(base, "/p/pkg/cmd/root/signing.go", []byte("package root\n"), 0o644))
+
+	s := newStagedFS(base)
+
+	// Rename a base-only file (CoW would EPERM).
+	require.NoError(t, s.Rename("/p/docs/commands/foo/index.md", "/p/docs/reference/cli/foo.md"))
+	// Remove a base-only file (CoW would EPERM).
+	require.NoError(t, s.Remove("/p/pkg/cmd/root/signing.go"))
+	// A fresh write.
+	require.NoError(t, afero.WriteFile(s, "/p/new.txt", []byte("new\n"), 0o644))
+
+	// Base is untouched until materialise.
+	moved, _ := afero.Exists(base, "/p/docs/reference/cli/foo.md")
+	assert.False(t, moved, "base must not change before materialise")
+
+	require.NoError(t, s.materialise())
+
+	moved, _ = afero.Exists(base, "/p/docs/reference/cli/foo.md")
+	assert.True(t, moved, "renamed file must land at the destination")
+	old, _ := afero.Exists(base, "/p/docs/commands/foo/index.md")
+	assert.False(t, old, "renamed file's source must be gone")
+	sig, _ := afero.Exists(base, "/p/pkg/cmd/root/signing.go")
+	assert.False(t, sig, "removed file must be gone")
+	nw, _ := afero.Exists(base, "/p/new.txt")
+	assert.True(t, nw, "fresh write must be committed")
+}

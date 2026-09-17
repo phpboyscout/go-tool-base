@@ -211,3 +211,26 @@ func TestInitialise_RunsWizardsWhenInteractive(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, rec.calls, "an unconfigured initialiser must run in an interactive terminal")
 }
+
+func TestInitialise_Basic(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	homeDir := "/home/testuser"
+	t.Setenv("HOME", homeDir)
+
+	p := &props.Props{
+		FS:     fs,
+		Logger: logger.NewNoop(),
+		Tool:   props.Tool{Name: "testtool"},
+	}
+
+	targetDir := "/home/testuser/.testtool"
+
+	configPath, err := Initialise(t.Context(), p, InitOptions{
+		Dir: targetDir,
+	})
+	require.NoError(t, err)
+
+	assert.Contains(t, configPath, "config.yaml")
+	exists, _ := afero.Exists(fs, configPath)
+	assert.True(t, exists)
+}

@@ -16,6 +16,8 @@ import (
 // releases did (#39). The e2e binary embeds its own fixture and cannot see
 // this; the gitignored assets are absent on a plain checkout, so it is gated.
 func TestEmbeddedAssetsArePresent(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "assets")
 
 	paths := []string{"assets/CHANGELOG.md", "assets/docs/index.md"}

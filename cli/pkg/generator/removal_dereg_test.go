@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"go/parser"
 	"go/token"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -20,6 +22,8 @@ import (
 // variadic gtbRoot.NewCmdRoot(p, ...) call — so the project no longer compiled
 // (`undefined: foo`). De-registration must remove BOTH the import and the call.
 func TestDeregisterSubcommand_RootVariadicArg(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	workDir := "/work"
 
@@ -69,4 +73,47 @@ func NewCmdRoot(p *props.Props) *setup.Command {
 	_, perr := parser.ParseFile(token.NewFileSet(), "cmd.go", src, parser.AllErrors)
 	require.NoError(t, perr, "regenerated root must still be valid Go:\n%s", src)
 	require.NotContains(t, src, "foo", "no stray foo reference should remain")
+}
+
+// TestRemove_RefusesProtectedCommand is the 2.1.1 guard: `gtb remove command`
+// must not delete a command marked Protected in the manifest — the operator
+// protected it precisely because it carries hand-written logic. --force is the
+// only escape hatch.
+func TestRemove_RefusesProtectedCommand(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	workDir := "/work"
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module github.com/acme/demo\n"), 0o644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/secret"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/secret/cmd.go"), []byte("package secret\n"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/secret/main.go"), []byte("package main\n"), 0o644))
+
+	m := Manifest{
+		Properties: ManifestProperties{Name: "demo"},
+		Commands: []ManifestCommand{
+			{Name: "secret", Protected: boolPtr(true)},
+		},
+	}
+	data, _ := yaml.Marshal(m)
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), data, 0o644))
+
+	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Tool: props.Tool{Name: "demo"}}
+
+	g := New(p, &Config{Path: workDir, Name: "secret", Parent: "root"})
+	err := g.Remove(context.Background())
+	require.Error(t, err, "removing a protected command must fail")
+	require.ErrorIs(t, err, ErrCommandProtected)
+
+	exists, _ := afero.Exists(fs, filepath.Join(workDir, "pkg/cmd/secret/cmd.go"))
+	assert.True(t, exists, "protected command directory must be untouched")
+
+	// --force overrides the protection guard.
+	gf := New(p, &Config{Path: workDir, Name: "secret", Parent: "root", Force: true})
+	require.NoError(t, gf.Remove(context.Background()))
+
+	exists, _ = afero.Exists(fs, filepath.Join(workDir, "pkg/cmd/secret"))
+	assert.False(t, exists, "--force must remove the protected command")
 }

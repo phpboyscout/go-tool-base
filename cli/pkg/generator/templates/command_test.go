@@ -9,6 +9,8 @@ import (
 )
 
 func TestGetCleanImports_Initializer(t *testing.T) {
+	t.Parallel()
+
 	imps := getCleanImports(nil, true, true)
 
 	// The generated Init<Name> stub takes a setup.Editor parameter.
@@ -20,6 +22,8 @@ func TestGetCleanImports_Initializer(t *testing.T) {
 }
 
 func TestGetCleanImports_NoInitializer(t *testing.T) {
+	t.Parallel()
+
 	imps := getCleanImports(nil, false, true)
 
 	// Without an initializer, main.go consumes none of config/viper.
@@ -36,6 +40,8 @@ func TestGetCleanImports_NoInitializer(t *testing.T) {
 // A pure group's main.go has no Run<Name>, so nothing in it names a sentinel.
 // Importing errorhandling anyway would leave an unused import and fail to build.
 func TestGetCleanImports_NoRunStub(t *testing.T) {
+	t.Parallel()
+
 	imps := getCleanImports(nil, false, false)
 
 	assert.NotContains(t, imps, "gitlab.com/phpboyscout/go/errorhandling",
@@ -44,6 +50,8 @@ func TestGetCleanImports_NoRunStub(t *testing.T) {
 }
 
 func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {
+	t.Parallel()
+
 	data := CommandData{
 		Package:    "hello",
 		PascalName: "Hello",
@@ -74,6 +82,8 @@ func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {
 // values that contain commas (e.g. a prose `--set prompt=a, b`), distinct from
 // stringSlice's comma-splitting StringSliceVar.
 func TestGetFlagFuncName_StringArray(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]string{
 		"stringArray": "StringArrayVar",
 		"stringarray": "StringArrayVar",

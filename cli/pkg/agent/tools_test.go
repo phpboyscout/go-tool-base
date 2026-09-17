@@ -47,6 +47,8 @@ func TestIsPathAllowed_ExactBase(t *testing.T) {
 }
 
 func TestIsPathAllowed_SymlinkBypass(t *testing.T) {
+	t.Parallel()
+
 	// This test uses the real filesystem since symlinks need OS support
 	baseDir := t.TempDir()
 	outsideDir := t.TempDir()
@@ -66,6 +68,8 @@ func TestIsPathAllowed_SymlinkBypass(t *testing.T) {
 }
 
 func TestIsPathAllowed_SymlinkWithinBase(t *testing.T) {
+	t.Parallel()
+
 	baseDir := t.TempDir()
 
 	// Create real subdirectory and file
@@ -112,6 +116,8 @@ func TestResolveSymlinks_NoSymlinkSupport(t *testing.T) {
 }
 
 func TestResolveSymlinks_ChainedSymlinks(t *testing.T) {
+	t.Parallel()
+
 	baseDir := t.TempDir()
 
 	// Create: base/a -> base/b -> base/c (real dir)

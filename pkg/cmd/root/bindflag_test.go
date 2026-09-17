@@ -58,6 +58,8 @@ const bindCfgPath = "/etc/bindtool/config.yaml"
 // real PersistentPreRunE path: a changed flag overrides config; an unset flag
 // does not (verification plan items 1).
 func TestBindBoundFlags_RootOption(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -114,6 +116,7 @@ func TestBindBoundFlags_RootOption(t *testing.T) {
 // TestBindConventionFlags exercises WithConventionBoundFlags: --server-port maps
 // to server.port automatically.
 func TestBindConventionFlags(t *testing.T) {
+	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")
@@ -207,6 +210,7 @@ func TestBindPrecedence(t *testing.T) {
 // TestBindBuiltins confirms --debug still sets the log level and --ci is visible
 // in config after binding (verification plan item 3).
 func TestBindBuiltins(t *testing.T) {
+	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")
@@ -240,6 +244,7 @@ func TestBindBuiltins(t *testing.T) {
 // that command's RunE via the hyphen-to-dot convention (verification plan item
 // 4 / D5).
 func TestBindPerCommandFlags(t *testing.T) {
+	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	writeConfig(t, fs, bindCfgPath, "server:\n  port: 8080\n")

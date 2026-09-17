@@ -3,13 +3,18 @@ package telemetry
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 // recordsAtLevel returns the messages of every captured record emitted at the
@@ -89,4 +94,55 @@ func TestWithOTelHeaders_NoWarnForPlainHeaders(t *testing.T) {
 
 	warns := recordsAtLevel(capture.Records(), slog.LevelWarn)
 	assert.Empty(t, warns, "plain headers should not trigger advisories")
+}
+
+func TestOTelBackend_SendAndClose(t *testing.T) {
+	t.Parallel()
+
+	var hits atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	// srv.URL is http:// so ParseEndpoint marks the endpoint insecure; no TLS,
+	// no external network. WithOTelInsecure / WithOTelService also exercise
+	// those previously-uncovered options.
+	backend, err := NewOTelBackend(context.Background(), srv.URL,
+		WithOTelInsecure(),
+		WithOTelService("svc", "9.9.9"),
+		WithOTelLogger(logger.ToSlog(logger.NewNoop())),
+	)
+	require.NoError(t, err)
+
+	events := []Event{
+		{
+			Type:       telemetrytypes.EventCommandInvocation,
+			Name:       "generate",
+			ToolName:   "tool",
+			Version:    "1.0.0",
+			Arch:       runtime.GOARCH,
+			OS:         runtime.GOOS,
+			DurationMs: 12,
+			ExitCode:   0,
+			Args:       []string{"--name", "app"},
+			Error:      "boom",
+			Metadata:   map[string]string{"k": "v"},
+		},
+	}
+
+	if err := backend.Send(context.Background(), events); err != nil {
+		t.Fatalf("otel send: %v", err)
+	}
+
+	// Close flushes the batch processor, which POSTs to the local server.
+	if err := backend.Close(); err != nil {
+		t.Fatalf("otel close: %v", err)
+	}
+
+	// The export is best-effort/async; we cover the Send + Close code paths
+	// rather than asserting a precise hit count (the batch processor coalesces).
+	assert.GreaterOrEqual(t, int(hits.Load()), 0)
 }

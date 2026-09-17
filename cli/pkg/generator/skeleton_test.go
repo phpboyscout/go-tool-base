@@ -16,6 +16,8 @@ import (
 )
 
 func TestGenerateSkeleton(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{
@@ -226,6 +228,8 @@ func TestGenerateSkeleton_UpdateCheckInterval(t *testing.T) {
 // the justfile) — not even under the blunt --overwrite allow. These are
 // scaffolded once and then belong to the developer.
 func TestRegenerateProject_PreservesUserOwnedSeedFiles(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 
@@ -266,6 +270,8 @@ func TestRegenerateProject_PreservesUserOwnedSeedFiles(t *testing.T) {
 }
 
 func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{
@@ -324,6 +330,8 @@ func newGitLabCIGenerator(t *testing.T) (*Generator, afero.Fs) {
 // releaser-pleaser component, a templated repositories input, valid YAML, and
 // no leftover local-job includes. (Spec 2026-06-15-generator-gitlab-ci-refresh.)
 func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
+	t.Parallel()
+
 	g, fs := newGitLabCIGenerator(t)
 
 	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
@@ -379,6 +387,8 @@ func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
 // explicit component source repoints every cicd include and round-trips
 // through the manifest's ci.component_source field.
 func TestGenerateSkeletonGitLabCIComponentSourceOverride(t *testing.T) {
+	t.Parallel()
+
 	g, fs := newGitLabCIGenerator(t)
 
 	const src = "git.acme.example/mirror/cicd"
@@ -417,6 +427,8 @@ func TestGenerateSkeletonGitLabCIComponentSourceOverride(t *testing.T) {
 }
 
 func TestSplitRepoPath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		wantOrg  string
@@ -446,6 +458,8 @@ func TestSplitRepoPath(t *testing.T) {
 }
 
 func TestCalculateDisabledFeatures(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		features []ManifestFeature
@@ -487,6 +501,8 @@ func TestCalculateDisabledFeatures(t *testing.T) {
 }
 
 func TestRunSkeletonCommand(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{
 		runCommand: func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 			assert.Equal(t, ".", dir)

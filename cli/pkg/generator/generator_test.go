@@ -15,6 +15,8 @@ import (
 )
 
 func TestGenerateAssetFiles_SkipExistingConfig(t *testing.T) {
+	t.Parallel()
+
 	// Setup
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
@@ -50,6 +52,8 @@ func TestGenerateAssetFiles_SkipExistingConfig(t *testing.T) {
 }
 
 func TestGenerateAssetFiles_CreateNewConfig(t *testing.T) {
+	t.Parallel()
+
 	// Setup
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()

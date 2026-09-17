@@ -182,8 +182,6 @@ func TestStorageModeChanges_UnknownMode(t *testing.T) {
 // set and the literal and keychain key paths it does not own are removed, all
 // in one ordered change list.
 func TestStorageModeChanges_EnvVar(t *testing.T) {
-	t.Parallel()
-
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
@@ -230,8 +228,6 @@ func TestCredentialChanges_UnknownProvider(t *testing.T) {
 
 // TestProviderConfigKeys covers the unknown-provider false return.
 func TestProviderConfigKeys(t *testing.T) {
-	t.Parallel()
-
 	_, ok := providerConfigKeys("unknown")
 	assert.False(t, ok)
 
@@ -261,8 +257,6 @@ func TestProviderEnvConfigKey(t *testing.T) {
 
 // TestProviderKeychainConfigKey covers all arms incl. the default.
 func TestProviderKeychainConfigKey(t *testing.T) {
-	t.Parallel()
-
 	cases := map[string]string{
 		string(gochat.ProviderClaude): chat.ConfigKeyClaudeKeychain,
 		string(gochat.ProviderOpenAI): chat.ConfigKeyOpenAIKeychain,
@@ -276,8 +270,6 @@ func TestProviderKeychainConfigKey(t *testing.T) {
 
 // TestProviderKeychainAccount covers all arms incl. the default.
 func TestProviderKeychainAccount(t *testing.T) {
-	t.Parallel()
-
 	cases := map[string]string{
 		string(gochat.ProviderClaude): "anthropic.api",
 		string(gochat.ProviderOpenAI): "openai.api",

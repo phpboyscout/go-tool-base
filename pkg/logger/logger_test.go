@@ -8,6 +8,8 @@ import (
 )
 
 func TestParseLevel(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input string
 		want  Level
@@ -32,12 +34,16 @@ func TestParseLevel(t *testing.T) {
 }
 
 func TestParseLevel_Invalid(t *testing.T) {
+	t.Parallel()
+
 	_, err := ParseLevel("invalid")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidLevel)
 }
 
 func TestLevel_String(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		level Level
 		want  string
@@ -58,6 +64,8 @@ func TestLevel_String(t *testing.T) {
 }
 
 func TestLevel_RoundTrip(t *testing.T) {
+	t.Parallel()
+
 	for _, level := range []Level{DebugLevel, InfoLevel, WarnLevel, ErrorLevel, FatalLevel} {
 		parsed, err := ParseLevel(level.String())
 		require.NoError(t, err)

@@ -23,6 +23,8 @@ import (
 // the trustkeys package is retained (author content is never deleted), and the
 // project still builds.
 func TestEnableDisableSigning_OnExistingProject(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {

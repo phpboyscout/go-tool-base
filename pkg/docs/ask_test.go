@@ -72,6 +72,8 @@ func TestAskAI_NilCallbacksDoNotPanic(t *testing.T) {
 }
 
 func TestResolveProvider(t *testing.T) {
+	t.Parallel()
+
 	t.Run("explicit override", func(t *testing.T) {
 		p := &props.Props{}
 		provider := ResolveProvider(p, "gemini")

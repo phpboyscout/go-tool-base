@@ -303,8 +303,6 @@ func TestWriteBitbucketCredentials_DefaultMode(t *testing.T) {
 }
 
 func TestWriteBitbucketCredentials_EmptyMode(t *testing.T) {
-	t.Parallel()
-
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().Apply([]config.Change{
 		config.Remove("bitbucket.app_password.env"),
@@ -322,8 +320,6 @@ func TestWriteBitbucketCredentials_EmptyMode(t *testing.T) {
 }
 
 func TestWriteBitbucketCredentials_EnvVarPartial(t *testing.T) {
-	t.Parallel()
-
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().Apply([]config.Change{
 		config.Remove("bitbucket.username"),
@@ -415,8 +411,6 @@ func TestWriteKeychainBlob_MissingFields(t *testing.T) {
 }
 
 func TestWriteKeychainBlob_NoToolName(t *testing.T) {
-	t.Parallel()
-
 	cfg := setupmocks.NewMockEditor(t)
 	err := writeKeychainBlob(t.Context(), bitbucketProfile, cfg, "", &DualConfig{
 		Username:    "alice",

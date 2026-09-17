@@ -64,11 +64,13 @@ const modelResponseWithPreamble = "I'll analyze the code and inspect the referen
 	"---\n\n" +
 	"# mytool mycmd\n\n## Description\n\nGenerated body.\n"
 
-// TestGenerateDocs_Issue7_PreambleStrippedAboveFrontmatter reproduces defect (1)
+// TestGenerateDocs_PreambleStrippedAboveFrontmatter reproduces defect (1)
 // from issue #7: when the model's response carries conversational preamble ahead
 // of the YAML frontmatter, the generator must strip it so the written file begins
 // with `---` and the frontmatter is parsed by static-site generators.
-func TestGenerateDocs_Issue7_PreambleStrippedAboveFrontmatter(t *testing.T) {
+func TestGenerateDocs_PreambleStrippedAboveFrontmatter(t *testing.T) {
+	t.Parallel()
+
 	mockClient := new(MockChatClient)
 	mockClient.On("Chat", mock.Anything, mock.Anything).Return(modelResponseWithPreamble, nil)
 
@@ -92,11 +94,13 @@ func TestGenerateDocs_Issue7_PreambleStrippedAboveFrontmatter(t *testing.T) {
 		"the human author must be preserved in the written doc:\n%.200q", got)
 }
 
-// TestGenerateDocs_Issue7_NoFrontmatterFallsBackToBoilerplate covers the failure
+// TestGenerateDocs_NoFrontmatterFallsBackToBoilerplate covers the failure
 // path: a response with no `---` fence at all must not commit a frontmatter-less
 // page — the generator falls back to deterministic boilerplate (which is itself
 // frontmatter-first) rather than writing the narration verbatim.
-func TestGenerateDocs_Issue7_NoFrontmatterFallsBackToBoilerplate(t *testing.T) {
+func TestGenerateDocs_NoFrontmatterFallsBackToBoilerplate(t *testing.T) {
+	t.Parallel()
+
 	narrationOnly := "I'll analyze the code now. I have enough context but produced no document."
 
 	mockClient := new(MockChatClient)
@@ -119,11 +123,13 @@ func TestGenerateDocs_Issue7_NoFrontmatterFallsBackToBoilerplate(t *testing.T) {
 		"a frontmatter-less model response must never be committed verbatim")
 }
 
-// TestGenerateDocs_Issue7_AuthorsAdditiveByDefault asserts the issue #7 maintainer
+// TestGenerateDocs_AuthorsAdditiveByDefault asserts the issue #7 maintainer
 // decision for defect (2): by default AI attribution is ADDITIVE — the prompt
 // still injects the AI model as a co-author but must instruct the model to
 // PRESERVE existing (human) authors rather than replace them.
-func TestGenerateDocs_Issue7_AuthorsAdditiveByDefault(t *testing.T) {
+func TestGenerateDocs_AuthorsAdditiveByDefault(t *testing.T) {
+	t.Parallel()
+
 	mockClient := new(MockChatClient)
 	root := "/work"
 	g, _ := newIssue7Generator(t, root, mockClient)
@@ -143,11 +149,13 @@ func TestGenerateDocs_Issue7_AuthorsAdditiveByDefault(t *testing.T) {
 		"the AI model must be described as a co-author, not the author")
 }
 
-// TestGenerateDocs_Issue7_NoAIAttributionFlag asserts the --no-ai-attribution
+// TestGenerateDocs_NoAIAttributionFlag asserts the --no-ai-attribution
 // flag flips the system prompt: the AI/model identity must not appear, the model
 // must not be told to append itself, and the authors field must be scoped to the
 // project's human author(s) only.
-func TestGenerateDocs_Issue7_NoAIAttributionFlag(t *testing.T) {
+func TestGenerateDocs_NoAIAttributionFlag(t *testing.T) {
+	t.Parallel()
+
 	mockClient := new(MockChatClient)
 	root := "/work"
 	g, _ := newIssue7Generator(t, root, mockClient)
@@ -166,9 +174,11 @@ func TestGenerateDocs_Issue7_NoAIAttributionFlag(t *testing.T) {
 		"the authors instruction must scope authorship to the project's human author(s)")
 }
 
-// TestGenerateDocs_Issue7_NoAIAttributionPackagePrompt confirms the flag applies
+// TestGenerateDocs_NoAIAttributionPackagePrompt confirms the flag applies
 // to the package doc path too (both prompts share authorsDirectives).
-func TestGenerateDocs_Issue7_NoAIAttributionPackagePrompt(t *testing.T) {
+func TestGenerateDocs_NoAIAttributionPackagePrompt(t *testing.T) {
+	t.Parallel()
+
 	mockClient := new(MockChatClient)
 	root := "/work"
 	g, _ := newIssue7Generator(t, root, mockClient)

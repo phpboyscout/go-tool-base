@@ -105,6 +105,8 @@ func TestGoBuildTool_SuccessOnTrivialModule(t *testing.T) {
 // TestGoTestTool_SuccessOnTrivialModule mirrors the build test for go_test, so
 // the GoTestTool wrapper's success path is exercised offline.
 func TestGoTestTool_SuccessOnTrivialModule(t *testing.T) {
+	t.Parallel()
+
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain not on PATH")
 	}

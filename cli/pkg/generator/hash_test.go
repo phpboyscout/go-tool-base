@@ -17,6 +17,8 @@ import (
 )
 
 func TestHashUpdateOnRegeneration(t *testing.T) {
+	t.Parallel()
+
 	// 1. Setup MemFS
 	fs := afero.NewMemMapFs()
 	// Use a buffer for logs or discard

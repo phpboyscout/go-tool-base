@@ -69,6 +69,8 @@ func restoreGlobals(t *testing.T) {
 // builder fails, the shutdown funcs of providers installed by earlier builders
 // are run (best-effort, reverse order) instead of being stranded.
 func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	var order []int
@@ -99,6 +101,8 @@ func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
 }
 
 func TestSetupAllSignalsDisabled(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	sh, err := Setup(context.Background(), testObservabilitySettings(), nil)
@@ -108,6 +112,8 @@ func TestSetupAllSignalsDisabled(t *testing.T) {
 }
 
 func TestSetupTracingEnabled(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	sh, err := Setup(context.Background(), testObservabilitySettings(
@@ -122,6 +128,8 @@ func TestSetupTracingEnabled(t *testing.T) {
 }
 
 func TestSetupMetricsEnabled(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	sh, err := Setup(context.Background(), testObservabilitySettings(
@@ -136,6 +144,8 @@ func TestSetupMetricsEnabled(t *testing.T) {
 }
 
 func TestSetupLogsEnabled(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	sh, err := Setup(context.Background(), testObservabilitySettings(
@@ -151,6 +161,8 @@ func TestSetupLogsEnabled(t *testing.T) {
 
 // All signals enabled with a controller exercises the shutdown-registration path.
 func TestSetupAllEnabledRegistersControllerShutdown(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	controller := controls.NewController(context.Background(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
@@ -171,6 +183,8 @@ func TestSetupAllEnabledRegistersControllerShutdown(t *testing.T) {
 // test would have caught that (the earlier registration test never started the
 // controller).
 func TestSetupTelemetryServiceRunsUnderController(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	controller := controls.NewController(context.Background(),

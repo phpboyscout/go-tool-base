@@ -116,6 +116,8 @@ func TestNewCmdVersion_DevelopmentSkipsUpdateCheck(t *testing.T) {
 // build information without contacting the release source, with or without
 // --check.
 func TestNewCmdVersion_UpdateDisabledSkipsCheck(t *testing.T) {
+	t.Parallel()
+
 	for _, args := range [][]string{nil, {"--check"}} {
 		props := newTestProps(t, failingReleaseProvider())
 		props.Tool.Features = p.SetFeatures(p.Disable(p.UpdateCmd))
@@ -134,6 +136,8 @@ func TestNewCmdVersion_UpdateDisabledSkipsCheck(t *testing.T) {
 // setup.NewUpdater returns an error: the command warns and still succeeds,
 // reporting the local version with the degraded check_failed marker.
 func TestNewCmdVersion_UpdaterLoadFailureIsNonFatal(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, failingReleaseProvider())
 	// An unknown vcs.provider makes release.Lookup (inside NewUpdater) fail,
 	// driving the degraded "failed to check latest version" branch.
@@ -150,6 +154,8 @@ func TestNewCmdVersion_UpdaterLoadFailureIsNonFatal(t *testing.T) {
 // updater-construction failure under --check: the caller asked for hard
 // semantics, so the failure is returned as a wrapped error.
 func TestNewCmdVersion_UpdaterLoadFailureIsFatalWithCheck(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, failingReleaseProvider())
 	require.NoError(t, props.Config.AddLayer(t.Context(), "override",
 		strings.NewReader("vcs:\n  provider: definitely-not-a-real-provider\n")))
@@ -165,6 +171,8 @@ func TestNewCmdVersion_UpdaterLoadFailureIsFatalWithCheck(t *testing.T) {
 // the local build information, emitting a single warning about the failed
 // check instead of a hard error.
 func TestNewCmdVersion_LatestFetchFailureDegrades(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, failingReleaseProvider())
 
 	out, err := runVersionCmd(t, props, "text")
@@ -183,6 +191,8 @@ func TestNewCmdVersion_LatestFetchFailureDegrades(t *testing.T) {
 // current false, and an explicit check_failed marker so scripts can
 // distinguish "up to date" from "could not check".
 func TestNewCmdVersion_LatestFetchFailureJSONCarriesMarker(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, failingReleaseProvider())
 
 	out, err := runVersionCmd(t, props, "json")
@@ -207,6 +217,8 @@ func TestNewCmdVersion_LatestFetchFailureJSONCarriesMarker(t *testing.T) {
 // --check flag: a lookup failure keeps the pre-fix hard semantics — wrapped
 // error, non-zero exit, nothing written to the success stream.
 func TestNewCmdVersion_LatestFetchFailureIsFatalWithCheck(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, failingReleaseProvider())
 
 	out, err := runVersionCmd(t, props, "text", "--check")
@@ -219,6 +231,8 @@ func TestNewCmdVersion_LatestFetchFailureIsFatalWithCheck(t *testing.T) {
 // spec decision that --check contacts the release source even on a
 // development build, so maintainers can probe reachability from dev builds.
 func TestNewCmdVersion_CheckBypassesDevelopmentSkip(t *testing.T) {
+	t.Parallel()
+
 	t.Run("unreachable source fails", func(t *testing.T) {
 		props := newTestProps(t, failingReleaseProvider())
 		props.Version = ver.NewInfo("v1.2.3-dev", "abc123", "2026-06-20")
@@ -244,6 +258,8 @@ func TestNewCmdVersion_CheckBypassesDevelopmentSkip(t *testing.T) {
 // successful update-check path against a provider reporting the same
 // version (so the build is current and no degraded marker is present).
 func TestNewCmdVersion_JSONHappyPath(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, releaseProvider("v1.0.0"))
 
 	out, err := runVersionCmd(t, props, "json")
@@ -262,6 +278,8 @@ func TestNewCmdVersion_JSONHappyPath(t *testing.T) {
 // reachable-source default behaviour: when the release source reports a newer
 // version, the Latest line is appended and a warning is logged.
 func TestNewCmdVersion_OutdatedWarnsAndAnnotates(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps(t, releaseProvider("v2.0.0"))
 
 	out, err := runVersionCmd(t, props, "text")

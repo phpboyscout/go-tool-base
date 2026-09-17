@@ -24,7 +24,9 @@ import (
 // keryx case: parent "theme" with add/edit/list/show/rm; re-running
 // `generate command --name add --parent theme` reportedly dropped
 // list/show/rm from the manifest.
-func TestKeryxBug1_RegenSubcommandPreservesSiblings(t *testing.T) {
+func TestRegenerate_SubcommandPreservesSiblings(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	require.NoError(t, fs.MkdirAll(".gtb", 0o755))
@@ -76,7 +78,9 @@ func NewCmdStudio(p *props.Props) *cobra.Command {
 }
 `
 
-func TestKeryxBug2_NestedConversionConstDefaultResolves(t *testing.T) {
+func TestRegenerate_NestedConversionConstDefaultResolves(t *testing.T) {
+	t.Parallel()
+
 	g, fs := newCoverageGenerator(t)
 	path := writeCmd(t, fs, "studio", keryxBug2CmdSrc)
 
@@ -96,7 +100,9 @@ func TestKeryxBug2_NestedConversionConstDefaultResolves(t *testing.T) {
 // collapsed), so two writes of the same manifest must be byte-identical. This
 // is the guard against the 4-space<->2-space reformat churn keryx reported, now
 // that a single serialiser makes divergence structurally impossible.
-func TestKeryxRoundTrip_ManifestMarshalersAgree(t *testing.T) {
+func TestRegenerate_ManifestMarshalersAgree(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 
 	m := &Manifest{
@@ -120,7 +126,9 @@ func TestKeryxRoundTrip_ManifestMarshalersAgree(t *testing.T) {
 }
 
 // Bug 3 — `regenerate manifest --dry-run` must NOT write manifest.yaml.
-func TestKeryxBug3_RegenerateManifestDryRunDoesNotWrite(t *testing.T) {
+func TestRegenerateManifest_DryRunDoesNotWrite(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Tool: props.Tool{Name: "demo"}}
 

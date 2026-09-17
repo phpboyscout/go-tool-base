@@ -59,6 +59,8 @@ func TestServe_StartsAndShutsDownCleanly(t *testing.T) {
 
 // TestServeStatic verifies the HTTP handler logic using httptest (no real TCP).
 func TestServeStatic(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"index.html": {Data: []byte("<h1>Welcome</h1>")},
 		"about.html": {Data: []byte("<h1>About</h1>")},

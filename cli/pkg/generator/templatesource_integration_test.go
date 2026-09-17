@@ -26,6 +26,8 @@ import (
 // https/ssh transports); this test targets the clone+resolve+checkout leg the
 // generator wires into the SHA-keyed cache.
 func TestGitTemplateSource_RealCloneResolvesAndPins(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "vcs")
 
 	srcRepo := filepath.Join(t.TempDir(), "tmpl-repo")

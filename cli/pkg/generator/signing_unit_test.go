@@ -81,6 +81,8 @@ func signingSkeletonConfig(path string, signing ManifestSigning) SkeletonConfig 
 // posture scaffolds the trustkeys package, wires props.Signing into the
 // root command, and emits the enforcement defaults.
 func TestGenerateSkeleton_SigningEnabled(t *testing.T) {
+	t.Parallel()
+
 	path := t.TempDir()
 	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
 
@@ -105,6 +107,8 @@ func TestGenerateSkeleton_SigningEnabled(t *testing.T) {
 // TestGenerateSkeleton_SigningDisabled asserts the default (disabled)
 // posture scaffolds nothing signing-related.
 func TestGenerateSkeleton_SigningDisabled(t *testing.T) {
+	t.Parallel()
+
 	path := t.TempDir()
 	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
 

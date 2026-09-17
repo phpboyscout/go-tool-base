@@ -85,6 +85,8 @@ func bitbucketPairSeed(user, pw string) map[string]any {
 // TestMigrate_NoCandidates — empty config should return a result
 // with zero actions and no write flag.
 func TestMigrate_NoCandidates(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, nil)
 
 	result, err := Migrate(t.Context(), p, MigrateOptions{DryRun: true, AssumeYes: true})
@@ -97,6 +99,8 @@ func TestMigrate_NoCandidates(t *testing.T) {
 // with dry-run produces the expected action without mutating the
 // config.
 func TestMigrate_DryRunEnvVarAIProvider(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, anthropicSeed("sk-ant-original"))
 
 	result, err := Migrate(t.Context(), p, MigrateOptions{DryRun: true, AssumeYes: true})
@@ -119,6 +123,8 @@ func TestMigrate_DryRunEnvVarAIProvider(t *testing.T) {
 // TestMigrate_AssumeYesEnvVarWritesConfig — full path: AssumeYes
 // skips prompts, env ref written, literal cleared.
 func TestMigrate_AssumeYesEnvVarWritesConfig(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, map[string]any{
 		"openai": map[string]any{"api": map[string]any{"key": "sk-openai-original"}},
 	})
@@ -134,6 +140,8 @@ func TestMigrate_AssumeYesEnvVarWritesConfig(t *testing.T) {
 // TestMigrate_EnvVarOverride — --env-var flag pins a custom name,
 // overriding the default.
 func TestMigrate_EnvVarOverride(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, map[string]any{
 		"gemini": map[string]any{"api": map[string]any{"key": "gemini-original"}},
 	})
@@ -155,6 +163,8 @@ func TestMigrate_EnvVarOverride(t *testing.T) {
 // TestMigrate_SkipsAlreadyMigrated — a prior run's env ref causes
 // the candidate to be skipped instead of re-prompted.
 func TestMigrate_SkipsAlreadyMigrated(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, map[string]any{
 		"anthropic": map[string]any{"api": map[string]any{
 			"key": "sk-ant-leftover",
@@ -216,6 +226,8 @@ func TestMigrate_KeychainNoBackendRefuses(t *testing.T) {
 // the intermediate empty mapping trips a go/config v0.4.0 in-place-editor
 // limitation (see TestMigrate_BitbucketPairOnlyDocumentEnvVar).
 func TestMigrate_BitbucketDualCredentialEnvVar(t *testing.T) {
+	t.Parallel()
+
 	seed := bitbucketPairSeed("alice", "s3cret")
 	seed["bitbucket"].(map[string]any)["workspace"] = "acme"
 
@@ -242,6 +254,8 @@ func TestMigrate_BitbucketDualCredentialEnvVar(t *testing.T) {
 // v0.4.0 in-place editor then rejected creating keys beneath the removed
 // scalars. This is the regression test for that ordering.
 func TestMigrate_BitbucketPairOnlyDocumentEnvVar(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, bitbucketPairSeed("alice", "s3cret"))
 
 	result, err := Migrate(t.Context(), p, MigrateOptions{AssumeYes: true})
@@ -301,6 +315,8 @@ func TestMigrate_ConfigDefaultTargetCascades(t *testing.T) {
 // TestMigrate_InvalidTargetRejected — an unknown --target value
 // returns a hinted error rather than falling through.
 func TestMigrate_InvalidTargetRejected(t *testing.T) {
+	t.Parallel()
+
 	p := newMigrateFixture(t, nil)
 
 	_, err := Migrate(t.Context(), p, MigrateOptions{
@@ -426,6 +442,8 @@ func TestPrintResult(t *testing.T) {
 // TestScanBitbucketPair — isolated scanner coverage for the dual-
 // credential pairing, including the partial-pair case.
 func TestScanBitbucketPair(t *testing.T) {
+	t.Parallel()
+
 	t.Run("both present", func(t *testing.T) {
 		view := testutil.ViewFromYAML(t, "bitbucket:\n  username: alice\n  app_password: s3cret\n")
 
@@ -515,4 +533,16 @@ func TestValidateEnvVarName(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestResolveEnvVarName_AssumeYes — with --yes the default env var name is
+// returned without prompting.
+func TestResolveEnvVarName_AssumeYes(t *testing.T) {
+	t.Parallel()
+
+	name, err := resolveEnvVarName(t.Context(), &props.Props{}, MigrateOptions{AssumeYes: true}, literalCredential{
+		Key: "github.auth.value",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "GITHUB_TOKEN", name)
 }

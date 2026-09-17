@@ -45,6 +45,8 @@ func newTestProps(features ...p.FeatureState) *p.Props {
 }
 
 func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	props := newTestProps() // all defaults
@@ -62,6 +64,8 @@ func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 }
 
 func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	props := newTestProps(
@@ -81,6 +85,8 @@ func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 }
 
 func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	props := newTestProps(
@@ -100,6 +106,8 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 }
 
 func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	customCmd := &cobra.Command{Use: "custom", Run: func(_ *cobra.Command, _ []string) {}}
@@ -112,6 +120,8 @@ func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 }
 
 func TestFeatureFlags_SelectiveToggling(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	// Disable all defaults, re-enable only doctor
@@ -133,6 +143,8 @@ func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 }
 
 func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	props := &p.Props{
@@ -161,6 +173,8 @@ func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
 // silently stops reloading. A real file on disk is changed after the bootstrap
 // and an observer registered on the live store must fire.
 func TestConfigWatch_FileChangeReachesObserver(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "cmd")
 
 	dir := t.TempDir()

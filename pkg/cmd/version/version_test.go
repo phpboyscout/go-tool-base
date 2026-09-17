@@ -25,6 +25,8 @@ github:
 )
 
 func TestNewCmdVersion(t *testing.T) {
+	t.Parallel()
+
 	memFS := afero.NewMemMapFs()
 
 	l := logger.NewNoop()

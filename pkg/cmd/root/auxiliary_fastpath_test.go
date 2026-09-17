@@ -36,6 +36,8 @@ func execArgs(t *testing.T, props *p.Props, args []string, extra ...*setup.Comma
 // enabled) `tool help` must print usage and exit cleanly instead of failing
 // the missing-config gate.
 func TestPreRun_FreshInstall_HelpRuns(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "fresh-help-tool")
 
 	err := execArgs(t, props, []string{"help"})
@@ -45,6 +47,8 @@ func TestPreRun_FreshInstall_HelpRuns(t *testing.T) {
 // TestPreRun_FreshInstall_CompletionRuns: `tool completion bash` must emit the
 // completion script on a fresh install rather than erroring on missing config.
 func TestPreRun_FreshInstall_CompletionRuns(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "fresh-completion-tool")
 
 	err := execArgs(t, props, []string{"completion", "bash"})
@@ -55,6 +59,8 @@ func TestPreRun_FreshInstall_CompletionRuns(t *testing.T) {
 // cobra generates for shell tab-completion must not error on a fresh install —
 // it fires on every completion keystroke.
 func TestPreRun_FreshInstall_CompleteRequestRuns(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "fresh-complete-tool")
 
 	err := execArgs(t, props, []string{cobra.ShellCompRequestCmd, "ver"})
@@ -90,6 +96,8 @@ func TestPreRun_FreshInstall_InitSubtreeRuns(t *testing.T) {
 // still hard-fails on missing config, but the error must now carry a hint
 // telling the user to run '<tool> init'.
 func TestPreRun_FreshInstall_MissingConfigErrorHasInitHint(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "fresh-hint-tool")
 
 	child := &cobra.Command{Use: "child", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
@@ -107,6 +115,8 @@ func TestPreRun_FreshInstall_MissingConfigErrorHasInitHint(t *testing.T) {
 // file exists, completion must take the fast path — no config store is built,
 // so no telemetry consent, collector wiring, or update check can occur.
 func TestPreRun_Auxiliary_SkipsBootstrapWithConfigPresent(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "cfg-completion-tool")
 
 	cfgPath := filepath.Join(setup.GetDefaultConfigDir(props.FS, "cfg-completion-tool"), setup.DefaultConfigFilename)
@@ -124,6 +134,8 @@ func TestPreRun_Auxiliary_SkipsBootstrapWithConfigPresent(t *testing.T) {
 // framework release. Unlike SkipConfigCheck's tolerant load, the fast path
 // skips the bootstrap entirely — props.Config stays nil.
 func TestPreRun_AuxiliarySkipList_FastPath(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "auxlist-tool")
 	props.Tool.Bootstrap = p.BootstrapPolicy{AuxiliaryCommands: []string{"plumbing"}}
 
@@ -149,6 +161,8 @@ func TestPreRun_AuxiliarySkipList_FastPath(t *testing.T) {
 // NOT cobra's generated command and must get the normal bootstrap — on a fresh
 // install that means the missing-config hard fail, not a silent fast path.
 func TestPreRun_DownstreamCompletionCommand_GetsNormalBootstrap(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "downstream-completion-tool")
 
 	var ran bool

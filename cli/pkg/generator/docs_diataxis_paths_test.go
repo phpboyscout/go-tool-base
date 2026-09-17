@@ -1,12 +1,14 @@
 package generator
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -83,4 +85,54 @@ func TestPrepareDocsContext_FlatLayoutUnchanged(t *testing.T) {
 
 	_, pkgPath := g.prepareDocsContext("config", "config", true)
 	assert.Equal(t, filepath.Join(root, "docs/packages/config/index.md"), pkgPath)
+}
+
+// TestCleanupDocumentation_DiataxisNestedCommand is the 2.1.2 guard: removing a
+// nested command must delete its Diátaxis reference doc (docs/reference/cli/
+// <parent>/<leaf>.md), not the hardcoded legacy flat path (which leaves the
+// real doc stranded).
+func TestCleanupDocumentation_DiataxisNestedCommand(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	workDir := "/work"
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module github.com/acme/demo\n"), 0o644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/parent/child"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/parent/child/cmd.go"), []byte("package child\n"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/parent/child/main.go"), []byte("package main\n"), 0o644))
+
+	parentCode := `package parent
+import (
+	"github.com/acme/demo/pkg/cmd/parent/child"
+	"github.com/spf13/cobra"
+)
+func NewCmdParent(props *props.Props) *cobra.Command {
+	cmd := &cobra.Command{Use: "parent"}
+	cmd.AddCommand(child.NewCmdChild(props))
+	return cmd
+}`
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/parent/cmd.go"), []byte(parentCode), 0o644))
+
+	// Diátaxis-layout project: nested command doc lives under reference/cli.
+	docPath := filepath.Join(workDir, "docs/reference/cli/parent/child.md")
+	require.NoError(t, afero.WriteFile(fs, docPath, []byte("# demo parent child\n"), 0o644))
+
+	m := Manifest{
+		Properties: ManifestProperties{Name: "demo", DocsLayout: DocsLayoutDiataxis},
+		Commands: []ManifestCommand{
+			{Name: "parent", Commands: []ManifestCommand{{Name: "child"}}},
+		},
+	}
+	data, _ := yaml.Marshal(m)
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), data, 0o644))
+
+	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Tool: props.Tool{Name: "demo"}}
+	g := New(p, &Config{Path: workDir, Name: "child", Parent: "parent"})
+
+	require.NoError(t, g.Remove(context.Background()))
+
+	exists, _ := afero.Exists(fs, docPath)
+	assert.False(t, exists, "nested command's Diátaxis reference doc must be removed")
 }

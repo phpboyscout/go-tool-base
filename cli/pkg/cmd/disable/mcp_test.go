@@ -28,6 +28,8 @@ func TestDisableMCP_Metadata(t *testing.T) {
 }
 
 func TestDisableMCP_WithholdsCommand(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	writeManifest(t, fs, "/work")

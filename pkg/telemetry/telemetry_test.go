@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -579,4 +580,82 @@ func TestCollector_BufferBoundedWhenSpillUnavailable(t *testing.T) {
 	if n > c.maxBuffer+1 {
 		t.Errorf("buffer must stay bounded when spill is unavailable, got %d (max %d)", n, c.maxBuffer)
 	}
+}
+
+func TestCollector_Enabled(t *testing.T) {
+	t.Parallel()
+
+	enabled := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
+	if !enabled.Enabled() {
+		t.Error("Enabled() = false for an enabled collector")
+	}
+
+	disabled := NewCollector(Config{Enabled: false}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
+	if disabled.Enabled() {
+		t.Error("Enabled() = true for a disabled collector")
+	}
+}
+
+func TestCollector_Close_FlushesAndClosesBackend(t *testing.T) {
+	t.Parallel()
+
+	spy := &closeSpyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
+
+	c.Track(props.EventCommandInvocation, "evt", nil)
+
+	if err := c.Close(context.Background()); err != nil {
+		t.Fatalf("Close error: %v", err)
+	}
+
+	if !spy.closed.Load() {
+		t.Error("Close did not close the backend")
+	}
+
+	// The buffered event must have been flushed by Close.
+	spy.mu.Lock()
+	got := len(spy.lastEvents)
+	spy.mu.Unlock()
+
+	if got != 1 {
+		t.Errorf("Close did not flush buffered events, sent %d", got)
+	}
+}
+
+// TestCollector_Close_FlushErrorStillCloses proves Close swallows a flush error
+// (logging at debug) and still closes the backend, returning the Close result.
+func TestCollector_Close_FlushErrorStillCloses(t *testing.T) {
+	t.Parallel()
+
+	spy := &closeSpyBackend{}
+	spy.sendErr = errBackend
+	// No data dir → flush cannot spill, so the failed send surfaces an error.
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
+
+	c.Track(props.EventCommandInvocation, "evt", nil)
+
+	if err := c.Close(context.Background()); err != nil {
+		t.Fatalf("Close should swallow flush error and return backend Close result: %v", err)
+	}
+
+	if !spy.closed.Load() {
+		t.Error("backend not closed despite flush failure")
+	}
+}
+
+// closeSpyBackend records Close calls so we can assert Collector.Close delegates.
+type closeSpyBackend struct {
+	spyBackend
+
+	closed atomic.Bool
+}
+
+func (c *closeSpyBackend) Close() error {
+	c.closed.Store(true)
+
+	return nil
 }

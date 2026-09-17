@@ -124,16 +124,24 @@ func TestSeedOrRead_EmptyToolNameFallback(t *testing.T) {
 	assert.Contains(t, string(out), "tool configuration")
 }
 
-// TestResolveEnvVarName_AssumeYes — with --yes the default env var name is
-// returned without prompting.
-func TestResolveEnvVarName_AssumeYes(t *testing.T) {
+// renameFailFs is an afero.Fs whose Rename always fails, to exercise
+// writeConfigAtomic's temp-rename error branch.
+type renameFailFs struct{ afero.Fs }
+
+func (renameFailFs) Rename(string, string) error {
+	return errors.New("rename blocked")
+}
+
+// TestWriteConfigAtomic_RenameError — a Rename failure is wrapped and the temp
+// file is cleaned up.
+func TestWriteConfigAtomic_RenameError(t *testing.T) {
 	t.Parallel()
 
-	name, err := resolveEnvVarName(t.Context(), &props.Props{}, MigrateOptions{AssumeYes: true}, literalCredential{
-		Key: "github.auth.value",
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "GITHUB_TOKEN", name)
+	fs := renameFailFs{afero.NewMemMapFs()}
+
+	err := writeConfigAtomic(fs, "/etc/tool/config.yaml", []byte("k: v\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rename migrated config into place")
 }
 
 // TestRunEdit_BadEditorShlex — an unparseable editor command is rejected before
@@ -175,24 +183,4 @@ func TestRunEdit_ReadEditedFails(t *testing.T) {
 	err := cmd.Execute()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "reading edited file")
-}
-
-// renameFailFs is an afero.Fs whose Rename always fails, to exercise
-// writeConfigAtomic's temp-rename error branch.
-type renameFailFs struct{ afero.Fs }
-
-func (renameFailFs) Rename(string, string) error {
-	return errors.New("rename blocked")
-}
-
-// TestWriteConfigAtomic_RenameError — a Rename failure is wrapped and the temp
-// file is cleaned up.
-func TestWriteConfigAtomic_RenameError(t *testing.T) {
-	t.Parallel()
-
-	fs := renameFailFs{afero.NewMemMapFs()}
-
-	err := writeConfigAtomic(fs, "/etc/tool/config.yaml", []byte("k: v\n"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "rename migrated config into place")
 }

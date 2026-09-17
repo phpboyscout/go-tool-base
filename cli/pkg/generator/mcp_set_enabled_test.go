@@ -32,6 +32,8 @@ func newSetEnabledFixture(t *testing.T) (*props.Props, string, afero.Fs) {
 }
 
 func TestSetMCPEnabled_DisableThenEnable(t *testing.T) {
+	t.Parallel()
+
 	p, root, fs := newSetEnabledFixture(t)
 	g := New(p, &Config{Path: root})
 
@@ -59,6 +61,8 @@ func TestSetMCPEnabled_DisableThenEnable(t *testing.T) {
 }
 
 func TestSetMCPEnabled_RefusesProtected(t *testing.T) {
+	t.Parallel()
+
 	p, root, _ := newSetEnabledFixture(t)
 	g := New(p, &Config{Path: root})
 
@@ -67,6 +71,8 @@ func TestSetMCPEnabled_RefusesProtected(t *testing.T) {
 }
 
 func TestSetMCPEnabled_NotFound(t *testing.T) {
+	t.Parallel()
+
 	p, root, _ := newSetEnabledFixture(t)
 	g := New(p, &Config{Path: root})
 

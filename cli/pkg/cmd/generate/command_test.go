@@ -16,6 +16,8 @@ import (
 )
 
 func TestCommandRun(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
@@ -144,6 +146,8 @@ version:
 }
 
 func TestCommandRun_PathTargeting(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
@@ -220,6 +224,8 @@ commands:
 }
 
 func TestCommandRun_SubcommandNoAssets(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
@@ -278,6 +284,8 @@ func NewCmdRoot(props *props.Props) *cobra.Command {
 }
 
 func TestCommandRun_NoManifest(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
@@ -297,6 +305,8 @@ func TestCommandRun_NoManifest(t *testing.T) {
 }
 
 func TestPascalCase(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		expected string

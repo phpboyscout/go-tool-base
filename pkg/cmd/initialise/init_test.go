@@ -62,6 +62,8 @@ func TestDiscoverInitialisers_AllDisabled(t *testing.T) {
 }
 
 func TestRegisterSubcommands_AiEnabled(t *testing.T) {
+	t.Parallel()
+
 	props := newTestProps()
 	props.Tool.Features = p.SetFeatures(p.Enable(p.AiCmd))
 

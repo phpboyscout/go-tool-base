@@ -59,6 +59,8 @@ func bootstrapSkeletonConfig(path string, bootstrap ManifestBootstrap) SkeletonC
 // TestGenerateSkeleton_BootstrapPolicy asserts a non-default bootstrap policy is
 // wired into the generated root command.
 func TestGenerateSkeleton_BootstrapPolicy(t *testing.T) {
+	t.Parallel()
+
 	path := t.TempDir()
 	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
 
@@ -80,6 +82,8 @@ func TestGenerateSkeleton_BootstrapPolicy(t *testing.T) {
 // TestGenerateSkeleton_BootstrapSkipOnly emits only the skip list when
 // auto-init is off.
 func TestGenerateSkeleton_BootstrapSkipOnly(t *testing.T) {
+	t.Parallel()
+
 	path := t.TempDir()
 	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
 
@@ -98,6 +102,8 @@ func TestGenerateSkeleton_BootstrapSkipOnly(t *testing.T) {
 // TestGenerateSkeleton_BootstrapDefault asserts an empty policy scaffolds no
 // Bootstrap field, keeping default output unchanged.
 func TestGenerateSkeleton_BootstrapDefault(t *testing.T) {
+	t.Parallel()
+
 	path := t.TempDir()
 	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
 

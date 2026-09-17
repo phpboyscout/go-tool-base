@@ -224,6 +224,8 @@ func TestAISection_APIVersionOtherScalars(t *testing.T) {
 // block that does not decode surfaces rather than silently building a
 // single-provider client.
 func TestNewWithFallbackFromProps_MalformedFallbackSectionIsAnError(t *testing.T) {
+	t.Parallel()
+
 	p := &props.Props{
 		Logger: logger.NewNoop(),
 		Config: chatStoreFromYAML(t, "ai:\n  provider: fbt-ok\n  fallback:\n    enabled: notabool\n"),

@@ -15,6 +15,8 @@ import (
 // 0197 D4: the two settings that had no home reach the generated root, and
 // the source-inspection recovery reads them back.
 func TestGenerateSkeleton_RendersAuxiliaryCommandsAndRequireChecksum(t *testing.T) {
+	t.Parallel()
+
 	path := t.TempDir()
 	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
 

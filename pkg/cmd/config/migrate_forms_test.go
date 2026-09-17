@@ -54,6 +54,8 @@ func TestInstructAndVerifyEnvVar_ConfirmedAndSet(t *testing.T) {
 // TestInstructAndVerifyEnvVar_ConfirmedButUnset: confirm "yes" while the env
 // var is absent fails verification with the documented hint.
 func TestInstructAndVerifyEnvVar_ConfirmedButUnset(t *testing.T) {
+	t.Parallel()
+
 	// Ensure the variable is not set in this process.
 	require.NoError(t, os.Unsetenv("UNSET_TOKEN_FOR_TEST"))
 

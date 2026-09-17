@@ -26,6 +26,8 @@ import (
 // wrote blank descriptions, which a following regenerate project then rendered
 // into every cmd.go, wiping all help text.
 func TestRegenerateManifest_PreservesDescriptionsThroughWrapper(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 
 	var logBuf strings.Builder
@@ -94,6 +96,8 @@ func NewCmdSocial(props *props.Props) *setup.Command {
 // later regenerate project would round-trip as code. The unresolved value must
 // not be persisted.
 func TestRegenerateManifest_DropsUnresolvableFlagDefault(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 
 	var logBuf strings.Builder
@@ -148,6 +152,8 @@ func NewCmdCover(props *props.Props) *setup.Command {
 }
 
 func TestRegenerateManifestRecursive(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
 	l := logger.NewCharm(&logBuf)
@@ -263,6 +269,8 @@ func NewCmdChild(p *props.Props) *cobra.Command {
 // real generated shape (setup.Wrap + cmd.Register) and asserts the nesting
 // survives RegenerateManifest.
 func TestRegenerateManifest_PreservesRegisterWrappedSubcommands(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 
 	var logBuf strings.Builder
@@ -361,6 +369,8 @@ func NewCmdBuild(props *props.Props) *setup.Command {
 // emitted a root with the matching Enable() calls missing. RegenerateManifest
 // must preserve the existing manifest's features.
 func TestRegenerateManifest_PreservesFeatures(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 
 	var logBuf strings.Builder
@@ -450,6 +460,8 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
 }
 
 func TestScanCommands_OrphansAndDuplicates(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
 	l := logger.NewCharm(&logBuf)
@@ -576,6 +588,8 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 }
 
 func TestScanCommands_RecursiveDuplicates(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
 	l := logger.NewCharm(&logBuf)

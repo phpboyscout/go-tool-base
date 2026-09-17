@@ -45,6 +45,8 @@ func (s *spyFS) Open(name string) (fs.File, error) {
 }
 
 func TestAssets_Shadowing(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{
 		"logo.png":  &fstest.MapFile{Data: []byte("root-logo")},
 		"readme.md": &fstest.MapFile{Data: []byte("root-readme")},
@@ -74,6 +76,8 @@ func TestAssets_Shadowing(t *testing.T) {
 }
 
 func TestAssets_Merging(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{
 		"config.yaml": &fstest.MapFile{Data: []byte("app:\n  name: root\n  port: 8080")},
 		"config.toml": &fstest.MapFile{Data: []byte("[app]\nname = \"root\"\nport = 8080")},
@@ -123,6 +127,8 @@ func TestAssets_Merging(t *testing.T) {
 }
 
 func TestAssets_ReadDir(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{
 		"docs/a.txt": &fstest.MapFile{},
 	}
@@ -143,6 +149,8 @@ func TestAssets_ReadDir(t *testing.T) {
 }
 
 func TestAssets_Mount(t *testing.T) {
+	t.Parallel()
+
 	rootFS := fstest.MapFS{
 		"root.txt": &fstest.MapFile{Data: []byte("root")},
 	}
@@ -182,6 +190,8 @@ func TestAssets_AferoSupport(t *testing.T) {
 }
 
 func TestAssets_For(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{"f1.txt": &fstest.MapFile{Data: []byte("f1")}}
 	fs2 := fstest.MapFS{"f2.txt": &fstest.MapFile{Data: []byte("f2")}}
 	fs3 := fstest.MapFS{"f3.txt": &fstest.MapFile{Data: []byte("f3")}}
@@ -212,6 +222,8 @@ func TestAssets_For(t *testing.T) {
 }
 
 func TestAssets_Get(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{"f1.txt": &fstest.MapFile{}}
 	assets := NewAssets(AssetMap{"a": fs1})
 
@@ -220,6 +232,8 @@ func TestAssets_Get(t *testing.T) {
 }
 
 func TestAssets_Names(t *testing.T) {
+	t.Parallel()
+
 	assets := NewAssets(AssetMap{
 		"a": fstest.MapFS{},
 		"b": fstest.MapFS{},
@@ -230,6 +244,8 @@ func TestAssets_Names(t *testing.T) {
 }
 
 func TestOpenMergedCSV_SingleFS(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{
 		"data.csv": &fstest.MapFile{Data: []byte("id,name\n1,alice\n2,bob")},
 	}
@@ -246,6 +262,8 @@ func TestOpenMergedCSV_SingleFS(t *testing.T) {
 }
 
 func TestOpenMergedCSV_MultipleFS(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{
 		"data.csv": &fstest.MapFile{Data: []byte("id,name\n1,alice")},
 	}
@@ -273,6 +291,8 @@ func TestOpenMergedCSV_MultipleFS(t *testing.T) {
 }
 
 func TestOpenMergedCSV_NotFound(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{}
 	assets := NewAssets(AssetMap{"root": fs1})
 
@@ -281,6 +301,8 @@ func TestOpenMergedCSV_NotFound(t *testing.T) {
 }
 
 func TestOpenMergedCSV_EmptyCSV(t *testing.T) {
+	t.Parallel()
+
 	fs1 := fstest.MapFS{
 		"data.csv": &fstest.MapFile{Data: []byte("")},
 	}
@@ -383,6 +405,8 @@ func TestMergedFile_StatAndClose(t *testing.T) {
 }
 
 func TestOpenMergedCSV_FilesClosedPromptly(t *testing.T) {
+	t.Parallel()
+
 	spy1 := &spyFS{inner: fstest.MapFS{
 		"data.csv": &fstest.MapFile{Data: []byte("id,name\n1,alice")},
 	}}

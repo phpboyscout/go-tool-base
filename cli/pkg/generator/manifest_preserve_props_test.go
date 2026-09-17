@@ -19,6 +19,8 @@ import (
 // rebuilding the manifest from the root cmd.go AST replaced the whole Properties
 // struct, dropping every manifest-only field the AST cannot recover.
 func TestRegenerateManifest_PreservesProjectProperties(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
 	l := logger.NewCharm(&logBuf)

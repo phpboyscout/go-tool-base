@@ -58,6 +58,8 @@ telemetry:
 // Observability must run on implied consent: enabling a signal does not require
 // the analytics opt-in (telemetry.enabled), and vice versa.
 func TestSetupFromProps_ObservabilityIndependentOfAnalyticsConsent(t *testing.T) {
+	t.Parallel()
+
 	restoreGlobals(t)
 
 	sh, err := SetupFromProps(context.Background(), testProps(t, `

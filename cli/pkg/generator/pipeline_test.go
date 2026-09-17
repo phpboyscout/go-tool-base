@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // setupTestProject creates a minimal in-memory project via GenerateSkeleton
@@ -265,6 +266,8 @@ func TestGenerateAndRegenerate(t *testing.T) {
 // regenerateRootCommand did not read ManifestHelp and silently zeroed the
 // HelpType / SlackChannel / etc. fields in the regenerated root/cmd.go.
 func TestRegenerateProject_preservesHelpConfig(t *testing.T) {
+	t.Parallel()
+
 	path := "/work"
 	p := setupTestProject(t, path)
 
@@ -299,4 +302,55 @@ func TestRegenerateProject_preservesHelpConfig(t *testing.T) {
 
 	assert.Contains(t, string(content), "#platform-alerts", "slack channel must survive RegenerateProject")
 	assert.Contains(t, string(content), "my-workspace", "slack team must survive RegenerateProject")
+}
+
+// TestRegenerateProject_AtomicOnMidRunFailure is the 2.2.1 guard: a regenerate
+// that aborts mid-run (here: an uncacheable git template source with no clone
+// available) must leave the tree untouched, so already-written command files
+// are not left with hashes the manifest never recorded (misclassified as
+// user-modified on the next run).
+func TestRegenerateProject_AtomicOnMidRunFailure(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Version: version.NewInfo("v1.0.0", "", "")}
+
+	workDir := "."
+	require.NoError(t, afero.WriteFile(fs, "go.mod", []byte("module github.com/test/project\n\ngo 1.22\n"), 0o644))
+
+	oldFoo := []byte("package foo\n// OLD HAND-WRITTEN CONTENT\n")
+	require.NoError(t, fs.MkdirAll("pkg/cmd/foo", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "pkg/cmd/foo/cmd.go", oldFoo, 0o644))
+
+	oldRoot := []byte("package root\n// OLD ROOT\n")
+	require.NoError(t, fs.MkdirAll("pkg/cmd/root", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "pkg/cmd/root/cmd.go", oldRoot, 0o644))
+
+	m := Manifest{
+		Properties: ManifestProperties{
+			Name: "test-project",
+			// A git source with a pin but no warm cache and no clone func makes
+			// resolveAllSources (in the skeleton step, after the command files
+			// are written) fail deterministically.
+			Templates: []TemplateSource{
+				{Name: "corp", Type: TemplateSourceGit, Location: "acme/tpl", Ref: "v1", Resolved: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"},
+			},
+		},
+		Version:  ManifestVersion{GoToolBase: "v1.0.0"},
+		Commands: []ManifestCommand{{Name: "foo"}},
+	}
+	data, _ := yaml.Marshal(m)
+	require.NoError(t, fs.MkdirAll(".gtb", 0o755))
+	require.NoError(t, afero.WriteFile(fs, ".gtb/manifest.yaml", data, 0o644))
+
+	g := New(p, &Config{Path: workDir, Name: "test-project"})
+
+	err := g.RegenerateProject(context.Background())
+	require.Error(t, err, "regeneration must fail on the uncacheable template source")
+
+	gotFoo, _ := afero.ReadFile(fs, "pkg/cmd/foo/cmd.go")
+	assert.Equal(t, string(oldFoo), string(gotFoo), "aborted regenerate must not mutate the command file")
+
+	gotRoot, _ := afero.ReadFile(fs, "pkg/cmd/root/cmd.go")
+	assert.Equal(t, string(oldRoot), string(gotRoot), "aborted regenerate must not mutate the root command file")
 }

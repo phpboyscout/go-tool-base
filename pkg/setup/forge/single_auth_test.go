@@ -143,6 +143,8 @@ func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 // both an env reference and a literal token. Stale keys are removed from the
 // document entirely.
 func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
+	t.Parallel()
+
 	t.Run("env-var mode clears a stale literal token", func(t *testing.T) {
 		p := newTestProps(t)
 		cfg := newTestEditor(t, p, "github:\n  auth:\n    value: ghp_STALE_TOKEN\n")

@@ -52,6 +52,8 @@ func (m *MockChatClient) Usage() gochat.Usage {
 func (m *MockChatClient) History() gochat.History { return gochat.History{} }
 
 func TestGenerateDocs_Command(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	cfgContainer := testutil.StoreFromYAML(t, "ai:\n  provider: mock\n  model: test-model\n")
@@ -115,6 +117,8 @@ This is a generated doc.
 }
 
 func TestGenerateDocs_Package(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	cfgContainer := emptyTestStore(t)
@@ -164,6 +168,8 @@ title: mypkg
 }
 
 func TestHandleReadFileTool(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 	_ = afero.WriteFile(fs, filepath.Join(root, "test.txt"), []byte("hello world"), 0644)
@@ -181,6 +187,8 @@ func TestHandleReadFileTool(t *testing.T) {
 }
 
 func TestHandleListDirTool(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 	_ = fs.MkdirAll(filepath.Join(root, "subdir"), 0755)
@@ -200,6 +208,8 @@ func TestHandleListDirTool(t *testing.T) {
 }
 
 func TestHandleGoDocTool(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{
 		config: &Config{Path: "/work"},
 		runCommand: func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
@@ -217,6 +227,8 @@ func TestHandleGoDocTool(t *testing.T) {
 	assert.Equal(t, "package fmt ...", result)
 }
 func TestSanitizeAIOutput(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	tests := []struct {
@@ -243,6 +255,8 @@ func TestSanitizeAIOutput(t *testing.T) {
 }
 
 func TestGetModuleNameSafe(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 
@@ -290,6 +304,8 @@ func TestResolveAIConfig(t *testing.T) {
 }
 
 func TestResolvePathFromProjectRoot(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 	target := "mycmd"
@@ -312,6 +328,8 @@ func TestResolvePathFromProjectRoot(t *testing.T) {
 }
 
 func TestResolveDocsTarget(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 
@@ -357,6 +375,8 @@ func TestResolveDocsTarget(t *testing.T) {
 // directory or was skipped. The doc path must reflect the command's actual
 // source location (pkg/cmd/<parent>/<leaf>), not a name lookup in the manifest.
 func TestPrepareDocsContext_CrossParentCollision(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 
@@ -391,6 +411,8 @@ commands:
 }
 
 func TestToTitle(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		expected string
@@ -406,6 +428,8 @@ func TestToTitle(t *testing.T) {
 }
 
 func TestUpdateNavSection(t *testing.T) {
+	t.Parallel()
+
 	nav := []any{
 		map[string]any{"Home": "index.md"},
 		map[string]any{"CLI": []any{"existing.md"}},
@@ -428,6 +452,8 @@ func TestUpdateNavSection(t *testing.T) {
 }
 
 func TestBuildNavFromCommands(t *testing.T) {
+	t.Parallel()
+
 	cmds := []ManifestCommand{
 		{
 			Name:        "parent",
@@ -474,6 +500,8 @@ func TestNavCommandPath_LayoutAware(t *testing.T) {
 }
 
 func TestRegenerateMkdocsNav(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 	mkdocsPath := filepath.Join(root, "mkdocs.yml")
@@ -513,6 +541,8 @@ commands:
 }
 
 func TestGeneratePackagesIndex(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 	pkgDocsDir := filepath.Join(root, "docs/packages/pkg/mypkg")
@@ -536,6 +566,8 @@ func TestGeneratePackagesIndex(t *testing.T) {
 }
 
 func TestGenerateCommandsIndex(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 
@@ -569,6 +601,8 @@ func TestGenerateCommandsIndex(t *testing.T) {
 // API by default. With no provider configured and no chat client injected,
 // GenerateDocs writes deterministic boilerplate (no network call) and succeeds.
 func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	cfgContainer := emptyTestStore(t)
@@ -600,6 +634,8 @@ func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
 // TestAIDocsEnabled pins the opt-in gate: a provider must be explicitly
 // configured (flag, config key, or injected client) and --agentless unset.
 func TestAIDocsEnabled(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		name         string
 		agentless    bool
@@ -645,6 +681,8 @@ func TestAIDocsEnabled(t *testing.T) {
 // navigation from the docs tree, so the nav step is a quiet no-op — not the
 // old misleading "mkdocs.yml not found, skipping navigation update" warning.
 func TestRegenerateMkdocsNav_ZensicalProject(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 

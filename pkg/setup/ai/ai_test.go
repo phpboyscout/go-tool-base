@@ -206,6 +206,8 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 // enforcing the spec's single-credential-key invariant, and must persist the
 // provider in the same write.
 func TestWriteAIConfig_ModeSwitchClearsStaleKeys(t *testing.T) {
+	t.Parallel()
+
 	openEditor := func(t *testing.T) setup.Editor {
 		t.Helper()
 
@@ -673,8 +675,6 @@ func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
 }
 
 func TestRunAIForms_RefusesWithNobodyAtTheTerminal(t *testing.T) {
-	t.Parallel()
-
 	props := newTestProps(t)
 	props.IO = nonInteractiveIO()
 
@@ -686,8 +686,6 @@ func TestRunAIForms_RefusesWithNobodyAtTheTerminal(t *testing.T) {
 }
 
 func TestAIInitialiser_Configure_FormCancellation(t *testing.T) {
-	t.Parallel()
-
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 

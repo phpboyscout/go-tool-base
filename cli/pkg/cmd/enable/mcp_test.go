@@ -28,6 +28,8 @@ func TestEnableMCP_Metadata(t *testing.T) {
 }
 
 func TestEnableMCP_ExposesCommand(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	writeManifest(t, fs, "/work")

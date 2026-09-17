@@ -69,6 +69,8 @@ func TestResolveProvider(t *testing.T) {
 }
 
 func TestResolveToken(t *testing.T) {
+	t.Parallel()
+
 	c := testutil.StoreFromYAML(t,
 		"openai:\n  api:\n    key: sk-openai\nanthropic:\n  api:\n    key: sk-anthropic\ngemini:\n  api:\n    key: sk-gemini\n")
 
@@ -102,6 +104,8 @@ func TestResolveToken(t *testing.T) {
 }
 
 func TestGetImportPath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		setupFS     func(fs afero.Fs)

@@ -517,6 +517,8 @@ func TestRegenerateManifest_RecoversMissingEntries(t *testing.T) {
 // TestSkeletonFeatures_DisabledFeaturesOmitFiles verifies that skeleton
 // generation with disabled features does not produce certain command structures.
 func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator")
 
 	fs := afero.NewMemMapFs()
@@ -573,6 +575,8 @@ func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
 // generated binary runs with the stub backend and no IPC-to-keychain
 // code linked.
 func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator")
 
 	tests := []struct {

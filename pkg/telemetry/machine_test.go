@@ -76,3 +76,10 @@ func TestFirstMACAddress(t *testing.T) {
 		t.Errorf("invalid MAC format: %q: %v", mac, err)
 	}
 }
+
+func TestOSMachineID_DoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	// Result depends on the host; we only assert the call is total.
+	_ = osMachineID()
+}
