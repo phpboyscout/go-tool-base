@@ -174,7 +174,7 @@ the runner can export it. Three variables select the key, all with defaults:
 | Variable | Default | What it is |
 | :--- | :--- | :--- |
 | `GTB_SIGNING_KEY_ID` | `alias/gtb-release-signing-v2` | the KMS key alias to sign with |
-| `GTB_SIGNING_KEY_PUBLIC` | `internal/trustkeys/keys/signing-key-v1.asc` | the public half, which must be present in the working tree |
+| `GTB_SIGNING_KEY_PUBLIC` | `cli/pkg/trustkeys/keys/signing-key-v2.asc` | the public half, which must be present in the working tree |
 | `AWS_REGION` | `eu-west-2` | where the key lives |
 
 **There is no signing gate, and the script fails closed.** If neither
@@ -188,11 +188,13 @@ a file, and the AWS SDK assumes the signer role. That role's trust policy pins i
 to `project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*`, so a leaked role
 ARN still only lets this project's **tag** pipelines sign anything.
 
-> **Dual-signing window.** Since the 2026-07-24 key rotation the job also sets
-> `GTB_SIGNING_KEY_ID_2` and `AWS_ROLE_ARN_2`, and `sign-release.sh` merges the
-> second signature into the same `checksums.txt.sig`. Binaries already in the
-> field trust v1 only; new ones trust v1 and v2, so both verify. The window
-> closes by deleting those variables from the `goreleaser` job.
+> **One signer, two trusted keys.** The 2026-07-24 rotation moved signing
+> to `alias/gtb-release-signing-v2` in a new AWS account; releases were
+> signed with both keys until every supported binary trusted v2, and the
+> old account was closed on 2026-09-15, which destroyed the v1 private key.
+> The v1 **public** key stays in `cli/pkg/trustkeys/keys/` so releases
+> signed before then keep verifying: verification is offline and never
+> needs the private half. Nothing in the pipeline references v1 any more.
 
 The **sign→verify contract**. That a signature `gtb sign` produces is accepted by
 the same trust set self-update enforces, is covered by
@@ -338,7 +340,7 @@ below apply to it as to the built-in sources:
 
 ### Key rotation
 
-The trust set is a *set*, not a single key. During a rotation window, ship releases signed by both the old and new key; the verifier accepts either. Once all supported versions of the tool include the new key in their trust set, drop the old key from both the embedded `trustkeys` directory and the WKD endpoint.
+The trust set is a *set*, not a single key. During a rotation window, ship releases signed by both the old and new key; the verifier accepts either. Once all supported versions of the tool include the new key in their trust set, the old key can stop signing. Keep its public half in the embedded `trustkeys` directory for as long as anything signed by it should still verify, and never edit a WKD entry a shipped binary pins: the verifier requires the embedded set and the WKD set for its compiled-in identity to agree exactly, so a new trust set gets a new WKD identity and the old entry stays frozen (see infra spec 0012 D2 for the 2026 rotation that established this).
 
 For emergency rotation (compromise of the primary signing key), the design reserves a second "rotation-authority" key whose private half is stored offline. A release signed by the rotation-authority carries a `rotate-keys.json` manifest; the next update rewrites the embedded trust set from that manifest. This is documented in the spec and deferred to Phase 4.
 

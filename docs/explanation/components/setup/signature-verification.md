@@ -341,7 +341,7 @@ Failure handling is deliberately asymmetric:
 
 ## Key Rotation
 
-Trust sets hold multiple keys, and verification passes if **any** key validates the signature. During a rotation window the release pipeline dual-signs `checksums.txt` with both the outgoing and incoming keys, and both keys are served from WKD (and embedded). Once every supported tool version has shipped with the new key, the old key is dropped from the trust set and removed from WKD. Emergency rotation via a separate rotation-authority key is documented in the spec but deferred beyond Phase 2.
+Trust sets hold multiple keys, and verification passes if **any** key validates the signature. During a rotation window the release pipeline signs `checksums.txt` with both the outgoing and incoming keys, and a new WKD identity serves the new set alongside the embedded keys. Once every supported tool version has shipped with the new key, the old key stops signing; its public half stays embedded for as long as older releases should verify, and the WKD entries shipped binaries pin are never edited, because the verifier requires the two anchors to agree exactly. Emergency rotation via a separate rotation-authority key is documented in the spec but deferred beyond Phase 2.
 
 ## See Also
 

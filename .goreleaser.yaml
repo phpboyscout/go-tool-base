@@ -94,8 +94,7 @@ checksum:
 # GTB_SIGNING_KEY variable; both were described here long after they
 # stopped existing.
 #
-# See docs/how-to/secure-releases.md for the key variables and the
-# dual-signing window.
+# See docs/how-to/secure-releases.md for the key variables.
 signs:
   - id: checksums
     cmd: scripts/sign-release.sh

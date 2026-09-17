@@ -199,10 +199,9 @@ goreleaser:
     AWS_REGION: eu-west-2
     AWS_ROLE_ARN: arn:aws:iam::060730976733:role/gtb-release-signing-v2-signer
     AWS_ROLE_SESSION_NAME: gtb-release-${CI_COMMIT_TAG}
-    # v2 (prod account) is the sole signer since the 2026-07-24 rotation's
-    # dual-sign window closed. v1 lived in the old account 049815585546,
-    # being closed; its public key stays in the trust set so releases
-    # signed before the window closed keep verifying.
+    # v2, in the prod account, is the sole signer since the 2026-07-24
+    # rotation; the old account and its v1 private key are gone. The v1
+    # PUBLIC key stays in the trust set so older releases keep verifying.
     GTB_SIGNING_KEY_ID: alias/gtb-release-signing-v2
     GTB_SIGNING_KEY_PUBLIC: cli/pkg/trustkeys/keys/signing-key-v2.asc
     # AWS_WEB_IDENTITY_TOKEN_FILE must be in variables: (not just
