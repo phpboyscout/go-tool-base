@@ -19,12 +19,16 @@ import (
 // Declared is the set's answer, Unregistered the declared providers whose
 // module is not in the binary: a build mistake, never a configuration one.
 func LinkedProviders(set features.Set) (linked, unregistered []gochat.Provider) {
+	return LinkedProvidersIn(set, gochat.RegisteredProviders())
+}
+
+// LinkedProvidersIn is LinkedProviders over an explicit registry listing, so
+// a test states what is registered rather than registering it.
+func LinkedProvidersIn(set features.Set, registered []gochat.Provider) (linked, unregistered []gochat.Provider) {
 	declared := props.LinkedNames(set, props.ChatLinkPrefix)
 	if len(declared) == 0 {
-		return gochat.RegisteredProviders(), nil
+		return registered, nil
 	}
-
-	registered := gochat.RegisteredProviders()
 
 	for _, name := range declared {
 		p := gochat.Provider(name)

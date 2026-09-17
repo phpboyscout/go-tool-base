@@ -1,10 +1,7 @@
 package ai
 
 import (
-	"context"
 	"testing"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,29 +45,15 @@ func TestRunAIForms_RefusesAProviderTheBinaryDoesNotLink(t *testing.T) {
 
 // TestLinkedProviders_NothingRegisteredOffersEverything: a binary that
 // registers no provider at all cannot narrow, so init ai falls back to the
-// whole table and doctor's Chat providers check is what reports the gap. A
-// tool that declares links (#81) narrows to the ones it declared.
+// whole table and doctor's Chat providers check is what reports the gap.
+// The narrowing by declared links is chat's and tested there; this test
+// registers nothing, because the process-wide chat registry is what the
+// wizard tests in this package count providers from.
 func TestLinkedProviders_NothingRegisteredOffersEverything(t *testing.T) {
 	t.Parallel()
 
-	// This test binary registers no real provider, so a set with no links
-	// resolves to "everything".
 	empty, err := features.Resolve(features.NewRegistry().Snapshot(), nil)
 	require.NoError(t, err)
 
-	linked := linkedProviders(empty)
-	assert.True(t, linked(gochat.ProviderClaude))
-
-	// Declared links narrow to what is declared and registered.
-	gochat.RegisterProvider("lp-declared", func(context.Context, gochat.Settings) (gochat.ChatClient, error) { return nil, nil })
-
-	r := features.NewRegistry()
-	require.NoError(t, props.DeclareLinksOn(r, props.ChatLinkPrefix, "lp-declared"))
-
-	set, err := features.Resolve(r.Snapshot(), nil)
-	require.NoError(t, err)
-
-	linked = linkedProviders(set)
-	assert.True(t, linked("lp-declared"))
-	assert.False(t, linked(gochat.ProviderClaude))
+	assert.True(t, linkedProviders(empty)(gochat.ProviderClaude))
 }
