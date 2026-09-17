@@ -234,9 +234,9 @@ func TestBuildKeyResolver_CompositeHonoursRequireAll(t *testing.T) {
 }
 
 func TestResolveSigningConfig_Precedence(t *testing.T) {
-	t.Parallel()
-
-	// Mutates package-level Default* sentinels — must not run in parallel.
+	// Mutates package-level Default* sentinels, which the production code and
+	// other tests read, so it stays sequential: Go runs every non-parallel
+	// test before it resumes the parallel ones.
 	oldSig, oldSrc, oldEmail, oldCross := verify.DefaultRequireSignature, verify.DefaultKeySource, verify.DefaultExternalKeyEmail, verify.DefaultRequireExternalCrosscheck
 	t.Cleanup(func() {
 		verify.DefaultRequireSignature = oldSig
