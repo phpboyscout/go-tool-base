@@ -189,6 +189,10 @@ func (c *Command) wrapTree(cmd *cobra.Command, feature props.FeatureID) {
 	}
 
 	if cmd.RunE != nil && cmd.Annotations[ChainedAnnotation] == "" {
+		if IsGroup(cmd) {
+			markGroup(cmd)
+		}
+
 		cmd.RunE = c.chain.Chain(feature, cmd.RunE)
 
 		if cmd.Annotations == nil {

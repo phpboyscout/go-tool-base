@@ -192,3 +192,18 @@ func TestIsExposedToMCP_AllInheritChainDefaultsExposed(t *testing.T) {
 
 	assert.True(t, IsExposedToMCP(leaf), "no explicit decision anywhere -> default exposed")
 }
+
+func TestIsGroup_RecognisesGroupRunEOnly(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, IsGroup(&cobra.Command{Use: "config", RunE: GroupRunE}))
+	assert.False(t, IsGroup(&cobra.Command{Use: "get", RunE: func(*cobra.Command, []string) error { return nil }}))
+	assert.False(t, IsGroup(&cobra.Command{Use: "run", Run: func(*cobra.Command, []string) {}}))
+	assert.False(t, IsGroup(nil))
+
+	// A wrapped RunE no longer points at GroupRunE; the stamp keeps the answer.
+	wrapped := &cobra.Command{Use: "config", RunE: GroupRunE}
+	markGroup(wrapped)
+	wrapped.RunE = func(*cobra.Command, []string) error { return nil }
+	assert.True(t, IsGroup(wrapped))
+}

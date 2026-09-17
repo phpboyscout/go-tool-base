@@ -1,6 +1,8 @@
 package setup
 
 import (
+	"reflect"
+
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
@@ -51,4 +53,32 @@ func GroupRunE(cmd *cobra.Command, args []string) error {
 	}
 
 	return cmd.Usage()
+}
+
+// GroupAnnotation marks a command whose RunE was GroupRunE before the root's
+// middleware chain wrapped it, so IsGroup still answers afterwards.
+const GroupAnnotation = "gtb.group"
+
+// IsGroup reports whether cmd only groups subcommands, that is, its RunE is
+// GroupRunE (or was, before the chain wrapped it). Cobra counts such a command
+// as runnable, so anything publishing "runnable commands" (the MCP surface)
+// asks this to leave groups out: a tool that prints usage is noise to a client.
+func IsGroup(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+
+	if cmd.Annotations[GroupAnnotation] == "true" {
+		return true
+	}
+
+	return cmd.RunE != nil && reflect.ValueOf(cmd.RunE).Pointer() == reflect.ValueOf(GroupRunE).Pointer()
+}
+
+func markGroup(cmd *cobra.Command) {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+
+	cmd.Annotations[GroupAnnotation] = "true"
 }
