@@ -15,6 +15,8 @@ import (
 )
 
 func TestAddCommand_Lifecycle(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	// Config container requires a logger
 	l := logger.NewNoop()
@@ -63,6 +65,8 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 }
 
 func TestRegenerateProject_Lifecycle(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	conf := emptyTestStore(t)
@@ -98,6 +102,8 @@ func TestRegenerateProject_Lifecycle(t *testing.T) {
 }
 
 func TestRegenerateManifest_Lifecycle(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	conf := emptyTestStore(t)

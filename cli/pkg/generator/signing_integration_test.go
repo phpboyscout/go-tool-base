@@ -23,6 +23,8 @@ import (
 // keys/.gitkeep the scaffold emits, so a missing placeholder would fail
 // here rather than only in a downstream user's build.
 func TestGeneratedSigningProjectCompiles(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {
@@ -75,6 +77,8 @@ func TestGeneratedSigningProjectCompiles(t *testing.T) {
 // (shim-free) gtb sign block, the project still compiles, and — when goreleaser
 // is available — the release config validates with `goreleaser check`.
 func TestGeneratedSigningProjectWithSignsBlock(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	if _, err := exec.LookPath("go"); err != nil {

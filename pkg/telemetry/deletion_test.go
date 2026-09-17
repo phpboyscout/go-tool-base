@@ -181,3 +181,39 @@ func TestEventDeletionRequestor(t *testing.T) {
 		t.Errorf("name = %q, want %q", e.Name, "deletion_request")
 	}
 }
+
+func TestHTTPDeletionRequestor_NetworkError(t *testing.T) {
+	t.Parallel()
+
+	r := NewHTTPDeletionRequestor("http://127.0.0.1:1", logger.ToSlog(logger.NewNoop()))
+
+	if err := r.RequestDeletion(context.Background(), "id"); err == nil {
+		t.Error("expected a transport error for a refused connection")
+	}
+}
+
+func TestHTTPDeletionRequestor_BadEndpoint(t *testing.T) {
+	t.Parallel()
+
+	// A control character in the URL makes http.NewRequestWithContext fail,
+	// exercising the "creating deletion request" branch.
+	r := NewHTTPDeletionRequestor("http://exa\x7fmple.com", logger.ToSlog(logger.NewNoop()))
+
+	if err := r.RequestDeletion(context.Background(), "id"); err == nil {
+		t.Error("expected an error constructing a request for a malformed URL")
+	}
+}
+
+// TestEmailDeletionRequestor_DefaultOpenURLClosure invokes RequestDeletion on a
+// requestor built via the public constructor (no openURL override) so the
+// default closure that delegates to browser.OpenURL is executed. In a headless
+// environment there is no mail client, so the call returns an error rather than
+// launching anything — we only require the closure runs without panicking,
+// covering the constructor's wiring.
+func TestEmailDeletionRequestor_DefaultOpenURLClosure(t *testing.T) {
+	t.Parallel()
+
+	r := NewEmailDeletionRequestor("privacy@example.com", "tool")
+
+	_ = r.RequestDeletion(context.Background(), "machine-id")
+}

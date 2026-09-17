@@ -24,6 +24,8 @@ import (
 // an invalid (empty, non-module) directory and asserts the verification errors
 // are collected rather than swallowed.
 func TestLegacyVerifier_VerifyGeneratedCode_Integration(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	v := NewLegacy(&props.Props{Logger: logger.NewNoop(), FS: afero.NewOsFs()}, t.TempDir())
@@ -37,6 +39,8 @@ func TestLegacyVerifier_VerifyGeneratedCode_Integration(t *testing.T) {
 // fails, there is nothing to repair, so the loop breaks and the verifier
 // returns nil (best-effort) after logging a caution.
 func TestLegacyVerifier_VerifyAndFix_NoAIClient_Integration(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	projectRoot := t.TempDir()
@@ -53,6 +57,8 @@ func TestLegacyVerifier_VerifyAndFix_NoAIClient_Integration(t *testing.T) {
 // asks the AI to fix the code and cleans up before regenerating. The stub
 // "fixes" nothing, so the loop exhausts its retries and returns nil best-effort.
 func TestLegacyVerifier_VerifyAndFix_WithAIClient_Integration(t *testing.T) {
+	t.Parallel()
+
 	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
 
 	projectRoot := t.TempDir()

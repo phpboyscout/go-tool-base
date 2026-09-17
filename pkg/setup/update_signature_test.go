@@ -234,6 +234,8 @@ func TestBuildKeyResolver_CompositeHonoursRequireAll(t *testing.T) {
 }
 
 func TestResolveSigningConfig_Precedence(t *testing.T) {
+	t.Parallel()
+
 	// Mutates package-level Default* sentinels — must not run in parallel.
 	oldSig, oldSrc, oldEmail, oldCross := verify.DefaultRequireSignature, verify.DefaultKeySource, verify.DefaultExternalKeyEmail, verify.DefaultRequireExternalCrosscheck
 	t.Cleanup(func() {
@@ -538,6 +540,8 @@ func TestVerifyAssetChecksum_BadSignatureBlocksBeforeChecksum(t *testing.T) {
 // verify.BuildKeyResolver rejects it and buildDefaultKeyResolver wraps the error
 // (and leaves no resolver set).
 func TestBuildDefaultKeyResolver_ConfigError(t *testing.T) {
+	t.Parallel()
+
 	mustInitTestSigningKeys(t)
 
 	s := &SelfUpdater{

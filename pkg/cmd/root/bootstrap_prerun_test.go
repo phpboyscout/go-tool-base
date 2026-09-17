@@ -72,6 +72,8 @@ func execChild(t *testing.T, props *p.Props, child *cobra.Command) error {
 // and no bootstrap policy, a missing config is a hard error and the command
 // never runs.
 func TestPreRun_MissingConfig_HardFailsByDefault(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "hardfail-tool")
 
 	var childRan bool
@@ -91,6 +93,8 @@ func TestPreRun_MissingConfig_HardFailsByDefault(t *testing.T) {
 // command: bootstrap still runs (props.Config populated from embedded defaults)
 // and the command executes.
 func TestPreRun_SkipConfigCheck_ByName(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "skipname-tool")
 	props.Tool.Bootstrap = p.BootstrapPolicy{SkipConfigCheck: []string{"child"}}
 
@@ -111,6 +115,8 @@ func TestPreRun_SkipConfigCheck_ByName(t *testing.T) {
 // TestPreRun_SkipConfigCheck_ByPath matches on the full command path, so a bare
 // name at a different level would not collide.
 func TestPreRun_SkipConfigCheck_ByPath(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "skippath-tool")
 	props.Tool.Bootstrap = p.BootstrapPolicy{SkipConfigCheck: []string{"skippath-tool child"}}
 
@@ -129,6 +135,8 @@ func TestPreRun_SkipConfigCheck_ByPath(t *testing.T) {
 // TestPreRun_SkipConfigCheck_ByAnnotation relaxes the gate via the
 // setup.SkipConfigCheck annotation rather than the policy list.
 func TestPreRun_SkipConfigCheck_ByAnnotation(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "skipannot-tool")
 
 	var childRan bool
@@ -147,6 +155,8 @@ func TestPreRun_SkipConfigCheck_ByAnnotation(t *testing.T) {
 // TestPreRun_AutoInitialise_HealsMissingConfig writes the default config and
 // reloads it, instead of hard-failing.
 func TestPreRun_AutoInitialise_HealsMissingConfig(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "autoinit-tool")
 	props.Tool.Bootstrap = p.BootstrapPolicy{AutoInitialise: true}
 
@@ -167,6 +177,8 @@ func TestPreRun_AutoInitialise_HealsMissingConfig(t *testing.T) {
 // TestPreRun_AutoInitialise_NoOpWhenInitDisabled: with init disabled the tool
 // already tolerates empty config, so auto-init must not run (no file written).
 func TestPreRun_AutoInitialise_NoOpWhenInitDisabled(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "autoinit-noinit-tool", p.Disable(p.InitCmd))
 	props.Tool.Bootstrap = p.BootstrapPolicy{AutoInitialise: true}
 
@@ -181,6 +193,8 @@ func TestPreRun_AutoInitialise_NoOpWhenInitDisabled(t *testing.T) {
 // TestPreRun_SkipConfigCheck_TakesPrecedenceOverAutoInitialise: a command that
 // declared it owns bootstrap must not be auto-initialised for.
 func TestPreRun_SkipConfigCheck_TakesPrecedenceOverAutoInitialise(t *testing.T) {
+	t.Parallel()
+
 	props := noConfigProps(t, "precedence-tool")
 	props.Tool.Bootstrap = p.BootstrapPolicy{
 		AutoInitialise:  true,

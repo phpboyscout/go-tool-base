@@ -187,6 +187,8 @@ func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
 }
 
 func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
+	t.Parallel()
+
 	registerTestProviders(t)
 
 	p := &props.Props{
@@ -207,6 +209,8 @@ func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 // TestNewWithFallback_WrapperBuildsChain covers the public NewWithFallback
 // wrapper, which delegates to NewWithFallbackFromProps.
 func TestNewWithFallback_WrapperBuildsChain(t *testing.T) {
+	t.Parallel()
+
 	registerTestProviders(t)
 
 	p := &props.Props{
@@ -223,6 +227,8 @@ func TestNewWithFallback_WrapperBuildsChain(t *testing.T) {
 }
 
 func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *testing.T) {
+	t.Parallel()
+
 	registerTestProviders(t)
 
 	buf := logger.NewBuffer()
@@ -243,6 +249,8 @@ func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *tes
 }
 
 func TestNewWithFallbackFromProps_WarnsWhenConfiguredProviderOverridden(t *testing.T) {
+	t.Parallel()
+
 	registerTestProviders(t)
 
 	buf := logger.NewBuffer()

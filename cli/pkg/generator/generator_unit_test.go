@@ -14,6 +14,8 @@ import (
 )
 
 func TestVerifyProject(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{
@@ -61,6 +63,8 @@ func TestVerifyProject(t *testing.T) {
 }
 
 func TestGetImportPath_Generator(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs}
 	root := "/work"
@@ -82,6 +86,8 @@ func TestGetImportPath_Generator(t *testing.T) {
 }
 
 func TestSetProtection(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	root := "/work"

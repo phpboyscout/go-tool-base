@@ -42,6 +42,8 @@ func (w *recordingWatcher) Watch(_ context.Context, _ []string, _ func()) (func(
 // the retained stop. Before the fix the stop was discarded, so the watcher was
 // never stopped by teardown (the recordingWatcher's stop stays false).
 func TestExecute_InvokesRetainedWatcherStopOnBackgroundContext(t *testing.T) {
+	t.Parallel()
+
 	// A file-backed store is watchable; the injected watcher stands in for the
 	// real one so the returned stop is observable.
 	cfg := testutil.FileStoreFromYAML(t, "log:\n  level: info\n")

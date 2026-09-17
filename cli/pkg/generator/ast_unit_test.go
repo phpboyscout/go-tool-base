@@ -13,6 +13,8 @@ import (
 )
 
 func TestExtractAliases(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	tests := []struct {
@@ -58,6 +60,8 @@ func TestExtractAliases(t *testing.T) {
 }
 
 func TestExtractArgs(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	tests := []struct {
@@ -129,6 +133,8 @@ func TestExtractArgs(t *testing.T) {
 }
 
 func TestIsRegistrationArg(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	// Create context
@@ -188,6 +194,8 @@ func TestIsRegistrationArg(t *testing.T) {
 }
 
 func TestHandleNewCmdRootInit(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	tests := []struct {
@@ -253,6 +261,8 @@ func TestHandleNewCmdRootInit(t *testing.T) {
 }
 
 func TestHandleAllAssetsAssignment(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	t.Run("Initialize with make", func(t *testing.T) {
@@ -289,6 +299,8 @@ func TestHandleAllAssetsAssignment(t *testing.T) {
 }
 
 func TestCountCommandsWithAssets(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		commands []ManifestCommand
@@ -337,6 +349,8 @@ func TestCountCommandsWithAssets(t *testing.T) {
 }
 
 func TestIsSubcommandAssetAppend(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 	ctx := &subcommandContext{pkgName: "child"}
 
@@ -407,6 +421,8 @@ func TestIsSubcommandAssetAppend(t *testing.T) {
 }
 
 func TestDetectAssets(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		setupFS        func(fs afero.Fs, path string)
@@ -474,6 +490,8 @@ func TestDetectAssets(t *testing.T) {
 }
 
 func TestCheckPropsAssignment(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	tests := []struct {
@@ -544,6 +562,8 @@ func TestCheckPropsAssignment(t *testing.T) {
 }
 
 func TestCheckOptsAssignment(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	tests := []struct {
@@ -599,6 +619,8 @@ func TestCheckOptsAssignment(t *testing.T) {
 }
 
 func TestCheckAllAssetsInitialized(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	t.Run("Variable 'allAssets' declared", func(t *testing.T) {
@@ -653,6 +675,8 @@ func TestCheckAllAssetsInitialized(t *testing.T) {
 }
 
 func TestProcessAssetsVarDecl(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	t.Run("Variable 'assets' declared", func(t *testing.T) {
@@ -692,6 +716,8 @@ func TestProcessAssetsVarDecl(t *testing.T) {
 }
 
 func TestRemoveMarkedStatements(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	t.Run("Remove statements and update index", func(t *testing.T) {
@@ -723,6 +749,8 @@ func TestRemoveMarkedStatements(t *testing.T) {
 }
 
 func TestAnalyzeExprStmt(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	t.Run("AddCommand call", func(t *testing.T) {
@@ -766,6 +794,8 @@ func TestAnalyzeExprStmt(t *testing.T) {
 }
 
 func TestAppendSubcommandCallToRootInit(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 	ctx := &subcommandContext{
 		pkgName:            "child",
@@ -804,6 +834,8 @@ func TestAppendSubcommandCallToRootInit(t *testing.T) {
 }
 
 func TestInsertIntoRoot(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 	ctx := &subcommandContext{
 		pkgName:            "child",

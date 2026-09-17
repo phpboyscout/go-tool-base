@@ -102,6 +102,8 @@ func scaffoldPlainProjectWithIgnoredGoreleaser(t *testing.T) (*Generator, string
 // and because the recorded hash equals the customised content's hash the
 // conflict guard sees "unchanged" and overwrites — every sentinel is lost.
 func TestEnableSigning_PreservesCustomisedIgnoredGoreleaser(t *testing.T) {
+	t.Parallel()
+
 	gen, goreleaserPath := scaffoldPlainProjectWithIgnoredGoreleaser(t)
 
 	require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
@@ -123,6 +125,8 @@ func TestEnableSigning_PreservesCustomisedIgnoredGoreleaser(t *testing.T) {
 // signing. On main the command never calls LoadIgnoreRules, so the ignore
 // entry has no effect and the file is rewritten.
 func TestEnableSigning_HonoursGtbIgnore(t *testing.T) {
+	t.Parallel()
+
 	gen, goreleaserPath := scaffoldPlainProjectWithIgnoredGoreleaser(t)
 
 	require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
@@ -214,6 +218,8 @@ dmg:                        # SENTINEL: dmg packaging
 // all of its customisation and gains only the top-level signs: block. Every
 // sentinel survives, the signs invocation is present, and the file still parses.
 func TestEnableSigning_InjectsIntoCustomisedNonIgnoredGoreleaser(t *testing.T) {
+	t.Parallel()
+
 	gen, goreleaserPath, _ := scaffoldProjectWithGoreleaser(t, customisedNonIgnoredGoreleaser, false)
 
 	require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
@@ -269,6 +275,8 @@ signs:                      # author's own signing block — gtb must not touch 
 // paste with the path — while the rest of enable signing still proceeds
 // (trustkeys scaffold + root wiring land).
 func TestEnableSigning_AdvisesWhenSignsBlockPresent(t *testing.T) {
+	t.Parallel()
+
 	gen, goreleaserPath, buf := scaffoldProjectWithGoreleaser(t, authorSignsGoreleaser, false)
 
 	require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
@@ -297,6 +305,8 @@ func TestEnableSigning_AdvisesWhenSignsBlockPresent(t *testing.T) {
 // file restores it byte-for-byte (only the gtb-injected block is removed), and
 // disabling never removes an author-written signs: block.
 func TestDisableSigning_RemovesOnlyGtbInjectedBlock(t *testing.T) {
+	t.Parallel()
+
 	t.Run("enable then disable round-trips to the original", func(t *testing.T) {
 		gen, goreleaserPath, _ := scaffoldProjectWithGoreleaser(t, customisedNonIgnoredGoreleaser, false)
 

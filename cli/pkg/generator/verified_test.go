@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/phpboyscout/go/errorhandling"
 	"gitlab.com/phpboyscout/go/errors"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // TestGenerateSkeleton_EmittedIsNotVerified pins spec 0197 D10: when a
@@ -120,4 +123,22 @@ func TestSkeletonGoMod_FrameworkReplaceIsADevelopmentKnob(t *testing.T) {
 	data, err = afero.ReadFile(fs, "/q/go.mod")
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "replace ")
+}
+
+// TestVerifyProject_CorruptManifestFails is the 2.2.3 guard: a present but
+// undecodable manifest must fail verification with the decode error rather than
+// silently passing.
+func TestVerifyProject_CorruptManifestFails(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, fs.MkdirAll("/proj/.gtb", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "/proj/.gtb/manifest.yaml", []byte("\tthis: : is not [valid yaml"), 0o644))
+
+	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
+	g := New(p, &Config{Path: "/proj"})
+
+	err := g.verifyProject()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unmarshal manifest")
 }

@@ -15,6 +15,8 @@ import (
 )
 
 func TestRecursiveManifestUpdate(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{
@@ -68,6 +70,8 @@ func TestRecursiveManifestUpdate(t *testing.T) {
 }
 
 func TestUpdateCommandRecursive_Deep(t *testing.T) {
+	t.Parallel()
+
 	cmds := []ManifestCommand{
 		{
 			Name: "a",
@@ -99,6 +103,8 @@ func TestUpdateCommandRecursive_Deep(t *testing.T) {
 }
 
 func TestSetProtectionRecursive(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	require.NoError(t, fs.MkdirAll(".gtb", 0755))
@@ -127,6 +133,8 @@ func TestSetProtectionRecursive(t *testing.T) {
 }
 
 func TestRemoveCommandRecursive(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	p := &props.Props{FS: fs, Logger: l}
@@ -158,6 +166,8 @@ func TestRemoveCommandRecursive(t *testing.T) {
 }
 
 func TestRemoveCommandWithFilesystem(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	workDir := "/work"
@@ -219,6 +229,8 @@ func NewCmdParent(props *props.Props) *cobra.Command {
 }
 
 func TestRegisterSubcommandWithFilesystem(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	workDir := "/work"

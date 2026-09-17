@@ -204,6 +204,8 @@ func TestWithAuthCheck(t *testing.T) {
 	})
 }
 func TestWithTelemetry(t *testing.T) {
+	t.Parallel()
+
 	t.Run("RecordsSuccessfulCommand", func(t *testing.T) {
 		rc := &recordingCollector{}
 		p := &props.Props{Collector: rc}
@@ -256,4 +258,61 @@ func TestWithTelemetry(t *testing.T) {
 		assert.Equal(t, 1, rootB.calls, "root B's own collector records the command")
 		assert.Equal(t, "b-cmd", rootB.name)
 	})
+}
+
+func TestWithTelemetry_TracksCommand(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
+
+		fc := &fakeCollector{}
+		p := &props.Props{Collector: fc}
+
+		handler := WithTelemetry(p)(func(_ *cobra.Command, _ []string) error {
+			return nil
+		})
+
+		err := handler(&cobra.Command{Use: "telemetry-cmd"}, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, fc.calls)
+		assert.Equal(t, "telemetry-cmd", fc.name)
+		assert.Equal(t, 0, fc.exitCode)
+		assert.GreaterOrEqual(t, fc.duration, int64(0))
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		t.Parallel()
+
+		fc := &fakeCollector{}
+		p := &props.Props{Collector: fc}
+
+		wantErr := assert.AnError
+		handler := WithTelemetry(p)(func(_ *cobra.Command, _ []string) error {
+			return wantErr
+		})
+
+		err := handler(&cobra.Command{Use: "telemetry-cmd"}, nil)
+		require.ErrorIs(t, err, wantErr)
+
+		assert.Equal(t, 1, fc.calls)
+		assert.Equal(t, 1, fc.exitCode)
+	})
+}
+
+// fakeCollector records TrackCommand invocations for WithTelemetry coverage.
+type fakeCollector struct {
+	props.NoopCollector
+	name     string
+	duration int64
+	exitCode int
+	calls    int
+}
+
+func (f *fakeCollector) TrackCommand(name string, durationMs int64, exitCode int, _ map[string]string) {
+	f.calls++
+	f.name = name
+	f.duration = durationMs
+	f.exitCode = exitCode
 }

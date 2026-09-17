@@ -38,6 +38,8 @@ func TestWithoutSignals_SetsTheFlag(t *testing.T) {
 // opt-out in force, a signal arriving on the notification channel must not
 // cancel the command context — nothing is watching it.
 func TestExecute_WithoutSignals_LeavesTheContextAlone(t *testing.T) {
+	t.Parallel()
+
 	props, spy := newSignalTestProps()
 
 	sigCh := make(chan os.Signal, signalBuffer)
@@ -78,6 +80,8 @@ func TestExecute_WithoutSignals_LeavesTheContextAlone(t *testing.T) {
 // TestExecute_DefaultStillHandlesSignals guards the other side of D5 — the
 // opt-out must not become the default by accident.
 func TestExecute_DefaultStillHandlesSignals(t *testing.T) {
+	t.Parallel()
+
 	props, spy := newSignalTestProps()
 
 	sigCh := make(chan os.Signal, signalBuffer)

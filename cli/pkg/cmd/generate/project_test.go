@@ -36,6 +36,8 @@ func TestSkeletonRun_GitFlagsConflict(t *testing.T) {
 }
 
 func TestSkeletonRun(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:     fs,
@@ -124,6 +126,8 @@ func TestSkeletonRun(t *testing.T) {
 }
 
 func TestSkeletonRunGitLab(t *testing.T) {
+	t.Parallel()
+
 	memFs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:     memFs,

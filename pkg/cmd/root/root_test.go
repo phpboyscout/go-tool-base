@@ -1420,6 +1420,7 @@ func TestBootstrapRunsDespiteChildPersistentPreRunE(t *testing.T) {
 // before the child's PersistentPreRunE (root→leaf), so the child can rely on
 // props.Config already being populated.
 func TestBootstrapOrdering_RootBeforeChild(t *testing.T) {
+	t.Parallel()
 
 	props, cfgPath := bootstrapTestProps(t)
 
@@ -1503,4 +1504,29 @@ func TestNewRootPreRunE_ConfigPathsNotAccumulated(t *testing.T) {
 	// ...and the sentinel past len was never clobbered by an aliasing append.
 	assert.Equal(t, "sentinel", backing[1],
 		"closure must clone configPaths, not append into the caller's backing array")
+}
+
+// TestNewCmdRoot_DefaultsNilVersion is the nil-Version regression: a Props built
+// without a Version must not leave props.Version nil, because the update-check
+// path logs props.Version.GetVersion() unconditionally and would panic. The
+// default is an empty, development-flavoured Version, so the update check is
+// safely skipped rather than dereferencing nil.
+func TestNewCmdRoot_DefaultsNilVersion(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		Tool:   p.Tool{Name: "t"},
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+		Assets: p.NewAssets(),
+		// Version deliberately omitted.
+	}
+
+	_ = NewCmdRoot(props)
+
+	require.NotNil(t, props.Version, "root construction must default a nil Version")
+	assert.True(t, props.Version.IsDevelopment(),
+		"the defaulted Version reports as development, so the update check is skipped")
+	assert.NotPanics(t, func() { _ = props.Version.GetVersion() },
+		"GetVersion on the defaulted Version must not panic")
 }

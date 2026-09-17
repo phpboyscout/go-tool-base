@@ -22,6 +22,8 @@ import (
 // This test previously documented the GAP (asserting the file's absence); it
 // flipped to assert presence + a header comment when the scaffold change landed.
 func TestScaffold_ShipsCommentedGtbIgnore(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:     fs,

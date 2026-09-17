@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"gitlab.com/phpboyscout/go/forge"
 	mockRelease "gitlab.com/phpboyscout/go/forge/mocks"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
@@ -477,4 +479,45 @@ func TestFilterReleaseNotes(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRequireReleaseToken_GiteaCodebergDirect covers the gitea/codeberg/direct
+// branches of the provider switch that the existing TestRequireReleaseToken
+// (github/gitlab/bitbucket) does not exercise.
+func TestRequireReleaseToken_GiteaCodebergDirect(t *testing.T) {
+	tests := []struct {
+		name        string
+		vcsProvider string
+		fallbackEnv string
+	}{
+		{name: "gitea", vcsProvider: "gitea", fallbackEnv: "GITEA_TOKEN"},
+		{name: "codeberg", vcsProvider: "codeberg", fallbackEnv: "CODEBERG_TOKEN"},
+		{name: "direct", vcsProvider: "direct", fallbackEnv: "DIRECT_TOKEN"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" missing token errors", func(t *testing.T) {
+			// Not parallel: mutates process env via t.Setenv.
+			t.Setenv(tt.fallbackEnv, "")
+
+			p := &props.Props{Config: testutil.StoreFromYAML(t, "{}\n")}
+
+			require.Error(t, requireReleaseToken(context.Background(), tt.vcsProvider, p))
+		})
+
+		t.Run(tt.name+" with config token succeeds", func(t *testing.T) {
+			t.Setenv(tt.fallbackEnv, "")
+
+			p := &props.Props{Config: testutil.StoreFromYAML(t, tt.vcsProvider+":\n  auth:\n    value: secret-token\n")}
+
+			require.NoError(t, requireReleaseToken(context.Background(), tt.vcsProvider, p))
+		})
+	}
+}
+
+func TestGetCurrentVersion_ReturnsField(t *testing.T) {
+	t.Parallel()
+
+	s := &SelfUpdater{CurrentVersion: "v1.2.3"}
+	assert.Equal(t, "v1.2.3", s.GetCurrentVersion())
 }

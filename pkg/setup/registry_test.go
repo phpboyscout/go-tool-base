@@ -172,3 +172,30 @@ func TestRegister_ContributesToTheDefault(t *testing.T) {
 	assert.Len(t, ChecksIn(s)[id], 1)
 	assert.Len(t, AssetsIn(s)[id], 1)
 }
+
+// TestRegisterOn_PopulatesEveryReader contributes every slot to a registry of
+// its own and reads each back through its *In accessor.
+func TestRegisterOn_PopulatesEveryReader(t *testing.T) {
+	t.Parallel()
+
+	feature := props.FeatureID("cov-feature")
+	ip := func(_ *props.Props, _ *pflag.FlagSet) Initialiser { return nil }
+	sp := func(_ *props.Props) []*cobra.Command { return nil }
+	fp := func(_ *cobra.Command) {}
+	cp := func(_ *props.Props) []CheckFunc { return nil }
+
+	r := features.NewRegistry()
+	RegisterOn(r, feature, []InitialiserProvider{ip}, []SubcommandProvider{sp}, []FeatureFlag{fp})
+	r.Contribute(feature, SlotCheck, CheckProvider(cp))
+
+	s := r.Snapshot()
+	assert.Len(t, InitialisersIn(s)[feature], 1)
+	assert.Len(t, SubcommandsIn(s)[feature], 1)
+	assert.Len(t, FeatureFlagsIn(s)[feature], 1)
+	assert.Len(t, ChecksIn(s)[feature], 1)
+
+	// The maps are the reader's own: mutating one does not reach the registry.
+	inits := InitialisersIn(s)
+	delete(inits, feature)
+	assert.Contains(t, InitialisersIn(s), feature)
+}

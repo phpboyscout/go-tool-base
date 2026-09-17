@@ -137,3 +137,42 @@ func TestProvenanceFile_RemovedWhenEmpty(t *testing.T) {
 	exists, _ := afero.Exists(fs, provenancePath("/proj"))
 	assert.False(t, exists, "empty provenance must remove any stale file")
 }
+
+// TestProvenance_LocalLocationWithSpace is the 2.2.2 guard: a local
+// template-source location containing spaces (a legitimate filesystem path)
+// must round-trip byte-exact through the provenance encode/decode, not be
+// truncated at the first space.
+func TestProvenance_LocalLocationWithSpace(t *testing.T) {
+	t.Parallel()
+
+	spaced := "/home/me/My Templates/gtb"
+
+	original := ManifestProperties{
+		Templates: []TemplateSource{
+			{Name: "local", Type: TemplateSourceLocal, Location: spaced, Fingerprint: "abc123"},
+		},
+	}
+
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/proj"})
+
+	require.NoError(t, g.writeProvenanceFile(g.config.Path, &Manifest{Properties: original}))
+
+	var recovered ManifestProperties
+	g.applyProvenanceFile(&recovered)
+
+	require.Len(t, recovered.Templates, 1)
+	assert.Equal(t, spaced, recovered.Templates[0].Location, "spaced local location must survive the round-trip")
+}
+
+// TestProvenance_DecodeLegacyUnencoded is the backward-compat guard for 2.2.2:
+// provenance files written before values were percent-encoded carried token-like
+// values verbatim, and must still decode unchanged.
+func TestProvenance_DecodeLegacyUnencoded(t *testing.T) {
+	t.Parallel()
+
+	got := decodeKV("enabled=true external_key_email=sec@acme.example key_id=arn:aws:kms:eu-west-2:1:key/abc")
+	assert.Equal(t, "true", got["enabled"])
+	assert.Equal(t, "sec@acme.example", got["external_key_email"])
+	assert.Equal(t, "arn:aws:kms:eu-west-2:1:key/abc", got["key_id"])
+}

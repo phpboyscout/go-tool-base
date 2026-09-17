@@ -15,6 +15,8 @@ import (
 )
 
 func TestCollectAncestoralPersistentFlags(t *testing.T) {
+	t.Parallel()
+
 	g := &Generator{}
 
 	rootCmd := ManifestCommand{
@@ -94,6 +96,8 @@ func TestCollectAncestoralPersistentFlags(t *testing.T) {
 }
 
 func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	conf := emptyTestStore(t)
@@ -127,6 +131,8 @@ func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 }
 
 func TestCheckProtection(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	conf := emptyTestStore(t)
@@ -225,6 +231,8 @@ func TestCheckProtection(t *testing.T) {
 }
 
 func TestPrepareAndVerify(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	conf := emptyTestStore(t)

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
@@ -170,5 +172,58 @@ func TestHTTPBackend_NetworkError(t *testing.T) {
 	err := b.Send(context.Background(), []Event{{Name: "test"}})
 	if err == nil {
 		t.Error("expected an error for network failure, got nil")
+	}
+}
+
+func TestBackend_CloseIsNoop(t *testing.T) {
+	t.Parallel()
+
+	backends := []Backend{
+		NewStdoutBackend(&strings.Builder{}),
+		NewFileBackend(filepath.Join(t.TempDir(), "t.log")),
+		NewHTTPBackend("https://example.invalid", logger.ToSlog(logger.NewNoop())),
+	}
+
+	for _, b := range backends {
+		if err := b.Close(); err != nil {
+			t.Errorf("%T.Close() = %v, want nil", b, err)
+		}
+	}
+}
+
+func TestFileBackend_Send_OpenError(t *testing.T) {
+	t.Parallel()
+
+	// Point the backend at a path whose parent is a regular file, so OpenFile
+	// fails. This exercises the "opening telemetry log" error branch.
+	dir := t.TempDir()
+	notADir := filepath.Join(dir, "regular")
+	require.NoError(t, os.WriteFile(notADir, []byte("x"), 0o600))
+
+	b := NewFileBackend(filepath.Join(notADir, "child.log"))
+
+	err := b.Send(context.Background(), []Event{{Name: "e"}})
+	if err == nil {
+		t.Fatal("expected error opening telemetry log under a non-directory path")
+	}
+
+	if !strings.Contains(err.Error(), "opening telemetry log") {
+		t.Errorf("error = %v, want wrap 'opening telemetry log'", err)
+	}
+}
+
+func TestHTTPBackend_Send_DrainsLargeResponse(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Write a sizeable body to exercise the limited drain.
+		_, _ = w.Write([]byte(strings.Repeat("a", 4096)))
+	}))
+	defer srv.Close()
+
+	b := NewHTTPBackend(srv.URL, logger.ToSlog(logger.NewNoop()))
+	if err := b.Send(context.Background(), []Event{{Name: "x"}}); err != nil {
+		t.Fatalf("send: %v", err)
 	}
 }
