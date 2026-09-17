@@ -73,7 +73,7 @@ manifest.
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
 | `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. |
-| `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` after generation; exit 0 unverified. Without it a failed step exits 3 (see [regenerate's exit codes](regenerate.md#exit-codes-emitted-is-not-verified)). |
+| `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` after generation; exit 0 unverified. Without it a failed or unavailable step exits 3 with its reason (see [regenerate's exit codes](regenerate.md#exit-codes-emitted-is-not-verified)). Either way `go.mod` carries the direct requirements the scaffold's imports imply. |
 | `--env-prefix` | — | Env-var prefix for config overrides (e.g. `MY_APP`). |
 | `--update-policy` | *(framework default: disabled)* | Self-update posture: `disabled`, `prompt`, or `enabled`. |
 | `--update-check-interval` | *(framework default: 24h)* | Interval between self-update checks, as a Go duration (e.g. `24h`, `168h`). |

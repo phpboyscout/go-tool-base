@@ -188,6 +188,20 @@ Feature: A generated tool links only the adapters it selects
     And the generated "go.mod" file does not contain "forge-github"
     And the generated "go.mod" file contains "gitlab.com/phpboyscout/go/forge-gitlab v"
 
+  Scenario: A machine without Go gets a correct go.mod and a stated reason, not an exec error
+    Given I generate a gtb project with forge backend "gitlab" and forge credentials "github"
+    Then the project exit code is 0
+    When I run gtb in the project with "disable github" and no Go toolchain on PATH
+    Then the project exit code is 0
+    And the generated "go.mod" file does not contain "forge-github"
+    And the generated "go.mod" file contains "gitlab.com/phpboyscout/go/forge-gitlab v"
+    And the project output contains "not verified: no Go toolchain on PATH"
+    And the project output does not contain "executable file not found"
+    When I run gtb in the project with "regenerate project --overwrite allow" and no Go toolchain on PATH
+    Then the project exit code is 3
+    And the project output contains "not verified: no Go toolchain on PATH"
+    And the generated "go.mod" file contains "gitlab.com/phpboyscout/go/forge-gitlab v"
+
   Scenario: A regenerate without verification keeps every requirement
     Given I generate a gtb project with forge backend "gitlab" and forge credentials "github"
     Then the project exit code is 0

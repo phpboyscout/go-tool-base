@@ -274,6 +274,52 @@ func notVerified(failed []string) error {
 		ExitCodeNotVerified)
 }
 
+// toolOnPath reports whether a verification tool can be run. A generator built
+// without a lookup (a test that stubs runCommand) treats every tool as present.
+func (g *Generator) toolOnPath(name string) bool {
+	if g.lookPath == nil {
+		return true
+	}
+
+	_, err := g.lookPath(name)
+
+	return err == nil
+}
+
+// verifyTree runs go mod tidy and golangci-lint run --fix over the tree and
+// returns the steps that failed, each with its reason. A tool that is not on
+// PATH is a declined step with its reason, never an exec error: the tree is
+// correct as emitted, and go.mod carries its direct requirements without tidy
+// (spec 0200 D5).
+func (g *Generator) verifyTree(ctx context.Context, path string) []string {
+	var failed []string
+
+	if !g.toolOnPath("go") {
+		g.props.Logger.Warn("not verified: no Go toolchain on PATH; go.mod carries its direct requirements, run go mod tidy where Go is installed")
+
+		failed = append(failed, "not verified: no Go toolchain on PATH")
+	} else {
+		g.props.Logger.Info("Running go mod tidy...")
+
+		if err := g.runSkeletonCommand(ctx, path, "go", "mod", "tidy"); err != nil {
+			g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+			failed = append(failed, "go mod tidy failed: "+err.Error())
+		}
+	}
+
+	if !g.toolOnPath("golangci-lint") {
+		g.props.Logger.Warn("not verified: golangci-lint not on PATH")
+
+		return append(failed, "not verified: golangci-lint not on PATH")
+	}
+
+	if err := g.runLintPass(ctx, path); err != nil {
+		failed = append(failed, "golangci-lint run --fix failed: "+err.Error())
+	}
+
+	return failed
+}
+
 // runSkeletonPostProcessing tidies, lints and refreshes hashes, and returns
 // the steps that failed, each with its reason; the caller decides whether
 // that is a warning (an edit to an existing project) or the run's result (a
@@ -285,18 +331,7 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 		return nil
 	}
 
-	var failed []string
-
-	g.props.Logger.Info("Running go mod tidy...")
-
-	if err := g.runSkeletonCommand(ctx, path, "go", "mod", "tidy"); err != nil {
-		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
-		failed = append(failed, "go mod tidy failed: "+err.Error())
-	}
-
-	if err := g.runLintPass(ctx, path); err != nil {
-		failed = append(failed, "golangci-lint run --fix failed: "+err.Error())
-	}
+	failed := g.verifyTree(ctx, path)
 
 	// The lint pass rewrites command files as readily as skeleton ones, so the
 	// command-hash refresh belongs to the shared post-processing step rather

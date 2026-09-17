@@ -181,6 +181,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I generate a gtb project with features "([^"]*)", chat providers "([^"]*)" and chat base URL "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesChatProvidersAndBaseURL)
 	ctx.Step(`^a gtb project with a "([^"]*)" command$`, aGTBProjectWithACommand)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
+	ctx.Step(`^I run gtb in the project with "([^"]*)" and no Go toolchain on PATH$`, iRunGTBInTheProjectWithoutAGoToolchain)
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
 	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
 	ctx.Step(`^the generated "([^"]*)" file contains "([^"]*)"$`, theGeneratedFileContains)
@@ -663,6 +664,31 @@ func iRunGTBInTheProjectWith(ctx context.Context, args string) context.Context {
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 	cmd.Dir = w.projectDir
 	cmd.Env = w.isolatedEnv()
+
+	recordRun(w, cmd)
+
+	return ctx
+}
+
+// iRunGTBInTheProjectWithoutAGoToolchain runs gtb with a PATH that holds
+// neither go nor golangci-lint: what a docs-only CI job or an image that only
+// carries gtb looks like (spec 0200 D5).
+func iRunGTBInTheProjectWithoutAGoToolchain(ctx context.Context, args string) context.Context {
+	w := getGeneratorWorld(ctx)
+
+	parts := strings.Fields(args)
+	parts = append(parts, "--ci")
+
+	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
+	cmd.Dir = w.projectDir
+
+	for _, kv := range w.isolatedEnv() {
+		if !strings.HasPrefix(kv, "PATH=") {
+			cmd.Env = append(cmd.Env, kv)
+		}
+	}
+
+	cmd.Env = append(cmd.Env, "PATH="+w.projectDir+"/no-tools")
 
 	recordRun(w, cmd)
 

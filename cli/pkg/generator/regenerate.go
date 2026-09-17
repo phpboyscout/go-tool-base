@@ -263,16 +263,7 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 	if g.config.NoVerify {
 		g.props.Logger.Warn("verification skipped (--no-verify): the tree was emitted, not verified")
 	} else {
-		g.props.Logger.Info("Running go mod tidy...")
-
-		if err := g.runSkeletonCommand(ctx, g.config.Path, "go", "mod", "tidy"); err != nil {
-			g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
-			failed = append(failed, "go mod tidy failed: "+err.Error())
-		}
-
-		if err := g.runLintPass(ctx, g.config.Path); err != nil {
-			failed = append(failed, "golangci-lint run --fix failed: "+err.Error())
-		}
+		failed = g.verifyTree(ctx, g.config.Path)
 	}
 
 	// Post-processing (tidy, lint) may have modified tracked files in either

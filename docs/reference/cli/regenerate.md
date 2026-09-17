@@ -47,13 +47,21 @@ over the tree. The result is the run's exit code:
 |---|---|
 | `0` | Files written and every verification step passed. |
 | `2` | Usage error (a bare or mistyped invocation); nothing written. |
-| `3` | Files written, but a verification step failed. The last line names the step and the reason (`go mod tidy failed: module … not found`). The files stay; fix the cause and run the step yourself. |
+| `3` | Files written, but a verification step failed or could not run. The last line names the step and the reason (`go mod tidy failed: module … not found`; `not verified: no Go toolchain on PATH`; `not verified: golangci-lint not on PATH`). The files stay; fix the cause and run the step yourself. |
 
 `--no-verify` skips the steps and exits `0` with a warning that the tree was
 emitted, not verified: for a machine that cannot tidy (offline, or before the
 pinned framework is tagged). Spec
 [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface)
 D10.
+
+Neither a declined step nor `--no-verify` leaves `go.mod` incomplete: the
+generator seeds the direct `require` lines its own imports imply before
+verification runs, so a machine without Go gets a `go.mod` that needs only
+`go.sum` and the indirect lines, which the first `go build` on a Go machine
+supplies. Spec
+[0200](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0200-the-generator-owns-the-scaffolds-go-mod-requirements)
+D5.
 
 #### Conflicts
 

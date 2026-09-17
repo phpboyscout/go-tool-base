@@ -89,6 +89,28 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	// The scaffold's own lint config, without --fix: what a downstream
 	// project sees on day one must be clean as emitted (#30).
 	runLintClean(t, path)
+
+	// Spec 0200 D5: the seeded require lines are what tidy keeps, so a
+	// tidied scaffold regenerated and tidied again is byte-identical.
+	assertGoModFixedPoint(t, g, path)
+}
+
+func assertGoModFixedPoint(t *testing.T, g *Generator, path string) {
+	t.Helper()
+
+	before, err := os.ReadFile(filepath.Join(path, "go.mod"))
+	require.NoError(t, err)
+
+	g.config.Path = path
+	g.config.Overwrite = OverwriteAllow
+	g.config.NoVerify = true
+	require.NoError(t, g.RegenerateProject(context.Background()))
+
+	runGo(t, path, "mod", "tidy")
+
+	after, err := os.ReadFile(filepath.Join(path, "go.mod"))
+	require.NoError(t, err)
+	require.Equal(t, string(before), string(after), "go.mod must be a fixed point of regenerate + tidy")
 }
 
 // runLintClean runs golangci-lint in dir with the scaffold's config and

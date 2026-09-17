@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -132,6 +133,9 @@ type Generator struct {
 	// versions answers the module versions the go.mod seed pins (spec 0200
 	// D4): the running binary's build info unless a test installs a map.
 	versions gomod.VersionSource
+	// lookPath says whether a verification tool is on PATH (spec 0200 D5);
+	// exec.LookPath unless a test says otherwise.
+	lookPath func(name string) (string, error)
 	// cloneTemplate fetches a git custom-template source into a staging dir
 	// and returns the resolved commit SHA. nil means "no clone available"
 	// (offline): a cold cache for a git source then errors clearly rather
@@ -159,6 +163,7 @@ func New(p *props.Props, cfg *Config) *Generator {
 		props:    p,
 		config:   cfg,
 		versions: gomod.BuildInfoSource(),
+		lookPath: exec.LookPath,
 	}
 }
 
