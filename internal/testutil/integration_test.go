@@ -29,6 +29,8 @@ func TestSkipIfNotIntegration_TaggedGate(t *testing.T) {
 }
 
 func TestSkipIfNotIntegration_NoMatch(t *testing.T) {
+	t.Parallel()
+
 	// Neither INT_TEST nor INT_TEST_VCS is set.
 	var skipped bool
 	t.Run("inner", func(t *testing.T) {
