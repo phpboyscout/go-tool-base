@@ -276,9 +276,13 @@ gtb-embedded-assets:
 # commands, points it at the checkout, and runs go build and golangci-lint
 # (without --fix) on what was emitted. It was red on main for a week with
 # nothing running it (#80); the lint half is what #30 asked for.
+# go-tools rather than dev-tools: the scaffold targets the toolchain that
+# generated it (go 1.27 today), and only go-tools carries a golangci-lint
+# built against a Go new enough to lint that target; the repo's own lint
+# job runs there for the same reason.
 generated-project-builds:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.0
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
