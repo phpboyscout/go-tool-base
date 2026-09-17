@@ -255,6 +255,9 @@ type Tool struct {
 	// set the framework wired before this became declarable — so an existing
 	// tool keeps resolving exactly as it did. See ResolveConfigLayers.
 	ConfigLayers []ConfigLayer `json:"config_layers,omitempty" yaml:"config_layers,omitempty"`
+	// MCP is the publication mode of the tool's MCP server; the zero value is
+	// compact. See MCPConfig.
+	MCP MCPConfig `json:"mcp,omitempty" yaml:"mcp,omitempty"`
 
 	// ReleaseSource is the source of truth for the tool's releases; see
 	// ReleaseSource for the supported types.

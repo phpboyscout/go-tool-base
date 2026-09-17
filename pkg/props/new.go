@@ -200,5 +200,5 @@ func (p *Props) Validate() error {
 		return errors.New("props: FS is required")
 	}
 
-	return nil
+	return p.Tool.MCP.validate()
 }
