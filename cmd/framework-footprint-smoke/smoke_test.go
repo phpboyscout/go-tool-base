@@ -15,6 +15,8 @@ import (
 // imports one again, and every tool built on the framework has just grown by
 // that module's SDK.
 func TestFrameworkLinksNoAdapter(t *testing.T) {
+	t.Parallel()
+
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain not on PATH")
 	}
