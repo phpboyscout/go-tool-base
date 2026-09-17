@@ -367,7 +367,9 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 		return err
 	}
 
-	if err := g.postGenerate(ctx, data, cmdDir); err != nil {
+	// A regenerate rewrites what the manifest describes; its AI pass over the
+	// docs is what --update-docs asks for, never a side effect (#35).
+	if err := g.postGenerateWith(ctx, data, cmdDir, PipelineOptions{SkipDocumentation: g.config.DryRun, BoilerplateDocsOnly: !g.config.UpdateDocs}); err != nil {
 		return err
 	}
 

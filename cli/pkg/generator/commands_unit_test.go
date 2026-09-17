@@ -124,7 +124,7 @@ func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 	}
 
 	// This should fail GenerateDocs (missing source) and fallback to boilerplate
-	g.handleDocumentationGeneration(context.Background(), data, cmdDir)
+	g.handleDocumentationGeneration(context.Background(), data, cmdDir, true)
 
 	exists, _ := afero.Exists(fs, "/work/docs/commands/mycmd/index.md")
 	assert.True(t, exists)

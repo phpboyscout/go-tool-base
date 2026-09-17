@@ -36,6 +36,10 @@ type PipelineOptions struct {
 	SkipAssets        bool // do not generate asset files
 	SkipDocumentation bool // do not run documentation generation
 	SkipRegistration  bool // do not modify the parent cmd.go
+	// BoilerplateDocsOnly writes a missing doc page without consulting a chat
+	// provider: a regenerate is a deterministic rewrite, and its AI pass is
+	// what --update-docs asks for (#35).
+	BoilerplateDocsOnly bool
 }
 
 // CommandPipeline owns the ordered post-generation steps that are shared by
@@ -93,7 +97,7 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 	// ── Step 5: documentation (always advisory — never returns an error) ──────
 	if !p.opts.SkipDocumentation {
 		p.g.props.Logger.Info("Generating documentation...")
-		p.g.handleDocumentationGeneration(ctx, data, cmdDir)
+		p.g.handleDocumentationGeneration(ctx, data, cmdDir, !p.opts.BoilerplateDocsOnly)
 	} else {
 		p.g.props.Logger.Debug("Skipping documentation generation (SkipDocumentation=true)")
 	}

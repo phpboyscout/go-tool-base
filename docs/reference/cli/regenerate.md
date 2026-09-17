@@ -34,7 +34,7 @@ A persistent `--dry-run` previews changes without writing files.
 | `--path, -p` | `.` | Project root. |
 | `--force` | `false` | Overwrite existing `main.go` implementation files. On a flat-layout project, also migrates the docs to the [Diátaxis layout](../../explanation/concepts/documentation-layout.md). |
 | `--overwrite` | `ask` | Conflict handling: `allow`, `deny`, or `ask`. Applies to every generated file: skeleton assets and per-command `cmd.go`/`init.go`/`main_test.go` alike. |
-| `--update-docs` | `false` | Use AI to update existing documentation. |
+| `--update-docs` | `false` | Use AI to rewrite the command documentation. Without it a regenerate never consults a chat provider: a missing page gets boilerplate and an existing one is left alone, so an unattended run makes no paid call ([#35](https://gitlab.com/phpboyscout/go-tool-base/-/issues/35)). Under `--ci` or `CI=true` a provider named only in config is not used either; `--provider` on the command line is the explicit ask that still is. |
 | `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` afterwards; exit 0 unverified (see exit codes). |
 | `--dry-run` | `false` | Preview changes without writing. |
 

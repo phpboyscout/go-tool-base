@@ -21,6 +21,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 var ErrInvalidPackageName = errors.NewSentinel("gtb.generator.invalid_package_name", "invalid package name")
@@ -220,6 +221,13 @@ func (g *Generator) aiDocsEnabled() bool {
 
 	if g.config.AIProvider != "" {
 		return true
+	}
+
+	// A provider that only config names is not consulted under --ci or
+	// CI=true: an unattended run is where a paid call is least wanted, and
+	// --provider is the explicit ask that still wins (#35).
+	if g.ciConfigured() || setup.CIDefault() {
+		return false
 	}
 
 	return g.props.Config != nil && g.props.Config.View().GetString(chat.ConfigKeyAIProvider) != ""

@@ -483,10 +483,10 @@ func (g *Generator) performGeneration(ctx context.Context, cmdDir string, data *
 }
 
 func (g *Generator) postGenerate(ctx context.Context, data templates.CommandData, cmdDir string) error {
-	opts := PipelineOptions{
-		SkipDocumentation: g.config.DryRun,
-	}
+	return g.postGenerateWith(ctx, data, cmdDir, PipelineOptions{SkipDocumentation: g.config.DryRun})
+}
 
+func (g *Generator) postGenerateWith(ctx context.Context, data templates.CommandData, cmdDir string, opts PipelineOptions) error {
 	g.props.Logger.Debug("running post-generation pipeline", "command", data.Name, "skip_documentation", opts.SkipDocumentation)
 
 	_, err := newCommandPipeline(g, opts).Run(ctx, data, cmdDir)
@@ -494,7 +494,10 @@ func (g *Generator) postGenerate(ctx context.Context, data templates.CommandData
 	return err
 }
 
-func (g *Generator) handleDocumentationGeneration(ctx context.Context, data templates.CommandData, cmdDir string) {
+// handleDocumentationGeneration writes the command's doc page when it is
+// missing or --update-docs asks for a rewrite. withAI allows the chat
+// provider; without it a missing page gets boilerplate and nothing is asked.
+func (g *Generator) handleDocumentationGeneration(ctx context.Context, data templates.CommandData, cmdDir string, withAI bool) {
 	// Check if documentation already exists. Pass the command's source location
 	// (pkg/cmd/<parent>/<leaf>) so the doc path reflects the real parent — a
 	// bare name resolves ambiguously when two parents share a leaf name
@@ -508,25 +511,36 @@ func (g *Generator) handleDocumentationGeneration(ctx context.Context, data temp
 	exists, _ := afero.Exists(g.props.FS, docPath)
 
 	switch {
+	case !withAI && !g.config.UpdateDocs && !exists:
+		g.props.Logger.Debug("generating boilerplate documentation", "command", data.Name)
+
+		if err := g.generateDocs(); err != nil {
+			g.props.Logger.Warn("failed to generate documentation", "command", data.Name, "error", err)
+		}
 	case g.config.UpdateDocs || !exists:
-		if g.aiDocsEnabled() {
-			g.props.Logger.Info("generating documentation with AI", "command", data.Name)
-		} else {
-			g.props.Logger.Debug("generating boilerplate documentation", "command", data.Name)
-		}
-
-		// GenerateDocs is opt-in: it writes boilerplate (no API call) unless a
-		// provider is configured. If an enabled AI call fails mid-flight, fall
-		// back to boilerplate quietly rather than failing the generation.
-		if err := g.GenerateDocs(ctx, cmdDir, false); err != nil {
-			g.props.Logger.Info("documentation fell back to boilerplate", "command", data.Name, "error", err)
-
-			if err := g.generateDocs(); err != nil {
-				g.props.Logger.Warn("failed to generate documentation", "command", data.Name, "error", err)
-			}
-		}
+		g.writeDocsWithProvider(ctx, data.Name, cmdDir)
 	default:
 		g.props.Logger.Info(fmt.Sprintf("Documentation for %q already exists, skipping. Use --update-docs to regenerate.", data.Name))
+	}
+}
+
+// writeDocsWithProvider writes the page through GenerateDocs, which asks a
+// configured provider and otherwise writes boilerplate with no API call. An
+// AI call that fails mid-flight falls back to boilerplate quietly rather
+// than failing the generation.
+func (g *Generator) writeDocsWithProvider(ctx context.Context, name, cmdDir string) {
+	if g.aiDocsEnabled() {
+		g.props.Logger.Info("generating documentation with AI", "command", name)
+	} else {
+		g.props.Logger.Debug("generating boilerplate documentation", "command", name)
+	}
+
+	if err := g.GenerateDocs(ctx, cmdDir, false); err != nil {
+		g.props.Logger.Info("documentation fell back to boilerplate", "command", name, "error", err)
+
+		if err := g.generateDocs(); err != nil {
+			g.props.Logger.Warn("failed to generate documentation", "command", name, "error", err)
+		}
 	}
 }
 
