@@ -46,6 +46,8 @@ type SkeletonOptions struct {
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
 	// default (disabled) applies.
 	UpdatePolicy string
+	// MCPMode is the MCP publication mode (spec 0201 D3).
+	MCPMode string
 
 	// UpdateCheckInterval is the generated tool's baseline self-update-check
 	// throttle as a Go duration string (e.g. "24h"). Empty leaves it unset so
@@ -221,6 +223,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.TeamsTeam, "teams-team", "", "Microsoft Teams team name")
 	cmd.Flags().StringVar(&opts.EnvPrefix, "env-prefix", "", "Environment variable prefix for config overrides (e.g. MY_APP)")
 	cmd.Flags().StringVar(&opts.UpdatePolicy, "update-policy", "", "Self-update posture for the generated tool: disabled, prompt, or enabled (empty = framework default disabled)")
+	cmd.Flags().StringVar(&opts.MCPMode, "mcp-mode", "", "MCP publication mode: compact (three discovery tools, the default) or direct (one tool per command)")
 	cmd.Flags().StringVar(&opts.UpdateCheckInterval, "update-check-interval", "", "Baseline interval between self-update checks as a Go duration, e.g. 24h or 168h (empty = framework default 24h)")
 	cmd.Flags().StringVar(&opts.CIComponentSource, "ci-component-source", "", "Override the phpboyscout/cicd component include base in the scaffolded GitLab pipeline (default gitlab.com/phpboyscout/cicd)")
 	cmd.Flags().BoolVar(&opts.Signing, "signing", false, "Enable consumer-side release-signing verification (scaffolds internal/trustkeys and wires props.Signing)")
@@ -478,6 +481,10 @@ func (o *SkeletonOptions) validateUpdateFields() error {
 	}
 
 	if err := generator.ValidateUpdatePolicy(o.UpdatePolicy); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateMCPMode(o.MCPMode); err != nil {
 		return err
 	}
 
@@ -1619,6 +1626,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		Bootstrap:             o.Bootstrap,
 		ConfigLayers:          o.ConfigLayers,
 		UpdatePolicy:          o.UpdatePolicy,
+		MCPMode:               o.MCPMode,
 		UpdateCheckInterval:   o.UpdateCheckInterval,
 		CIComponentSource:     o.CIComponentSource,
 		Signing:               o.resolveSigning(),

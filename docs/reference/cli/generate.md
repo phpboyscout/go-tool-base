@@ -76,6 +76,7 @@ manifest.
 | `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` after generation; exit 0 unverified. Without it a failed or unavailable step exits 3 with its reason (see [regenerate's exit codes](regenerate.md#exit-codes-emitted-is-not-verified)). Either way `go.mod` carries the direct requirements the scaffold's imports imply. |
 | `--env-prefix` | — | Env-var prefix for config overrides (e.g. `MY_APP`). |
 | `--update-policy` | *(framework default: disabled)* | Self-update posture: `disabled`, `prompt`, or `enabled`. |
+| `--mcp-mode` | *(compact)* | MCP publication mode: `compact` (three discovery tools) or `direct` (one native tool per command). Recorded as `mcp.mode`; `gtb set mcp.mode` changes it later. See [AI Agents & MCP](../../explanation/components/mcp-agents.md#compact-and-direct-publication). |
 | `--update-check-interval` | *(framework default: 24h)* | Interval between self-update checks, as a Go duration (e.g. `24h`, `168h`). |
 | `--ci-component-source` | *(gitlab.com/phpboyscout/cicd)* | Override the `phpboyscout/cicd` component include base in the scaffolded GitLab pipeline. |
 | `--template` | — | Custom template overlay source `<src>@<ref>` (local path or forge repo); repeatable, layered in order. |

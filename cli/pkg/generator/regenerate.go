@@ -424,6 +424,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		ConfigLayers:          m.Properties.ConfigLayers,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
+		MCPMode:               m.Properties.MCP.Mode,
 		SigningEnabled:        m.Properties.Signing.Enabled,
 		ModulePath:            manifestModulePath(m),
 		AutoInitialise:        m.Properties.Bootstrap.AutoInitialise,
@@ -569,6 +570,7 @@ type skeletonTemplateData struct {
 	ConfigLayers          []string
 	UpdatePolicy          string
 	UpdateCheckInterval   string
+	MCPMode               string
 	Signing               ManifestSigning
 	Bootstrap             ManifestBootstrap
 	// CIComponentSource is the resolved phpboyscout/cicd include base for
@@ -638,6 +640,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		ConfigLayers:          m.Properties.ConfigLayers,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
+		MCPMode:               m.Properties.MCP.Mode,
 		Signing:               m.Properties.Signing,
 		Bootstrap:             m.Properties.Bootstrap,
 		CIComponentSource:     resolveCIComponentSource(m.Properties.CI.ComponentSource),

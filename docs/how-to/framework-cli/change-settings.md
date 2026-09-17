@@ -36,6 +36,18 @@ derived field the feature needs in the same run. Enabling `ai` records the
 default provider list and writes `cmd/<name>/chat.go`; disabling `keychain`
 removes `cmd/<name>/keychain.go`.
 
+## Choose how MCP publishes the tool
+
+```bash
+gtb set mcp.mode direct
+gtb set mcp.mode compact
+```
+
+Compact (the default) publishes three discovery tools whatever the size of the
+command tree; direct publishes one native tool per command so a client's own
+approval UI sees each tool's annotations. The choice is rendered into the
+generated root and takes effect on the next build.
+
 ## Describe a command to MCP clients
 
 ```bash

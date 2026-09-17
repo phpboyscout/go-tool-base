@@ -63,6 +63,9 @@ type SkeletonRootData struct {
 	// string (e.g. "24h"). Empty, unparseable, or non-positive values leave the
 	// field off so the framework default (24h) applies.
 	UpdateCheckInterval string
+	// MCPMode wires props.Tool.MCP. Only "direct" emits a field: compact is the
+	// zero value, so every root generated before the field says compact.
+	MCPMode string
 	// SigningEnabled gates the Signing: props.SigningConfig{...} block.
 	// When true the generated tool wires trustkeys.Keys() as its embedded
 	// trust anchor; ModulePath supplies the import path for that package.
@@ -252,6 +255,12 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 	// (24h), so only a positive duration emits a field.
 	if code, ok := updateCheckIntervalCode(data.UpdateCheckInterval); ok {
 		toolDict[jen.Id("UpdateCheckInterval")] = code
+	}
+
+	if data.MCPMode == "direct" {
+		toolDict[jen.Id("MCP")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "MCPConfig").Values(jen.Dict{
+			jen.Id("Mode"): jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "MCPDirect"),
+		})
 	}
 
 	switch data.HelpType {

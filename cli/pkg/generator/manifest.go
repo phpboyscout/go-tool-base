@@ -469,6 +469,10 @@ type ManifestProperties struct {
 	// silently emit a project wiring different layers from the one it ran
 	// against. See spec 0183 D8.
 	ConfigLayers []string `yaml:"config_layers,omitempty"`
+	// MCP is the tool's MCP publication mode (spec 0201 D3): "direct" publishes
+	// one native tool per command; absent or "compact" publishes the three
+	// discovery tools. Rendered into props.Tool.MCP; the binary never reads it.
+	MCP ManifestMCP `yaml:"mcp,omitempty"`
 	// DocsLayout records the documentation tree layout: [DocsLayoutDiataxis]
 	// (the default for newly generated projects) or [DocsLayoutFlat] (the legacy
 	// docs/commands + docs/packages tree). Empty is treated as flat for backward
@@ -491,6 +495,11 @@ type ManifestProperties struct {
 	// generated root. The adapter file is scaffolded once and thereafter
 	// author-owned; this flag only records that the root must emit the call.
 	ExternalCommandsAdapter bool `yaml:"external_commands_adapter,omitempty"`
+}
+
+// ManifestMCP is the properties.mcp block.
+type ManifestMCP struct {
+	Mode string `yaml:"mode,omitempty"`
 }
 
 // Documentation tree layouts recorded in [ManifestProperties.DocsLayout].

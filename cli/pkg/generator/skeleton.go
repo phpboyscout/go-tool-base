@@ -62,6 +62,9 @@ type SkeletonConfig struct {
 	Signing      ManifestSigning   // self-update signature-verification posture (disabled by default)
 	Chat         ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
 	Bootstrap    ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
+	// MCPMode is the MCP publication mode: "" or "compact" for the discovery
+	// facade, "direct" for one native tool per command (spec 0201 D3).
+	MCPMode string
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
 	// default (disabled) applies; wired into the generated root command's
@@ -498,6 +501,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		Bootstrap:             config.Bootstrap,
 		UpdatePolicy:          config.UpdatePolicy,
 		UpdateCheckInterval:   config.UpdateCheckInterval,
+		MCPMode:               config.MCPMode,
 		CIComponentSource:     resolveCIComponentSource(config.CIComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
 		CIEnableE2E:           false,
@@ -758,6 +762,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			ConfigLayers:          data.ConfigLayers,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
+			MCPMode:               data.MCPMode,
 			SigningEnabled:        data.Signing.Enabled,
 			ModulePath:            data.ModulePath,
 			AutoInitialise:        data.Bootstrap.AutoInitialise,
@@ -1165,6 +1170,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			ConfigLayers:        config.ConfigLayers,
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
+			MCP:                 ManifestMCP{Mode: config.MCPMode},
 			DocsLayout:          DocsLayoutDiataxis,
 			Help: ManifestHelp{
 				Type:         config.HelpType,

@@ -801,6 +801,17 @@ func ValidateUpdatePolicy(policy string) error {
 	}
 }
 
+// ValidateMCPMode accepts an empty string (compact, the default) and the two
+// publication modes props.Tool.MCP understands.
+func ValidateMCPMode(mode string) error {
+	switch mode {
+	case "", "compact", "direct":
+		return nil
+	default:
+		return rejectf("MCPMode", "mcp mode must be one of: compact, direct", mode)
+	}
+}
+
 // ValidateFeatureName rejects any name that is not one of the toggleable
 // built-in features (see ToggleableFeatures). Used by `gtb enable <feature>` /
 // `gtb disable <feature>` so an unknown name fails fast with the valid set
@@ -1286,6 +1297,10 @@ func validateManifestProperties(p *ManifestProperties) error {
 	}
 
 	if err := ValidateUpdatePolicy(p.UpdatePolicy); err != nil {
+		return err
+	}
+
+	if err := ValidateMCPMode(p.MCP.Mode); err != nil {
 		return err
 	}
 

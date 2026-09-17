@@ -54,6 +54,7 @@ var probes = map[string]func(c *SkeletonConfig){
 	"Bootstrap.SkipConfigCheck":         func(c *SkeletonConfig) { c.Bootstrap.SkipConfigCheck = []string{"version"} },
 	"Bootstrap.AuxiliaryCommands":       func(c *SkeletonConfig) { c.Bootstrap.AuxiliaryCommands = []string{"completion"} },
 	"UpdatePolicy":                      func(c *SkeletonConfig) { c.UpdatePolicy = "prompt" },
+	"MCPMode":                           func(c *SkeletonConfig) { c.MCPMode = "direct" },
 	"UpdateCheckInterval":               func(c *SkeletonConfig) { c.UpdateCheckInterval = "168h" },
 	"CIComponentSource":                 func(c *SkeletonConfig) { c.CIComponentSource = "gitlab.example.com/mirror/cicd" },
 	"Templates": func(c *SkeletonConfig) {

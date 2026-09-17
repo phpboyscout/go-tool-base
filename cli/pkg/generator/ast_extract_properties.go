@@ -29,6 +29,16 @@ func applyLiteralToolField(mp *ManifestProperties, fieldName string, value dst.E
 		if d, ok := durationFromExpr(value); ok {
 			mp.UpdateCheckInterval = d.String()
 		}
+	case "MCP":
+		mp.MCP.Mode = mcpModeFromLiteral(value)
+	default:
+		applyBlockToolField(mp, fieldName, value)
+	}
+}
+
+// applyBlockToolField reads the fields whose value is a nested literal.
+func applyBlockToolField(mp *ManifestProperties, fieldName string, value dst.Expr) {
+	switch fieldName {
 	case "Help":
 		extractHelpLiteral(value, &mp.Help)
 	case "Telemetry":
@@ -38,6 +48,30 @@ func applyLiteralToolField(mp *ManifestProperties, fieldName string, value dst.E
 	case "Signing":
 		extractSigningLiteral(value, &mp.Signing)
 	}
+}
+
+// mcpModeFromLiteral reads props.MCPConfig{Mode: props.MCPDirect}; anything
+// else is the compact default and records nothing.
+func mcpModeFromLiteral(value dst.Expr) string {
+	comp, ok := value.(*dst.CompositeLit)
+	if !ok {
+		return ""
+	}
+
+	for _, elt := range comp.Elts {
+		kv, ok := elt.(*dst.KeyValueExpr)
+		if !ok {
+			continue
+		}
+
+		if key, ok := kv.Key.(*dst.Ident); ok && key.Name == "Mode" {
+			if sel, ok := kv.Value.(*dst.SelectorExpr); ok && sel.Sel.Name == "MCPDirect" {
+				return "direct"
+			}
+		}
+	}
+
+	return ""
 }
 
 // extractSigningLiteral recovers the author baselines a props.SigningConfig
