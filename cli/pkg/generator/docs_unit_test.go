@@ -633,8 +633,10 @@ func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
 
 // TestAIDocsEnabled pins the opt-in gate: a provider must be explicitly
 // configured (flag, config key, or injected client) and --agentless unset.
+// Not parallel: a config-only provider is refused under CI=true (#35), and
+// the pipeline sets that, so the variable is pinned off here.
 func TestAIDocsEnabled(t *testing.T) {
-	t.Parallel()
+	t.Setenv("CI", "")
 
 	cases := []struct {
 		name         string
