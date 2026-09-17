@@ -103,8 +103,6 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	// only thing that says what this command did a moment ago.
 	g.noteGroupBehaviourChange(cmdDir, *data)
 
-	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go")))
-
 	hash, err := g.generateRegistrationFile(cmdDir, *data)
 	if err != nil {
 		return err
@@ -156,9 +154,13 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 	if decision := g.resolveCommandFileConflict(cmdPath, content); !decision.Write() {
 		// Kept or ignored: leave the file alone and carry on. The recorded
 		// hash is the resolver's, not this render's — see D3/D4 of spec 0187.
+		g.props.Logger.Info(fmt.Sprintf("Keeping registration file: %s", cmdPath))
+
 		return decision.RecordHash, nil
 	}
 
+	// Logged after the decision, so the line says what happened (#32).
+	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), cmdPath))
 	g.props.Logger.Debug("writing registration file", "path", cmdPath, "bytes", len(content), "hash", newHash)
 
 	out, err := g.props.FS.Create(cmdPath)
