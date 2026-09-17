@@ -15,7 +15,6 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
-	github.com/njayp/ophis v1.1.4
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
@@ -34,6 +33,7 @@ require (
 	gitlab.com/phpboyscout/go/features v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.27.1
 	gitlab.com/phpboyscout/go/httpclient v0.2.3
+	gitlab.com/phpboyscout/go/mcp v0.0.0-20260917201308-df10369c8f17
 	gitlab.com/phpboyscout/go/observability v0.3.2
 	gitlab.com/phpboyscout/go/output v0.2.2
 	gitlab.com/phpboyscout/go/redact v0.2.2
@@ -159,6 +159,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect

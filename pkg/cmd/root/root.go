@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/njayp/ophis"
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -32,6 +31,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/mcp"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
@@ -1282,17 +1282,9 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 	}
 
 	if props.GetFeatures().Enabled(p.McpCmd) {
-		mcpCmd := ophis.Command(&ophis.Config{
-			SloggerOptions: &slog.HandlerOptions{
-				Level: mcpLogLevel,
-			},
-			Selectors: mcpSelectors(),
-		})
-		// An MCP server's stdout carries JSON-RPC frames; the pre-run update
-		// check's spinner/log output must never race it. The stamp covers the
-		// whole mcp subtree (start/tools) via SkipUpdateCheck's parent walk.
-		setup.MarkSkipUpdateCheck(mcpCmd)
-		rootCmd.Register(setup.Wrap(p.McpCmd, mcpCmd))
+		// Everything go/mcp-specific is in pkg/mcp (spec 0201 D1); the root
+		// only passes the level its --debug and config reload already move.
+		rootCmd.Register(mcp.NewCmdMCP(props, mcpLogLevel))
 	}
 
 	if props.GetFeatures().Enabled(p.DocsCmd) {
@@ -1314,21 +1306,6 @@ func skipConfigGate(cmd *setup.Command) *setup.Command {
 	}
 
 	return cmd
-}
-
-// mcpSelectors returns the ophis selector that gates commands off the MCP tool
-// surface. A single selector exposes a command when the nearest explicit
-// mcp_enabled decision in its ancestor chain is exposed (or none is set) — see
-// [setup.IsExposedToMCP]. With nothing marked, every command resolves to
-// exposed and, because the flag selectors are nil, every flag is included,
-// making this equivalent to ophis' nil-selector default (expose all).
-//
-// The decision is resolved lazily: ophis invokes the CmdSelector when it
-// enumerates tools at `mcp start` / `mcp tools` run time — by which point the
-// full command tree (including self-registering tool commands) exists. It is
-// therefore wrong to branch on the tree at root-build time here.
-func mcpSelectors() []ophis.Selector {
-	return []ophis.Selector{{CmdSelector: setup.IsExposedToMCP}}
 }
 
 const telemetryFlushTimeout = 2 * time.Second

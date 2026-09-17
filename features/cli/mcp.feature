@@ -30,3 +30,25 @@ Feature: CLI MCP command
   Scenario: mcp editor subcommand help is reachable
     When I run gtb with "mcp cursor --help"
     Then the exit code is 0
+
+  Scenario: mcp stream help pins the retained flags
+    When I run gtb with "mcp stream --help"
+    Then the exit code is 0
+    And stdout contains "--host"
+    And stdout contains "--port"
+    And stdout contains "--log-level"
+
+  # The compact facade is the default publication mode (spec 0201 D3): a
+  # client lists three discovery tools, not one per command.
+  Scenario: a stdio session lists the compact facade
+    When I list the MCP tools over a stdio session with gtb
+    Then the exit code is 0
+    And stdout equals "search_tools,get_tool_details,call_tool"
+
+  # call_tool runs the command as a subprocess of this binary; the built-in
+  # version command answers with its JSON output.
+  Scenario: a stdio session runs a built-in through call_tool
+    When I call the MCP tool "gtb_version" with arguments '{"flags":{"output":"json"}}' over a stdio session with gtb
+    Then the exit code is 0
+    And stdout is valid JSON
+    And stdout contains "version"

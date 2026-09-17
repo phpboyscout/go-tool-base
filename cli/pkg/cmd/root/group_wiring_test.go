@@ -45,16 +45,11 @@ var workingGroups = map[string]string{
 // walker would then never see. They are named so the exemption is a stated
 // ownership boundary rather than a hole.
 //
-// `keys` is NOT here, and no longer needs to be. It comes from go/signing-cli,
-// which is ours, so the behaviour went upstream (v0.5.1) rather than being patched
-// on at gtb's attachment site — which means sigillum's `keys`, attaching the same
-// builder, agrees with gtb's instead of silently differing.
-var foreignGroups = map[string]string{
-	"gtb mcp":        "the ophis library builds this tree",
-	"gtb mcp claude": "ophis",
-	"gtb mcp cursor": "ophis",
-	"gtb mcp vscode": "ophis",
-}
+// The map is empty today. `keys` left it when go/signing-cli (ours) took the
+// behaviour upstream (v0.5.1), so sigillum's `keys` agrees with gtb's instead of
+// silently differing; `mcp` and its editor groups left it the same way when
+// go/mcp replaced ophis. It stays as the place a genuinely foreign tree goes.
+var foreignGroups = map[string]string{}
 
 // These three build the real tree in parallel. That used to be impossible:
 // generate and regenerate bound persistent flags to package variables (fixed
@@ -152,8 +147,8 @@ func walk(cmd *cobra.Command, visit func(*cobra.Command)) {
 }
 
 // An exemption that stops matching anything is worse than no exemption: it reads
-// as a covered case while covering nothing. If ophis renames or drops one of
-// these, this fails and the entry should go.
+// as a covered case while covering nothing. If a foreign tree renames or drops
+// one of these, this fails and the entry should go.
 func TestForeignGroupExemptionsStillMatchSomething(t *testing.T) {
 	t.Parallel()
 

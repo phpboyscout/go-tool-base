@@ -63,8 +63,8 @@ nothing and left a script unable to tell a typo from a command that ran. See the
 [migration note](../migration/v0.x-command-group-behaviour.md).
 
 `docs`, `doctor`, `enable` and `disable` have subcommands *and* do work of their
-own, so they answer their own arguments. `gtb mcp` is built by the `ophis` library
-and is unchanged. The root command is cobra's: `gtb zzbogus` reports an unknown
+own, so they answer their own arguments. `gtb mcp` is built by the estate's `go/mcp`
+module and is unchanged. The root command is cobra's: `gtb zzbogus` reports an unknown
 command and exits `1`.
 
 ---

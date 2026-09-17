@@ -124,10 +124,10 @@ A protected command is refused by `enable/disable mcp`, unprotect it first.
 
 GTB stamps a `setup.ExcludeFromMCP(cmd)` or `setup.IncludeInMCP(cmd)` marker
 into the generated command constructor (`pkg/setup`, `MCPExposure` enum), and
-composes a single `ophis` selector in the root that drops any command resolving
-to excluded via `setup.IsExposedToMCP` (the nearest-ancestor walk). The marker
-round-trips through both `regenerate project` (manifest → code) and `regenerate
-manifest` (code → manifest), so the gating is never silently lost.
+hands `setup.IsExposedToMCP` (the nearest-ancestor walk) to the go/mcp Cobra
+binding as its exposure policy, so a command resolving to excluded is never
+bound. The marker round-trips through both `regenerate project` (manifest → code)
+and `regenerate manifest` (code → manifest), so the gating is never silently lost.
 
 See the [generated command exposure
 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating) for the
@@ -155,9 +155,9 @@ a client may act on them, and nothing in GTB grants access because of one.
   directions.
 - **Additive.** `setup.AnnotateMCP` adds its keys to `cmd.Annotations` beside
   GTB's feature and exposure keys; it never replaces the map.
-- **The keys are ophis's spellings.** A tool that set them by hand under ophis
-  keeps working, and the go/mcp Cobra binding reads the same keys after the
-  replacement.
+- **The keys are ophis's spellings** (`readOnlyHint` and friends). A tool that set
+  them by hand under the previous library keeps working, and the go/mcp Cobra
+  binding reads the same keys.
 
 ### Built-in defaults
 
@@ -199,14 +199,63 @@ which answers [issue #36](https://gitlab.com/phpboyscout/go-tool-base/-/issues/3
 
 ## Implementation
 
-The MCP command is powered by the **[ophis](https://github.com/njayp/ophis)** library and is automatically wired into the `root` command registration.
+The MCP command is the estate's own [`go/mcp`](https://mcp.go.phpboyscout.uk)
+module, wired through `pkg/mcp` (spec 0201 D1). `pkg/mcp.NewCmdMCP` builds the
+`mcp` tree with GTB's conventions applied once, so a tool built on GTB gets
+them without saying anything:
 
-### Why Ophis?
+- **Exposure** comes from the tree's own markers (`setup.IsExposedToMCP`), and a
+  pure command group (`setup.GroupRunE`) is never published: a tool that prints
+  usage is noise to a client.
+- **The global flags are withheld.** `--config`, `--debug`, `--ci` and
+  `--accessible` steer the process, not the command, and `--config` would let a
+  client point the tool at another configuration file. `--output` stays, because
+  a client wants JSON.
+- **Operations are grouped by feature.** The `setup.Wrap` feature ID becomes the
+  operation's group, so `search_tools` narrowed by `config` or `telemetry` means
+  the same thing in every GTB tool.
+- **The publication mode** comes from `props.Tool.MCP`, rendered from
+  `properties.mcp.mode` in the manifest. The binary never reads the manifest.
+- **Logs go to stderr** at the level the root's `--debug` and config reload
+  already move; stdout carries the protocol.
 
-GTB uses `ophis` rather than the official `modelcontextprotocol/go-sdk` for several key reasons:
+### Compact and direct publication
 
-1.  **Seamless Cobra Integration**: Ophis is specifically designed to read Cobra command trees directly. It automatically maps commands to MCP tool definitions and flags to tool parameters, eliminating the need for manual schema duplication.
-2.  **Small Footprint**: It acts as a thin translation layer, providing exactly what is needed for CLI-to-MCP bridging without the overhead of a full protocol framework.
-3.  **Transitve Compatibility**: The official MCP Go SDK is a transitive dependency of Ophis. If direct protocol access is ever needed or if Ophis is abandoned, migrating to the official SDK is straightforward as the protocol layer is already present in the dependency tree.
+By default a client sees **three tools**, whatever the size of the command
+tree: `search_tools`, `get_tool_details` and `call_tool`. The model searches or
+browses, inspects the schema of the one it needs, and calls it. This is
+progressive discovery: the catalogue is not pushed into every context window,
+and a tool with 78 commands costs a client the same as one with three.
 
-For detailed integration instructions, see the [MCP Server CLI guide](mcp-agents.md).
+The trade is native per-tool approval. A client sees `call_tool` as *the* tool,
+so its annotations are conservative (destructive, open-world), and the
+per-command hints from `annotate` reach the model through `get_tool_details`
+rather than the client's approval UI. A tool that wants one native tool per
+command, with each tool's own annotations in the client's UI, sets the mode:
+
+```bash
+gtb set mcp.mode direct
+```
+
+That records `properties.mcp.mode: direct`, renders `MCP:
+props.MCPConfig{Mode: props.MCPDirect}` into the generated root, and takes
+effect on the next build. `gtb set mcp.mode compact` returns to the default.
+The mode is project-level publication configuration: `gtb disable mcp` still
+wins, and per-command `mcp_enabled` still gates exposure.
+
+### Execution
+
+Every call runs the command as a **subprocess of the same binary**, with the
+host's environment and working directory, stdin closed, a five-minute timeout
+and one MiB of retained output. One command runs at a time; a second call gets
+a retryable `busy` failure while search and inspection stay available. A
+cancelled call stops the command and everything it started (a process group on
+Unix, a job object on Windows). Non-zero exit is a `command_failed` result that
+still carries stdout, stderr and the exit code.
+
+`mytool mcp tools` writes the full authorised catalogue to `mcp-tools.json`
+regardless of mode: it is the offline view of what a client could discover.
+
+For the module's own contracts see [mcp.go.phpboyscout.uk](https://mcp.go.phpboyscout.uk)
+and [go/mcp spec 0001](https://gitlab.com/phpboyscout/go/mcp/-/wikis/specs/0001-progressive-mcp);
+for GTB's side, [spec 0201](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0201-gtb-consumes-go-mcp).

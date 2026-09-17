@@ -133,17 +133,21 @@ func assertMCPExportCarriesHints(t *testing.T, path string) {
 
 	var tools []struct {
 		Name        string         `json:"name"`
+		Title       string         `json:"title"`
 		Annotations map[string]any `json:"annotations"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &tools))
 
 	byName := map[string]map[string]any{}
+	titles := map[string]string{}
+
 	for _, tool := range tools {
 		byName[tool.Name] = tool.Annotations
+		titles[tool.Name] = tool.Title
 	}
 
 	require.Contains(t, byName, "compile-tool_deploy_canary")
-	assert.Equal(t, "Canary deploy", byName["compile-tool_deploy_canary"]["title"])
+	assert.Equal(t, "Canary deploy", titles["compile-tool_deploy_canary"], "the title is the tool's own, not an annotation")
 	assert.Equal(t, false, byName["compile-tool_deploy_canary"]["readOnlyHint"])
 	assert.Equal(t, true, byName["compile-tool_deploy_canary"]["openWorldHint"])
 	assert.NotContains(t, byName["compile-tool_deploy_canary"], "destructiveHint", "an unset hint is absent, not false")

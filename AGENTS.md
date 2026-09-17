@@ -194,6 +194,10 @@ The GitHub/GitLab (and Enterprise, Bitbucket, Gitea) abstraction for auth, PR ma
 
 `pkg/docs/` implements the built-in interactive markdown documentation browser. Structured output formatting was extracted to the `gitlab.com/phpboyscout/go/output` module. The former `pkg/forms/` interactive terminal UI components (prompts, selections, inputs) built on Bubble Tea have been **removed**, pending a rewrite on huh v2 (see the forms rewrite spec) — do not restore the deleted package.
 
+### MCP
+
+The `mcp` command is the estate's [`go/mcp`](https://mcp.go.phpboyscout.uk) module, wired through `pkg/mcp` (spec 0201). `pkg/mcp.NewCmdMCP` applies GTB's conventions once: exposure from `setup.IsExposedToMCP` (spec 0089) with pure groups never published, the global flags `--config`/`--debug`/`--ci`/`--accessible` withheld, operations grouped by the `setup.Wrap` feature ID, and the publication mode from `props.Tool.MCP` (`properties.mcp.mode` in the manifest: compact by default, `direct` for one native tool per command). Every call runs the command as a subprocess of the same binary. A command declares its MCP tool annotations with `setup.AnnotateMCP` (built-ins already do); a generated command records them as `mcp_hints` via `gtb annotate`. Nothing in the framework imports `go/mcp` outside `pkg/mcp`.
+
 ### Code Generation
 
 `cli/pkg/generator/` uses `dave/dst` and `dave/jennifer` for AST-level Go code generation. The `generate`/`regenerate`/`remove` commands scaffold new CLI tools that extend this framework.

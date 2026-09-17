@@ -70,18 +70,28 @@ decision lives in the manifest (`mcp_hints`) and in the command's `cmd.go`
 
 ## IDE Integration
 
-Integrating your CLI with your favorite AI-powered editor is straightforward.
+The `mcp` helpers register the tool with an editor and keep the rest of the
+editor's configuration as it is. Each writes an entry pointing at this binary's
+`mcp start`; run it again after moving the binary and it replaces that entry
+only.
 
-### Cursor
+```bash
+my-tool mcp cursor enable            # ~/.cursor/mcp.json
+my-tool mcp cursor enable --workspace   # .cursor/mcp.json in the project
+my-tool mcp claude enable            # Claude Desktop's claude_desktop_config.json
+my-tool mcp vscode enable            # VS Code's user mcp.json
+my-tool mcp vscode enable --workspace   # .vscode/mcp.json in the project
+```
 
-Cursor has native support for MCP. Add your CLI as a server in `~/.cursor/mcp.json` or via **Cursor Settings > Features > MCP**.
-
-**Configuration:**
+`disable` removes the entry and `list` shows what the file holds. `--env
+KEY=value` adds environment for the server and `--log-level debug` starts it
+verbose. What `enable` writes, for Cursor:
 
 ```json
 {
   "mcpServers": {
     "my-tool": {
+      "type": "stdio",
       "command": "/absolute/path/to/my-tool",
       "args": ["mcp", "start"]
     }
@@ -89,58 +99,24 @@ Cursor has native support for MCP. Add your CLI as a server in `~/.cursor/mcp.js
 }
 ```
 
-*Note: Be sure to use the absolute path to your tool's binary.*
+## What a client sees
 
-### Claude Desktop
+By default the client lists three tools: `search_tools`, `get_tool_details` and
+`call_tool`. The assistant searches the catalogue (or browses it with an empty
+query), inspects the schema of the command it wants, and calls it. A tool with
+eighty commands costs the client's context the same as one with three.
 
-To use your CLI with the Claude Desktop app, edit your configuration file:
+If you would rather each command appear as its own native tool, with its
+annotations in the client's approval UI, switch the project to direct
+publication and rebuild:
 
-*   **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-*   **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-Add your CLI under `mcpServers`:
-
-```json
-{
-  "mcpServers": {
-    "my-tool": {
-      "command": "/absolute/path/to/my-tool",
-      "args": ["mcp", "start"]
-    }
-  }
-}
-```
-
-### VS Code (GitHub Copilot)
-
-If you are using GitHub Copilot in VS Code with the "Agent Mode" (check for availability), you can configure MCP servers in your workspace settings `.vscode/settings.json` or user settings.
-
-```json
-{
-  "github.copilot.mcpServers": {
-    "my-tool": {
-      "command": "/absolute/path/to/my-tool",
-      "args": ["mcp", "start"]
-    }
-  }
-}
+```bash
+gtb set mcp.mode direct
 ```
 
 ## Debugging
 
-If the integration isn't working as expected, you can enable debug logging to inspect the communication between the IDE and the MCP server.
-
-Add the `--debug` flag to your configuration:
-
-```json
-{
-  "mcpServers": {
-    "my-tool": {
-      "command": "/absolute/path/to/my-tool",
-      "args": ["mcp", "start", "--debug"]
-    }
-  }
-}
-```
-
-The debug logs will be output to `stderr` and should be visible in your IDE's MCP server logs panel.
+Start the server with `--log-level debug` (in the editor entry, `my-tool mcp
+vscode enable --log-level debug`) to see every operation the client invokes on
+stderr. `my-tool mcp tools` shows exactly which commands are exposed and what a
+client is told about each, including the annotations set with `gtb annotate`.
