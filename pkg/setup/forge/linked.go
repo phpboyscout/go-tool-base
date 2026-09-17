@@ -2,6 +2,7 @@ package forge
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -43,23 +44,38 @@ type UnlinkedForge struct {
 	Module   string
 }
 
-// Unlinked reports every forge feature the tool enables whose forge type has no
-// registered provider, which means the adapter module is not linked into the
-// binary.
+// Unlinked reports every forge feature the tool enables whose adapter is not
+// linked into the binary. A tool that declares forge links (a generated one,
+// through props.DeclareLinks in its forge.go) is read from those, so the
+// answer is the author's choice rather than every type a module registers;
+// a tool declaring none is read from the forge registry alone (#81).
 func Unlinked(set features.Set) []UnlinkedForge {
 	profiles := make([]Profile, 0, len(profilesByFeature))
 	for _, profile := range profilesByFeature {
 		profiles = append(profiles, profile)
 	}
 
-	return unlinked(profiles, set.Enabled, forgeapi.Registered)
+	return unlinked(profiles, set.Enabled, linkedIn(set, forgeapi.Registered))
 }
 
-func unlinked(profiles []Profile, enabled func(props.FeatureID) bool, registered func(string) bool) []UnlinkedForge {
+// linkedIn answers whether a forge type is linked: registered, and declared
+// too when the set declares any forge link at all.
+func linkedIn(set features.Set, registered func(string) bool) func(string) bool {
+	declared := props.LinkedNames(set, props.ForgeLinkPrefix)
+	if len(declared) == 0 {
+		return registered
+	}
+
+	return func(provider string) bool {
+		return registered(provider) && slices.Contains(declared, provider)
+	}
+}
+
+func unlinked(profiles []Profile, enabled func(props.FeatureID) bool, linked func(string) bool) []UnlinkedForge {
 	var missing []UnlinkedForge
 
 	for _, profile := range profiles {
-		if !enabled(profile.Feature) || registered(profile.Provider) {
+		if !enabled(profile.Feature) || linked(profile.Provider) {
 			continue
 		}
 

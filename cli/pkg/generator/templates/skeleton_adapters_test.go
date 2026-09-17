@@ -14,7 +14,7 @@ func TestSkeletonChatProviders(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	require.NoError(t, SkeletonChatProviders([]string{
+	require.NoError(t, SkeletonChatProviders([]string{"claude", "codex-local"}, []string{
 		"gitlab.com/phpboyscout/go/chat-anthropic",
 		"gitlab.com/phpboyscout/go/chat-openai",
 	}, false).Render(&buf))
@@ -25,6 +25,23 @@ func TestSkeletonChatProviders(t *testing.T) {
 	assert.Contains(t, out, `_ "gitlab.com/phpboyscout/go/chat-anthropic"`)
 	assert.Contains(t, out, `_ "gitlab.com/phpboyscout/go/chat-openai"`)
 	assert.NotContains(t, out, "chat-gemini")
+
+	// The file declares the author's exact choice as link features (#81), so
+	// the running tool knows two providers, not every one the modules carry.
+	assert.Contains(t, out, `props.DeclareLinks(props.ChatLinkPrefix, "claude", "codex-local")`)
+
+	_, err := parser.ParseFile(token.NewFileSet(), "chat.go", out, parser.ParseComments)
+	require.NoError(t, err)
+}
+
+func TestSkeletonChatProviders_NoProvidersDeclaresNothing(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	require.NoError(t, SkeletonChatProviders(nil, nil, false).Render(&buf))
+
+	assert.NotContains(t, buf.String(), "DeclareLinks")
+	assert.NotContains(t, buf.String(), "func init")
 }
 
 // TestSkeletonChatProviders_WithDefaultsEmbedsTheBundle pins spec 0196 D4:
@@ -34,7 +51,7 @@ func TestSkeletonChatProviders_WithDefaultsEmbedsTheBundle(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	require.NoError(t, SkeletonChatProviders([]string{"gitlab.com/phpboyscout/go/chat-openai"}, true).Render(&buf))
+	require.NoError(t, SkeletonChatProviders([]string{"openai"}, []string{"gitlab.com/phpboyscout/go/chat-openai"}, true).Render(&buf))
 
 	out := buf.String()
 	assert.Contains(t, out, "\n//go:embed chat\nvar chatDefaults embed.FS\n")
@@ -49,8 +66,25 @@ func TestSkeletonForgeAdapters_EmptyIsStillValidGo(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	require.NoError(t, SkeletonForgeAdapters(nil).Render(&buf))
+	require.NoError(t, SkeletonForgeAdapters(nil, nil).Render(&buf))
 
 	assert.Contains(t, buf.String(), "package main")
 	assert.NotContains(t, buf.String(), "import")
+}
+
+func TestSkeletonForgeAdapters_DeclaresTheLinks(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	require.NoError(t, SkeletonForgeAdapters([]string{"github", "codeberg"}, []string{
+		"gitlab.com/phpboyscout/go/forge-github",
+		"gitlab.com/phpboyscout/go/forge-gitea",
+	}).Render(&buf))
+
+	out := buf.String()
+	assert.Contains(t, out, `_ "gitlab.com/phpboyscout/go/forge-gitea"`)
+	assert.Contains(t, out, `props.DeclareLinks(props.ForgeLinkPrefix, "github", "codeberg")`)
+
+	_, err := parser.ParseFile(token.NewFileSet(), "forge.go", out, parser.ParseComments)
+	require.NoError(t, err)
 }

@@ -82,6 +82,40 @@ func TestUnlinked_DisabledFeaturesAreNotChecked(t *testing.T) {
 	assert.Empty(t, unlinked(profiles, nothingEnabled, nothingRegistered))
 }
 
+// TestLinkedIn_DeclaredLinksNarrowTheRegistry is #81: once the tool declares
+// forge links, an adapter the binary happens to register is linked only when
+// the author declared it, and a declared link still needs its registration.
+func TestLinkedIn_DeclaredLinksNarrowTheRegistry(t *testing.T) {
+	t.Parallel()
+
+	r := features.NewRegistry()
+	require.NoError(t, props.DeclareLinksOn(r, props.ForgeLinkPrefix, "alpha", "gamma"))
+
+	set, err := features.Resolve(r.Snapshot(), nil)
+	require.NoError(t, err)
+
+	registered := func(provider string) bool { return provider == "alpha" || provider == "beta" }
+	linked := linkedIn(set, registered)
+
+	assert.True(t, linked("alpha"), "declared and registered")
+	assert.False(t, linked("beta"), "registered by a linked module but not the author's choice")
+	assert.False(t, linked("gamma"), "declared but its adapter is not registered")
+}
+
+// TestLinkedIn_NoDeclarationsReadsTheRegistry keeps hand-built tools and gtb
+// itself working: with no forge links declared the registry answers alone.
+func TestLinkedIn_NoDeclarationsReadsTheRegistry(t *testing.T) {
+	t.Parallel()
+
+	set, err := features.Resolve(features.NewRegistry().Snapshot(), nil)
+	require.NoError(t, err)
+
+	linked := linkedIn(set, func(provider string) bool { return provider == "alpha" })
+
+	assert.True(t, linked("alpha"))
+	assert.False(t, linked("beta"))
+}
+
 // TestUnlinked_RealRegistry runs the exported query against the real registry
 // with every forge feature enabled. The framework links no adapter (spec 0194
 // D3), so every profile is reported, each with the module the hint will name.

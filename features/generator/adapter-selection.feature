@@ -54,6 +54,21 @@ Feature: A generated tool links only the adapters it selects
     And the project manifest contains "- claude-local"
     And the project manifest does not contain "- gemini"
 
+  Scenario: The chosen providers are declared as link features, not just imported
+    Given I generate a gtb project with features "init,update,ai", chat providers "claude,codex-local" and chat default "claude"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat.go" file contains 'props.DeclareLinks(props.ChatLinkPrefix, "claude", "codex-local")'
+    And the generated "cmd/feattool/forge.go" file contains 'props.DeclareLinks(props.ForgeLinkPrefix, "github")'
+
+  Scenario: A disabled forge leaves the link declaration as well as the import
+    Given I generate a gtb project with forge backend "gitlab" and forge credentials "github"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/forge.go" file contains 'props.DeclareLinks(props.ForgeLinkPrefix, "github", "gitlab")'
+    When I run gtb in the project with "disable github"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/forge.go" file contains 'props.DeclareLinks(props.ForgeLinkPrefix, "gitlab")'
+    And the generated "cmd/feattool/forge.go" file does not contain '"github"'
+
   Scenario: One provider is its own default and ships as the tool's embedded defaults
     Given I generate a gtb project with features "init,update,ai" and chat providers "claude-local"
     Then the project exit code is 0

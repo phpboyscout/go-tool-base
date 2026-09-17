@@ -368,9 +368,33 @@ own tables (`chat.ProviderModule`, `forge.ModuleFor`), and
 `syncAdapterFiles` rewrites both on every regenerate. A manifest with no
 `chat:` block and `ai` enabled is a project older than the block; the sync
 records `DefaultChatProviders()` into it first, so the tool keeps every
-provider it had. On a from-scratch manifest rebuild `recoverChatProviders`
-reads `chat.go` and lists every provider the imported modules register, which
-is the widest reading of what the binary links.
+provider it had.
+
+Each file also carries an `init` that declares what it links as link-kind
+features, one per name rather than one per module
+([#81](https://gitlab.com/phpboyscout/go-tool-base/-/issues/81)):
+
+```go
+func init() {
+    props.DeclareLinks(props.ChatLinkPrefix, "claude", "codex-local")
+}
+```
+
+The import is what puts the SDK in the binary; the declaration is what tells
+the running tool the author's choice within it. A module registers every
+provider it carries (`chat-anthropic` registers `claude` and `claude-local`),
+so without the declaration `doctor` could only report the widest reading,
+five providers for a tool whose author chose two. With it, `chat.LinkedProviders`
+and `forge.Unlinked` answer from the feature set: a name declared but not
+registered is reported as a build mistake, and a name registered but not
+declared is not one of the tool's providers. A tool declaring no links at all
+(a hand-wired one, or `gtb` itself, which links everything) is still read from
+the toolkit registries alone.
+
+On a from-scratch manifest rebuild `recoverChatProviders` reads the
+`DeclareLinks` call out of `chat.go` and recovers the exact choice. A file
+older than the declaration has only its imports, so recovery falls back to
+every provider the imported modules register.
 
 ### 8. Custom Template Overlays (`templatesource*.go`)
 

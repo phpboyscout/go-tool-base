@@ -14,6 +14,7 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/errors"
+	"gitlab.com/phpboyscout/go/features"
 
 	"gitlab.com/phpboyscout/go/credentials"
 
@@ -77,8 +78,8 @@ var ErrProviderNotLinked = errors.NewSentinel("gtb.setup.ai.provider_not_linked"
 // linkedProviders builds the predicate from the registry. A binary that
 // registers no provider at all cannot narrow, so every known provider is
 // offered and doctor's Chat providers check is what reports the gap.
-func linkedProviders(registered func() []gochat.Provider) func(gochat.Provider) bool {
-	names := registered()
+func linkedProviders(set features.Set) func(gochat.Provider) bool {
+	names, _ := chat.LinkedProviders(set)
 	if len(names) == 0 {
 		return func(gochat.Provider) bool { return true }
 	}
@@ -289,7 +290,7 @@ func (a *AIInitialiser) IsConfigured(cfg config.Reader) bool {
 // Configure runs the interactive AI configuration forms and writes the
 // results through the editor.
 func (a *AIInitialiser) Configure(ctx context.Context, p *props.Props, cfg setup.Editor) error {
-	aiCfg, err := runAIForms(ctx, p, cfg.View(), linkedProviders(gochat.RegisteredProviders))
+	aiCfg, err := runAIForms(ctx, p, cfg.View(), linkedProviders(p.GetFeatures()))
 	if err != nil {
 		return err
 	}
@@ -446,7 +447,7 @@ func RunAIInit(ctx context.Context, p *props.Props, dir string) error {
 		return err
 	}
 
-	aiCfg, err := runAIForms(ctx, p, editor.View(), linkedProviders(gochat.RegisteredProviders))
+	aiCfg, err := runAIForms(ctx, p, editor.View(), linkedProviders(p.GetFeatures()))
 	if err != nil {
 		return err
 	}

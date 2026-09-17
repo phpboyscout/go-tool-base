@@ -82,9 +82,16 @@ framework integration on top:
   `chat.Provider`. The generator, `doctor` and error hints read this one table.
   When `chat.New` fails because a provider is not registered
   (`gochat.ErrProviderNotRegistered`), the adapter adds a hint naming the
-  import to add. `gochat.ProviderRegistered` and `RegisteredProviders` are how
-  `init ai`, `doctor` and the default-provider rung ask what this binary
-  links, the same way the forge side asks `forge.Registered`.
+  import to add.
+- **Linked providers are a feature-set question.** `chat.LinkedProviders(set)`
+  is how `init ai` and `doctor` ask what this binary ships. A generated tool
+  declares its manifest's providers as link-kind features
+  (`props.DeclareLinks(props.ChatLinkPrefix, ...)` in its `chat.go`), so the
+  answer is the author's choice rather than every provider a linked module
+  registers; a declared provider the registry lacks is reported as unlinked.
+  A tool declaring none is read from `gochat.RegisteredProviders` alone, the
+  same way the forge side falls back to `forge.Registered`
+  ([#81](https://gitlab.com/phpboyscout/go-tool-base/-/issues/81)).
 
 ## Related how-to guides
 

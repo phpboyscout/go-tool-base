@@ -134,11 +134,17 @@ func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: name, Status: CheckSkip, Message: "no configuration loaded"}
 	}
 
-	registered := gochat.RegisteredProviders()
+	// The author's declared links when the tool has them (#81), else every
+	// provider the linked modules register.
+	linkedProviders, unregistered := chat.LinkedProviders(props.GetFeatures())
 
-	linked := make([]string, len(registered))
-	for i, r := range registered {
+	linked := make([]string, len(linkedProviders))
+	for i, r := range linkedProviders {
 		linked[i] = string(r)
+	}
+
+	if len(unregistered) > 0 {
+		return CheckResult{Name: name, Status: CheckFail, Message: "declared but not linked: " + strings.Join(withImportHints(unregistered), "; ")}
 	}
 
 	configured := chatProvidersInUse(props.Config.View())
@@ -150,23 +156,16 @@ func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 		}
 	}
 
-	var missing []string
+	var missing []gochat.Provider
 
 	for _, provider := range configured {
-		if gochat.ProviderRegistered(provider) {
-			continue
+		if !gochat.ProviderRegistered(provider) {
+			missing = append(missing, provider)
 		}
-
-		module, ok := chat.ProviderModule(provider)
-		if !ok {
-			module = "no known module"
-		}
-
-		missing = append(missing, fmt.Sprintf("%s (import %s)", provider, module))
 	}
 
 	if len(missing) > 0 {
-		return CheckResult{Name: name, Status: CheckFail, Message: "configured but not linked: " + strings.Join(missing, "; ")}
+		return CheckResult{Name: name, Status: CheckFail, Message: "configured but not linked: " + strings.Join(withImportHints(missing), "; ")}
 	}
 
 	return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(linked, ", ") + " linked"}
@@ -174,6 +173,23 @@ func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 
 // chatProvidersInUse is ai.provider followed by the fallback chain, without
 // duplicates and without empties.
+// withImportHints names each provider with the module whose blank import
+// registers it, which is the fix for a provider the binary lacks.
+func withImportHints(providers []gochat.Provider) []string {
+	hints := make([]string, 0, len(providers))
+
+	for _, provider := range providers {
+		module, ok := chat.ProviderModule(provider)
+		if !ok {
+			module = "no known module"
+		}
+
+		hints = append(hints, fmt.Sprintf("%s (import %s)", provider, module))
+	}
+
+	return hints
+}
+
 func chatProvidersInUse(cfg config.Reader) []gochat.Provider {
 	var out []gochat.Provider
 

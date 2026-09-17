@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -95,4 +97,38 @@ func TestCheckCredentialResolution_ReportsOnlyLinkedProviders(t *testing.T) {
 	res = checkCredentialResolution(context.Background(), ai)
 	assert.Contains(t, res.Details, "OpenAI", "openai-compatible shares OpenAI's root, so the key is reported")
 	assert.NotContains(t, res.Details, "Anthropic")
+}
+
+// TestCheckChatProviders_NamesTheDeclaredLinks is #81: a generated tool
+// declares one chat link per provider the author chose, and doctor reports
+// those rather than every provider the linked modules happen to register. A
+// declared link whose provider is not registered is a build mistake and fails.
+func TestCheckChatProviders_NamesTheDeclaredLinks(t *testing.T) {
+	factory := func(context.Context, gochat.Settings) (gochat.ChatClient, error) { return nil, nil }
+	gochat.RegisterProvider("dl-chosen", factory)
+	gochat.RegisterProvider("dl-sibling", factory) // the module's other provider, not chosen
+
+	reg := features.NewRegistry()
+	for _, d := range p.DescriptorsIn(features.Default().Snapshot()) {
+		require.NoError(t, reg.Declare(d))
+	}
+
+	require.NoError(t, p.DeclareLinksOn(reg, p.ChatLinkPrefix, "dl-chosen"))
+
+	set, err := features.Resolve(reg.Snapshot(), []features.State{{ID: p.AiCmd, Enabled: true}})
+	require.NoError(t, err)
+
+	res := checkChatProviders(context.Background(), &p.Props{Features: set, Config: testutil.StoreFromYAML(t, "ai:\n  provider: dl-chosen\n")})
+	assert.Equal(t, CheckPass, res.Status, res.Message)
+	assert.Contains(t, res.Message, "dl-chosen")
+	assert.NotContains(t, res.Message, "dl-sibling", "the author chose one provider; doctor names that one")
+
+	require.NoError(t, p.DeclareLinksOn(reg, p.ChatLinkPrefix, "dl-ghost"))
+
+	set, err = features.Resolve(reg.Snapshot(), []features.State{{ID: p.AiCmd, Enabled: true}})
+	require.NoError(t, err)
+
+	res = checkChatProviders(context.Background(), &p.Props{Features: set, Config: testutil.StoreFromYAML(t, "ai:\n  provider: dl-chosen\n")})
+	assert.Equal(t, CheckFail, res.Status, res.Message)
+	assert.Contains(t, res.Message, "dl-ghost", "a declared link whose module is not linked is a build mistake")
 }

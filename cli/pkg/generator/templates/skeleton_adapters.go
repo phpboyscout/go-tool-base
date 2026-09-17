@@ -7,15 +7,17 @@ import (
 )
 
 // SkeletonChatProviders generates cmd/<name>/chat.go: one blank import per
-// chat provider module the manifest's chat.providers selects. Deleting the
-// file drops every chat SDK from the linked binary; regenerate rewrites it
-// from the manifest (spec 0194 D6).
+// chat provider module the manifest's chat.providers selects, and an init that
+// declares the chosen providers as link features so the running tool knows the
+// author's exact choice rather than everything the modules carry (#81).
+// Deleting the file drops every chat SDK from the linked binary; regenerate
+// rewrites it from the manifest (spec 0194 D6).
 //
 // With withDefaults the file also embeds the sibling chat/ directory and
 // registers it as an ai defaults bundle. The bundle is re-rooted with fs.Sub so
 // its assets/config.yaml sits at the path the framework's defaults layer
 // opens, the way the framework's own feature bundles are (spec 0196 D4).
-func SkeletonChatProviders(modules []string, withDefaults bool) *jen.File {
+func SkeletonChatProviders(providers, modules []string, withDefaults bool) *jen.File {
 	f := blankImportFile(
 		"Registers the chat providers this tool ships, one module per line.",
 		"Generated from .gtb/manifest.yaml chat.providers; edit the manifest and",
@@ -23,36 +25,67 @@ func SkeletonChatProviders(modules []string, withDefaults bool) *jen.File {
 		modules,
 	)
 
-	if !withDefaults {
-		return f
+	var body []jen.Code
+
+	if len(providers) > 0 {
+		body = append(body, declareLinks("ChatLinkPrefix", providers))
 	}
 
-	f.Comment("chatDefaults is the author's ai defaults from .gtb/manifest.yaml chat.default,")
-	f.Comment("the tool's lowest config layer. An end user overrides it in their own file.")
-	f.Comment("//go:embed chat")
-	f.Var().Id("chatDefaults").Qual("embed", "FS")
-	f.Line()
-	f.Func().Id("init").Params().Block(
-		jen.List(jen.Id("sub"), jen.Id("err")).Op(":=").Qual("io/fs", "Sub").Call(jen.Id("chatDefaults"), jen.Lit("chat")),
-		jen.If(jen.Id("err").Op("!=").Nil()).Block(jen.Panic(jen.Id("err"))),
-		jen.Line(),
-		jen.Qual(gtbSetupPath, "RegisterAssets").Call(jen.Qual(props.PackagePath, "AiCmd"), jen.Lit("chat"), jen.Id("sub")),
-	)
+	if withDefaults {
+		f.Comment("chatDefaults is the author's ai defaults from .gtb/manifest.yaml chat.default,")
+		f.Comment("the tool's lowest config layer. An end user overrides it in their own file.")
+		f.Comment("//go:embed chat")
+		f.Var().Id("chatDefaults").Qual("embed", "FS")
+		f.Line()
+
+		if len(body) > 0 {
+			body = append(body, jen.Line())
+		}
+
+		body = append(body,
+			jen.List(jen.Id("sub"), jen.Id("err")).Op(":=").Qual("io/fs", "Sub").Call(jen.Id("chatDefaults"), jen.Lit("chat")),
+			jen.If(jen.Id("err").Op("!=").Nil()).Block(jen.Panic(jen.Id("err"))),
+			jen.Line(),
+			jen.Qual(gtbSetupPath, "RegisterAssets").Call(jen.Qual(props.PackagePath, "AiCmd"), jen.Lit("chat"), jen.Id("sub")),
+		)
+	}
+
+	if len(body) > 0 {
+		f.Func().Id("init").Params().Block(body...)
+	}
 
 	return f
 }
 
 // SkeletonForgeAdapters generates cmd/<name>/forge.go: one blank import per
-// forge adapter the manifest's enabled forge features need. Deleting the file
-// drops every forge SDK from the linked binary; regenerate rewrites it from
-// the manifest (spec 0194 D4, D6).
-func SkeletonForgeAdapters(modules []string) *jen.File {
-	return blankImportFile(
+// forge adapter the manifest's enabled forge features need, and an init that
+// declares those forges as link features (#81). Deleting the file drops every
+// forge SDK from the linked binary; regenerate rewrites it from the manifest
+// (spec 0194 D4, D6).
+func SkeletonForgeAdapters(forges, modules []string) *jen.File {
+	f := blankImportFile(
 		"Registers the forge adapters this tool ships, one module per line.",
 		"Generated from the forge features in .gtb/manifest.yaml; enable or",
 		"disable a forge and regenerate rather than editing this file.",
 		modules,
 	)
+
+	if len(forges) > 0 {
+		f.Func().Id("init").Params().Block(declareLinks("ForgeLinkPrefix", forges))
+	}
+
+	return f
+}
+
+func declareLinks(prefix string, names []string) jen.Code {
+	args := make([]jen.Code, 0, 1+len(names))
+	args = append(args, jen.Qual(props.PackagePath, prefix))
+
+	for _, n := range names {
+		args = append(args, jen.Lit(n))
+	}
+
+	return jen.Qual(props.PackagePath, "DeclareLinks").Call(args...)
 }
 
 func blankImportFile(comment1, comment2, comment3 string, modules []string) *jen.File {

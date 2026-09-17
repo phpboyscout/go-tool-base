@@ -47,9 +47,14 @@ A `Descriptor` is an interface (`FeatureID`, `FeatureKind`, `DefaultOn`,
 `props.FeatureDescriptor` adds the generated-code identifiers the generator
 emits. `Kind` classifies so "every forge" is a query: `builtin` (the framework's
 commands), `forge` (a forge integration a blank import contributes) and `link`
-(a feature whose only effect is a blank import, the OS keychain; its presence
-is its enablement, it declares no runtime default, and the generator toggles it
-by writing or removing the file that imports it). A snapshot's order is derived
+(a feature whose only effect is a blank import; its presence is its enablement,
+it declares no runtime default, and the generator toggles it by writing or
+removing the file that imports it). The OS keychain is one link, declared by
+`pkg/setup/keychain`. A generated tool's adapter files declare the rest with
+`props.DeclareLinks`: `chat-claude` and `forge-github` name the provider and
+forge the author chose, so `doctor` reports that choice rather than every
+provider the linked modules happen to register
+([#81](https://gitlab.com/phpboyscout/go-tool-base/-/issues/81)). A snapshot's order is derived
 from data, never from `init` sequencing: descriptors that report a `Rank`
 first (GTB's built-ins in their declared order, then any plugin that sets an
 `Order`, which the forges do so a chooser lists GitHub first), then the rest by

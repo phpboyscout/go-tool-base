@@ -179,6 +179,28 @@ func TestRecoverChatProviders(t *testing.T) {
 
 		assert.Equal(t, []string{"gemini", "gemini-vertex", "agy-local"}, g.recoverChatProviders())
 	})
+
+	t.Run("recovers the declared links exactly when the file has them", func(t *testing.T) {
+		t.Parallel()
+
+		// A chat.go the generator writes since #81 declares the author's
+		// choice; that beats the widest reading of the imported modules.
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		require.NoError(t, fs.MkdirAll("/proj/cmd/tool", 0o755))
+		require.NoError(t, afero.WriteFile(fs, "/proj/cmd/tool/chat.go", []byte(`package main
+
+import (
+	props "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	_ "gitlab.com/phpboyscout/go/chat-gemini"
+)
+
+func init() {
+	props.DeclareLinks(props.ChatLinkPrefix, "agy-local")
+}
+`), 0o644))
+
+		assert.Equal(t, []string{"agy-local"}, g.recoverChatProviders())
+	})
 }
 
 func TestChatModulesFor_GatedOnAI(t *testing.T) {

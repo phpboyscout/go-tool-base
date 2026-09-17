@@ -134,12 +134,21 @@ func RegisterFeature(d FeatureDescriptor) {
 // tested directly; duplicates are reported here too so a caller sees one error
 // shape.
 func validateDescriptor(d FeatureDescriptor, existing []FeatureDescriptor) error {
-	if d.ID == "" || d.ConstName == "" || d.Kind == "" || d.ConstPackage == "" {
+	if d.ID == "" || d.Kind == "" {
+		return errors.Wrapf(ErrInvalidDescriptor, "id=%q kind=%q", d.ID, d.Kind)
+	}
+
+	// A link the generator wrote for an adapter has no constant to name; a
+	// keychain-style link that is also a scaffold toggle carries one, and the
+	// generator's catalogue reads it. Every other kind must be emittable.
+	if d.Kind != KindLink && (d.ConstName == "" || d.ConstPackage == "") {
 		return errors.Wrapf(ErrInvalidDescriptor,
 			"id=%q const=%q pkg=%q kind=%q", d.ID, d.ConstName, d.ConstPackage, d.Kind)
 	}
 
-	if d.Default && d.Kind != KindBuiltin {
+	// A blank import changes what is available, never what is on; except for
+	// a link, whose import is exactly what turns it on (spec 0199 OQ3, #81).
+	if d.Default && d.Kind != KindBuiltin && d.Kind != KindLink {
 		return errors.Wrapf(ErrPluginDefaultOn, "%q is kind %q", d.ID, d.Kind)
 	}
 

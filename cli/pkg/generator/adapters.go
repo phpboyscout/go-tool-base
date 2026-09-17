@@ -1,9 +1,13 @@
 package generator
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -186,6 +190,27 @@ func chatModulesFor(providers []string, features []ManifestFeature) []string {
 	return chatModules(providers)
 }
 
+// chatProvidersFor is the provider names chat.go declares as link features:
+// the manifest's choice, in order, with unknown names and repeats dropped the
+// way chatModules drops them, and nothing at all while ai is disabled.
+func chatProvidersFor(providers []string, features []ManifestFeature) []string {
+	if !featureEnabledIn(features, string(props.AiCmd)) {
+		return nil
+	}
+
+	var names []string
+
+	for _, p := range providers {
+		if _, ok := chat.ProviderModule(gochat.Provider(p)); !ok || slices.Contains(names, p) {
+			continue
+		}
+
+		names = append(names, p)
+	}
+
+	return names
+}
+
 // chatModules maps the manifest's provider names to the modules whose blank
 // imports register them. Unknown names are dropped here rather than failed:
 // validation is the generate command's job, and a manifest edited by hand to
@@ -209,6 +234,20 @@ func chatModules(providers []string) []string {
 
 // forgeModules maps the enabled forge features to their adapter modules, in
 // catalogue order, deduplicated (gitea and codeberg share one).
+// enabledForges is the forge feature IDs forge.go declares as link features,
+// in catalogue order.
+func enabledForges(features []ManifestFeature) []string {
+	var forges []string
+
+	for _, d := range templates.Catalogue() {
+		if d.Kind == props.KindForge && featureEnabledIn(features, string(d.ID)) {
+			forges = append(forges, string(d.ID))
+		}
+	}
+
+	return forges
+}
+
 func forgeModules(features []ManifestFeature) []string {
 	var modules []string
 
@@ -242,7 +281,11 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	withDefaults := chatDefaultsFor(m.Properties)
 
 	chatFile := filepath.Join("cmd", name, "chat.go")
-	if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features), !withDefaults.IsZero())); err != nil {
+	if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(
+		chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
+		chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
+		!withDefaults.IsZero(),
+	)); err != nil {
 		return err
 	}
 
@@ -251,7 +294,7 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	}
 
 	forgeFile := filepath.Join("cmd", name, "forge.go")
-	if err := g.writeGeneratedGoFile(forgeFile, templates.SkeletonForgeAdapters(forgeModules(m.Properties.Features))); err != nil {
+	if err := g.writeGeneratedGoFile(forgeFile, templates.SkeletonForgeAdapters(enabledForges(m.Properties.Features), forgeModules(m.Properties.Features))); err != nil {
 		return err
 	}
 
@@ -325,11 +368,11 @@ func (g *Generator) syncChatDefaultsBundle(root, name string, d ManifestChatDefa
 	return nil
 }
 
-// recoverChatProviders reads cmd/<name>/chat.go on a from-scratch rebuild and
-// returns every provider the imported modules register. The file records
-// modules, not the operator's narrower choice within a module, so the
-// recovered list is the widest reading of what the binary links. Nil when the
-// file is absent.
+// recoverChatProviders reads cmd/<name>/chat.go on a from-scratch rebuild.
+// A file the generator wrote since #81 declares the author's exact choice
+// through props.DeclareLinks and that is returned verbatim. An older file
+// records modules only, so the recovered list is the widest reading of what
+// the binary links. Nil when the file is absent.
 func (g *Generator) recoverChatProviders() []string {
 	matches, err := afero.Glob(g.props.FS, filepath.Join(g.config.Path, "cmd", "*", "chat.go"))
 	if err != nil || len(matches) == 0 {
@@ -341,6 +384,10 @@ func (g *Generator) recoverChatProviders() []string {
 		return nil
 	}
 
+	if declared := declaredLinks(src, "ChatLinkPrefix"); len(declared) > 0 {
+		return declared
+	}
+
 	var providers []string
 
 	for _, entry := range chat.ProviderModules() {
@@ -350,4 +397,41 @@ func (g *Generator) recoverChatProviders() []string {
 	}
 
 	return providers
+}
+
+// declaredLinks returns the string arguments of the props.DeclareLinks call
+// whose first argument is the named prefix constant, or nil when the source
+// has none or does not parse.
+func declaredLinks(src []byte, prefix string) []string {
+	file, err := parser.ParseFile(token.NewFileSet(), "", src, 0)
+	if err != nil {
+		return nil
+	}
+
+	var names []string
+
+	ast.Inspect(file, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok || len(call.Args) < 2 || !isSelector(call.Fun, "DeclareLinks") || !isSelector(call.Args[0], prefix) {
+			return true
+		}
+
+		for _, arg := range call.Args[1:] {
+			if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				if name, err := strconv.Unquote(lit.Value); err == nil {
+					names = append(names, name)
+				}
+			}
+		}
+
+		return false
+	})
+
+	return names
+}
+
+func isSelector(expr ast.Expr, name string) bool {
+	sel, ok := expr.(*ast.SelectorExpr)
+
+	return ok && sel.Sel.Name == name
 }

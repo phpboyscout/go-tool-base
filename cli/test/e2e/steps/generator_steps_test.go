@@ -185,6 +185,10 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
 	ctx.Step(`^the generated "([^"]*)" file contains "([^"]*)"$`, theGeneratedFileContains)
 	ctx.Step(`^the generated "([^"]*)" file does not contain "([^"]*)"$`, theGeneratedFileDoesNotContain)
+	// The single-quoted forms take an expectation that itself carries double
+	// quotes, such as a Go call with string arguments.
+	ctx.Step(`^the generated "([^"]*)" file contains '([^']*)'$`, theGeneratedFileContains)
+	ctx.Step(`^the generated "([^"]*)" file does not contain '([^']*)'$`, theGeneratedFileDoesNotContain)
 	ctx.Step(`^the generated "([^"]*)" file exists$`, theGeneratedFileExists)
 	ctx.Step(`^the generated "([^"]*)" file does not exist$`, theGeneratedFileDoesNotExist)
 	ctx.Step(`^the project output contains "([^"]*)"$`, theProjectOutputContains)

@@ -536,8 +536,11 @@ type skeletonTemplateData struct {
 	EnabledFeatures []string
 	// ChatModules and ForgeModules are the blank imports cmd/<name>/chat.go and
 	// forge.go carry, derived from the manifest's chat.providers and enabled
-	// forge features (spec 0194 D4, D6).
-	ChatModules []string
+	// forge features (spec 0194 D4, D6). ChatProviders and ForgeLinks are the
+	// names those files declare as link features (#81).
+	ChatModules   []string
+	ChatProviders []string
+	ForgeLinks    []string
 	// ChatDefault is the author's chat default, rendered as the ai defaults
 	// bundle beside chat.go when set (spec 0196 D4).
 	ChatDefault           ManifestChatDefault
@@ -607,6 +610,8 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
 		KeychainEnabled:       featureEnabledIn(m.Properties.Features, KeychainFeature),
 		ChatModules:           chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
+		ChatProviders:         chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
+		ForgeLinks:            enabledForges(m.Properties.Features),
 		ChatDefault:           chatDefaultsFor(m.Properties),
 		ForgeModules:          forgeModules(m.Properties.Features),
 		Private:               m.ReleaseSource.Private,
