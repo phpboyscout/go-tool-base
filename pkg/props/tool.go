@@ -256,7 +256,8 @@ type Tool struct {
 	// tool keeps resolving exactly as it did. See ResolveConfigLayers.
 	ConfigLayers []ConfigLayer `json:"config_layers,omitempty" yaml:"config_layers,omitempty"`
 
-	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
+	// ReleaseSource is the source of truth for the tool's releases; see
+	// ReleaseSource for the supported types.
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
 
 	// ReleaseProvider, when non-nil, is the release backend the self-update

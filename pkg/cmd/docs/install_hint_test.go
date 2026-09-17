@@ -21,11 +21,21 @@ func TestMissingAssetsHint(t *testing.T) {
 		assert.Contains(t, hint, "mytool")
 	})
 
+	t.Run("names what is missing and does not blame go install for a release build (#74)", func(t *testing.T) {
+		t.Parallel()
+
+		hint := missingAssetsHint(props.Tool{Name: "mytool"})
+		assert.Contains(t, hint, "assets/docs", "says what is missing")
+		assert.Contains(t, hint, "release build", "says where a build gets it")
+		assert.NotContains(t, hint, "It looks like you might have installed using 'go install'")
+	})
+
 	t.Run("uses the tool-supplied install hint when set", func(t *testing.T) {
 		t.Parallel()
 
 		hint := missingAssetsHint(props.Tool{Name: "mytool", InstallHint: "brew install mytool"})
-		assert.Equal(t, "brew install mytool", hint)
+		assert.True(t, strings.HasSuffix(hint, "\nbrew install mytool"), hint)
+		assert.NotContains(t, hint, "recommended installation method")
 	})
 
 	t.Run("falls back gracefully without a tool name", func(t *testing.T) {

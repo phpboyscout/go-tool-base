@@ -112,12 +112,15 @@ Always include a scope identifying the functional area (package name, subsystem,
 
 The central pattern is the `Props` struct in `pkg/props/`. Every command receives a `Props` instance containing:
 - `Logger` — logging backend
-- `Config` — Viper-based configuration
+- `Config` — the live `*config.Store` from `go/config`; read through `Config.View()`, which pins one snapshot
 - `Assets` — embedded assets (default configs, templates)
 - `FS` — `afero.Fs` for testable filesystem access
 - `ErrorHandler` — structured user-facing error reporting
 - `Tool` — tool metadata (name, release source for updates)
 - `Version` — runtime/ldflags version info
+- `Collector` — the telemetry collector, never nil once the root is built (a no-op until resolved)
+- `IO` — this invocation's streams and whether a person is at them; read through `GetIO()`
+- `Features` — the resolved `features.Set`; `Flags` answers per-request through a `features.Evaluator` (spec 0199)
 
 Narrow provider interfaces (`LoggerProvider`, `ConfigProvider`, etc.) allow packages to declare only the dependencies they need.
 

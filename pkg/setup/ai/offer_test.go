@@ -90,3 +90,15 @@ func TestDefaultProviderForm_EnvNoteSaysFallback(t *testing.T) {
 	assert.Contains(t, note, "only when ai.provider is unset")
 	assert.NotContains(t, note, "takes precedence over the config file")
 }
+
+// TestKeyDescription_EnvNoteSaysFallback (#73): the provider's well-known
+// variable is the last rung of the credential chain, so the key input must
+// not promise it overrides the config file.
+func TestKeyDescription_EnvNoteSaysFallback(t *testing.T) {
+	t.Setenv(chat.EnvClaudeKey, "sk-ant-from-env")
+
+	desc := keyDescription(string(gochat.ProviderClaude), testutil.StoreFromYAML(t, "").View())
+	assert.Contains(t, desc, chat.EnvClaudeKey)
+	assert.Contains(t, desc, "only when no key is configured")
+	assert.NotContains(t, desc, "takes precedence over the config file")
+}

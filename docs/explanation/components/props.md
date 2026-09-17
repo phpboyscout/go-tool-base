@@ -260,7 +260,7 @@ type Tool struct {
     ReleaseSource ReleaseSource            `json:"release_source" yaml:"release_source"`
     Help          errorhandling.HelpConfig `json:"-" yaml:"-"`
     // InstallHint is shown when a feature needs a full release binary the
-    // running binary lacks (e.g. embedded docs after `go install`). Set it to
+    // running binary lacks (e.g. the embedded docs a source build omits). Set it to
     // your tool's recommended install command; empty falls back to a generic
     // message referencing Name.
     InstallHint string `json:"install_hint,omitempty" yaml:"install_hint,omitempty"`
