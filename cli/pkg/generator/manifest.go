@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
@@ -175,6 +176,9 @@ type ManifestCommand struct {
 	// excluded from the MCP tool surface. Build-time only; see
 	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating.
 	MCPEnabled *bool `yaml:"mcp_enabled,omitempty"`
+	// MCPHints are the MCP tool annotations the command declares about itself
+	// (spec 0201 D5). Absent means it states nothing; each hint is tri-state.
+	MCPHints *ManifestMCPHints `yaml:"mcp_hints,omitempty"`
 
 	PersistentPreRun  bool              `yaml:"persistent_pre_run,omitempty"`
 	PreRun            bool              `yaml:"pre_run,omitempty"`
@@ -183,6 +187,36 @@ type ManifestCommand struct {
 	Flags             []ManifestFlag    `yaml:"flags,omitempty"`
 	Commands          []ManifestCommand `yaml:"commands,omitempty"`
 	Warning           string            `yaml:"-"` // Used for comments
+}
+
+// ManifestMCPHints is the manifest spelling of [setup.MCPHints]: the display
+// title and the four MCP behavioural hints, rendered into the command's cmd.go
+// as one setup.AnnotateMCP call and read back from it.
+type ManifestMCPHints struct {
+	Title       string `yaml:"title,omitempty"`
+	ReadOnly    *bool  `yaml:"read_only,omitempty"`
+	Destructive *bool  `yaml:"destructive,omitempty"`
+	Idempotent  *bool  `yaml:"idempotent,omitempty"`
+	OpenWorld   *bool  `yaml:"open_world,omitempty"`
+}
+
+// ManifestMCPHintsFrom returns the manifest block for hints, or nil when they
+// state nothing, so an empty block never appears in the manifest.
+func ManifestMCPHintsFrom(h setup.MCPHints) *ManifestMCPHints {
+	if h.IsZero() {
+		return nil
+	}
+
+	return &ManifestMCPHints{Title: h.Title, ReadOnly: h.ReadOnly, Destructive: h.Destructive, Idempotent: h.Idempotent, OpenWorld: h.OpenWorld}
+}
+
+// Setup converts the block to the setup value; a nil block states nothing.
+func (h *ManifestMCPHints) Setup() setup.MCPHints {
+	if h == nil {
+		return setup.MCPHints{}
+	}
+
+	return setup.MCPHints{Title: h.Title, ReadOnly: h.ReadOnly, Destructive: h.Destructive, Idempotent: h.Idempotent, OpenWorld: h.OpenWorld}
 }
 
 type ManifestFlag struct {

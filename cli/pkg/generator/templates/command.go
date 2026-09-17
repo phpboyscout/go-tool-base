@@ -61,6 +61,9 @@ type CommandData struct {
 	// setup.ExcludeFromMCP / setup.IncludeInMCP marker. The zero value
 	// (Inherit) emits nothing.
 	MCPExposure setup.MCPExposure
+	// MCPHints are rendered as one setup.AnnotateMCP call after the exposure
+	// marker, listing only the fields that are set. Zero emits nothing.
+	MCPHints setup.MCPHints
 }
 
 func CommandRegistration(data CommandData) *jen.File {
@@ -280,6 +283,7 @@ func generateNewCmdFunction(f *jen.File, data CommandData) {
 		g.Line()
 
 		generateMCPExposure(g, data.MCPExposure)
+		generateMCPHints(g, data.MCPHints)
 
 		addFlagsToCommand(g, data.Flags, data.PersistentFlags)
 		generateMutuallyExclusive(g, data.MutuallyExclusive)
@@ -306,6 +310,38 @@ func generateMCPExposure(g *jen.Group, exposure setup.MCPExposure) {
 	case setup.MCPExposureInherit:
 		// No explicit decision — emit nothing; the command inherits.
 	}
+}
+
+// generateMCPHints emits setup.AnnotateMCP(cmd, setup.MCPHints{...}) with only
+// the hints the manifest states, so a hint nobody set writes no key. Bools
+// are new(true|false): the constructor's props parameter shadows the props
+// package, so props.BoolPtr is not reachable here, and the scaffold's Go
+// version has new(expr). boolPtrCallValue reads either form.
+func generateMCPHints(g *jen.Group, hints setup.MCPHints) {
+	if hints.IsZero() {
+		return
+	}
+
+	const setupPkg = "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
+	fields := []jen.Code{}
+	if hints.Title != "" {
+		fields = append(fields, jen.Id("Title").Op(":").Lit(hints.Title))
+	}
+
+	for _, hint := range []struct {
+		name  string
+		value *bool
+	}{
+		{"ReadOnly", hints.ReadOnly}, {"Destructive", hints.Destructive}, {"Idempotent", hints.Idempotent}, {"OpenWorld", hints.OpenWorld},
+	} {
+		if hint.value != nil {
+			fields = append(fields, jen.Id(hint.name).Op(":").New(jen.Lit(*hint.value)))
+		}
+	}
+
+	g.Qual(setupPkg, "AnnotateMCP").Call(jen.Id("cmd"), jen.Qual(setupPkg, "MCPHints").Values(fields...))
+	g.Line()
 }
 
 func CommandInitializer(data CommandData) *jen.File {

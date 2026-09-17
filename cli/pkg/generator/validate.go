@@ -461,6 +461,17 @@ func ValidateDescription(desc string) error {
 	return nil
 }
 
+// ValidateMCPTitle applies the description rule to an MCP display title: it
+// reaches an MCP client verbatim and is interpolated into generated Go, so the
+// same bound, control-character and template-lookalike rules hold.
+func ValidateMCPTitle(title string) error {
+	if title == "" {
+		return nil
+	}
+
+	return ValidateDescription(title)
+}
+
 // ValidateLongDescription enforces a bounded-length, control-character-free
 // long description. Unlike [ValidateDescription], newlines are permitted —
 // multi-line long descriptions are legitimate — and `|` need not be banned

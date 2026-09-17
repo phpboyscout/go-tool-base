@@ -36,6 +36,19 @@ derived field the feature needs in the same run. Enabling `ai` records the
 default provider list and writes `cmd/<name>/chat.go`; disabling `keychain`
 removes `cmd/<name>/keychain.go`.
 
+## Describe a command to MCP clients
+
+```bash
+gtb annotate report --read-only --title "Spend report"
+gtb annotate generate --open-world --idempotent=false
+gtb annotate generate --clear
+```
+
+`annotate` records the command's MCP tool annotations in its manifest entry
+(`mcp_hints`) and re-renders its `cmd.go`. Each hint flag is tri-state, so a
+later call changes only the hints it names. See the
+[annotate reference](../../reference/cli/annotate.md).
+
 ## Be asked instead
 
 ```bash

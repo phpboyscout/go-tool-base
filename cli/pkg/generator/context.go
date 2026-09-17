@@ -1,6 +1,10 @@
 package generator
 
-import "strings"
+import (
+	"strings"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
 
 // CommandContext holds the fully resolved configuration for a single command
 // generation or regeneration pass. It is a value type so recursive invocations
@@ -24,6 +28,7 @@ type CommandContext struct {
 	PreRun               bool
 	Protected            *bool
 	MCPEnabled           *bool // tri-state MCP exposure; mirrors Protected
+	MCPHints             setup.MCPHints
 	Hidden               bool
 
 	// Project-level settings (carried from the originating generator).
@@ -59,6 +64,7 @@ func buildCommandContext(cfg *Config, cmd ManifestCommand, parentPath []string) 
 		PreRun:               cmd.PreRun,
 		Protected:            cmd.Protected,
 		MCPEnabled:           cmd.MCPEnabled,
+		MCPHints:             cmd.MCPHints.Setup(),
 		Hidden:               cmd.Hidden,
 		ProjectPath:          cfg.Path,
 		DryRun:               cfg.DryRun,
@@ -91,6 +97,7 @@ func (c CommandContext) ToConfig() *Config {
 		PreRun:               c.PreRun,
 		Protected:            c.Protected,
 		MCPEnabled:           c.MCPEnabled,
+		MCPHints:             c.MCPHints,
 		Hidden:               c.Hidden,
 		DryRun:               c.DryRun,
 		Force:                c.Force,

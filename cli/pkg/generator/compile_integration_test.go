@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // TestGeneratedProjectCompiles is the regression catcher Q4 from the
@@ -79,6 +81,11 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	addCmd(t, p, path, "deploy", "root")
 	addCmd(t, p, path, "canary", "deploy")
 
+	// Spec 0201 D5/D8: an annotated nested command renders, builds, and its
+	// hints reach the MCP export alongside the built-in defaults (D6).
+	require.NoError(t, New(p, &Config{Path: path}).SetMCPHints(context.Background(), "deploy/canary",
+		setup.MCPHints{Title: "Canary deploy", ReadOnly: new(false), OpenWorld: new(true)}, false))
+
 	injectGoToolBaseReplace(t, path, localModule)
 
 	runGo(t, path, "mod", "tidy")
@@ -93,6 +100,56 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	// Spec 0200 D5: the seeded require lines are what tidy keeps, so a
 	// tidied scaffold regenerated and tidied again is byte-identical.
 	assertGoModFixedPoint(t, g, path)
+
+	assertMCPExportCarriesHints(t, path)
+}
+
+// assertMCPExportCarriesHints builds the scaffold binary and reads its
+// `mcp tools` export: the annotated command carries what the manifest said,
+// and a built-in carries the framework's default.
+func assertMCPExportCarriesHints(t *testing.T, path string) {
+	t.Helper()
+
+	bin := filepath.Join(t.TempDir(), "compile-tool")
+	runGo(t, path, "build", "-buildvcs=false", "-o", bin, "./cmd/compile-tool")
+
+	work := t.TempDir()
+	env := []string{"HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")}
+
+	// The export runs under the framework's config gate, so bootstrap first.
+	initCmd := exec.Command(bin, "init")
+	initCmd.Env = env
+	out, err := initCmd.CombinedOutput()
+	require.NoErrorf(t, err, "init:\n%s", out)
+
+	cmd := exec.Command(bin, "mcp", "tools")
+	cmd.Dir = work
+	cmd.Env = env
+	out, err = cmd.CombinedOutput()
+	require.NoErrorf(t, err, "mcp tools:\n%s", out)
+
+	raw, err := os.ReadFile(filepath.Join(work, "mcp-tools.json"))
+	require.NoError(t, err)
+
+	var tools []struct {
+		Name        string         `json:"name"`
+		Annotations map[string]any `json:"annotations"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &tools))
+
+	byName := map[string]map[string]any{}
+	for _, tool := range tools {
+		byName[tool.Name] = tool.Annotations
+	}
+
+	require.Contains(t, byName, "compile-tool_deploy_canary")
+	assert.Equal(t, "Canary deploy", byName["compile-tool_deploy_canary"]["title"])
+	assert.Equal(t, false, byName["compile-tool_deploy_canary"]["readOnlyHint"])
+	assert.Equal(t, true, byName["compile-tool_deploy_canary"]["openWorldHint"])
+	assert.NotContains(t, byName["compile-tool_deploy_canary"], "destructiveHint", "an unset hint is absent, not false")
+
+	require.Contains(t, byName, "compile-tool_version")
+	assert.Equal(t, true, byName["compile-tool_version"]["readOnlyHint"], "a built-in carries the framework default")
 }
 
 func assertGoModFixedPoint(t *testing.T, g *Generator, path string) {

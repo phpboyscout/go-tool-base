@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/gomod"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
@@ -92,6 +93,7 @@ type Config struct {
 	Prompt           string
 	Protected        *bool
 	MCPEnabled       *bool // tri-state MCP exposure; mirrors Protected
+	MCPHints         setup.MCPHints
 	ScriptPath       string
 	Short            string
 	UpdateDocs       bool
@@ -193,12 +195,42 @@ func (g *Generator) SetProtection(ctx context.Context, commandName string, prote
 // re-renders that single command's cmd.go so the generated
 // setup.ExcludeFromMCP / setup.IncludeInMCP marker matches. It is the engine
 // behind `gtb enable mcp` (enabled=true) and `gtb disable mcp` (enabled=false).
-//
-// Unlike SetProtection (manifest-only), this changes generated code, so it
-// drives the targeted RegenerateCommand path. A protected command is refused
-// with ErrCommandProtected rather than silently overwritten — the operator must
-// unprotect it first.
 func (g *Generator) SetMCPEnabled(ctx context.Context, commandPath string, enabled bool) error {
+	return g.editManifestCommand(ctx, commandPath, func(cmd *ManifestCommand) {
+		cmd.MCPEnabled = &enabled
+	})
+}
+
+// SetMCPHints records a command's MCP hints in the manifest and re-renders
+// its cmd.go so the generated setup.AnnotateMCP call matches. It is the engine
+// behind `gtb annotate`: a set field replaces the recorded one, an unset field
+// leaves it alone, and clear drops the block entirely.
+func (g *Generator) SetMCPHints(ctx context.Context, commandPath string, hints setup.MCPHints, clear bool) error {
+	if err := ValidateMCPTitle(hints.Title); err != nil {
+		return err
+	}
+
+	return g.editManifestCommand(ctx, commandPath, func(cmd *ManifestCommand) {
+		if clear {
+			cmd.MCPHints = nil
+
+			return
+		}
+
+		cmd.MCPHints = ManifestMCPHintsFrom(mergeMCPHints(cmd.MCPHints.Setup(), hints))
+	})
+}
+
+// editManifestCommand applies mutate to one manifest command and re-renders
+// that command's cmd.go through the targeted RegenerateCommand path. Unlike
+// SetProtection (manifest-only) this changes generated code, so a protected
+// command is refused with ErrCommandProtected rather than silently rewritten.
+//
+// The manifest is written before the regeneration, fatally: the pipeline
+// re-writes it too, but that write is advisory, and writing first guarantees
+// the decision is durable before cmd.go changes, so a failure cannot leave the
+// two disagreeing.
+func (g *Generator) editManifestCommand(ctx context.Context, commandPath string, mutate func(*ManifestCommand)) error {
 	pathParts := strings.Split(commandPath, "/")
 	name := pathParts[len(pathParts)-1]
 	parentPath := pathParts[:len(pathParts)-1]
@@ -215,24 +247,42 @@ func (g *Generator) SetMCPEnabled(ctx context.Context, commandPath string, enabl
 		return errors.Newf("command %s not found in manifest", commandPath)
 	}
 
-	// Honour protection: never rewrite a protected command's cmd.go here.
 	if cmd.Protected != nil && *cmd.Protected {
 		return ErrCommandProtected
 	}
 
-	cmd.MCPEnabled = &enabled
+	mutate(cmd)
 
-	// Persist the manifest up front, fatally: the regeneration below also
-	// re-writes the manifest (via the pipeline's updateManifest), but that
-	// write is advisory. Writing here first guarantees the decision is durable
-	// before we re-render cmd.go, so a write failure can't leave the generated
-	// code and the manifest disagreeing.
 	if err := g.marshalManifestFile(manifestPath, m); err != nil {
 		return err
 	}
 
-	// Re-render the single command so the marker reflects the new decision.
 	return g.RegenerateCommand(ctx, *cmd, parentPath)
+}
+
+// mergeMCPHints overlays the set fields of update onto base.
+func mergeMCPHints(base, update setup.MCPHints) setup.MCPHints {
+	if update.Title != "" {
+		base.Title = update.Title
+	}
+
+	if update.ReadOnly != nil {
+		base.ReadOnly = update.ReadOnly
+	}
+
+	if update.Destructive != nil {
+		base.Destructive = update.Destructive
+	}
+
+	if update.Idempotent != nil {
+		base.Idempotent = update.Idempotent
+	}
+
+	if update.OpenWorld != nil {
+		base.OpenWorld = update.OpenWorld
+	}
+
+	return base
 }
 
 func PascalCase(s string) string {

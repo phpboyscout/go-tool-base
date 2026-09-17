@@ -34,21 +34,39 @@ This generates an `mcp-tools.json` file in your current directory, showing the J
 - **Documentation**: Understand the input/output format for each tool
 - **Validation**: Check tool definitions before deploying integrations
 
-**Example output structure:**
+**Example output structure** (a JSON array, one entry per exposed command):
 ```json
-{
-  "tools": [
-    {
-      "name": "my-tool_version",
-      "description": "Print version of this program",
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      }
+[
+  {
+    "name": "my-tool_version",
+    "description": "Print version, commit, and build date",
+    "inputSchema": { "type": "object", "properties": {} },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
-  ]
-}
+  }
+]
 ```
+
+### Telling a client what a tool does
+
+The `annotations` block is the structured half of a tool's description: a
+client uses it to decide what to confirm and what to call freely. GTB's
+built-in commands carry theirs already (`version` above is read-only). For your
+own commands, record them with `annotate`:
+
+```bash
+my-tool-project$ gtb annotate report --read-only --title "Spend report"
+my-tool-project$ gtb annotate generate --open-world --idempotent=false
+```
+
+Each hint is tri-state and a later call changes only the hints it names. The
+decision lives in the manifest (`mcp_hints`) and in the command's `cmd.go`
+(`setup.AnnotateMCP`), so it survives regeneration. See the
+[annotate reference](../../reference/cli/annotate.md).
 
 ## IDE Integration
 

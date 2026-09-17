@@ -370,6 +370,7 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 		WithInitializer:          g.config.WithInitializer,
 		WithConfigValidation:     g.config.WithConfigValidation,
 		MCPExposure:              setup.MCPExposureFromBool(g.config.MCPEnabled),
+		MCPHints:                 g.config.MCPHints,
 	}
 
 	if m := g.readManifestQuiet(); m != nil {

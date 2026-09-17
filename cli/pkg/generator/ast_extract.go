@@ -16,6 +16,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func verifyPathExists(commands []ManifestCommand, path []string) bool {
@@ -491,6 +492,57 @@ func detectMCPMarker(call *dst.CallExpr, cmd *ManifestCommand) bool {
 	}
 }
 
+// detectMCPHints recognises setup.AnnotateMCP(cmd, setup.MCPHints{...}) and
+// records the block on cmd, so hints round-trip through `regenerate manifest`.
+// Only the shape the template emits is read: string literal titles and
+// new(true|false) hints.
+func detectMCPHints(call *dst.CallExpr, cmd *ManifestCommand) bool {
+	funcName, pkgAlias := getCallInfo(call)
+	if pkgAlias != "setup" || funcName != "AnnotateMCP" || len(call.Args) != 2 {
+		return false
+	}
+
+	lit, ok := call.Args[1].(*dst.CompositeLit)
+	if !ok {
+		return true
+	}
+
+	var hints setup.MCPHints
+
+	for _, elt := range lit.Elts {
+		if kv, ok := elt.(*dst.KeyValueExpr); ok {
+			readMCPHintField(kv, &hints)
+		}
+	}
+
+	cmd.MCPHints = ManifestMCPHintsFrom(hints)
+
+	return true
+}
+
+// readMCPHintField records one Key: Value pair of a setup.MCPHints literal.
+func readMCPHintField(kv *dst.KeyValueExpr, hints *setup.MCPHints) {
+	key, ok := kv.Key.(*dst.Ident)
+	if !ok {
+		return
+	}
+
+	switch key.Name {
+	case "Title":
+		if s, ok := kv.Value.(*dst.BasicLit); ok && s.Kind == token.STRING {
+			hints.Title, _ = strconv.Unquote(s.Value)
+		}
+	case "ReadOnly":
+		hints.ReadOnly = new(boolPtrCallValue(kv.Value))
+	case "Destructive":
+		hints.Destructive = new(boolPtrCallValue(kv.Value))
+	case "Idempotent":
+		hints.Idempotent = new(boolPtrCallValue(kv.Value))
+	case "OpenWorld":
+		hints.OpenWorld = new(boolPtrCallValue(kv.Value))
+	}
+}
+
 // detectInitializer sets cmd.WithInitializer if an init.go file exists in the
 // same directory as path, which is the canonical indicator that the command was
 // generated with the Config Initialiser option.
@@ -672,7 +724,7 @@ func (g *Generator) classifyBodyExpr(expr dst.Expr, cmd *ManifestCommand, consta
 
 	// A setup.ExcludeFromMCP / IncludeInMCP marker is neither a flag nor a
 	// subcommand; record the exposure decision and move on.
-	if detectMCPMarker(call, cmd) {
+	if detectMCPMarker(call, cmd) || detectMCPHints(call, cmd) {
 		return
 	}
 

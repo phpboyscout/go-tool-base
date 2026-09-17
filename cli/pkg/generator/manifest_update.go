@@ -28,6 +28,7 @@ type ManifestCommandUpdate struct {
 	PreRun               bool
 	Protected            *bool
 	MCPEnabled           *bool
+	MCPHints             *ManifestMCPHints
 	Hidden               bool
 }
 
@@ -66,6 +67,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 		PreRun:               g.config.PreRun,
 		Protected:            g.config.Protected,
 		MCPEnabled:           g.config.MCPEnabled,
+		MCPHints:             ManifestMCPHintsFrom(g.config.MCPHints),
 		Hidden:               g.config.Hidden,
 		Flags:                mFlags,
 	}) {
@@ -109,6 +111,10 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 				m.Commands[i].MCPEnabled = g.config.MCPEnabled
 			}
 
+			if h := ManifestMCPHintsFrom(g.config.MCPHints); h != nil {
+				m.Commands[i].MCPHints = h
+			}
+
 			found = true
 
 			break
@@ -127,6 +133,7 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 			Hashes:               hashes,
 			Protected:            g.config.Protected,
 			MCPEnabled:           g.config.MCPEnabled,
+			MCPHints:             ManifestMCPHintsFrom(g.config.MCPHints),
 			WithAssets:           g.config.WithAssets,
 			WithInitializer:      g.config.WithInitializer,
 			WithConfigValidation: g.config.WithConfigValidation,
@@ -190,6 +197,10 @@ func updateExistingCommand(cmd *ManifestCommand, u ManifestCommandUpdate) {
 	if u.MCPEnabled != nil {
 		cmd.MCPEnabled = u.MCPEnabled
 	}
+
+	if u.MCPHints != nil {
+		cmd.MCPHints = u.MCPHints
+	}
 }
 
 func createNewManifestCommand(u ManifestCommandUpdate) ManifestCommand {
@@ -209,6 +220,7 @@ func createNewManifestCommand(u ManifestCommandUpdate) ManifestCommand {
 		Flags:                u.Flags,
 		Protected:            u.Protected,
 		MCPEnabled:           u.MCPEnabled,
+		MCPHints:             u.MCPHints,
 	}
 }
 
