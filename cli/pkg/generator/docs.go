@@ -405,16 +405,19 @@ func (g *Generator) writeBasicCommandDocs(name, fullCmdName, outputPath string) 
 	fmt.Fprintf(&sb, "# %s\n\n", fullCmdName)
 
 	// Best-effort manifest lookup — not fatal if missing.
-	var cmd *ManifestCommand
+	var (
+		cmd        *ManifestCommand
+		parentPath []string
+	)
 
 	if m, err := g.loadManifest(); err == nil {
-		parentPath, _ := g.FindCommandParentPath(name)
+		parentPath, _ = g.FindCommandParentPath(name)
 		cmd = findCommandAt(m.Commands, parentPath, name)
 	}
 
 	appendCommandDescription(&sb, cmd, g.config.Short, g.config.Long)
 	fmt.Fprintf(&sb, "## Usage\n\n```\n%s [flags]\n```\n\n", fullCmdName)
-	appendFlagsTable(&sb, cmd)
+	appendFlagsTable(&sb, g.declaredFlags(parentPath, name, cmd))
 	appendSubcommandsTable(&sb, fullCmdName, cmd)
 	fmt.Fprintf(&sb, "Run `%s --help` for the authoritative, always-current flag set.\n\n", fullCmdName)
 
@@ -447,8 +450,25 @@ func appendCommandDescription(sb *strings.Builder, cmd *ManifestCommand, short, 
 	}
 }
 
-func appendFlagsTable(sb *strings.Builder, cmd *ManifestCommand) {
-	if cmd == nil || len(cmd.Flags) == 0 {
+// declaredFlags is what the command registers: read from its cmd.go, which
+// is what the binary compiles, so a flag the manifest does not list still
+// gets its row (#33). The manifest answers when the source is not there to
+// read, as when the page is written before the file lands.
+func (g *Generator) declaredFlags(parentPath []string, name string, cmd *ManifestCommand) []ManifestFlag {
+	dir := filepath.Join(append([]string{g.config.Path, "pkg", "cmd"}, append(append([]string{}, parentPath...), name)...)...)
+	if extracted, _, _, err := g.extractCommandMetadata(filepath.Join(dir, "cmd.go")); err == nil && len(extracted.Flags) > 0 {
+		return extracted.Flags
+	}
+
+	if cmd == nil {
+		return nil
+	}
+
+	return cmd.Flags
+}
+
+func appendFlagsTable(sb *strings.Builder, flags []ManifestFlag) {
+	if len(flags) == 0 {
 		return
 	}
 
@@ -456,20 +476,30 @@ func appendFlagsTable(sb *strings.Builder, cmd *ManifestCommand) {
 	sb.WriteString("| Flag | Description | Default | Required |\n")
 	sb.WriteString("| :--- | :--- | :--- | :--- |\n")
 
-	for _, f := range cmd.Flags {
+	for _, f := range flags {
 		required := ""
 		if f.Required {
 			required = "Yes"
 		}
 
-		fmt.Fprintf(sb, "| `--%s` | %s | %s | %s |\n",
-			f.Name,
+		fmt.Fprintf(sb, "| `%s` | %s | %s | %s |\n",
+			flagSpelling(f),
 			escapeMarkdownTableCell(escapeMarkdown(string(f.Description))),
 			formatFlagDefaultCell(f.Default),
 			required)
 	}
 
 	sb.WriteString("\n")
+}
+
+// flagSpelling is the flag as --help prints it: "-C, --repo" with a
+// shorthand, "--repo" without.
+func flagSpelling(f ManifestFlag) string {
+	if f.Shorthand != "" {
+		return "-" + f.Shorthand + ", --" + f.Name
+	}
+
+	return "--" + f.Name
 }
 
 // formatFlagDefaultCell renders a flag default as a table-safe code span.
