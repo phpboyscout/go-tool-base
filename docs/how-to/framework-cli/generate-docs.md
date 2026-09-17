@@ -16,10 +16,10 @@ Document a **command** or a **package**, exactly one of `--command` / `--package
 
 ```bash
 # A command (by manifest path):
-go run main.go generate docs --command "az/login"
+gtb generate docs --command "az/login"
 
 # A library package:
-go run main.go generate docs --package "pkg/utils"
+gtb generate docs --package "pkg/utils"
 ```
 
 The sections below cover the generator's capabilities in detail.
@@ -69,7 +69,7 @@ This command:
 For developers building libraries, the `--package` flag generates **explanation-oriented** package docs (the Diátaxis explanation quadrant), understanding, not an exhaustive API dump:
 
 ```bash
-go run main.go generate docs --path . --package "pkg/utils"
+gtb generate docs --path . --package "pkg/utils"
 ```
 
 The page lands in the `docs/explanation/components/` hierarchy and includes:
@@ -106,7 +106,7 @@ If a documentation page already exists, the AI:
 By default the generated frontmatter credits the AI model as an additive co-author. If your project's policy is to keep **no** AI/model attribution in committed docs, pass `--no-ai-attribution`:
 
 ```bash
-go run main.go generate docs --command "az/login" --no-ai-attribution
+gtb generate docs --command "az/login" --no-ai-attribution
 ```
 
 This flips the generation prompt so the `authors:` field carries your project's human author(s) only. The model is instructed to add no AI, model, assistant, or tool identity. Existing human authors are still preserved.
@@ -118,7 +118,7 @@ This flips the generation prompt so the `authors:` field carries your project's 
 You can easily switch between AI providers or models using persistent flags:
 
 ```bash
-go run main.go generate docs --command "az/login" --provider openai --model "gpt-5.4"
+gtb generate docs --command "az/login" --provider openai --model "gpt-5.4"
 ```
 
 !!! tip
@@ -129,7 +129,7 @@ go run main.go generate docs --command "az/login" --provider openai --model "gpt
 The tool intelligently resolves command paths. You can specify a deeply nested command, and the generator will find the correct source code and place the documentation in the matching folder structure.
 
 ```bash
-go run main.go generate docs --command "az/keyvault/get"
+gtb generate docs --command "az/keyvault/get"
 ```
 
 ## Why Automated Documentation?

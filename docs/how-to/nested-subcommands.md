@@ -18,7 +18,7 @@ The end result is identical either way; the generator simply emits what you woul
 
 ```bash
 # Scaffold a project (skip if you already have one)
-gtb generate skeleton \
+gtb generate project \
     --name my-tool \
     --repo example/my-tool \
     --description "My tool" \

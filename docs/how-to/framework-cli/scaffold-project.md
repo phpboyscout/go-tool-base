@@ -1,6 +1,6 @@
 ---
 title: Generating a CLI Skeleton
-description: Guide to scaffolding a new CLI project with the generate skeleton command.
+description: Guide to scaffolding a new CLI project with the generate project command.
 date: 2026-02-16
 tags: [cli, generator, scaffolding, setup]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -8,9 +8,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Generating a CLI Skeleton
 
-The journey of a thousand miles begins with a single step, and for your new tool, that step is `generate skeleton`. 🛠️
+The journey of a thousand miles begins with a single step, and for your new tool, that step is `gtb generate project`. 🛠️
 
-Scaffolding a project from scratch can be tedious. `generate skeleton` fast-tracks this process by setting up a robust, industry-standard project structure that's ready for high-scale development.
+Scaffolding a project from scratch can be tedious. `generate project` fast-tracks this process by setting up a robust, industry-standard project structure that's ready for high-scale development.
 
 <video controls autoplay loop muted playsinline width="100%">
   <source src="../../tapes/basic-demo.mp4" type="video/mp4">
@@ -18,132 +18,176 @@ Scaffolding a project from scratch can be tedious. `generate skeleton` fast-trac
 
 ## What's included in the box?
 
-When you run `generate skeleton`, we set up a complete, working CLI project:
+When you run `generate project`, we set up a complete, working CLI project:
 
 **Project Core**
-: A clean `main.go` and a `root` command in `pkg/cmd/root`.
+: A `main` package in `cmd/<name>/` and a `root` command in `pkg/cmd/root`.
 
 **Modern Tooling**
-: A `go.mod` file using the latest **Go 1.24+ tool directives**, keeping your dependencies clean and isolated.
+: A `go.mod` pinned to the Go version that generated it (`--go-version`), with
+  `tool` directives for the framework's changelog and docs tooling so
+  `go tool` runs them without a global install.
 
 **CI/CD Readiness**
-: GitHub Actions workflows for testing, linting, releases, and documentation.
+: A pipeline for the forge the project is hosted on: GitHub Actions workflows
+  for `--forge-backend github`, a `.gitlab-ci.yml` for `gitlab`. Gitea, Codeberg
+  and Bitbucket have no CI skeleton, and the run says so.
 
 **Standard Layout**
-: A `pkg/` directory for your logic and a `docs/` directory for your users.
+: A `pkg/` directory for your logic and a Diátaxis-structured `docs/` directory
+  for your users.
 
 **The Manifest**
-: A `.gtb/manifest.yaml` file that acts as the brain of your project, tracking your command hierarchy.
+: A `.gtb/manifest.yaml` file that acts as the brain of your project, tracking
+  your settings and command hierarchy, beside a `.gtb/ignore` for files you
+  take over.
 
 
 ### Project Structure Summary
 
+What `gtb generate project --name mytool --repo acme/mytool --features init,update,doctor,docs` writes:
+
 ```text
-my-awesome-tool/
-├── .github/workflows/          # CI/CD: Automated testing, linting, and release
-├── .gtb/manifest.yaml          # The Brain: Tracks your command hierarchy
-├── cmd/my-awesome-tool/main.go # Entry Point: The main function of your tool
-├── pkg/cmd/root/cmd.go         # The Root: Setup and registration of all commands
+mytool/
+├── .github/workflows/          # CI/CD for the GitHub backend (a .gitlab-ci.yml for GitLab)
+├── .gtb/
+│   ├── manifest.yaml           # The Brain: settings and command hierarchy
+│   └── ignore                  # Files regenerate must leave alone
+├── cmd/mytool/
+│   ├── main.go                 # Entry Point: builds the root and hands it to Execute
+│   ├── chat.go                 # Chat provider links (empty without the ai feature)
+│   └── forge.go                # Forge adapter links, from the enabled forge features
+├── internal/version/version.go # Build-time version, stamped by goreleaser
+├── pkg/cmd/root/
+│   ├── cmd.go                  # The Root: Props construction and command registration
+│   ├── generate.go             # Generator marker; grows as commands are added
+│   └── assets/init/config.yaml # Seed config for the init feature: yours to edit
 ├── docs/                       # Documentation: a Diátaxis-structured site
 │   ├── tutorials/              #   Learning-oriented (neutral; off-site/blog by default)
 │   ├── how-to/                 #   Task-oriented guides
 │   ├── reference/cli/          #   Generated CLI command reference
 │   └── explanation/components/ #   Generated package/architecture docs
-├── go.mod                      # Dependencies: Uses Go 1.24+ tool directives
+├── go.mod                      # Dependencies, plus tool directives for changelog and docs
+├── justfile                    # Build, test, lint, docs and release recipes
 └── README.md                   # Onboarding: install, build, develop, and links into GTB docs
 ```
 
+The `keychain` feature adds `cmd/mytool/keychain.go`, a blank import of the
+framework's keychain link; `--signing` adds `internal/trustkeys/` and
+`pkg/cmd/root/signing.go`.
+
 ### The Generated Root Command
 
-The `pkg/cmd/root/cmd.go` file initializes the `Props` container, configures logging, and returns both the root command and the props for use by the `Execute()` wrapper.
+`pkg/cmd/root/cmd.go` describes the tool, builds its `Props` through
+`props.New` (the one construction path) and returns the root command. It is
+a `DO NOT EDIT` file: the manifest owns it, and `gtb enable`, `gtb disable`,
+`gtb set` and `gtb generate command` rewrite it.
 
 #### Annotated Example: `pkg/cmd/root/cmd.go`
 
+As generated, with one command added by `gtb generate command --name greet`:
+
 ```go
+// Code generated by gtb. DO NOT EDIT.
+
 package root
 
 import (
-    "embed"
-    "os"
-
-    gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "gitlab.com/phpboyscout/go/errorhandling"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/version"
-
-    "github.com/spf13/afero"
-    "github.com/spf13/cobra"
+	"embed"
+	afero "github.com/spf13/afero"
+	greet "github.com/acme/mytool/pkg/cmd/greet"
+	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	logger "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	props "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	setup "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	forge "gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+	version "gitlab.com/phpboyscout/go-tool-base/pkg/version"
+	"os"
 )
 
 //go:embed assets/*
 var assets embed.FS
 
-// NewCmdRoot constructs the root command and props for this tool.
-// It returns both so that main.go can pass them to pkgRoot.Execute().
-func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
-    l := logger.NewCharm(os.Stderr,
-        logger.WithTimestamp(),
-        logger.WithLevel(logger.InfoLevel),
-    )
+// NewCmdRoot builds the tool's Props through props.New, the one construction
+// path, and the command tree on it. The error is a wiring defect in this
+// file (an unnamed tool, a feature enabled that no import declares); main
+// exits 2 on it.
+func NewCmdRoot(v version.Info) (*setup.Command, *props.Props, error) {
+	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true), logger.WithLevel(logger.InfoLevel))
 
-    p := &props.Props{
-        Assets: props.NewAssets(props.AssetMap{"root": &assets}),
-        FS:     afero.NewOsFs(),
-        Logger: l,
-        Tool: props.Tool{
-            Name:    "my-tool",
-            Summary: "A summary of my tool",
-            ReleaseSource: props.ReleaseSource{
-                Type:  "github",
-                Owner: "my-org",
-                Repo:  "my-repo",
-            },
-        },
-        Version: v,
-    }
+	tool := props.Tool{
+		Description: "Example tool",
+		Features:    props.SetFeatures(props.Disable(props.McpCmd), props.Disable(props.ChangelogCmd), props.Enable(forge.GithubFeature)),
+		Name:        "mytool",
+		ReleaseSource: props.ReleaseSource{
+			Host:  "github.com",
+			Owner: "acme",
+			Repo:  "mytool",
+			Type:  "github",
+		},
+		Summary: "mytool utility",
+	}
 
-    // Optionally configure a help/support channel shown in error messages:
-    // p.Tool.Help = props.SlackHelp{Team: "My Team", Channel: "#support"}
-    // p.Tool.Help = props.TeamsHelp{Team: "My Team", Channel: "Support"}
+	p, err := props.New(tool, l, afero.NewOsFs(), props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})), props.WithVersion(v))
+	if err != nil {
+		return nil, nil, err
+	}
 
-    p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
+	rootCmd := gtbRoot.NewCmdRoot(p,
+		greet.NewCmdGreet(p))
 
-    rootCmd := gtbRoot.NewCmdRoot(p)
-
-    // Subcommands are registered here by the generator:
-    // rootCmd.AddCommand(mysubcmd.NewCmdMySub(p))
-
-    return rootCmd, p
+	return rootCmd, p, nil
 }
 ```
+
+Three things to notice. `Features` lists only what differs from the framework
+defaults, so `mcp` and `changelog` appear as disabled and the GitHub forge as
+enabled; the six default built-ins are on without being named. `props.New`
+returns an error rather than panicking, and the root command is a
+`*setup.Command`, the framework's wrapper that carries the feature gate and
+middleware chain. Commands are registered as arguments to `gtbRoot.NewCmdRoot`,
+one per generated command. A help channel chosen with `--help-type` appears as
+`Help: props.SlackHelp{...}` on the `Tool` literal.
 
 ### The Tool Entry Point
 
-The `cmd/my-awesome-tool/main.go` uses `pkgRoot.Execute` to run the command and route all errors through `ErrorHandler`:
+`cmd/mytool/main.go` builds the root and hands it to `gtbRoot.Execute`, which
+owns the exit code:
 
 ```go
+// Code generated by gtb. DO NOT EDIT.
+
 package main
 
 import (
-    "my-awesome-tool/internal/version"
-    "my-awesome-tool/pkg/cmd/root"
-
-    pkgRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"fmt"
+	version "github.com/acme/mytool/internal/version"
+	root "github.com/acme/mytool/pkg/cmd/root"
+	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	errorhandling "gitlab.com/phpboyscout/go/errorhandling"
+	"os"
 )
 
+// main delegates to gtbRoot.Execute, which runs the command tree with a
+// signal-aware context: SIGINT/SIGTERM cancel cmd.Context() for graceful
+// shutdown, a second signal force-exits immediately, and a signal-terminated
+// run exits 128+signum (130 SIGINT, 143 SIGTERM).
+// A construction error (an unnamed tool, an undeclared feature enabled) is a
+// defect in this project's wiring and exits 2, the usage code, before any
+// command runs.
 func main() {
-    rootCmd, p, err := root.NewCmdRoot(version.Get())
-    if err != nil {
-        fmt.Fprintln(os.Stderr, err)
-        os.Exit(errorhandling.ExitCodeUsage)
-    }
-
-    pkgRoot.Execute(rootCmd, p)
+	rootCmd, p, err := root.NewCmdRoot(version.Get())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(errorhandling.ExitCodeUsage)
+	}
+	gtbRoot.Execute(rootCmd, p)
 }
 ```
 
-`pkgRoot.Execute` silences Cobra's own error printing and routes any error returned from `RunE` through `ErrorHandler.Check` at fatal level. There is no need for an `os.Exit` call in `main.go`.
+`gtbRoot.Execute` silences Cobra's own error printing and routes any error
+returned from `RunE` through `ErrorHandler` at fatal level. The only
+`os.Exit` in `main.go` is the one for a construction error.
 
 ### The Generated README
 
@@ -156,18 +200,19 @@ mentions exists in the generated tree.
 
 Only one block is a placeholder: the **"What is this?"** section. Replace it with
 your product's description: everything else is accurate framework prose you can
-keep or trim. Because the README is hash-tracked in `.gtb/manifest.yaml`, the
-README is *yours to edit*: a later `gtb regenerate` detects your edit as a
-conflict and prompts before overwriting it, so your product blurb survives
-regeneration. An organisation that wants a house-style README can supply one via
-a [template overlay](generate-commands.md), which replaces this embedded default.
+keep or trim. The README is *yours*: along with `docs/index.md`, `justfile` and
+the init seed config it is scaffolded once and then preserved on every
+`gtb regenerate project`, even under `--overwrite allow`, so your product blurb
+never needs defending. An organisation that wants a house-style README can
+supply one via a [template overlay](apply-templates.md), which replaces this
+embedded default.
 
 ## How to run it
 
 Navigate to the directory where you want your project to live and run:
 
 ```bash
-gtb generate cli \
+gtb generate project \
   --name "my-awesome-tool" \
   --repo "my-github-org/my-awesome-tool-repo" \
   --forge-backend github \
@@ -289,16 +334,16 @@ the signing page also asks whether to require a signature.
 
 ### Dry-Run Mode
 
-Use `--dry-run` to preview what `generate skeleton` would produce without writing anything to disk:
+Use `--dry-run` to preview what `generate project` would produce without writing anything to disk:
 
 ```bash
-gtb generate cli --name "my-tool" --repo "org/my-tool" --dry-run
+gtb generate project --name "my-tool" --repo "org/my-tool" --dry-run
 ```
 
 This materialises all generated files into a temporary directory, runs `go mod tidy` and `golangci-lint run --fix`, then shows a summary of files that would be created or modified along with unified diffs.
 
 !!! tip
-    The `--host` flag is only needed when using a self-hosted GitHub Enterprise or GitLab instance. For public `github.com` or `gitlab.com`, the correct host is set automatically from `--forge-backend`.
+    The `--host` flag is only needed for a self-managed instance. For `github.com`, `gitlab.com`, `gitea.com`, `codeberg.org` or `bitbucket.org`, the host follows `--forge-backend`.
 
 ## Help Channel Configuration
 

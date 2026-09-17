@@ -70,10 +70,10 @@ Flags allow you to switch providers on the fly for a specific command generation
 
 ```bash
 # Use Claude with default model
-go run main.go generate command -n restore --script ./restore.sh --provider claude
+gtb generate command -n restore --script ./restore.sh --provider claude
 
 # Use Gemini with a specific model
-go run main.go generate command -n backup --script ./backup.sh --provider gemini --model gemini-3.5-flash
+gtb generate command -n backup --script ./backup.sh --provider gemini --model gemini-3.5-flash
 ```
 
 #### 2. Using Environment Variables
@@ -85,7 +85,7 @@ export AI_PROVIDER=gemini
 export AI_MODEL=gemini-3.5-flash
 export GEMINI_API_KEY=your_key_here
 
-go run main.go generate command -n backup --script ./backup.sh
+gtb generate command -n backup --script ./backup.sh
 ```
 
 ## The Autonomous Repair Agent 🛠️
@@ -106,7 +106,7 @@ mechanism (the tool set and the ReAct loop), see the
 If you prefer the original, more predictable retry loop over the autonomous agent, you can use the `--agentless` flag:
 
 ```bash
-go run main.go generate command -n "my-cmd" --script "./script.sh" --agentless
+gtb generate command -n "my-cmd" --script "./script.sh" --agentless
 ```
 
 !!! tip "When to use Agentless"

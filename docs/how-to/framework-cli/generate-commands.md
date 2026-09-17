@@ -30,7 +30,7 @@ Whether you're adding a simple utility or building a complex command hierarchy, 
 To add a new command at the root level:
 
 ```bash
-go run main.go generate command --name "my-command" --short "Short description"
+gtb generate command --name "my-command" --short "Short description"
 ```
 
 This creates:
@@ -49,13 +49,13 @@ Organization is key to a great CLI. You can nest commands as deeply as you like 
 
 ```bash
 # Create 'dog' under 'root'
-go run main.go generate command -n dog --parent root
+gtb generate command -n dog --parent root
 
 # Create 'cat' under 'dog'
-go run main.go generate command -n cat --parent dog
+gtb generate command -n cat --parent dog
 
 # Create 'mouse' under 'dog/cat'
-go run main.go generate command -n mouse --parent dog/cat
+gtb generate command -n mouse --parent dog/cat
 ```
 
 !!! note "A command that gains children stops calling its own run function"
@@ -88,15 +88,15 @@ Only `name`, `type`, and `description` are required; trailing fields can be omit
 
 ```bash
 # Add a simple string flag
-go run main.go generate command -n greet -f "name:string:Name to greet"
+gtb generate command -n greet -f "name:string:Name to greet"
 
 # Add multiple flags
-go run main.go generate command -n server \
+gtb generate command -n server \
   -f "port:int:Port to listen on" \
   -f "verbose:bool:Enable verbose logging"
 
 # Add a flag with a shorthand and default value
-go run main.go generate command -n fetch \
+gtb generate command -n fetch \
   -f "timeout:int:Request timeout in seconds:false:t:false:30"
 ```
 
@@ -104,7 +104,7 @@ To make a flag **persistent** (available to this command and all subcommands), s
 
 ```bash
 # Add a persistent config flag
-go run main.go generate command -n root -f "config:string:Config file:true"
+gtb generate command -n root -f "config:string:Config file:true"
 ```
 
 Need to add a flag to an existing command? Check out the [Add Flag](add-flags.md) utility!
@@ -128,7 +128,7 @@ You can generate lifecycle hook stubs for your command:
 
 ```bash
 # Generate a command with a PersistentPreRun hook and an initializer
-go run main.go generate command -n serve --persistent-pre-run --with-initializer
+gtb generate command -n serve --persistent-pre-run --with-initializer
 ```
 
 !!! note "Options are authoritative"
@@ -150,7 +150,7 @@ Once you've generated a command, you might want to prevent it from being overwri
 **During Generation:**
 You can mark a command as protected right from the start:
 ```bash
-go run main.go generate command -n critical-cmd --protected
+gtb generate command -n critical-cmd --protected
 ```
 
 **Managing Protection:**
@@ -158,10 +158,10 @@ You can toggle protection for existing commands using the `protect` and `unprote
 
 ```bash
 # Lock a command
-go run main.go generate command protect path/to/command
+gtb generate command protect path/to/command
 
 # Unlock (allow overwrite)
-go run main.go generate command unprotect path/to/command
+gtb generate command unprotect path/to/command
 ```
 
 ### 6. Dry-Run Mode 🔍
@@ -169,7 +169,7 @@ go run main.go generate command unprotect path/to/command
 Want to preview what `generate command` will do before it writes anything? Use the `--dry-run` flag:
 
 ```bash
-go run main.go generate command -n my-command --dry-run
+gtb generate command -n my-command --dry-run
 ```
 
 This shows you:
@@ -200,7 +200,7 @@ If you modify a generated `cmd.go` file (e.g., to add a quick flag or change a d
 If you are sure you want to overwrite manual changes (e.g., in a CI/CD pipeline or during a refactor), use the `--force` flag:
 
 ```bash
-go run main.go generate command -n my-cmd --force
+gtb generate command -n my-cmd --force
 ```
 
 ### AI-Powered Script Conversion or Prompting
@@ -216,7 +216,7 @@ You can use the AI to either convert an existing script (bash, python, etc.) to 
 -   `--agentless`: Opt-out of the autonomous repair agent and use the legacy retry loop.
 
 ```bash
-go run main.go generate command -n convert --script "./my-script.py" --provider gemini
+gtb generate command -n convert --script "./my-script.py" --provider gemini
 ```
 
 This feature uses an **Autonomous Agent** to convert your logic into idiomatic Go and runs a self-healing verification loop to ensure the code is production-ready. You can use the `--agentless` flag to opt-out of the autonomous agent and use the legacy retry loop instead.
@@ -256,13 +256,13 @@ You can specify validation rules using the `--args` flag:
 
 ```bash
 # Require exactly one argument
-go run main.go generate command -n echo --args "ExactArgs(1)"
+gtb generate command -n echo --args "ExactArgs(1)"
 
 # Require at least one argument
-go run main.go generate command -n delete --args "MinimumNArgs(1)"
+gtb generate command -n delete --args "MinimumNArgs(1)"
 
 # Allow any arguments
-go run main.go generate command -n run --args "ArbitraryArgs"
+gtb generate command -n run --args "ArbitraryArgs"
 ```
 
 Common validators include:

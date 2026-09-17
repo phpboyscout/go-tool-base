@@ -16,32 +16,39 @@ As your tool evolves, the `gtb` ensures your boilerplate infrastructure keeps up
 
 The `regenerate project` command is your primary tool for syncing your code with your manifest.
 
-It reads the `.gtb/manifest.yaml` file and rebuilds all the `cmd.go` files, registration logic, and asset bundles.
+It reads the `.gtb/manifest.yaml` file and rebuilds every generated file: the
+root command, each command's `cmd.go`, the adapter links in `cmd/<name>/`, the
+skeleton files and the command reference. Run it with the `gtb` binary from
+the project root (a generated tool has no `regenerate` command of its own):
 
 ```bash
-go run main.go regenerate project
+gtb regenerate project
 ```
 
 ### When to use it?
 
-- **After editing `manifest.yaml`**: If you manually updated descriptions, flags, or command structures.
+- **After editing `manifest.yaml`**: If you manually updated descriptions, flags, or command structures. For a setting, prefer [`gtb set`](change-settings.md), which edits the manifest and regenerates in one step.
 - **After updating `gtb`**: To pull in the latest features and bug fixes from the base library.
 - **To fix drift**: If you suspect your registration files are out of sync with your intent.
 
 ### Flags
 
 - `--path`, `-p`: Path to the project root (default: current directory).
+- `--overwrite`: How to handle a generated file you have modified: `ask` (default, prompts per file), `deny` (keeps every diverged file) or `allow` (re-emits the generator's version).
 - `--force`: **Danger Zone!** Overwrites existing `main.go` implementation files. Use this only if you want to reset a command's logic to the default starter code. On a project still using the legacy flat docs layout, `--force` also **migrates the docs to the Diátaxis layout** (see below).
+- `--no-verify`: Skip `go mod tidy` and `golangci-lint` afterwards; the run exits 0 unverified. Without it a failed step exits 3.
+- `--update-docs`: Use AI to update the existing command documentation.
 - `--dry-run`: Preview all changes without writing to disk (see below).
 
 ### What it does
 
 - **Rebuilds `cmd.go`**: Updates Cobra definitions, flags, and descriptions.
-- **Refreshes Assets**: Re-bundles any static assets into the binary.
+- **Rewrites the adapter links**: `cmd/<name>/chat.go`, `forge.go` and `keychain.go` follow the manifest's chat providers and enabled features, so a provider or forge removed from the manifest leaves the binary.
 - **Injects Imports**: Ensures all subcommands are correctly imported and registered in parent commands.
-- **Manages Lifecycle Files**: Creates or removes `init.go` based on the `withInitializer` value in the manifest for each command. If `withInitializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
-- **Runs Linting**: Automatically executes `golangci-lint run --fix` to ensure the generated code is squeaky clean.
+- **Manages Lifecycle Files**: Creates or removes `init.go` based on the `with_initializer` value in the manifest for each command. If `with_initializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
+- **Runs Linting**: Automatically executes `go mod tidy` and `golangci-lint run --fix` to ensure the generated code is squeaky clean.
 - **Conflict Detection**: Checks whether a generated file (a `cmd.go`, or a skeleton file such as `.goreleaser.yaml`) has been modified since it was written and, under the default `--overwrite ask`, prompts per file before overwriting; `deny` keeps every diverged file and `allow` re-emits the skeleton's version wholesale.
+- **Leaves your files alone**: `README.md`, `docs/index.md`, `justfile` and the init seed config are scaffolded once and never overwritten, whatever `--overwrite` says. Any other file you take over goes in [`.gtb/ignore`](../configure-generator-ignore.md).
 
 ### When a skeleton fix reaches a file you have customised
 
@@ -73,7 +80,7 @@ If the project still uses the legacy flat docs layout (`docs/commands/`, `docs/p
 Use `--dry-run` to preview what `regenerate project` would do without modifying any files:
 
 ```bash
-go run main.go regenerate project --dry-run
+gtb regenerate project --dry-run
 ```
 
 This produces a summary of:
@@ -93,7 +100,7 @@ Under the hood, the dry-run materialises all generated files into a temporary di
 The `regenerate manifest` command works in the opposite direction. It scans your existing Go source code and rebuilds the `manifest.yaml`.
 
 ```bash
-go run main.go regenerate manifest
+gtb regenerate manifest
 ```
 
 ### When to use it?
@@ -107,7 +114,7 @@ go run main.go regenerate manifest
 
 ### How it works
 
-It parses your project's AST to find `cobra.Command` definitions and reconstructs the manifest: command names/descriptions/aliases/args, flag definitions, parent/child relationships, per-command options (`withAssets`, `preRun` hooks, `withInitializer`), and project-level properties. For the full extraction rules, see the [regenerate command explanation](../../explanation/components/cli/commands/regenerate.md).
+It parses your project's AST to find the `setup.Wrap`-ped `cobra.Command` definitions and reconstructs the manifest: command names/descriptions/aliases/args, flag definitions, parent/child relationships, per-command options (`with_assets`, `pre_run` hooks, `with_initializer`), and project-level properties, including what the `provenance.go` file records for settings that leave no other trace in the source. For the full extraction rules, see the [regenerate command explanation](../../explanation/components/cli/commands/regenerate.md).
 
 !!! tip "Source of Truth"
     While `regenerate manifest` is a powerful recovery tool, we recommend treating the **Manifest** as your source of truth and driving changes through it (or `generate` commands) rather than the other way around.

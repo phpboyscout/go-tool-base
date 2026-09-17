@@ -20,7 +20,7 @@ The `remove command` utility cleanly excises a command from your project. It han
 
 ```bash
 # formatting: off
-go run main.go remove command --name my-command
+gtb remove command --name my-command
 # formatting: on
 ```
 
@@ -36,7 +36,7 @@ go run main.go remove command --name my-command
 **Removing a top-level command:**
 
 ```bash
-go run main.go remove command --name status
+gtb remove command --name status
 ```
 
 **Removing a nested subcommand:**
@@ -44,7 +44,7 @@ go run main.go remove command --name status
 If you have a command structure like `server -> start`, you can remove the `start` subcommand like this:
 
 ```bash
-go run main.go remove command --name start --parent server
+gtb remove command --name start --parent server
 ```
 
 **Removing a deeply nested command:**
@@ -52,7 +52,7 @@ go run main.go remove command --name start --parent server
 For `cloud -> provider -> aws`:
 
 ```bash
-go run main.go remove command --name aws --parent cloud/provider
+gtb remove command --name aws --parent cloud/provider
 ```
 
 **Removing a protected command:**
@@ -61,7 +61,7 @@ A command marked protected in the manifest is refused, because protection signal
 it carries hand-written logic. Override the guard with `--force`:
 
 ```bash
-go run main.go remove command --name secret --force
+gtb remove command --name secret --force
 ```
 
 !!! warning "Destructive Action"

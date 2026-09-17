@@ -16,7 +16,7 @@ Terms and concepts central to the GTB framework.
 | **Container** | The component in `go/config` that manages the lifecycle and merging of configuration from different sources. |
 | **Controls** | The service lifecycle management system in `go/controls`. |
 | **Autonomous Repair Agent** | An AI component that can automatically fix generated code or documentation if it fails validation. |
-| **Skeleton** | A pre-defined project template used by the `generate skeleton` command to scaffold new projects. |
+| **Skeleton** | A pre-defined project template used by the `generate project` command to scaffold new projects. |
 | **TUI** | Text User Interface. Refers to the interactive terminal interfaces (like the docs browser) built with Charm libraries. |
 | **CommandPipeline** | The ordered five-step post-generation pipeline (`pipeline.go`) that runs after every `cmd.go` is written: copy assets → register in parent → re-register children → persist manifest → generate docs. Controlled by `PipelineOptions`. |
 | **PipelineOptions** | A struct passed to `newCommandPipeline` that gates individual pipeline steps via `SkipAssets`, `SkipRegistration`, and `SkipDocumentation` booleans. |

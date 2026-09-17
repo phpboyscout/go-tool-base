@@ -16,18 +16,18 @@ Ensure you have the `gtb` binary installed on your path.
 
 ## Step 2: Initialize a Project
 
-Run the `generate skeleton` command:
+Run the `generate project` command:
 
 ```bash
-gtb generate skeleton --name mytool --github-org my-org
+gtb generate project --name mytool --repo my-org/mytool
 ```
 
 This will create a new directory `mytool` with the following structure:
 
-- `cmd/mytool/main.go`: The orchestration layer.
-- `cmd/mytool/assets/`: Default configuration files.
-- `pkg/cmd/`: Implementation of your custom commands.
-- `go.mod`: Initialized with the correct project name.
+- `cmd/mytool/main.go`: The entry point, which builds the root and hands it to `Execute`.
+- `pkg/cmd/root/`: The root command, its `assets/init/config.yaml` seed config, and one package per command you add.
+- `.gtb/manifest.yaml`: The record of your settings and command tree that `gtb` regenerates from.
+- `go.mod`: Initialised with the module path derived from `--repo`.
 
 ## Step 3: Add your first command
 

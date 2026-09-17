@@ -19,7 +19,7 @@ Forgot to add a flag when creating a command? No problem! The `add-flag` utility
 To add a new flag to an existing command:
 
 ```bash
-go run main.go generate add-flag -c my-command -n retry -t int -d "Number of retries"
+gtb generate add-flag -c my-command -n retry -t int -d "Number of retries"
 ```
 
 This command performs three key actions:
@@ -52,13 +52,13 @@ You can use any of the following types for your flags:
 ### Adding a Boolean Flag
 
 ```bash
-go run main.go generate add-flag -c server -n verbose -t bool -d "Enable verbose logging"
+gtb generate add-flag -c server -n verbose -t bool -d "Enable verbose logging"
 ```
 
 ### Adding a Slice Flag
 
 ```bash
-go run main.go generate add-flag -c process -n tags -t stringSlice -d "Tags to apply"
+gtb generate add-flag -c process -n tags -t stringSlice -d "Tags to apply"
 ```
 
 ### Adding a Persistent Flag
@@ -67,7 +67,7 @@ Persistent flags are available to the command they are defined on AND all of its
 
 ```bash
 # Add a persistent config flag to the root command
-go run main.go generate add-flag -c root -n config -t string -d "Config file" --persistent
+gtb generate add-flag -c root -n config -t string -d "Config file" --persistent
 ```
 
 ## Project Path
@@ -75,7 +75,7 @@ go run main.go generate add-flag -c root -n config -t string -d "Config file" --
 If your project root is not the current directory, use the `--path` (`-p`) flag:
 
 ```bash
-go run main.go generate add-flag -c my-command -n retry -t int -d "Number of retries" -p /path/to/project
+gtb generate add-flag -c my-command -n retry -t int -d "Number of retries" -p /path/to/project
 ```
 
 ## Targeting Nested Commands
@@ -83,5 +83,5 @@ go run main.go generate add-flag -c my-command -n retry -t int -d "Number of ret
 To add a flag to a nested command, provide the full path in the `-c` argument:
 
 ```bash
-go run main.go generate add-flag -c server/start -n port -t int -d "Port to listen on"
+gtb generate add-flag -c server/start -n port -t int -d "Port to listen on"
 ```
