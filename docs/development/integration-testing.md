@@ -222,11 +222,11 @@ These tests require **no external credentials**, only local network access.
 | :--- | :--- | :--- |
 | `pipeline_integration_test.go` | Full lifecycle, deep hierarchy, manifest consistency, protection, command options, dry-run, manifest recovery, feature flags | Filesystem (in-memory) |
 | `templatesource_integration_test.go` | The provider-aware template clone leg (`realCloneTemplate` → `pkg/vcs/repo`) against a real on-disk git repo: resolves a ref to a concrete commit, checks it out, returns the matching SHA | Local git repo: **no network**; tagged `"vcs"` (`INT_TEST_VCS=1`) |
-| `compile_integration_test.go` | Scaffold a project and compile it (`go build`) | **Go toolchain**: tagged `"generator_build"` |
+| `compile_integration_test.go` | Scaffold a project with a parent and a nested command, compile it (`go build`) and lint it with the scaffold's own config, without `--fix` (#30) | **Go toolchain** (+ `golangci-lint` on PATH for the lint half): tagged `"generator_build"`; the `generated-project-builds` CI job runs it on every MR (#80) |
 | `signing_integration_test.go`, `signing_enable_integration_test.go` | Generate with signing enabled, then build/verify the scaffolded tree | **Go toolchain**: tagged `"generator_build"` |
 | `verifier/verifier_integration_test.go` | The post-generation verifier runs the real `go build`/`go test`/`golangci-lint` toolchain over a scaffold | **Go toolchain** (+ `golangci-lint` on PATH): tagged `"generator_build"` |
 
-The `"generator_build"` tag marks the project's strongest real-dependency coverage: it actually compiles and lints the generated output. These tests also run under `INT_TEST_GENERATOR=1`; use `INT_TEST_GENERATOR_BUILD=1` to run only them.
+The `"generator_build"` tag marks the project's strongest real-dependency coverage: it actually compiles and lints the generated output. These tests also run under `INT_TEST_GENERATOR=1`; use `INT_TEST_GENERATOR_BUILD=1` to run only them. The two compile tests run in CI as `generated-project-builds`; a gate no pipeline runs is a claim, and this one was red on `main` for a week before anyone noticed (#80).
 
 ### `cli/test/e2e/`: E2E BDD Tests (Godog)
 

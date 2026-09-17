@@ -372,6 +372,10 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 		MCPExposure:              setup.MCPExposureFromBool(g.config.MCPEnabled),
 	}
 
+	if m := g.readManifestQuiet(); m != nil {
+		data.ModulePath = manifestModulePath(*m)
+	}
+
 	if cmd, err := g.findManifestCommand(); err == nil {
 		data.MutuallyExclusive = cmd.MutuallyExclusive
 		data.RequiredTogether = cmd.RequiredTogether

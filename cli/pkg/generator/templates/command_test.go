@@ -11,7 +11,7 @@ import (
 func TestGetCleanImports_Initializer(t *testing.T) {
 	t.Parallel()
 
-	imps := getCleanImports(nil, true, true)
+	imps := getCleanImports(nil, true, true, true)
 
 	// The generated Init<Name> stub takes a setup.Editor parameter.
 	assert.Contains(t, imps, "gitlab.com/phpboyscout/go-tool-base/pkg/setup",
@@ -24,7 +24,7 @@ func TestGetCleanImports_Initializer(t *testing.T) {
 func TestGetCleanImports_NoInitializer(t *testing.T) {
 	t.Parallel()
 
-	imps := getCleanImports(nil, false, true)
+	imps := getCleanImports(nil, false, true, true)
 
 	// Without an initializer, main.go consumes none of config/viper.
 	assert.NotContains(t, imps, "gitlab.com/phpboyscout/go/config",
@@ -42,11 +42,13 @@ func TestGetCleanImports_NoInitializer(t *testing.T) {
 func TestGetCleanImports_NoRunStub(t *testing.T) {
 	t.Parallel()
 
-	imps := getCleanImports(nil, false, false)
+	imps := getCleanImports(nil, false, false, true)
 
 	assert.NotContains(t, imps, "gitlab.com/phpboyscout/go/errorhandling",
 		"only the Run<Name> stub names a sentinel")
 	assert.Contains(t, imps, "context", "the hooks that remain still take a context")
+
+	assert.Empty(t, getCleanImports(nil, false, false, false), "no function, nothing to import (#80)")
 }
 
 func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {

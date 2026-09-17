@@ -2,6 +2,7 @@ package templates
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -40,12 +41,15 @@ type CommandData struct {
 	RequiredTogether         [][]string
 	Logic                    string
 	Imports                  []string
-	FullFileContent          string
-	TestCode                 string
-	Recommendations          []string
-	PersistentPreRun         bool
-	PreRun                   bool
-	HasSubcommands           bool
+	// ModulePath is the project's module, so its own packages sort into the
+	// local import group the scaffold's goimports config expects.
+	ModulePath       string
+	FullFileContent  string
+	TestCode         string
+	Recommendations  []string
+	PersistentPreRun bool
+	PreRun           bool
+	HasSubcommands   bool
 	// PureGroup marks a command that only groups its subcommands and so has no
 	// run logic of its own — see Generator.pureGroup for how it is decided.
 	// Such a command gets no Run<Name>, and its RunE is the framework's.
@@ -731,21 +735,16 @@ func CommandExecution(data CommandData) string {
 		return data.FullFileContent
 	}
 
-	cleanImports := getCleanImports(data.Imports, data.WithInitializer, !data.PureGroup)
+	cleanImports := getCleanImports(data.Imports, data.WithInitializer, !data.PureGroup, emitsFunction(data))
 
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
-	sb.WriteString("import (\n")
 
-	for _, imp := range cleanImports {
-		if strings.Contains(imp, "\"") {
-			sb.WriteString("\t" + imp + "\n")
-		} else {
-			sb.WriteString("\t\"" + imp + "\"\n")
-		}
+	// A pure group with no hook and no initialiser emits no function, so an
+	// import block would be an unused import (#80).
+	if len(cleanImports) > 0 {
+		sb.WriteString(importBlock(cleanImports, data.ModulePath))
 	}
-
-	sb.WriteString(")\n\n")
 
 	if data.PersistentPreRun {
 		fmt.Fprintf(&sb, "func PersistentPreRun%s(ctx context.Context, props *props.Props, opts *%sOptions, args []string) error {\n", data.PascalName, data.PascalName)
@@ -787,15 +786,98 @@ func CommandExecution(data CommandData) string {
 	return sb.String()
 }
 
-func getCleanImports(rawImports []string, withInitializer, withRunStub bool) []string {
+// importBlock renders imports the way goimports with the scaffold's
+// local-prefixes setting wants them: standard library, then third party,
+// then the project's own packages, each group sorted and blank-line
+// separated, so the emitted file lints clean without the fix pass (#30).
+func importBlock(imports []string, modulePath string) string {
+	groups := make([][]string, groupLocal+1)
+
+	for _, imp := range imports {
+		g := importGroup(imp, modulePath)
+		groups[g] = append(groups[g], imp)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("import (\n")
+
+	written := 0
+
+	for _, group := range groups {
+		if len(group) == 0 {
+			continue
+		}
+
+		if written > 0 {
+			sb.WriteString("\n")
+		}
+
+		written++
+
+		sort.Strings(group)
+
+		for _, imp := range group {
+			sb.WriteString("\t" + quoteImport(imp) + "\n")
+		}
+	}
+
+	sb.WriteString(")\n\n")
+
+	return sb.String()
+}
+
+// The import groups goimports writes, in order.
+const (
+	groupStd = iota
+	groupThirdParty
+	groupLocal
+)
+
+// importGroup classifies an import. A path whose first element has no dot
+// is standard library, the rule goimports applies.
+func importGroup(imp, modulePath string) int {
+	path := strings.Trim(imp, "\"")
+	if i := strings.Index(imp, " "); i > 0 { // aliased: `name "path"`
+		path = strings.Trim(imp[i+1:], "\"")
+	}
+
+	first, _, _ := strings.Cut(path, "/")
+
+	switch {
+	case modulePath != "" && (path == modulePath || strings.HasPrefix(path, modulePath+"/")):
+		return groupLocal
+	case !strings.Contains(first, "."):
+		return groupStd
+	default:
+		return groupThirdParty
+	}
+}
+
+func quoteImport(imp string) string {
+	if strings.Contains(imp, "\"") {
+		return imp
+	}
+
+	return "\"" + imp + "\""
+}
+
+// emitsFunction reports whether CommandExecution writes any function, each of
+// which takes a context and the Props.
+func emitsFunction(data CommandData) bool {
+	return !data.PureGroup || data.PersistentPreRun || data.PreRun || data.WithInitializer
+}
+
+func getCleanImports(rawImports []string, withInitializer, withRunStub, withFunction bool) []string {
 	uniqueImports := make(map[string]bool)
 
 	var cleanImports []string
 
-	// Add base imports first
-	baseImports := []string{
-		"context",
-		"gitlab.com/phpboyscout/go-tool-base/pkg/props",
+	// Every emitted function takes ctx and props; with none there is nothing
+	// to import.
+	var baseImports []string
+
+	if withFunction {
+		baseImports = append(baseImports, "context", "gitlab.com/phpboyscout/go-tool-base/pkg/props")
 	}
 
 	// Only the generated Run<Name> stub names a sentinel, and a pure group has

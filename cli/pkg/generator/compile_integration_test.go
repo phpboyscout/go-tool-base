@@ -85,6 +85,29 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	// -buildvcs=false: the scaffold lives in a bare temp dir, and VCS
 	// stamping would shell out to git and fail there rather than build.
 	runGo(t, path, "build", "-buildvcs=false", "./...")
+
+	// The scaffold's own lint config, without --fix: what a downstream
+	// project sees on day one must be clean as emitted (#30).
+	runLintClean(t, path)
+}
+
+// runLintClean runs golangci-lint in dir with the scaffold's config and
+// fails the test on any finding. Skipped when golangci-lint is not on PATH.
+func runLintClean(t *testing.T, dir string) {
+	t.Helper()
+
+	if _, err := exec.LookPath("golangci-lint"); err != nil {
+		t.Skipf("golangci-lint not on PATH: %v", err)
+	}
+
+	cmd := exec.Command("golangci-lint", "run", "./...")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOFLAGS=-buildvcs=false")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("golangci-lint run failed in %s: %v\noutput:\n%s", dir, err, string(out))
+	}
 }
 
 // runGo runs a `go <args...>` command in dir and fails the test on any
