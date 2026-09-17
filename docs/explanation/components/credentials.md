@@ -177,6 +177,15 @@ The precedence chain is stated once, in `Descriptor.Rungs()`, and both the
 reporting path and `pkg/vcs`'s credential-supplying path compose from it, so
 the two cannot disagree about which rung wins.
 
+The key layout is stated once as well. `credentialposture.SingleToken(prefix)`
+lays out the `<prefix>.auth.{env,keychain,value}` subtree and the keychain
+account beneath it; `credentialposture.DualCredential(prefix)` lays out the
+username, app-password and shared-keychain keys Bitbucket uses. The forge
+profiles, their posture declarations and `config migrate-credentials` all read
+those, and the chat side reads `chat.ProviderCredentialKeys()`, so no package
+spells a credential key as a literal
+([#63](https://gitlab.com/phpboyscout/go-tool-base/-/issues/63)).
+
 See [spec 0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-credential-lifecycle).
 
 ## Consumers

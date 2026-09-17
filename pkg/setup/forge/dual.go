@@ -230,13 +230,13 @@ func writeKeychainBlob(ctx context.Context, profile Profile, cfg setup.Editor, t
 	storeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
 	defer cancel()
 
-	if err := credentials.Store(storeCtx, toolName, profile.KeychainAccount, string(blob)); err != nil {
+	if err := credentials.Store(storeCtx, toolName, profile.keychainAccount(), string(blob)); err != nil {
 		return errors.WithHint(
 			errors.Wrapf(err, "storing %s credentials in OS keychain", profile.Label),
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
 	}
 
 	return setup.WriteExclusive(cfg,
-		map[string]any{profile.keychainKey(): toolName + "/" + profile.KeychainAccount},
+		map[string]any{profile.keychainKey(): toolName + "/" + profile.keychainAccount()},
 		profile.dualCredentialKeys())
 }

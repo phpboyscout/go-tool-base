@@ -661,7 +661,7 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 	}
 
 	provider := g.resolveProvider()
-	if g.props.Config.View().GetBool("ai.claude.local") {
+	if g.props.Config.View().GetBool(chat.ConfigKeyAIClaudeLocal) {
 		provider = gochat.ProviderClaudeLocal
 	}
 

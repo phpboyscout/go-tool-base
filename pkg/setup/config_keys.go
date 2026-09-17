@@ -29,4 +29,9 @@ const (
 	ConfigKeyTelemetryLocalOnly = "telemetry.local_only"
 	// ConfigKeyTelemetryConsent records that the consent prompt was answered.
 	ConfigKeyTelemetryConsent = "telemetry.consent"
+
+	// ConfigKeyLogLevel is the logger verbosity the root pre-run applies.
+	ConfigKeyLogLevel = "log.level"
+	// ConfigKeyLogFormat selects the log backend (text or json).
+	ConfigKeyLogFormat = "log.format"
 )

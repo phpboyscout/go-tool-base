@@ -18,7 +18,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -569,15 +568,11 @@ func secretForKeychain(cfg config.Reader, c literalCredential) (string, error) {
 	return string(blob), nil
 }
 
-// jsonBlobFieldFor maps a config key to the JSON field name used in
-// the keychain blob. Currently only Bitbucket uses this; the mapping
-// is straightforward.
+// jsonBlobFieldFor maps a config key to its field name in a shared
+// keychain blob; a key stored on its own is its own field.
 func jsonBlobFieldFor(key string) string {
-	switch key {
-	case "bitbucket.username":
-		return "username"
-	case "bitbucket.app_password":
-		return "app_password"
+	if c, ok := knownCredential(key); ok && c.blobField != "" {
+		return c.blobField
 	}
 
 	return key
@@ -700,61 +695,13 @@ func instructAndVerifyEnvVar(ctx context.Context, props *p.Props, envName string
 
 // defaultEnvVarName returns the upstream-standard env var name for a
 // known credential key, or a sanitised uppercase of the key when
-// unknown. Split across [defaultAIEnvVarName] and [defaultVCSEnvVarName]
-// so each helper stays under the cyclomatic-complexity budget.
+// unknown.
 func defaultEnvVarName(key string) string {
-	if name := defaultAIEnvVarName(key); name != "" {
-		return name
-	}
-
-	if name := defaultVCSEnvVarName(key); name != "" {
-		return name
+	if c, ok := knownCredential(key); ok && c.fallbackEnv != "" {
+		return c.fallbackEnv
 	}
 
 	return strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
-}
-
-// defaultAIEnvVarName resolves the AI-provider credential keys
-// to the well-known env var names their SDKs / CI integrations
-// expect.
-func defaultAIEnvVarName(key string) string {
-	switch key {
-	case chat.ConfigKeyClaudeKey:
-		return chat.EnvClaudeKey
-	case chat.ConfigKeyOpenAIKey:
-		return chat.EnvOpenAIKey
-	case chat.ConfigKeyGeminiKey:
-		return chat.EnvGeminiKey
-	case chat.ConfigKeyAzureKey:
-		return chat.EnvAzureKey
-	}
-
-	return ""
-}
-
-// defaultVCSEnvVarName resolves VCS-provider credential keys to the
-// upstream-standard env var names (`GITHUB_TOKEN`, `GITLAB_TOKEN`,
-// etc.). Bitbucket's dual-credential pair maps to the canonical
-// `BITBUCKET_USERNAME` / `BITBUCKET_APP_PASSWORD` pairing.
-func defaultVCSEnvVarName(key string) string {
-	switch key {
-	case "github.auth.value":
-		return "GITHUB_TOKEN"
-	case "gitlab.auth.value":
-		return "GITLAB_TOKEN"
-	case "gitea.auth.value":
-		return "GITEA_TOKEN"
-	case "codeberg.auth.value":
-		return "CODEBERG_TOKEN"
-	case "direct.auth.value":
-		return "DIRECT_TOKEN"
-	case "bitbucket.username":
-		return "BITBUCKET_USERNAME"
-	case "bitbucket.app_password":
-		return "BITBUCKET_APP_PASSWORD"
-	}
-
-	return ""
 }
 
 // PrintResult writes a human-readable summary of result to w. Used

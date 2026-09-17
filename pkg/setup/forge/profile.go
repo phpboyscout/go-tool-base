@@ -15,6 +15,7 @@ import (
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -136,9 +137,6 @@ type Profile struct {
 	// Host is the default web host: the manual-token URL host and the forge
 	// provider's release-source host.
 	Host string
-	// KeychainAccount is the account portion of the "<service>/<account>"
-	// keychain reference (e.g. "github.auth").
-	KeychainAccount string
 	// Credential selects the single-token or dual-credential flow.
 	Credential CredentialShape
 
@@ -204,13 +202,21 @@ type Profile struct {
 	NestedNamespaces bool
 }
 
+// keychainAccount is the account portion of the "<service>/<account>"
+// keychain reference, the same for both credential shapes.
+func (p Profile) keychainAccount() string {
+	return credentialposture.SingleToken(p.ConfigPrefix).Account
+}
+
 // --- single-token config keys ---
 
-func (p Profile) authEnvKey() string      { return p.ConfigPrefix + ".auth.env" }
-func (p Profile) authValueKey() string    { return p.ConfigPrefix + ".auth.value" }
-func (p Profile) authKeychainKey() string { return p.ConfigPrefix + ".auth.keychain" }
-func (p Profile) sshKeyPathKey() string   { return p.ConfigPrefix + ".ssh.key.path" }
-func (p Profile) sshKeyTypeKey() string   { return p.ConfigPrefix + ".ssh.key.type" }
+func (p Profile) authEnvKey() string   { return credentialposture.SingleToken(p.ConfigPrefix).Env }
+func (p Profile) authValueKey() string { return credentialposture.SingleToken(p.ConfigPrefix).Literal }
+func (p Profile) authKeychainKey() string {
+	return credentialposture.SingleToken(p.ConfigPrefix).Keychain
+}
+func (p Profile) sshKeyPathKey() string { return p.ConfigPrefix + ".ssh.key.path" }
+func (p Profile) sshKeyTypeKey() string { return p.ConfigPrefix + ".ssh.key.type" }
 
 // singleCredentialKeys is the full set of config keys that can carry the
 // single token across the three storage modes. Every writer commits its mode's
@@ -222,11 +228,15 @@ func (p Profile) singleCredentialKeys() []string {
 
 // --- dual-credential config keys ---
 
-func (p Profile) userEnvKey() string  { return p.ConfigPrefix + ".username.env" }
-func (p Profile) passEnvKey() string  { return p.ConfigPrefix + ".app_password.env" }
-func (p Profile) userKey() string     { return p.ConfigPrefix + ".username" }
-func (p Profile) passKey() string     { return p.ConfigPrefix + ".app_password" }
-func (p Profile) keychainKey() string { return p.ConfigPrefix + ".keychain" }
+func (p Profile) userEnvKey() string { return credentialposture.DualCredential(p.ConfigPrefix).UserEnv }
+func (p Profile) passEnvKey() string {
+	return credentialposture.DualCredential(p.ConfigPrefix).PasswordEnv
+}
+func (p Profile) userKey() string { return credentialposture.DualCredential(p.ConfigPrefix).User }
+func (p Profile) passKey() string { return credentialposture.DualCredential(p.ConfigPrefix).Password }
+func (p Profile) keychainKey() string {
+	return credentialposture.DualCredential(p.ConfigPrefix).Keychain
+}
 
 // dualCredentialKeys is the full set of config keys that can carry the dual
 // credentials across the three storage modes — same exclusivity invariant as
@@ -356,7 +366,6 @@ var gitHubProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a
 	DisplayName:            "GitHub integration",
 	Feature:                GithubFeature,
 	Host:                   "github.com",
-	KeychainAccount:        "github.auth",
 	Credential:             SingleToken,
 	FallbackEnv:            "GITHUB_TOKEN",
 	OffersSSH:              true,
@@ -385,7 +394,6 @@ var gitLabProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a
 	DisplayName:            "GitLab integration",
 	Feature:                GitlabFeature,
 	Host:                   "gitlab.com",
-	KeychainAccount:        "gitlab.auth",
 	Credential:             SingleToken,
 	FallbackEnv:            "GITLAB_TOKEN",
 	OffersSSH:              true,
@@ -419,7 +427,6 @@ var giteaProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a 
 	Label:                  "Gitea",
 	DisplayName:            "Gitea integration",
 	Feature:                GiteaFeature,
-	KeychainAccount:        "gitea.auth",
 	Credential:             SingleToken,
 	FallbackEnv:            "GITEA_TOKEN",
 	OffersSSH:              true,
@@ -450,7 +457,6 @@ var codebergProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is
 	DisplayName:            "Codeberg integration",
 	Feature:                CodebergFeature,
 	Host:                   "codeberg.org",
-	KeychainAccount:        "codeberg.auth",
 	Credential:             SingleToken,
 	FallbackEnv:            "CODEBERG_TOKEN",
 	OffersSSH:              true,
@@ -472,9 +478,8 @@ var bitbucketProfile = Profile{ //nolint:gosec // G101: PassFallbackEnv is the e
 	// Host is required by defaultKeyManager, which builds the provider with
 	// forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host}. Its
 	// absence here was latent rather than harmless.
-	Host:            "bitbucket.org",
-	KeychainAccount: "bitbucket.auth",
-	Credential:      DualUserPass,
+	Host:       "bitbucket.org",
+	Credential: DualUserPass,
 	// forge-bitbucket implements forge.KeyManager: UploadKey posts an
 	// OpenSSH-format public key, authorised by the configured username and app
 	// password. GTB could not reach it while the stage was single-token only.

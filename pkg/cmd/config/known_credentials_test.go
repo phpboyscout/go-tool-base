@@ -31,6 +31,6 @@ func TestKnownCredentials_CoverEveryDeclaredChatKey(t *testing.T) {
 
 		assert.Equal(t, d.EnvKey, c.envTargetKey)
 		assert.Equal(t, d.KeychainKey, c.keychainTargetKey)
-		assert.Equal(t, d.FallbackEnv, defaultAIEnvVarName(d.LiteralKey), "the fallback variable migrate suggests is the one the resolver reads")
+		assert.Equal(t, d.FallbackEnv, defaultEnvVarName(d.LiteralKey), "the fallback variable migrate suggests is the one the resolver reads")
 	}
 }

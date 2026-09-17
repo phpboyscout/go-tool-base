@@ -841,7 +841,7 @@ func (g *Generator) resolveAIConfig() (provider, model string) {
 
 	model = g.config.AIModel
 	if model == "" {
-		model = view.GetString("ai.model")
+		model = view.GetString(chat.ConfigKeyAIModel)
 	}
 
 	if model == "" {

@@ -221,13 +221,9 @@ func isSensitiveWrite(key, value string) bool {
 // literal credential — the catalogue config migrate scans, including the
 // Bitbucket dual-credential pair whose halves live outside knownCredentials.
 func isKnownCredentialKey(key string) bool {
-	for _, c := range knownCredentials {
-		if key == c.key {
-			return true
-		}
-	}
+	_, ok := knownCredential(key)
 
-	return key == bitbucketPrimary.key || key == bitbucketPartner.key
+	return ok
 }
 
 // isInteractiveInput reports whether the command's input is an interactive

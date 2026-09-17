@@ -64,9 +64,9 @@ func declareCredentials(profile Profile) {
 			Owner:       "forge:" + profile.Provider,
 			Feature:     string(profile.Feature),
 			Label:       profile.Label + " credential",
-			EnvKey:      profile.ConfigPrefix + ".auth.env",
-			KeychainKey: profile.ConfigPrefix + ".auth.keychain",
-			LiteralKey:  profile.ConfigPrefix + ".auth.value",
+			EnvKey:      profile.authEnvKey(),
+			KeychainKey: profile.authKeychainKey(),
+			LiteralKey:  profile.authValueKey(),
 			FallbackEnv: profile.FallbackEnv,
 		})
 
@@ -80,16 +80,16 @@ func declareCredentials(profile Profile) {
 		Owner:       "forge:" + profile.Provider,
 		Feature:     string(profile.Feature),
 		Label:       profile.Label + " username",
-		EnvKey:      profile.ConfigPrefix + ".username.env",
-		LiteralKey:  profile.ConfigPrefix + ".username",
+		EnvKey:      profile.userEnvKey(),
+		LiteralKey:  profile.userKey(),
 		FallbackEnv: profile.UserFallbackEnv,
 	})
 	credentialposture.Register(credentialposture.Descriptor{
 		Owner:       "forge:" + profile.Provider,
 		Feature:     string(profile.Feature),
 		Label:       profile.Label + " app password",
-		EnvKey:      profile.ConfigPrefix + ".app_password.env",
-		LiteralKey:  profile.ConfigPrefix + ".app_password",
+		EnvKey:      profile.passEnvKey(),
+		LiteralKey:  profile.passKey(),
 		FallbackEnv: profile.PassFallbackEnv,
 	})
 }

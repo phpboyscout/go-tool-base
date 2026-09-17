@@ -426,8 +426,8 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 	cfg := p.Config.View()
 
 	vcsProvider, _, _ := p.Tool.GetReleaseSource()
-	if cfg.IsSet("vcs.provider") {
-		vcsProvider = strings.ToLower(cfg.GetString("vcs.provider"))
+	if cfg.IsSet(vcs.ConfigKeyProvider) {
+		vcsProvider = strings.ToLower(cfg.GetString(vcs.ConfigKeyProvider))
 	}
 
 	if p.Tool.ReleaseSource.Private {

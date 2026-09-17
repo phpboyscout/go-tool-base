@@ -182,16 +182,17 @@ func TestAlreadyMigrated(t *testing.T) {
 
 // TestDefaultVCSEnvVarName_RemainingKeys covers the gitea / codeberg /
 // direct branches plus the empty fallback for an unknown key.
-func TestDefaultVCSEnvVarName_RemainingKeys(t *testing.T) {
+func TestDefaultEnvVarName_ForgeKeys(t *testing.T) {
 	t.Parallel()
 
-	for key, want := range map[string]string{
-		"gitea.auth.value":    "GITEA_TOKEN",
-		"codeberg.auth.value": "CODEBERG_TOKEN",
-		"direct.auth.value":   "DIRECT_TOKEN",
-		"unknown.key":         "",
+	for key, want := range map[string]string{ //nolint:gosec // G101: config keys and env var names, not credentials
+		"gitea.auth.value":       "GITEA_TOKEN",
+		"codeberg.auth.value":    "CODEBERG_TOKEN",
+		"direct.auth.value":      "DIRECT_TOKEN",
+		"bitbucket.app_password": "BITBUCKET_APP_PASSWORD",
+		"unknown.key":            "UNKNOWN_KEY",
 	} {
-		assert.Equal(t, want, defaultVCSEnvVarName(key), key)
+		assert.Equal(t, want, defaultEnvVarName(key), key)
 	}
 }
 

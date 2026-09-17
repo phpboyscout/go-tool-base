@@ -82,8 +82,8 @@ func SettingsFromReader(
 
 	settings.AuthEnabled = true
 
-	if cfg.IsSet("vcs.provider") {
-		settings.Forge = resolveForge(cfg.GetString("vcs.provider"))
+	if cfg.IsSet(vcs.ConfigKeyProvider) {
+		settings.Forge = resolveForge(cfg.GetString(vcs.ConfigKeyProvider))
 	}
 
 	forgeName := settings.Forge

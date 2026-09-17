@@ -140,6 +140,21 @@ func credentialKeysForRoot(root string) CredentialKeys {
 	}
 }
 
+// ProviderCredentialKeys is every credential GTB keeps for a chat provider,
+// one per config root in the order the wizard offers them. The migration
+// and the project-trust list read it rather than naming the roots again.
+func ProviderCredentialKeys() []CredentialKeys {
+	out := make([]CredentialKeys, 0, len(credentialRoots))
+	for _, root := range credentialRoots {
+		out = append(out, credentialKeysForRoot(root))
+	}
+
+	return out
+}
+
+// credentialRoots orders the credential roots for every enumeration.
+var credentialRoots = []string{configRootClaude, configRootOpenAI, configRootGemini, configRootAzure}
+
 // fallbackEnvForRoot is the ecosystem variable each credential root falls
 // back to when no key under the root is set.
 var fallbackEnvForRoot = map[string]string{

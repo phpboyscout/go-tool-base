@@ -477,14 +477,14 @@ func configureLogging(props *p.Props, flags *FlagValues, cfg config.Reader, mcpL
 	if flags.Debug {
 		logger.SetLevel(props.Logger, slog.LevelDebug)
 		mcpLogLevel.Set(slog.LevelDebug)
-	} else if level, err := logger.ParseLevel(cfg.GetString("log.level")); err == nil {
+	} else if level, err := logger.ParseLevel(cfg.GetString(setup.ConfigKeyLogLevel)); err == nil {
 		// Apply config-based log level if debug flag is not set
 		logger.SetLevel(props.Logger, mapLogLevel(level))
 		mcpLogLevel.Set(mapLogLevel(level))
 	}
 
 	// Apply log format from config
-	switch cfg.GetString("log.format") {
+	switch cfg.GetString(setup.ConfigKeyLogFormat) {
 	case "json":
 		logger.SetFormatter(props.Logger, logger.JSONFormatter)
 	case "logfmt":

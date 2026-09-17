@@ -1,11 +1,15 @@
 package root
 
 import (
+	"slices"
+
 	"sort"
 	"strings"
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -29,12 +33,18 @@ var protectedProjectConfigKeys = []string{
 	setup.ConfigKeyUpdateExternalKeyEmail,
 	setup.ConfigKeyTelemetryEnabled,
 	setup.ConfigKeyTelemetryConsent,
-	// Credential subtrees carried as literal API keys.
-	"anthropic.api",
-	"openai.api",
-	"gemini.api",
-	"azure.api",
-	"bitbucket.app_password",
+}
+
+// protectedProjectKeys is protectedProjectConfigKeys plus the credential
+// subtrees carried as literal API keys, read from the packages that declare
+// them.
+func protectedProjectKeys() []string {
+	keys := slices.Clone(protectedProjectConfigKeys)
+	for _, k := range chat.ProviderCredentialKeys() {
+		keys = append(keys, k.Root)
+	}
+
+	return append(keys, credentialposture.DualCredential("bitbucket").Password)
 }
 
 // isProtectedProjectKey reports whether the dotted path full (whose final
@@ -47,7 +57,7 @@ func isProtectedProjectKey(full, segment string) bool {
 		return true
 	}
 
-	for _, key := range protectedProjectConfigKeys {
+	for _, key := range protectedProjectKeys() {
 		if full == key {
 			return true
 		}

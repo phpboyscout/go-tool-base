@@ -6,6 +6,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 )
 
 // literalCredential describes a single credential the scanner
@@ -52,73 +53,59 @@ type literalCredential struct {
 }
 
 // credentialDescriptor captures enough about a known credential for
-// the scanner to build a [literalCredential] entry from it.
+// the scanner to build a [literalCredential] entry from it, and for the
+// migration to name the env var and keychain blob field it writes.
 type credentialDescriptor struct {
 	key               string
 	envTargetKey      string
 	keychainTargetKey string
 	keychainAccount   string
+	// fallbackEnv is the upstream-standard env var an env-mode migration
+	// suggests for the key (GITHUB_TOKEN, ANTHROPIC_API_KEY).
+	fallbackEnv string
+	// blobField names the key's field in a shared keychain JSON blob; empty
+	// for a credential stored on its own.
+	blobField string
 }
 
 // knownCredentials enumerates every config key GTB recognises as a
-// literal credential. Kept in sync with doctor's literalCredentialKeys
-// — adding a new entry here also warrants a corresponding doctor
-// check entry so the no-literal warning fires for it.
-var knownCredentials = []credentialDescriptor{
-	{
-		key:               chat.ConfigKeyClaudeKey,
-		envTargetKey:      chat.ConfigKeyClaudeEnv,
-		keychainTargetKey: chat.ConfigKeyClaudeKeychain,
-		keychainAccount:   "anthropic.api",
-	},
-	{
-		key:               chat.ConfigKeyOpenAIKey,
-		envTargetKey:      chat.ConfigKeyOpenAIEnv,
-		keychainTargetKey: chat.ConfigKeyOpenAIKeychain,
-		keychainAccount:   "openai.api",
-	},
-	{
-		key:               chat.ConfigKeyGeminiKey,
-		envTargetKey:      chat.ConfigKeyGeminiEnv,
-		keychainTargetKey: chat.ConfigKeyGeminiKeychain,
-		keychainAccount:   "gemini.api",
-	},
-	{
-		key:               chat.ConfigKeyAzureKey,
-		envTargetKey:      chat.ConfigKeyAzureEnv,
-		keychainTargetKey: chat.ConfigKeyAzureKeychain,
-		keychainAccount:   "azure.api",
-	},
-	{
-		key:               "github.auth.value",
-		envTargetKey:      "github.auth.env",
-		keychainTargetKey: "github.auth.keychain",
-		keychainAccount:   "github.auth",
-	},
-	{
-		key:               "gitlab.auth.value",
-		envTargetKey:      "gitlab.auth.env",
-		keychainTargetKey: "gitlab.auth.keychain",
-		keychainAccount:   "gitlab.auth",
-	},
-	{
-		key:               "gitea.auth.value",
-		envTargetKey:      "gitea.auth.env",
-		keychainTargetKey: "gitea.auth.keychain",
-		keychainAccount:   "gitea.auth",
-	},
-	{
-		key:               "codeberg.auth.value",
-		envTargetKey:      "codeberg.auth.env",
-		keychainTargetKey: "codeberg.auth.keychain",
-		keychainAccount:   "codeberg.auth",
-	},
-	{
-		key:               "direct.auth.value",
-		envTargetKey:      "direct.auth.env",
-		keychainTargetKey: "direct.auth.keychain",
-		keychainAccount:   "direct.auth",
-	},
+// literal credential: one row per chat provider credential root, derived
+// the way chat derives its own keys, and one per single-token forge.
+var knownCredentials = append(chatCredentials(),
+	forgeCredential("github", "GITHUB_TOKEN"),
+	forgeCredential("gitlab", "GITLAB_TOKEN"),
+	forgeCredential("gitea", "GITEA_TOKEN"),
+	forgeCredential("codeberg", "CODEBERG_TOKEN"),
+	forgeCredential("direct", "DIRECT_TOKEN"),
+)
+
+func chatCredentials() []credentialDescriptor {
+	keys := chat.ProviderCredentialKeys()
+	out := make([]credentialDescriptor, 0, len(keys))
+
+	for _, k := range keys {
+		out = append(out, credentialDescriptor{
+			key:               k.Literal,
+			envTargetKey:      k.Env,
+			keychainTargetKey: k.Keychain,
+			keychainAccount:   k.Root,
+			fallbackEnv:       k.FallbackEnv,
+		})
+	}
+
+	return out
+}
+
+func forgeCredential(prefix, fallbackEnv string) credentialDescriptor {
+	keys := credentialposture.SingleToken(prefix)
+
+	return credentialDescriptor{
+		key:               keys.Literal,
+		envTargetKey:      keys.Env,
+		keychainTargetKey: keys.Keychain,
+		keychainAccount:   keys.Account,
+		fallbackEnv:       fallbackEnv,
+	}
 }
 
 // bitbucketPrimary + bitbucketPartner describe the Bitbucket dual-
@@ -126,19 +113,42 @@ var knownCredentials = []credentialDescriptor{
 // halves; the keychain target is the shared `bitbucket.keychain`
 // entry that holds a JSON blob.
 var (
+	bitbucketKeys    = credentialposture.DualCredential("bitbucket")
 	bitbucketPrimary = credentialDescriptor{
-		key:               "bitbucket.username",
-		envTargetKey:      "bitbucket.username.env",
-		keychainTargetKey: "bitbucket.keychain",
-		keychainAccount:   "bitbucket.auth",
+		key:               bitbucketKeys.User,
+		envTargetKey:      bitbucketKeys.UserEnv,
+		keychainTargetKey: bitbucketKeys.Keychain,
+		keychainAccount:   bitbucketKeys.Account,
+		fallbackEnv:       "BITBUCKET_USERNAME",
+		blobField:         "username",
 	}
 	bitbucketPartner = credentialDescriptor{
-		key:          "bitbucket.app_password",
-		envTargetKey: "bitbucket.app_password.env",
-		// Partner does not contribute its own keychain target — the
+		key:          bitbucketKeys.Password,
+		envTargetKey: bitbucketKeys.PasswordEnv,
+		fallbackEnv:  "BITBUCKET_APP_PASSWORD",
+		blobField:    "app_password",
+		// Partner does not contribute its own keychain target: the
 		// shared `bitbucket.keychain` entry covers both halves.
 	}
 )
+
+// knownCredential finds the descriptor for a key, the Bitbucket halves
+// included.
+func knownCredential(key string) (credentialDescriptor, bool) {
+	for _, c := range knownCredentials {
+		if key == c.key {
+			return c, true
+		}
+	}
+
+	for _, c := range []credentialDescriptor{bitbucketPrimary, bitbucketPartner} {
+		if key == c.key {
+			return c, true
+		}
+	}
+
+	return credentialDescriptor{}, false
+}
 
 // scanLiteralCredentials walks the loaded config and returns every
 // literal credential with its destination metadata populated. The

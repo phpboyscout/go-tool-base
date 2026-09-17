@@ -135,6 +135,9 @@ func readerFor(sub forge.Config) credentialposture.Reader {
 	return sub
 }
 
+// ConfigKeyProvider overrides the release-source forge a tool was built with.
+const ConfigKeyProvider = "vcs.provider"
+
 // Relative to the forge subtree; the Sub supplies the "github." part.
 const (
 	authEnvKey      = "auth.env"

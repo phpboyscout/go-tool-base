@@ -29,24 +29,18 @@ func (g *Generator) resolveToken(provider gochat.Provider) string {
 
 	view := g.props.Config.View()
 
-	switch provider {
-	case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
-		return view.GetString("openai.api.key")
-	case gochat.ProviderClaude:
-		return view.GetString("anthropic.api.key")
-	case gochat.ProviderGemini:
-		return view.GetString("gemini.api.key")
-	case gochat.ProviderClaudeLocal:
-		return ""
-	default:
+	keys, ok := chat.CredentialKeysFor(provider)
+	if !ok {
 		return ""
 	}
+
+	return view.GetString(keys.Literal)
 }
 
 func (g *Generator) resolveModel(provider gochat.Provider) string {
 	model := ""
 	if g.props.Config != nil {
-		model = g.props.Config.View().GetString("ai.model")
+		model = g.props.Config.View().GetString(chat.ConfigKeyAIModel)
 	}
 
 	if g.config.AIModel != "" {
