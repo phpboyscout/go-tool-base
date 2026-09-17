@@ -24,5 +24,11 @@ func (g *Generator) syncDerivedFromManifest(m *Manifest) error {
 		return err
 	}
 
-	return g.syncAdapterFiles(m)
+	if err := g.syncAdapterFiles(m); err != nil {
+		return err
+	}
+
+	// After every generated Go file is on disk, so the imports the seed reads
+	// are this run's (spec 0200 D2).
+	return g.seedGoMod(g.config.Path, manifestModulePath(*m), resolveGoVersion(m.Version.Go), g.currentVersion())
 }

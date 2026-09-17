@@ -396,6 +396,37 @@ On a from-scratch manifest rebuild `recoverChatProviders` reads the
 older than the declaration has only its imports, so recovery falls back to
 every provider the imported modules register.
 
+### 7a. The scaffold's `go.mod` (`gomod_seed.go`, `gomod/`)
+
+`go.mod` is edited in place, never rendered from a template
+([spec 0200](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0200-the-generator-owns-the-scaffolds-go-mod-requirements)).
+After every generated Go file is on disk, `seedGoMod` scans the tree's imports
+and, through `gomod.Seed` (`x/mod/modfile`), adds a `require` line for each
+module the running `gtb` knows a version for: the framework at the manifest's
+`version.gtb`, an estate toolkit module (`gitlab.com/phpboyscout/go/<name>`)
+or any other module named in `gtb`'s own build info, which is the version
+`gtb` was built and tested against. A line that is already there is left at
+whatever version it holds; a line for a forge or chat adapter whose import
+has gone (`disable gitlab`) is dropped; a module nothing knows a version for
+is left for tidy. The development `replace` under `GTB_FRAMEWORK_REPLACE` is
+one more edit, recognised on the way out by the comment it carries.
+
+`go mod tidy` stays the owner of the result. Where Go is on `PATH` it runs as
+before and fills what only the toolchain can, the indirect lines and `go.sum`;
+the seeded lines are what it would keep, so a tidied scaffold regenerated and
+tidied again is byte-identical. Where Go is absent, the seed is what makes
+the emitted `go.mod` valid: before this a regenerate re-rendered the file from
+a template with no `require` block, and `--no-verify` left a module with no
+dependencies declared. Why tidy is shelled out to rather than reimplemented is
+recorded in the spec: `golang.org/x/mod` ships no loader or MVS by design, and
+the one project that simulated MVS for real `go.mod` files gave it up for
+`go list -m`.
+
+`gomod.Floors` is the compatibility baseline a `gtb` version declares: a
+present line below its floor is raised on regenerate and the run says so. It
+is empty today and is edited in the change that bumps the dependency it
+protects.
+
 ### 8. Custom Template Overlays (`templatesource*.go`)
 
 Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files (`README.md` and `gtb-template.yaml`) are excluded from rendering.

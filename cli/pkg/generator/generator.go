@@ -10,6 +10,7 @@ import (
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/errors"
 
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/gomod"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
@@ -128,6 +129,9 @@ type Generator struct {
 	config     *Config
 	chatClient gochat.ChatClient
 	runCommand func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
+	// versions answers the module versions the go.mod seed pins (spec 0200
+	// D4): the running binary's build info unless a test installs a map.
+	versions gomod.VersionSource
 	// cloneTemplate fetches a git custom-template source into a staging dir
 	// and returns the resolved commit SHA. nil means "no clone available"
 	// (offline): a cold cache for a git source then errors clearly rather
@@ -152,8 +156,9 @@ func (g *Generator) withTemplateClone(fn templateCloneFunc) {
 
 func New(p *props.Props, cfg *Config) *Generator {
 	return &Generator{
-		props:  p,
-		config: cfg,
+		props:    p,
+		config:   cfg,
+		versions: gomod.BuildInfoSource(),
 	}
 }
 

@@ -475,6 +475,10 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		return err
 	}
 
+	if err := g.seedGoMod(config.Path, data.ModulePath, data.GoVersion, data.GoToolBaseVersion); err != nil {
+		return err
+	}
+
 	ignoreRules := LoadIgnoreRules(g.props.FS, config.Path)
 
 	writtenHashes, updatedSources, err := g.generateSkeletonTemplateFilesWithSources(config.Path, data, storedHashes, ignoreRules, config.Templates)
@@ -686,6 +690,10 @@ func (g *Generator) loadProjectFileHashes(projectPath string) map[string]string 
 		return make(map[string]string)
 	}
 
+	// go.mod stopped being a rendered, hash-compared file (spec 0200 D1); a
+	// manifest from before carries its hash, which nothing reads now.
+	delete(m.Hashes, "go.mod")
+
 	return m.Hashes
 }
 
@@ -852,9 +860,10 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 	// rather than leaving a now-orphaned embedded file behind (D3).
 	g.removeStrandedSuppressed(destPath, suppressed, storedHashes)
 
+	// go.mod is not here: it is edited in place by seedGoMod and never
+	// hash-compared, so a project's own requirements survive (spec 0200 D1).
 	tmplFiles := map[string]string{
 		"pkg/cmd/root/assets/init/config.yaml": templates.SkeletonConfig,
-		"go.mod":                               templates.SkeletonGoMod,
 	}
 
 	for relPath, tmplStr := range tmplFiles {
