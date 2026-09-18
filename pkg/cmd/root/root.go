@@ -1274,6 +1274,56 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props) {
 			rootCmd.Register(skipConfigGate(docsCmd))
 		}
 	}
+
+	registerContributedCommands(rootCmd, props)
+}
+
+// registerContributedCommands puts every enabled feature's root-command
+// contributions on the root (spec 0202 D2). An unstamped command is stamped
+// with its contributor; a stamped one keeps its stamp. A name already on the
+// root wins: the contribution is skipped at warn rather than shadowing a
+// built-in or failing construction over a plugin author's mistake.
+func registerContributedCommands(rootCmd *setup.Command, props *p.Props) {
+	for _, d := range props.GetFeatures().EnabledDescriptors() {
+		providers, _ := features.ContributionsOf[setup.RootCommandProvider](props.GetFeatures(), d.FeatureID(), setup.SlotRootCommand)
+		for _, provide := range providers {
+			cmd := provide(props)
+			if cmd == nil || cmd.Command == nil {
+				continue
+			}
+
+			if owner := commandNamed(rootCmd, cmd.Name()); owner != "" {
+				props.Logger.Warn(fmt.Sprintf("feature %q contributes a %q command, which %s already provides; skipped",
+					d.FeatureID(), cmd.Name(), owner))
+
+				continue
+			}
+
+			if cmd.Feature == "" {
+				cmd = setup.Wrap(d.FeatureID(), cmd.Command)
+			}
+
+			rootCmd.Register(cmd)
+		}
+	}
+}
+
+// commandNamed reports who already owns a child of that name on root: the
+// feature that wrapped it, or "the root" for one with no feature stamp.
+func commandNamed(root *setup.Command, name string) string {
+	for _, c := range root.Commands() {
+		if c.Name() != name {
+			continue
+		}
+
+		if f := setup.FeatureOf(c); f != "" {
+			return fmt.Sprintf("feature %q", f)
+		}
+
+		return "the root"
+	}
+
+	return ""
 }
 
 // skipConfigGate marks a built-in command so the root pre-run relaxes its

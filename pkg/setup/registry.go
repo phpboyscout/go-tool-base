@@ -25,6 +25,12 @@ type SubcommandProvider func(p *props.Props) []*cobra.Command
 // FeatureFlag is a function that registers flags on a cobra command.
 type FeatureFlag func(cmd *cobra.Command)
 
+// RootCommandProvider builds a top-level command for the root, or returns nil
+// when its feature has nothing to add for this tool. The root registers what
+// it returns and stamps it with the contributing feature when it carries no
+// stamp of its own (spec 0202 D2).
+type RootCommandProvider func(p *props.Props) *Command
+
 // CheckResult represents the outcome of a single diagnostic check.
 type CheckResult struct {
 	Name    string `json:"name"`
@@ -69,6 +75,7 @@ const (
 	SlotCheck       features.Slot = "check"
 	SlotAssets      features.Slot = "assets"
 	SlotMiddleware  features.Slot = "middleware"
+	SlotRootCommand features.Slot = "root-command"
 )
 
 // Register contributes initialisers, subcommands and init flags for a feature
@@ -89,6 +96,23 @@ func RegisterOn(r features.Registry, feature props.FeatureID, ips []InitialiserP
 
 	for _, fp := range fps {
 		r.Contribute(feature, SlotInitFlag, fp)
+	}
+}
+
+// RegisterRootCommands contributes top-level commands for a feature to the
+// default registry. A linked package (pkg/mcp) calls it from init so the root
+// need not name the package.
+func RegisterRootCommands(feature props.FeatureID, providers ...RootCommandProvider) {
+	RegisterRootCommandsOn(features.Default(), feature, providers...)
+}
+
+// RegisterRootCommandsOn is RegisterRootCommands against a caller's registry.
+// Nil providers contribute nothing.
+func RegisterRootCommandsOn(r features.Registry, feature props.FeatureID, providers ...RootCommandProvider) {
+	for _, rp := range providers {
+		if rp != nil {
+			r.Contribute(feature, SlotRootCommand, rp)
+		}
 	}
 }
 
@@ -126,6 +150,11 @@ func FeatureFlagsIn(s features.Snapshot) map[props.FeatureID][]FeatureFlag {
 // AssetsIn is GetAssets over a snapshot.
 func AssetsIn(s features.Snapshot) map[props.FeatureID][]AssetBundle {
 	return contributionsBy[AssetBundle](s, SlotAssets)
+}
+
+// RootCommandsIn is the root-command providers of every contributing feature.
+func RootCommandsIn(s features.Snapshot) map[props.FeatureID][]RootCommandProvider {
+	return contributionsBy[RootCommandProvider](s, SlotRootCommand)
 }
 
 // ChecksIn is GetChecks over a snapshot.
