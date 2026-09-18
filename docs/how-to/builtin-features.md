@@ -11,7 +11,10 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 GTB comes with several powerful features **enabled by default**. These are:
 - **`update`**: Automatic self-updates via GitHub releases.
 - **`init`**: Interactive configuration bootstrapping.
-- **`mcp`**: The Model Context Protocol server for AI agents.
+- **`mcp`**: The Model Context Protocol server for AI agents. This one is a
+  *link*: a generated project has it while `cmd/<name>/mcp.go` blank-imports
+  `pkg/mcp`, and `gtb disable mcp` removes that file rather than rendering a
+  `Disable`. See [shipping without MCP](#shipping-without-mcp).
 - **`docs`**: The integrated TUI documentation browser and AI assistant.
 - **`doctor`**: Environment and configuration health checks.
 - **`changelog`**: Rendering of the tool's embedded changelog.
@@ -28,11 +31,19 @@ props := &props.Props{
         Name: "mytool",
         Features: props.SetFeatures(
             props.Disable(props.UpdateCmd), // Disable self-updates
-            props.Disable(props.McpCmd),    // Disable MCP server
         ),
     },
 }
 ```
+
+### Shipping without MCP
+
+`mcp` is not a `SetFeatures` toggle. The tool has it while its `main` package
+blank-imports `gitlab.com/phpboyscout/go-tool-base/pkg/mcp` (a generated
+project's `cmd/<name>/mcp.go`); without the import there is no `mcp` command
+and the binary carries neither `go/mcp` nor the MCP SDK. Omit the import for a
+build that must ship without an MCP surface. A `props.Disable(props.McpCmd)`
+left in an older `main` is ignored and listed by `doctor`.
 
 ## Enabling Opt-in Features
 
@@ -67,7 +78,7 @@ The following table provides a complete reference for all `FeatureID` constants,
 | :--- | :--- | :--- | :--- |
 | `props.UpdateCmd` | **Enabled** | `update` | Disable if you manage updates externally (package managers, CI/CD) |
 | `props.InitCmd` | **Enabled** | `init`, `init github` | Disable if your tool has no configuration requirements |
-| `props.McpCmd` | **Enabled** | `mcp`, `mcp serve`, `mcp tools` | Disable if AI agent integration is not needed |
+| `props.McpCmd` | **Linked** (on while `pkg/mcp` is imported) | `mcp`, `mcp start`, `mcp tools` | Omit the `pkg/mcp` import if AI agent integration is not needed; the binary then ships without the MCP SDK |
 | `props.DocsCmd` | **Enabled** | `docs`, `docs serve`, `docs ask` | Disable if you don't embed documentation |
 | `props.DoctorCmd` | **Enabled** | `doctor` | Disable if you don't ship environment/configuration health checks |
 | `props.ChangelogCmd` | **Enabled** | `changelog` | Disable if your tool has no embedded changelog |
@@ -99,7 +110,6 @@ props := &props.Props{
         Name: "mytool",
         Features: props.SetFeatures(
             props.Disable(props.UpdateCmd),
-            props.Disable(props.McpCmd),
         ),
     },
 }
@@ -131,7 +141,6 @@ props := &props.Props{
         Features: props.SetFeatures(
             props.Disable(props.UpdateCmd),
             props.Disable(props.InitCmd),
-            props.Disable(props.McpCmd),
             props.Disable(props.DocsCmd), // Disable docs if not needed, otherwise it's enabled by default
         ),
     },
@@ -148,8 +157,8 @@ props := &props.Props{
         Name: "mytool",
         Features: props.SetFeatures(
             props.Disable(props.UpdateCmd),  // No GitHub access for updates
-            props.Disable(props.McpCmd),     // No AI agent connectivity
         ),
+        // No AI agent connectivity: omit the pkg/mcp import from main instead.
     },
 }
 ```

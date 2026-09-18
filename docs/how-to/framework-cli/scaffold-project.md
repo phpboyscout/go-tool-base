@@ -275,6 +275,11 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
 **Telemetry** *(the `telemetry` feature selected)*
 : Where usage events and OpenTelemetry data go; both optional.
 
+**MCP** *(the `mcp` feature selected)*
+: The publication mode, compact (three discovery tools, the default) or direct
+  (one native tool per command). On `gtb wizard` the page also lists the
+  project's commands, ticked when they are on the MCP surface.
+
 **Help channel** *(Slack or Teams chosen)*
 : Slack channel and team, or Teams channel and team.
 
@@ -288,8 +293,9 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
 
 The same wizard runs again on an existing project as
 [`gtb wizard`](../../reference/cli/wizard.md), pre-filled from the manifest;
-there the name is shown rather than asked, there is no destination page, and
-the signing page also asks whether to require a signature.
+there the name is shown rather than asked, there is no destination page, the
+MCP page also asks which commands stay on the surface, and the signing page
+also asks whether to require a signature.
 
 ### Available Flags
 
@@ -302,7 +308,7 @@ the signing page also asks whether to require a signature.
 | `--private` | | Mark the repository as private (requires a token for updates) | `false` |
 | `--description` | `-d` | Short description of the tool | `A tool built with gtb` |
 | `--path` | `-p` | Destination path for the generated project | `.` |
-| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`) and `keychain`. A forge is chosen with `--forge-backend`, not here. Replaces the default set rather than extending it: see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
+| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`) and the links `keychain` and `mcp`. A forge is chosen with `--forge-backend`, not here. Replaces the default set rather than extending it: see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
 | `--go-version` | | Go version for `go.mod` | running toolchain version |
 | `--help-type` | | Help channel type (`slack`, `teams`, or `none`) | `none` |
 | `--overwrite` | | How to handle file conflicts (`allow`, `deny`, or `ask`) | `ask` |

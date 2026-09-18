@@ -20,7 +20,7 @@ If you want the background on why we built this, see the [Credential Storage Har
 | **OS keychain** (opt-in via blank import) | A `<service>/<account>` reference | OS keychain (macOS Keychain / Linux Secret Service / Windows Credential Manager) |
 | **Literal** (legacy) | The secret itself | The config file: `~/.<toolname>/config.yaml` |
 
-Keychain mode is only offered if the tool's `main` package imports `gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain` (the framework's link, which registers the `go/credentials/keychain` backend and declares the feature). Regulated builds omit the import. The tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
+Keychain mode is only offered if the tool's `main` package imports `gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain` (the framework's link, which registers the `go/credentials/keychain` backend and declares the feature; `pkg/mcp` is the other such link, and the generator writes both the same way). Regulated builds omit the import. The tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
 
 ## When to pick which mode
 

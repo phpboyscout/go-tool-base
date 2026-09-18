@@ -36,8 +36,10 @@ the generated root command's `props.SetFeatures(...)`. Because the change lives
 in the manifest, it **survives `gtb regenerate project`**. The same command
 runs the derived-file sync `regenerate` runs (the root command, the adapter
 files, the signing files, the derived fields), so the tree builds without a
-regenerate afterwards. `keychain` is toggleable too: `disable keychain` removes
-`cmd/<name>/keychain.go` and `enable keychain` writes it back.
+regenerate afterwards. The links `keychain` and `mcp` are toggleable too, and
+for them the file is the toggle: `disable <id>` removes `cmd/<name>/<id>.go`
+and `enable <id>` writes it back; nothing is rendered into `SetFeatures`. A
+project without `mcp.go` ships without `go/mcp` and the MCP SDK.
 
 With **no feature argument**, an interactive multi-select of the candidate
 features (those not already in the target state) is shown. In a

@@ -116,7 +116,10 @@ gtb generate command -n post --mcp-enabled=false
 ```
 
 The interactive `gtb generate command` wizard asks **"Expose to MCP?"** as a
-dedicated step (defaulting to expose), so the decision is a conscious one.
+dedicated step (defaulting to expose), so the decision is a conscious one. On
+an existing project, [`gtb wizard`](../../reference/cli/wizard.md) lists every
+command on its MCP page with its current exposure ticked; each tick you change
+is the same `enable mcp`/`disable mcp` call.
 
 A protected command is refused by `enable/disable mcp`, unprotect it first.
 
@@ -200,9 +203,12 @@ which answers [issue #36](https://gitlab.com/phpboyscout/go-tool-base/-/issues/3
 ## Implementation
 
 The MCP command is the estate's own [`go/mcp`](https://mcp.go.phpboyscout.uk)
-module, wired through `pkg/mcp` (spec 0201 D1). `pkg/mcp.NewCmdMCP` builds the
-`mcp` tree with GTB's conventions applied once, so a tool built on GTB gets
-them without saying anything:
+module, wired through `pkg/mcp` (spec 0201 D1). `pkg/mcp` is also the **link**
+that gives a tool the feature (spec 0202): a blank import of it from the tool's
+`main` declares `mcp` as a link kind and contributes the command to the root
+through `setup.SlotRootCommand`, and nothing else in the framework imports
+`go/mcp`. `pkg/mcp.NewCmdMCP` builds the `mcp` tree with GTB's conventions
+applied once, so a tool built on GTB gets them without saying anything:
 
 - **Exposure** comes from the tree's own markers (`setup.IsExposedToMCP`), and a
   pure command group (`setup.GroupRunE`) is never published: a tool that prints
@@ -217,7 +223,26 @@ them without saying anything:
 - **The publication mode** comes from `props.Tool.MCP`, rendered from
   `properties.mcp.mode` in the manifest. The binary never reads the manifest.
 - **Logs go to stderr** at the level the root's `--debug` and config reload
-  already move; stdout carries the protocol.
+  already move (`Props.LogLevel`); stdout carries the protocol, so the command
+  is stamped `setup.MarkProtocolStdout` and the root renders no prompt under it.
+
+### A tool without MCP
+
+The feature is the file. A generated project carries `cmd/<name>/mcp.go`, one
+blank import of `pkg/mcp`, and the manifest's `mcp` entry decides whether it
+exists: the feature defaults on, so a manifest that says nothing links it, and
+`gtb disable mcp` (or `mcp: false`) removes the file. A binary built without the
+import has no `mcp` command, no `mcp` feature, and neither
+`gitlab.com/phpboyscout/go/mcp` nor the MCP Go SDK in its build:
+
+```sh
+go version -m ./bin/<tool> | grep -E 'go/mcp|modelcontextprotocol'
+```
+
+prints nothing for such a build, and an SBOM taken from the binary agrees. A
+hand-wired tool adds or omits the import itself; the
+[migration note](../../reference/migration/v0.x-mcp-link-kind.md) covers a tool
+that predates the link.
 
 ### Compact and direct publication
 

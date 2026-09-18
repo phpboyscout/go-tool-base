@@ -43,6 +43,13 @@ gtb set mcp.mode direct
 gtb set mcp.mode compact
 ```
 
+`gtb wizard` asks the same on its MCP page, and lists the project's commands
+so you can tick which stay on the surface; an unticked command is
+`gtb disable mcp <path>`.
+
+```sh
+```
+
 Compact (the default) publishes three discovery tools whatever the size of the
 command tree; direct publishes one native tool per command so a client's own
 approval UI sees each tool's annotations. The choice is rendered into the

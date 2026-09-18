@@ -69,6 +69,9 @@ Props makes dependencies explicit and discoverable:
 !!! note "ErrorHandler is an Interface"
     The `ErrorHandler` field is an interface type, not a pointer. This enables easy mocking and custom implementations for testing.
 
+!!! note "LogLevel follows --debug"
+    `LogLevel` is the `*slog.LevelVar` the root moves for `--debug` and the config's `log.level`, for a command that builds its own `slog` handler (the MCP server does: its stdout carries the protocol, so it logs to stderr on a handler of its own). `props.New` and `ApplyDefaults` fill it; read it through `GetLogLevel()`, which is nil-safe and stable.
+
 ## The invocation's streams: `IO`
 
 `Props.IO` says where this invocation reads and writes, and whether a person is

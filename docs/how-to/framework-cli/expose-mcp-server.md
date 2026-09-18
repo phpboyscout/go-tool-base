@@ -114,6 +114,21 @@ publication and rebuild:
 gtb set mcp.mode direct
 ```
 
+The wizard asks the same on its MCP page (`gtb generate project` in a terminal,
+or `gtb wizard` on an existing project, where the page also lists which
+commands stay on the surface).
+
+## Shipping without MCP
+
+The feature is a link: a generated project has it while `cmd/<name>/mcp.go`
+exists, and `gtb disable mcp` removes that file. A binary built without it has
+no `mcp` command and carries neither `go/mcp` nor the MCP SDK; see
+[a tool without MCP](../../explanation/components/mcp-agents.md#a-tool-without-mcp).
+
+```sh
+gtb disable mcp
+```
+
 ## Debugging
 
 Start the server with `--log-level debug` (in the editor entry, `my-tool mcp

@@ -351,13 +351,19 @@ are not GTB's to scaffold. The table was hand-written, and guarded against the
 registry by a test that proved two tables agreed, until the registry stopped
 sealing on read; a snapshot can be taken at any time, so the second table went.
 
-`keychain` is in the catalogue as a **link kind** (`props.KindLink`, declared
-by `pkg/setup/keychain`, spec 0199 OQ3): a feature whose only effect is a blank
-import. It is toggled by writing or removing `cmd/<name>/keychain.go`, never by
-`SetFeatures`, so the renderer and the scanner skip link kinds and the
-from-scratch recovery reads the file. It is selected by default at generation
-(a generator policy for link kinds) while declaring no runtime default, since
-its presence is its enablement.
+`keychain` and `mcp` are in the catalogue as **link kinds** (`props.KindLink`,
+declared by `pkg/setup/keychain` and `pkg/mcp`; spec 0199 OQ3, spec 0202): a
+feature whose only effect is a blank import. The generator writes every such
+*framework link* the same way (`templates.FrameworkLinks`, `SkeletonLink`): the
+artefact is `cmd/<name>/<id>.go`, a `main`-package file whose only statement is
+the blank import of the package the descriptor names. The manifest's entry, or
+the link's default when there is none, decides whether the file exists; the
+shared sync writes or removes it; the renderer and the scanner skip link kinds;
+and the from-scratch recovery reads the file, recording a delta entry when its
+presence disagrees with the default. The two links differ in that default: the
+keychain declares none (its entry is what turns it on, and generation selects
+it as a policy), while `mcp` defaults on, so a manifest that says nothing links
+it and `mcp: false` is the delta.
 
 The same pattern carries the chat providers and forge adapters
 (`adapters.go`, spec 0194): `cmd/<name>/chat.go` blank-imports the modules for

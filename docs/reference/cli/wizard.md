@@ -27,6 +27,7 @@ line in the same run.
 | Asks the project name | Shows it. Renaming moves `cmd/<name>` and every import path, which is not the wizard's job. |
 | Asks the destination path | Does not: the project is where it is. |
 | Signing page asks "require a verified checksum" | Asks that and "require a valid signature", because a signed release may have shipped by now. The description says not before it has. |
+| MCP page asks the publication mode | Asks that and which commands stay on the MCP surface, pre-ticked from each command's `mcp_enabled`. A changed tick is the same write as `gtb enable mcp <path>` / `gtb disable mcp <path>`; a protected command is not listed. `--dry-run` names each change as `mcp surface: <path> exposed` or `withheld`. |
 
 ## Flags
 

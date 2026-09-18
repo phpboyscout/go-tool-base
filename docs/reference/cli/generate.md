@@ -88,10 +88,10 @@ manifest.
 
 | Group | Values | Notes |
 |-------|--------|-------|
-| Built-in commands (default on) | `update`, `init`, `mcp`, `docs`, `doctor`, `changelog` | Wired via `props.SetFeatures`. |
+| Built-in commands (default on) | `update`, `init`, `docs`, `doctor`, `changelog` | Wired via `props.SetFeatures`. |
 | Built-in commands (opt-in) | `ai`, `config`, `telemetry`, `man` | |
 | Forges | *(not selectable here)* | A forge feature is implied by `--forge-backend` (one) and `--forge-credentials` (more). Each enabled forge feature adds that forge's `init <forge>` credential wizard, config section, embedded asset bundle and linked adapter. After generation `gtb enable <forge>` / `gtb disable <forge>` still toggle them. Constants live in `pkg/setup/forge`, not `props`. |
-| Build-time | `keychain` | Not a `SetFeatures` toggle: selects the `cmd/<name>/keychain.go` blank import, which the manifest's `keychain` entry owns. `gtb enable keychain`/`gtb disable keychain` write or remove the file; a hand-deleted file comes back on the next regenerate. |
+| Links (build-time) | `keychain`, `mcp` | Not `SetFeatures` toggles: each selects a `cmd/<name>/<id>.go` blank import, which the manifest's entry owns. `gtb enable <id>`/`gtb disable <id>` write or remove the file; a hand-deleted file comes back on the next regenerate. `mcp` defaults on (a manifest that says nothing links it; leaving it out of `--features` records `mcp: false`), the keychain off. A binary without `mcp.go` ships without `go/mcp` and the MCP SDK. |
 
 `--features` replaces the default set rather than extending it, so a selection
 must name every feature the tool should ship with: `--features gitlab` alone

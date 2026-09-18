@@ -65,12 +65,16 @@ kind and ID.
 A contribution is a value registered under a feature ID and a `Slot` name. The
 core knows a slot is a name and a value; `setup` defines GTB's slots
 (`SlotInitialiser`, `SlotSubcommand`, `SlotInitFlag`, `SlotCheck`,
-`SlotAssets`, `SlotMiddleware`) and asserts the types on the way out.
+`SlotAssets`, `SlotMiddleware`, `SlotRootCommand`) and asserts the types on
+the way out.
 `features.Global` is the ID for a contribution that applies to every feature,
 which is how global middleware is registered. A `Set` hands out only the
 contributions of enabled features; `ContributionsOf[T]` does the typed read,
 and that is how `init`, `doctor` and the root find their initialisers,
-checks, asset bundles and middleware, and how `doctor` finds the credentials
+checks, asset bundles, middleware and contributed top-level commands (a
+linked package such as `pkg/mcp` hands the root its command through
+`setup.RegisterRootCommands`, so the root need not name it), and how `doctor`
+finds the credentials
 of enabled features (`credentialposture.SlotCredential`, read through
 `credentialposture.DeclaredFor(set)`). The generator's catalogue is another
 reader: `templates.Catalogue()` is the snapshot narrowed to the scaffoldable
