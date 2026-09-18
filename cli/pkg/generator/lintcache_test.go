@@ -1,10 +1,14 @@
 package generator
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +112,7 @@ func TestRunLintPass_SkippedWhenEnvSaysSo(t *testing.T) {
 	buf := logger.NewBuffer()
 	g := &Generator{props: &props.Props{Logger: buf, FS: afero.NewOsFs()}}
 
-	require.NoError(t, g.runLintPass(t.Context(), t.TempDir()), "a skipped pass fails nothing")
+	require.NoError(t, g.runLintPass(t.Context(), t.TempDir(), lintFix), "a skipped pass fails nothing")
 
 	assert.True(t, buf.Contains("Skipping golangci-lint pass"),
 		"the skip must say so, so a slow suite can be traced to it")
@@ -132,10 +136,98 @@ func TestRunLintPass_OnlyTheLiteralTrueSkips(t *testing.T) {
 
 			// A directory with no Go module: golangci-lint exits non-zero, the
 			// pass logs a Warn and reports it. What is asserted is that it TRIED.
-			_ = g.runLintPass(t.Context(), t.TempDir())
+			_ = g.runLintPass(t.Context(), t.TempDir(), lintFix)
 
 			assert.True(t, buf.Contains("Running golangci-lint"),
 				"%q is not the literal \"true\" and must not skip the pass", value)
 		})
 	}
+}
+
+// recordingRunner captures every command the generator runs and answers each
+// from a script of (output, error) pairs.
+type recordingRunner struct {
+	calls  [][]string
+	script []struct {
+		out string
+		err error
+	}
+}
+
+func (r *recordingRunner) run(_ context.Context, _, name string, args ...string) ([]byte, error) {
+	r.calls = append(r.calls, append([]string{name}, args...))
+
+	if len(r.script) == 0 {
+		return nil, nil
+	}
+
+	next := r.script[0]
+	r.script = r.script[1:]
+
+	return []byte(next.out), next.err
+}
+
+// TestRunLintPass_RegenerateVerifiesWithoutFix (deferred item 3 of the
+// v0.43.0 round): on a v0.42.0 upgrade the regenerate's lint step rewrote
+// pkg/cmd/greet/main.go, the file the author owns, because it ran with --fix.
+// A regenerate verifies; only a fresh generate, where every file is the
+// generator's, may fix.
+func TestRunLintPass_RegenerateVerifiesWithoutFix(t *testing.T) {
+	t.Setenv(SkipLintEnv, "")
+
+	rec := &recordingRunner{}
+	g := &Generator{props: &props.Props{Logger: logger.NewBuffer(), FS: afero.NewOsFs()}, runCommand: rec.run}
+
+	require.NoError(t, g.runLintPass(t.Context(), t.TempDir(), lintVerify))
+	require.NoError(t, g.runLintPass(t.Context(), t.TempDir(), lintFix))
+
+	require.Len(t, rec.calls, 2)
+	assert.Equal(t, []string{"golangci-lint", "run"}, rec.calls[0], "regenerate verifies only")
+	assert.Equal(t, []string{"golangci-lint", "run", "--fix"}, rec.calls[1], "a fresh generate may fix")
+}
+
+// TestRunLintPass_RetriesOnceWhenAnotherLintHoldsTheLock (deferred item 5):
+// two gtb runs at once collide on golangci-lint's lock and the second exited
+// 3 with "verification step failed" for a reason that was not the project's.
+// The lock message earns one retry; a second collision is reported for what
+// it is.
+func TestRunLintPass_RetriesOnceWhenAnotherLintHoldsTheLock(t *testing.T) {
+	t.Setenv(SkipLintEnv, "")
+
+	locked := errors.New("exit status 3")
+	rec := &recordingRunner{}
+	rec.script = append(rec.script,
+		struct {
+			out string
+			err error
+		}{"Error: parallel golangci-lint is running\n", locked},
+		struct {
+			out string
+			err error
+		}{"", nil},
+	)
+
+	buf := logger.NewBuffer()
+	g := &Generator{props: &props.Props{Logger: buf, FS: afero.NewOsFs()}, runCommand: rec.run, lintRetryDelay: new(time.Duration)}
+
+	require.NoError(t, g.runLintPass(t.Context(), t.TempDir(), lintVerify), "the retry succeeds")
+	assert.Len(t, rec.calls, 2)
+	assert.True(t, buf.Contains("another golangci-lint is running"), "the wait is announced")
+
+	rec = &recordingRunner{}
+	rec.script = append(rec.script,
+		struct {
+			out string
+			err error
+		}{"Error: parallel golangci-lint is running\n", locked},
+		struct {
+			out string
+			err error
+		}{"Error: parallel golangci-lint is running\n", locked},
+	)
+	g = &Generator{props: &props.Props{Logger: logger.NewBuffer(), FS: afero.NewOsFs()}, runCommand: rec.run, lintRetryDelay: new(time.Duration)}
+
+	err := g.runLintPass(t.Context(), t.TempDir(), lintVerify)
+	require.ErrorIs(t, err, ErrLintLocked, "a second collision is named, not a verification failure")
+	assert.Len(t, rec.calls, 2, "one retry, not a loop")
 }

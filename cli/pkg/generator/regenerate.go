@@ -44,7 +44,7 @@ func (g *Generator) RegenerateProjectDryRun(ctx context.Context) (*DryRunResult,
 	}, &dryRunPostProcess{
 		commands: [][]string{
 			{"go", "mod", "tidy"},
-			{"golangci-lint", "run", "--fix"},
+			{"golangci-lint", "run"},
 		},
 	})
 }
@@ -250,7 +250,7 @@ func (g *Generator) collectSkeletonHashes() (map[string]string, error) {
 	return m.Hashes, nil
 }
 
-// runPostRegenerationProcessing runs go mod tidy then golangci-lint --fix and
+// runPostRegenerationProcessing runs go mod tidy then golangci-lint (verify only) and
 // refreshes skeleton file hashes on an OS filesystem. It is a no-op for
 // in-memory filesystems used in tests.
 //
@@ -272,7 +272,7 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 	if g.config.NoVerify {
 		g.props.Logger.Warn("verification skipped (--no-verify): the tree was emitted, not verified")
 	} else {
-		failed = g.verifyTree(ctx, g.config.Path)
+		failed = g.verifyTree(ctx, g.config.Path, lintVerify)
 	}
 
 	// Post-processing (tidy, lint) may have modified tracked files in either

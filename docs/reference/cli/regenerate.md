@@ -64,8 +64,10 @@ became installed binaries, and keeps the framework's own (`cmd/changelog`,
 
 #### Exit codes: emitted is not verified
 
-After the files are written, `go mod tidy` and `golangci-lint run --fix` run
-over the tree. The result is the run's exit code:
+After the files are written, `go mod tidy` and `golangci-lint run` run over
+the tree. Regenerate lints without `--fix`: it verifies a tree the author owns
+parts of and rewrites nothing it did not generate; a fresh `generate project`
+lints with `--fix`, since every file is the generator's. The result is the run's exit code:
 
 | Code | Meaning |
 |---|---|

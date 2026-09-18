@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/errors"
@@ -161,6 +162,11 @@ type Generator struct {
 	// its recorded hash before this run registered a child in it, so the
 	// hash is refreshed only for a parent the author had not edited.
 	parentWasPristine bool
+
+	// lintRetryDelay overrides the wait before the lint pass's one retry when
+	// another golangci-lint holds the lock; nil means the default. Tests set
+	// zero.
+	lintRetryDelay *time.Duration
 }
 
 // withTemplateClone injects the git template-source clone implementation.

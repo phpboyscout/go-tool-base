@@ -7,6 +7,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -14,7 +15,9 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"text/template"
+	"time"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
@@ -237,27 +240,136 @@ func resolveCIComponentSource(configured string) string {
 // the literal string "true", nothing else.
 const SkipLintEnv = "GTB_SKIP_LINT"
 
-// runLintPass runs golangci-lint --fix over a generated project unless
-// [SkipLintEnv] says otherwise.
+// lintMode says whether the lint pass may rewrite files.
+type lintMode int
+
+const (
+	// lintVerify runs golangci-lint and reports; nothing is rewritten. A
+	// regenerate touches a tree the author owns parts of, and --fix once
+	// inserted a blank import line into an author's main.go (a v0.42.0
+	// template had emitted it goimports-unclean).
+	lintVerify lintMode = iota
+	// lintFix runs golangci-lint --fix. A fresh generate owns every file it
+	// just wrote, so fixing what the templates emit is the generator's job.
+	lintFix
+)
+
+func (m lintMode) args() []string {
+	if m == lintFix {
+		return []string{"run", "--fix"}
+	}
+
+	return []string{"run"}
+}
+
+// ErrLintLocked reports golangci-lint refusing to start because another
+// instance holds its lock (two gtb runs at once, or a lint in another shell).
+// It is not a finding about the project.
+var ErrLintLocked = errors.NewSentinel("gtb.generator.lint_locked", "another golangci-lint is running; rerun when it has finished")
+
+// lintLockMessage is the text golangci-lint prints when its lock is held.
+const lintLockMessage = "parallel golangci-lint is running"
+
+// defaultLintRetryDelay is how long the pass waits before its one retry when
+// another lint holds the lock.
+const defaultLintRetryDelay = 3 * time.Second
+
+// runLintPass runs golangci-lint over a generated project in the given mode
+// unless [SkipLintEnv] says otherwise. Another lint holding the lock earns one
+// retry after a short wait; a second collision is reported as ErrLintLocked
+// rather than as a verification failure.
 //
 // Shared by generation and regeneration, which each carried their own copy of
-// this three-line block and would each have needed the same gate.
-func (g *Generator) runLintPass(ctx context.Context, path string) error {
+// this block and would each have needed the same gate.
+func (g *Generator) runLintPass(ctx context.Context, path string, mode lintMode) error {
 	if os.Getenv(SkipLintEnv) == "true" {
 		g.props.Logger.Debug("Skipping golangci-lint pass", "reason", SkipLintEnv+"=true")
 
 		return nil
 	}
 
-	g.props.Logger.Info("Running golangci-lint run --fix...")
+	g.props.Logger.Info("Running golangci-lint " + strings.Join(mode.args(), " ") + "...")
 
-	if err := g.runSkeletonCommand(ctx, path, "golangci-lint", "run", "--fix"); err != nil {
+	out, err := g.runCapturedCommand(ctx, path, "golangci-lint", mode.args()...)
+	if err == nil {
+		return nil
+	}
+
+	if !strings.Contains(out, lintLockMessage) {
 		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
 
 		return err
 	}
 
-	return nil
+	delay := defaultLintRetryDelay
+	if g.lintRetryDelay != nil {
+		delay = *g.lintRetryDelay
+	}
+
+	g.props.Logger.Warn("another golangci-lint is running; waiting before one retry", "wait", delay)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(delay):
+	}
+
+	out, err = g.runCapturedCommand(ctx, path, "golangci-lint", mode.args()...)
+	if err == nil {
+		return nil
+	}
+
+	if strings.Contains(out, lintLockMessage) {
+		return errors.WithStack(ErrLintLocked)
+	}
+
+	g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
+
+	return err
+}
+
+// runCapturedCommand is runSkeletonCommand with the combined output returned
+// as well as echoed, so a caller can recognise a message in it.
+func (g *Generator) runCapturedCommand(ctx context.Context, dir, name string, args ...string) (string, error) {
+	if g.runCommand != nil {
+		out, err := g.runCommand(ctx, dir, name, args...)
+
+		return string(out), err
+	}
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	cmd.Env = commandEnv(name, dir)
+
+	// exec copies stdout and stderr on separate goroutines, so the shared
+	// capture is serialised.
+	capture := &lockedBuffer{}
+
+	cmd.Stdout = io.MultiWriter(os.Stdout, capture)
+	cmd.Stderr = io.MultiWriter(os.Stderr, capture)
+
+	err := cmd.Run()
+
+	return capture.String(), err
+}
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
 }
 
 // ErrProjectNotVerified is a generate or regenerate whose files were written
@@ -301,7 +413,7 @@ func (g *Generator) toolOnPath(name string) bool {
 // PATH is a declined step with its reason, never an exec error: the tree is
 // correct as emitted, and go.mod carries its direct requirements without tidy
 // (spec 0200 D5).
-func (g *Generator) verifyTree(ctx context.Context, path string) []string {
+func (g *Generator) verifyTree(ctx context.Context, path string, mode lintMode) []string {
 	var failed []string
 
 	if !g.toolOnPath("go") {
@@ -323,8 +435,8 @@ func (g *Generator) verifyTree(ctx context.Context, path string) []string {
 		return append(failed, "not verified: golangci-lint not on PATH")
 	}
 
-	if err := g.runLintPass(ctx, path); err != nil {
-		failed = append(failed, "golangci-lint run --fix failed: "+err.Error())
+	if err := g.runLintPass(ctx, path, mode); err != nil {
+		failed = append(failed, "golangci-lint "+strings.Join(mode.args(), " ")+" failed: "+err.Error())
 	}
 
 	return failed
@@ -341,7 +453,7 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 		return nil
 	}
 
-	failed := g.verifyTree(ctx, path)
+	failed := g.verifyTree(ctx, path, lintFix)
 
 	// The lint pass rewrites command files as readily as skeleton ones, so the
 	// command-hash refresh belongs to the shared post-processing step rather
