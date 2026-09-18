@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
@@ -118,7 +120,7 @@ func pickFeatures(gen *generator.Generator, enable bool) ([]string, error) {
 				Options(options...).
 				Value(&selected),
 		),
-	)
+	).WithTheme(setup.FormTheme())
 
 	if err := form.Run(); err != nil {
 		return nil, err

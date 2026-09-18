@@ -37,7 +37,7 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 	// Read once: an IO may hand each form its own input (formtest.TUIForms).
 	in, out := io.In(), io.Err()
 
-	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible())
+	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible()).WithTheme(FormTheme())
 
 	if !io.Accessible() {
 		f = f.WithProgramOptions(programOptions(in, out)...)
@@ -45,6 +45,26 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 
 	return f.RunWithContext(ctx)
 }
+
+// FormTheme is the theme every wizard renders with: huh's Charm theme with the
+// form set in from the terminal's left edge by two columns and one line, the
+// way huh's own examples render. A form against the edge reads as a stray
+// print; the margin is what makes it read as a dialogue. Every framework
+// wizard gets it through RunForm; a form the gtb CLI runs itself sets it.
+func FormTheme() huh.Theme {
+	return huh.ThemeFunc(func(isDark bool) *huh.Styles {
+		styles := huh.ThemeCharm(isDark)
+		styles.Form.Base = styles.Form.Base.PaddingTop(formPaddingTop).PaddingLeft(formPaddingLeft)
+
+		return styles
+	})
+}
+
+// The margin every wizard renders with: one line above, two columns in.
+const (
+	formPaddingTop  = 1
+	formPaddingLeft = 2
+)
 
 const (
 	headlessWidth  = 100

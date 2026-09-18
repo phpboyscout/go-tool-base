@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
 	"charm.land/huh/v2"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -61,7 +63,7 @@ func huhUserPrompt(_ context.Context, question string, suggestions []string) (st
 			Description("The generator agent is asking for a decision.").
 			Options(options...).
 			Value(&choice),
-	))
+	)).WithTheme(setup.FormTheme())
 	if err := form.Run(); err != nil {
 		return "", errors.Wrap(err, "query_user prompt failed")
 	}
@@ -81,7 +83,7 @@ func huhFreeText(question string) (string, error) {
 			Title(question).
 			Description("Type your answer for the generator agent.").
 			Value(&answer),
-	))
+	)).WithTheme(setup.FormTheme())
 	if err := form.Run(); err != nil {
 		return "", errors.Wrap(err, "query_user prompt failed")
 	}

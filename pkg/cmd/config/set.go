@@ -165,7 +165,7 @@ func confirmSensitiveProjectLocalWrite(cmd *cobra.Command, props *p.Props, key, 
 				Negative("No, cancel").
 				Value(&confirmed),
 		),
-	).Run(); err != nil {
+	).WithTheme(setup.FormTheme()).Run(); err != nil {
 		return false, errors.Wrap(err, "confirmation cancelled")
 	}
 

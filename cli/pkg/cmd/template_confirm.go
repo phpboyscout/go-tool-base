@@ -3,6 +3,8 @@ package cmd
 import (
 	"os"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
 	"charm.land/huh/v2"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -46,7 +48,7 @@ func ConfirmRemoteTemplate(p *props.Props, ci bool, ts generator.TemplateSource)
 				Negative("No, abort").
 				Value(&confirmed),
 		),
-	)
+	).WithTheme(setup.FormTheme())
 
 	if err := form.Run(); err != nil {
 		return errors.Wrap(err, "remote template confirmation failed")

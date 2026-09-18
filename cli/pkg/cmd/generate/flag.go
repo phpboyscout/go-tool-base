@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
@@ -131,7 +133,7 @@ func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 				Title("Path to project root").
 				Value(&o.Path),
 		),
-	)
+	).WithTheme(setup.FormTheme())
 
 	return form.Run()
 }

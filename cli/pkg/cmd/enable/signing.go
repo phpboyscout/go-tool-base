@@ -241,7 +241,7 @@ func (o *signingOptions) promptInteractive() error {
 				).
 				Value(&o.KeySource),
 		),
-	)
+	).WithTheme(setup.FormTheme())
 
 	return form.Run()
 }

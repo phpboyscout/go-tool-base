@@ -3,6 +3,8 @@ package generate
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // newForm builds a huh.Form rendered in the alternate screen buffer, so each
@@ -17,6 +19,7 @@ import (
 // form express what previously needed a multi-form wizard with faked back-steps.
 func newForm(groups ...*huh.Group) *huh.Form {
 	return huh.NewForm(groups...).
+		WithTheme(setup.FormTheme()).
 		WithViewHook(func(v tea.View) tea.View {
 			v.AltScreen = true
 
