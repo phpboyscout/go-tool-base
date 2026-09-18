@@ -34,11 +34,18 @@ func main() {
 
 	fmt.Printf("Generating documentation for project at %s\n", absRoot)
 
-	// 1. Detect build tool
+	// 1. Detect build tool. Without one an existing site is left in place:
+	// the release pipeline builds the site in the docs image and hands it
+	// to the goreleaser job, whose image has no zensical, so this run must
+	// sync the raw docs and keep what it was given.
 	buildTool := detectBuildTool()
 	switch buildTool {
 	case "":
-		fmt.Println("Warning: Neither zensical nor mkdocs found. Static documentation site will not be built.")
+		if hasStaticSite(absRoot, targetDir) {
+			fmt.Printf("No site builder on PATH: keeping the existing %s\n", filepath.Join(targetDir, "site"))
+		} else {
+			fmt.Println("Warning: Neither zensical nor mkdocs found. Static documentation site will not be built.")
+		}
 	case "mkdocs":
 		fmt.Println("Recommendation: Use zensical for a faster and more integrated experience!")
 	}
@@ -76,10 +83,28 @@ func detectBuildTool() string {
 	return ""
 }
 
+// targetPath resolves --target-dir: relative to the project root, or as given
+// when absolute (joining an absolute target under the root put it in the
+// wrong place).
+func targetPath(root, targetBase string) string {
+	if filepath.IsAbs(targetBase) {
+		return targetBase
+	}
+
+	return filepath.Join(root, targetBase)
+}
+
+// hasStaticSite reports whether a built site already sits under the target.
+func hasStaticSite(root, targetBase string) bool {
+	_, err := os.Stat(filepath.Join(targetPath(root, targetBase), "site", "index.html"))
+
+	return err == nil
+}
+
 func syncRawDocs(root, targetBase string) error {
 	fmt.Println("Syncing raw documentation assets...")
 
-	destDocs := filepath.Join(root, targetBase, "docs")
+	destDocs := filepath.Join(targetPath(root, targetBase), "docs")
 
 	err := os.RemoveAll(destDocs)
 	if err != nil {
@@ -140,7 +165,7 @@ func buildStaticSite(ctx context.Context, root, targetBase, configFile, tool str
 
 	// Move site to assets
 	srcSite := filepath.Join(root, "site")
-	destSite := filepath.Join(root, targetBase, "site")
+	destSite := filepath.Join(targetPath(root, targetBase), "site")
 
 	err = os.RemoveAll(destSite)
 	if err != nil {

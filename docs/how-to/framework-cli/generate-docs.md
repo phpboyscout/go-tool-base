@@ -50,10 +50,15 @@ Documentation builds are handled by a portable Go generator. When called from a 
 
 This tool:
 - **Dual Content Sync**: Simultaneously synchronizes raw markdown for the TUI and builds a static site for `docs serve`.
-- **Auto-Detection**: Automatically uses `zensical` (preferred) or `mkdocs` if available.
+- **Auto-Detection**: Automatically uses `zensical` (preferred) or `mkdocs` if available. With neither on
+  `PATH` it still syncs the raw docs, and a `site/` already under the target is kept rather than removed.
+  That is how a release pipeline whose build image has no site builder ships one: build the site in a job
+  that has the builder, hand it over as an artefact, and let `go generate` keep it (gtb's own
+  `gtb-docs-site` job does this for the goreleaser job).
 - **Configurable**:
     - `--project-root`: Point to your project sources (e.g., where `zensical.toml` or `mkdocs.yml` lives).
-    - `--target-dir`: Specify where `assets/docs` and `assets/site` should be generated.
+    - `--target-dir`: Specify where `assets/docs` and `assets/site` should be generated, relative to the
+      project root or absolute.
     - `--config-file`: Path to the site config file relative to the project root (default: `mkdocs.yml`).
 
 ### Command Documentation 🕹️
