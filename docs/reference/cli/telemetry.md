@@ -81,6 +81,12 @@ Possible states:
 | `Telemetry: enabled` | Telemetry active, events sent to remote backend |
 | `Telemetry: enabled (local-only)` | Events written to local file only |
 
+With `--output json` the same state is returned in the standard envelope:
+
+```json
+{"status":"success","command":"telemetry status","data":{"enabled":true,"local_only":false,"machine_id":"4a3f8c1d9e2b6f70","backend":"local (/home/you/.mytool/telemetry)"}}
+```
+
 ### `telemetry reset`
 
 Clears all local telemetry data, sends a GDPR data deletion request to the remote backend,

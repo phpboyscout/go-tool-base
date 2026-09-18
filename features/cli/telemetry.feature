@@ -49,3 +49,12 @@ Feature: CLI Telemetry Command
     When I run gtb with "telemetry --help"
     Then the exit code is 0
     And stdout contains "Manage opt-in pseudonymous usage analytics"
+
+  Scenario: Status is available as JSON
+    When I run gtb with "telemetry status --output json"
+    Then the exit code is 0
+    And stdout is valid JSON
+    And the JSON field "status" equals "success"
+    And the JSON field "command" equals "telemetry status"
+    And the JSON field "data.machine_id" is not empty
+    And the JSON field "data.backend" is not empty

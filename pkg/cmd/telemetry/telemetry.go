@@ -16,6 +16,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
+	"gitlab.com/phpboyscout/go/output"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -105,27 +106,45 @@ backend.
 Use this to confirm your opt-in state and whether collection is local-only.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := p.Config.View()
-			enabled := cfg.GetBool(setup.ConfigKeyTelemetryEnabled)
-			localOnly := cfg.GetBool(setup.ConfigKeyTelemetryLocalOnly)
-
-			out := cmd.OutOrStdout()
-
-			switch {
-			case !enabled:
-				_, _ = fmt.Fprintln(out, "Telemetry: disabled")
-			case localOnly:
-				_, _ = fmt.Fprintln(out, "Telemetry: enabled (local-only)")
-			default:
-				_, _ = fmt.Fprintln(out, "Telemetry: enabled")
+			status := statusView{
+				Enabled:   cfg.GetBool(setup.ConfigKeyTelemetryEnabled),
+				LocalOnly: cfg.GetBool(setup.ConfigKeyTelemetryLocalOnly),
+				MachineID: telemetry.HashedMachineID(),
+				Backend:   p.Collector.BackendInfo(),
 			}
 
-			_, _ = fmt.Fprintln(out, "Machine ID: "+telemetry.HashedMachineID())
+			format, _ := cmd.Flags().GetString("output")
+			out := output.New(output.WithWriter(cmd.OutOrStdout()), output.WithFormat(output.Format(format)))
 
-			_, _ = fmt.Fprintln(out, "Backend: "+p.Collector.BackendInfo())
-
-			return nil
+			return out.Write(output.Response{
+				Status:  output.StatusSuccess,
+				Command: "telemetry status",
+				Data:    status,
+			}, status.writeText)
 		},
 	}
+}
+
+// statusView is the `telemetry status` payload for structured output.
+type statusView struct {
+	Enabled   bool   `json:"enabled"`
+	LocalOnly bool   `json:"local_only"`
+	MachineID string `json:"machine_id"`
+	Backend   string `json:"backend"`
+}
+
+func (s statusView) writeText(w io.Writer) {
+	switch {
+	case !s.Enabled:
+		_, _ = fmt.Fprintln(w, "Telemetry: disabled")
+	case s.LocalOnly:
+		_, _ = fmt.Fprintln(w, "Telemetry: enabled (local-only)")
+	default:
+		_, _ = fmt.Fprintln(w, "Telemetry: enabled")
+	}
+
+	_, _ = fmt.Fprintln(w, "Machine ID: "+s.MachineID)
+	_, _ = fmt.Fprintln(w, "Backend: "+s.Backend)
 }
 
 func newResetCmd(p *props.Props) *cobra.Command {

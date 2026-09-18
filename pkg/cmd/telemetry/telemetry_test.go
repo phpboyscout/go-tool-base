@@ -2,6 +2,7 @@ package telemetry_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -129,4 +130,40 @@ func TestStatusCmd_LocalOnly(t *testing.T) {
 
 	require.NoError(t, cmd.Execute())
 	assert.Contains(t, buf.String(), "local-only")
+}
+
+func TestStatusCmd_JSON(t *testing.T) {
+	t.Parallel()
+
+	p, _ := setupTestProps(t)
+	p.Config = testutil.StoreFromYAML(t, "telemetry:\n  enabled: true\n  local_only: true\n")
+
+	cmd := cmdtelemetry.NewCmdTelemetry(p)
+	// --output is the root's persistent flag; the group under test has no root.
+	cmd.PersistentFlags().String("output", "text", "")
+
+	var buf bytes.Buffer
+
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"status", "--output", "json"})
+
+	require.NoError(t, cmd.Execute())
+
+	var envelope struct {
+		Status  string `json:"status"`
+		Command string `json:"command"`
+		Data    struct {
+			Enabled   bool   `json:"enabled"`
+			LocalOnly bool   `json:"local_only"`
+			MachineID string `json:"machine_id"`
+			Backend   string `json:"backend"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &envelope), buf.String())
+	assert.Equal(t, "success", envelope.Status)
+	assert.Equal(t, "telemetry status", envelope.Command)
+	assert.True(t, envelope.Data.Enabled)
+	assert.True(t, envelope.Data.LocalOnly)
+	assert.NotEmpty(t, envelope.Data.MachineID)
+	assert.NotEmpty(t, envelope.Data.Backend)
 }
