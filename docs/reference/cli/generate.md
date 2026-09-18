@@ -64,7 +64,7 @@ manifest.
 | `--chat-project` | — | Cloud project, for `gemini-vertex` (optional; falls back to `GOOGLE_CLOUD_PROJECT` at runtime). |
 | `--chat-location` | — | Region, for `gemini-vertex` and `bedrock` (optional; falls back to the platform's environment at runtime). |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. Recorded as `version.go`; `regenerate` renders that, never the toolchain it happens to run on. |
-| `--telemetry-endpoint` | — | Where the `telemetry` feature sends usage events (HTTPS). Recorded as `telemetry.endpoint`. |
+| `--telemetry-endpoint` | — | Where the `telemetry` feature sends usage events, an `http` or `https` URL. Plain `http` is accepted for a collector on a private network and every generate and regenerate warns about it. Recorded as `telemetry.endpoint`. |
 | `--telemetry-otel-endpoint` | — | OpenTelemetry collector endpoint. Recorded as `telemetry.otel_endpoint`. |
 | `--auto-initialise` | `false` | Run the first-run bootstrap automatically when the config is missing. Recorded as `bootstrap.auto_initialise`. |
 | `--skip-config-check` | — | Commands that run without a config file (repeatable). Recorded as `bootstrap.skip_config_check`. |

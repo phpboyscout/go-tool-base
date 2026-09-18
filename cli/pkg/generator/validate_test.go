@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -929,4 +930,27 @@ func TestValidateManifest_WalksSigning(t *testing.T) {
 			require.ErrorIs(t, err, generator.ErrInvalidInput)
 		})
 	}
+}
+
+// TestManifestWarnings_PlainHTTPTelemetryEndpoint (deferred item 2 of the
+// v0.43.0 round): the flag said HTTPS and the validator accepted http with
+// no comment. A collector on a private network over plain HTTP is a real
+// setup, so it stays accepted; the author is told, on every path that
+// writes the manifest, that the events travel unencrypted.
+func TestManifestWarnings_PlainHTTPTelemetryEndpoint(t *testing.T) {
+	t.Parallel()
+
+	m := &generator.Manifest{}
+	m.Properties.Name = "tool"
+	m.Properties.ModulePath = "example.com/tool"
+	m.Properties.Telemetry.Endpoint = "http://collector.internal/events"
+	m.Properties.Telemetry.OTelEndpoint = "https://otel.example.com"
+
+	warnings := generator.ManifestWarnings(m)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "telemetry.endpoint uses plain HTTP")
+	require.NoError(t, generator.ValidateManifest(m), "a warning, not a refusal")
+
+	m.Properties.Telemetry.Endpoint = "https://collector.example.com"
+	assert.Empty(t, generator.ManifestWarnings(m))
 }

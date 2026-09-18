@@ -17,6 +17,8 @@ func (g *Generator) syncDerivedFromManifest(m *Manifest) error {
 		return err
 	}
 
+	g.warnAboutManifest(m)
+
 	if err := g.regenerateRootCommand(*m); err != nil {
 		return err
 	}
@@ -36,4 +38,12 @@ func (g *Generator) syncDerivedFromManifest(m *Manifest) error {
 	// After every generated Go file is on disk, so the imports the seed reads
 	// are this run's (spec 0200 D2).
 	return g.seedGoMod(g.config.Path, manifestModulePath(*m), resolveGoVersion(m.Version.Go), g.currentVersion())
+}
+
+// warnAboutManifest logs what ManifestWarnings has to say, once per run, on
+// every path that writes the manifest.
+func (g *Generator) warnAboutManifest(m *Manifest) {
+	for _, w := range ManifestWarnings(m) {
+		g.props.Logger.Warn(w)
+	}
 }

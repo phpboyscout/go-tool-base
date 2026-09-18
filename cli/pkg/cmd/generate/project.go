@@ -225,7 +225,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.ChatDefault.Project, "chat-project", "", "Cloud project, for gemini-vertex")
 	cmd.Flags().StringVar(&opts.ChatDefault.Location, "chat-location", "", "Region, for gemini-vertex and bedrock")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
-	cmd.Flags().StringVar(&opts.TelemetryEndpoint, "telemetry-endpoint", "", "Where the telemetry feature sends usage events (HTTPS)")
+	cmd.Flags().StringVar(&opts.TelemetryEndpoint, "telemetry-endpoint", "", "Where the telemetry feature sends usage events (an http or https URL; plain http warns)")
 	cmd.Flags().StringVar(&opts.TelemetryOTelEndpoint, "telemetry-otel-endpoint", "", "OpenTelemetry collector endpoint for the telemetry feature")
 	cmd.Flags().BoolVar(&opts.Bootstrap.AutoInitialise, "auto-initialise", false, "Run the first-run bootstrap automatically when the config is missing")
 	cmd.Flags().StringSliceVar(&opts.Bootstrap.SkipConfigCheck, "skip-config-check", nil, "Commands that run without a config file (repeatable)")

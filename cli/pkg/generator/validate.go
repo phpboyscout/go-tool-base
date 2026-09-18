@@ -25,6 +25,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1147,6 +1148,28 @@ func splitHostPort(h string) (host, port string, hasPort bool) {
 // fields are optional in the YAML schema and are validated only when
 // populated; empty fields short-circuit to nil, matching the
 // forgiving behaviour of the fine-grained validators above.
+// ManifestWarnings are the things a manifest is allowed to say that an author
+// should still hear about: none of them stops a generate. Today that is a
+// telemetry endpoint over plain HTTP, which is a legitimate setup for a
+// collector on a private network and a mistake for one on the internet.
+func ManifestWarnings(m *Manifest) []string {
+	var out []string
+
+	// Keys are manifest paths under properties, not the tool's config keys.
+	for key, endpoint := range map[string]string{
+		"properties.telemetry.endpoint":      m.Properties.Telemetry.Endpoint,
+		"properties.telemetry.otel_endpoint": m.Properties.Telemetry.OTelEndpoint,
+	} {
+		if u, err := url.Parse(endpoint); err == nil && u.Scheme == "http" {
+			out = append(out, key+" uses plain HTTP ("+endpoint+"): usage events travel unencrypted; use https unless the collector is on a private network")
+		}
+	}
+
+	sort.Strings(out)
+
+	return out
+}
+
 func ValidateManifest(m *Manifest) error {
 	if m == nil {
 		return rejectf("Manifest", "manifest must not be nil", "")

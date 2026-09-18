@@ -1147,6 +1147,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 	}
 
 	manifest := manifestFromSkeletonConfig(config, fileHashes, g.props.Version.GetVersion())
+	g.warnAboutManifest(&manifest)
 
 	manifestDir := filepath.Join(config.Path, ".gtb")
 	if err := g.props.FS.MkdirAll(manifestDir, os.ModePerm); err != nil {
