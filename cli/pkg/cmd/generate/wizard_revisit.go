@@ -55,22 +55,22 @@ needed afterwards. Requires an interactive terminal.`,
 	return setup.Wrap("", cmd)
 }
 
-const needsTerminalHint = "gtb wizard needs a terminal; use gtb set <path> <value> in a script."
+const needsTerminalHint = "gtb wizard needs a terminal, or --accessible for line prompts on a piped stdin; use gtb set <path> <value> in a script."
 
-// run runs the injected answerer, or the interactive form. A stdin that is
-// not a terminal is refused before the form opens; a form that still cannot
+// run runs the injected answerer, or the form. A stdin that is neither a
+// terminal nor accessible is refused before the form opens; a form that still cannot
 // open a TTY (stdin is /dev/null, which stats as a character device) gets the
 // same hint on its error.
-func (o *WizardOptions) run(p *props.Props, so *SkeletonOptions) error {
+func (o *WizardOptions) run(ctx context.Context, p *props.Props, so *SkeletonOptions) error {
 	if o.runForm != nil {
 		return o.runForm(so)
 	}
 
-	if !p.GetIO().Interactive() {
+	if !promptable(p) {
 		return errors.WithHint(ErrNonInteractive, needsTerminalHint)
 	}
 
-	if err := so.runWizard(); err != nil {
+	if err := so.runWizard(ctx, p); err != nil {
 		return errors.WithHint(err, needsTerminalHint)
 	}
 
@@ -91,7 +91,7 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 	so := optionsFromManifest(*before)
 	so.Path = o.Path
 
-	if err := o.run(p, so); err != nil {
+	if err := o.run(ctx, p, so); err != nil {
 		return err
 	}
 

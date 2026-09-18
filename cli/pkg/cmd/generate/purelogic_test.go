@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"io"
 	"strings"
 	"testing"
@@ -385,7 +386,7 @@ func TestResolveFeatures_Partial(t *testing.T) {
 func TestAddFlagOptions_ValidateOrPrompt_BothSet(t *testing.T) {
 	t.Parallel()
 	o := &AddFlagOptions{CommandName: "deploy", FlagName: "env"}
-	err := o.ValidateOrPrompt(nobodyTyping())
+	err := o.ValidateOrPrompt(context.Background(), nobodyTyping())
 	assert.NoError(t, err)
 }
 
@@ -438,7 +439,7 @@ func TestAddFlagOptions_ValidateOrPrompt_NonInteractiveValidation(t *testing.T) 
 			t.Parallel()
 
 			o := tc.opts
-			err := o.ValidateOrPrompt(nobodyTyping())
+			err := o.ValidateOrPrompt(context.Background(), nobodyTyping())
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -540,7 +541,7 @@ func TestSaveManifest_Success(t *testing.T) {
 func TestSkeletonValidateOrPrompt_Valid(t *testing.T) {
 	t.Parallel()
 	o := &SkeletonOptions{Name: "mytool", Repo: "org/mytool"}
-	err := o.ValidateOrPrompt(nobodyTyping())
+	err := o.ValidateOrPrompt(context.Background(), nobodyTyping())
 	assert.NoError(t, err)
 }
 
@@ -550,7 +551,7 @@ func TestSkeletonValidateOrPrompt_MissingRepo(t *testing.T) {
 	t.Parallel()
 
 	o := &SkeletonOptions{Name: "mytool", Repo: ""}
-	require.ErrorIs(t, o.ValidateOrPrompt(nobodyTyping()), ErrNonInteractive)
+	require.ErrorIs(t, o.ValidateOrPrompt(context.Background(), nobodyTyping()), ErrNonInteractive)
 }
 
 // nobodyTyping is a Props whose stdin is not a terminal.

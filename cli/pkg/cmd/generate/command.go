@@ -141,7 +141,7 @@ Examples:
   gtb generate command -n post --mcp-enabled=false
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := opts.ValidateOrPrompt(p); err != nil {
+			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
 				return err
 			}
 
@@ -247,16 +247,16 @@ overwrite of existing files still requires --force on the generating command.`,
 	return cmd
 }
 
-func (o *CommandOptions) ValidateOrPrompt(p *props.Props) error {
+func (o *CommandOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) error {
 	if o.Name != "" {
 		return o.validateNonInteractive()
 	}
 
-	if !p.GetIO().Interactive() {
+	if !promptable(p) {
 		return ErrNonInteractive
 	}
 
-	return o.runInteractivePrompt()
+	return o.runInteractivePrompt(ctx, p)
 }
 
 func (o *CommandOptions) validateNonInteractive() error {
@@ -350,7 +350,7 @@ func hintedValidation(err error) error {
 	return err
 }
 
-func (o *CommandOptions) runInteractivePrompt() error {
+func (o *CommandOptions) runInteractivePrompt(ctx context.Context, p *props.Props) error {
 	if len(o.Aliases) > 0 {
 		o.AliasesInput = strings.Join(o.Aliases, ", ")
 	}
@@ -363,14 +363,14 @@ func (o *CommandOptions) runInteractivePrompt() error {
 	// native form: the prompt group reveals itself via WithHideFunc when the
 	// "Set AI Prompt" confirm is checked. The flag stage stays an imperative
 	// loop below because huh has no repeat-group primitive.
-	if err := newForm(o.buildMainGroup(), o.buildPromptGroup()).Run(); err != nil {
+	if err := runForm(ctx, p, newForm(o.buildMainGroup(), o.buildPromptGroup())); err != nil {
 		return err
 	}
 
 	o.processAliasesInput()
 
 	if o.AddFlags {
-		if err := o.runFlagLoop(); err != nil {
+		if err := o.runFlagLoop(ctx, p); err != nil {
 			return err
 		}
 	}
@@ -590,11 +590,11 @@ func (o *CommandOptions) applyMCPExposureChoice() {
 // add another. Each iteration is its own native form because huh has no
 // repeat-group primitive; the "Add Another Flag" confirm is how the user ends
 // the loop. Aborting a flag form (ctrl+c) propagates as a cancel.
-func (o *CommandOptions) runFlagLoop() error {
+func (o *CommandOptions) runFlagLoop(ctx context.Context, p *props.Props) error {
 	for {
 		fi := FlagFormInput{}
 
-		if err := newForm(o.buildFlagGroup(&fi, o.Flags)).Run(); err != nil {
+		if err := runForm(ctx, p, newForm(o.buildFlagGroup(&fi, o.Flags))); err != nil {
 			return err
 		}
 
