@@ -69,6 +69,56 @@ func seededProject(t *testing.T, manifestFeatures string) (*Generator, afero.Fs)
 
 const githubOnly = "    - name: ai\n      enabled: true\n    - name: github\n      enabled: true\n"
 
+// TestRegenerateProject_DropsThePrePhase4ToolDirectives (#86): a v0.42.0
+// scaffold's go.mod carried tool lines for gtb, golangci-lint and mockery;
+// spec 0197 D12 made those installed binaries, and the migration note says
+// an existing project loses the lines on its next regenerate.
+func TestRegenerateProject_DropsThePrePhase4ToolDirectives(t *testing.T) {
+	t.Parallel()
+
+	g, fs := seededProject(t, githubOnly)
+	old := strings.Replace(settledGoMod, "tool (\n", "tool (\n\tgithub.com/golangci/golangci-lint/cmd/golangci-lint\n\tgithub.com/vektra/mockery/v3\n\tgitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb\n", 1)
+	require.NoError(t, afero.WriteFile(fs, "/work/go.mod", []byte(old), 0o644))
+
+	require.NoError(t, g.RegenerateProject(context.Background()))
+
+	out, err := afero.ReadFile(fs, "/work/go.mod")
+	require.NoError(t, err)
+
+	s := string(out)
+	assert.NotContains(t, s, "cli/cmd/gtb")
+	assert.NotContains(t, s, "golangci-lint")
+	assert.NotContains(t, s, "mockery")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go-tool-base/cmd/changelog", "the framework's own tools stay")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go-tool-base/cmd/docs")
+}
+
+// TestRegenerateProject_RaisesAnOwnedAdapterToTheVersionThisGtbKnows (#87,
+// spec 0200 D9): the adapters move with the framework, so a present adapter
+// line below the version the running gtb links is raised on regenerate; a
+// module the generator does not own keeps whatever it holds.
+func TestRegenerateProject_RaisesAnOwnedAdapterToTheVersionThisGtbKnows(t *testing.T) {
+	t.Parallel()
+
+	g, fs := seededProject(t, githubOnly)
+	g.versions = gomod.MapSource{
+		"gitlab.com/phpboyscout/go/forge-github":   "v0.25.0",
+		"gitlab.com/phpboyscout/go/chat-anthropic": "v0.14.2",
+		"github.com/spf13/cobra":                   "v1.99.0",
+	}
+
+	require.NoError(t, g.RegenerateProject(context.Background()))
+
+	out, err := afero.ReadFile(fs, "/work/go.mod")
+	require.NoError(t, err)
+
+	s := string(out)
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go/forge-github v0.25.0", "the forge adapter is raised")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go/chat-anthropic v0.14.2", "the chat adapter is raised")
+	assert.Contains(t, s, "github.com/spf13/cobra v1.10.2", "a module the generator does not own is left alone")
+	assert.Contains(t, s, "github.com/acme/shared v1.2.3")
+}
+
 // TestRegenerateProject_NoVerifyKeepsEveryRequirement (spec 0200 D1): the
 // measured hole. A regenerate with the toolchain absent left go.mod with no
 // require line at all, because the file was re-rendered from a template that

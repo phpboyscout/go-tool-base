@@ -82,6 +82,82 @@ func TestSeed_RaisesBelowADeclaredFloorOnly(t *testing.T) {
 	assert.Equal(t, []Raise{{Path: "gitlab.com/phpboyscout/go/forge-gitlab", From: "v0.21.0", To: "v0.23.0"}}, report.Raised)
 }
 
+// prePhase4 is a v0.42.0 scaffold's tool block: gtb, golangci-lint and mockery
+// beside the framework's own commands (spec 0197 D12 removed the three).
+const prePhase4 = `module github.com/acme/mytool
+
+go 1.27.1
+
+tool (
+	github.com/golangci/golangci-lint/cmd/golangci-lint
+	github.com/vektra/mockery/v3
+	gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb
+	gitlab.com/phpboyscout/go-tool-base/cmd/changelog
+	gitlab.com/phpboyscout/go-tool-base/cmd/docs
+)
+
+require gitlab.com/phpboyscout/go-tool-base v0.42.0
+`
+
+// TestSeed_DropsTheToolDirectivesAsked (#86): the tool lines an older
+// scaffold carried for tools that are installed now are dropped and
+// reported; the framework's own stay; a line that is not there is not
+// reported.
+func TestSeed_DropsTheToolDirectivesAsked(t *testing.T) {
+	t.Parallel()
+
+	out, report, err := Seed([]byte(prePhase4), nil, nil, WithoutTools(
+		"gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb",
+		"github.com/golangci/golangci-lint/cmd/golangci-lint",
+		"github.com/vektra/mockery/v3",
+		"example.com/never/there",
+	))
+	require.NoError(t, err)
+
+	s := string(out)
+	assert.NotContains(t, s, "cli/cmd/gtb")
+	assert.NotContains(t, s, "golangci-lint")
+	assert.NotContains(t, s, "mockery")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go-tool-base/cmd/changelog")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go-tool-base/cmd/docs")
+	assert.Equal(t, []string{
+		"gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb",
+		"github.com/golangci/golangci-lint/cmd/golangci-lint",
+		"github.com/vektra/mockery/v3",
+	}, report.DroppedTools)
+}
+
+// TestLockstepFloors (#87, spec 0200 D9): an owned adapter at the version
+// this gtb knows is a floor, so a present line below it is raised; a module
+// the generator does not own, and one it knows no version for, are left as
+// D2 says.
+func TestLockstepFloors(t *testing.T) {
+	t.Parallel()
+
+	reqs := LockstepFloors([]Requirement{
+		{Path: "gitlab.com/phpboyscout/go/forge-gitlab", Version: "v0.24.0"},
+		{Path: "gitlab.com/phpboyscout/go/chat-anthropic", Version: Latest},
+		{Path: "github.com/acme/shared", Version: "v1.2.3"},
+		{Path: "gitlab.com/phpboyscout/go/forge-github", Version: "v0.25.0", Floor: true},
+	}, []string{"gitlab.com/phpboyscout/go/forge-gitlab", "gitlab.com/phpboyscout/go/chat-anthropic", "gitlab.com/phpboyscout/go/forge-github"})
+
+	assert.Equal(t, []Requirement{
+		{Path: "gitlab.com/phpboyscout/go/forge-gitlab", Version: "v0.24.0", Floor: true},
+		{Path: "gitlab.com/phpboyscout/go/chat-anthropic", Version: Latest},
+		{Path: "github.com/acme/shared", Version: "v1.2.3"},
+		{Path: "gitlab.com/phpboyscout/go/forge-github", Version: "v0.25.0", Floor: true},
+	}, reqs)
+
+	out, report, err := Seed([]byte(settled), reqs, nil)
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "gitlab.com/phpboyscout/go/forge-gitlab v0.24.0", "the owned line is raised")
+	assert.Contains(t, string(out), "github.com/acme/shared v1.2.3", "a foreign line is left")
+	assert.Equal(t, []Raise{
+		{Path: "gitlab.com/phpboyscout/go/forge-gitlab", From: "v0.21.0", To: "v0.24.0"},
+		{Path: "gitlab.com/phpboyscout/go/forge-github", From: "v0.22.0", To: "v0.25.0"},
+	}, report.Raised, "a declared floor and a lockstep floor raise alike")
+}
+
 func TestSeed_DropsAnOrphanedLineOfItsOwn(t *testing.T) {
 	t.Parallel()
 

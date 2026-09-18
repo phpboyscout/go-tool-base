@@ -35,6 +35,9 @@ type Report struct {
 	Added   []string
 	Dropped []string
 	Raised  []Raise
+	// DroppedTools names the tool directives removed because the tool is
+	// installed now rather than run through go tool (#86).
+	DroppedTools []string
 	// Unpinned names the wanted modules that had no version to seed; tidy
 	// resolves them.
 	Unpinned []string
@@ -56,6 +59,7 @@ type options struct {
 	module    string
 	goVersion string
 	tools     []string
+	dropTools []string
 }
 
 // Option adjusts Seed.
@@ -79,6 +83,12 @@ func WithTools(paths ...string) Option {
 	return func(o *options) { o.tools = append(o.tools, paths...) }
 }
 
+// WithoutTools drops the tool directives named, when present: the tools an
+// older scaffold ran through go tool that are installed now (spec 0197 D12).
+func WithoutTools(paths ...string) Option {
+	return func(o *options) { o.dropTools = append(o.dropTools, paths...) }
+}
+
 // Seed edits src, a go.mod (nil for a new file), so that every wanted
 // requirement has a line, every owned line nothing wants any more is gone,
 // and the development replace is present or absent as asked. Everything else
@@ -99,6 +109,8 @@ func Seed(src []byte, want []Requirement, replace *Replace, opts ...Option) ([]b
 	}
 
 	var report Report
+
+	dropTools(f, o.dropTools, &report)
 
 	for _, w := range want {
 		seedOne(f, w, &report)
@@ -180,6 +192,20 @@ func requireFor(f *modfile.File, path string) *modfile.Require {
 	}
 
 	return nil
+}
+
+// dropTools removes the tool directives asked for, reporting the ones that
+// were there. A directive that is absent is nothing to report.
+func dropTools(f *modfile.File, paths []string, report *Report) {
+	for _, path := range paths {
+		if !slices.ContainsFunc(f.Tool, func(t *modfile.Tool) bool { return t.Path == path }) {
+			continue
+		}
+
+		_ = f.DropTool(path) // DropTool only errors on a malformed path, checked by the caller's tables
+
+		report.DroppedTools = append(report.DroppedTools, path)
+	}
 }
 
 // dropOrphans removes the lines of owned modules nothing wants any more.

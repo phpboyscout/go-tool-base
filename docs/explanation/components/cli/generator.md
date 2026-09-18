@@ -442,6 +442,15 @@ present line below its floor is raised on regenerate and the run says so. It
 is empty today and is edited in the change that bumps the dependency it
 protects.
 
+The seed's one departure from "a present line is left alone" is the owned
+adapters: `gomod.LockstepFloors` marks each forge and chat adapter, keychain
+and signing link the running gtb knows a version for as a floor, so a line
+below it is raised on regenerate (spec 0200 D9). The adapters implement the
+framework's interfaces and move with it; a v0.42.0 project's `forge-gitlab`
+pin otherwise failed to compile against the framework it had just been
+regenerated for ([#87](https://gitlab.com/phpboyscout/go-tool-base/-/issues/87)).
+The seed also drops the pre-phase-4 `tool` directives (`legacyTools`, #86).
+
 ### 8. Custom Template Overlays (`templatesource*.go`)
 
 Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files (`README.md` and `gtb-template.yaml`) are excluded from rendering.

@@ -30,6 +30,16 @@ const toolkitPrefix = "gitlab.com/phpboyscout/go/"
 // D2): the framework's own commands, run through `go tool`.
 var scaffoldTools = []string{frameworkModule + "/cmd/changelog", frameworkModule + "/cmd/docs"}
 
+// legacyTools are the tool directives a scaffold carried before spec 0197
+// phase 4 for tools that are installed now (D12). A regenerate drops them
+// (#86): the gtb line pinned the CLI module out of step with the framework,
+// and the other two dragged their dependency graphs into every project.
+var legacyTools = []string{
+	frameworkModule + "/cli/cmd/gtb",
+	"github.com/golangci/golangci-lint/cmd/golangci-lint",
+	"github.com/vektra/mockery/v3",
+}
+
 // seedGoMod brings the project's go.mod into line with what the generated
 // tree imports (spec 0200): a require line for each module the tree's Go
 // files import that the running gtb knows a version for, the framework at
@@ -55,7 +65,10 @@ func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersi
 		return err
 	}
 
-	want := gomod.Requirements(g.modulesFor(imports), g.versions, gomod.Floors)
+	// An owned adapter's known version is a floor (spec 0200 D9, #87): the
+	// adapters move with the framework, and a line left below what this gtb
+	// links surfaces as a compile error inside the adapter after an upgrade.
+	want := gomod.LockstepFloors(gomod.Requirements(g.modulesFor(imports), g.versions, gomod.Floors), adapterModules())
 	want = append([]gomod.Requirement{{Path: frameworkModule, Version: frameworkVersion}}, want...)
 
 	var replace *gomod.Replace
@@ -66,7 +79,8 @@ func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersi
 	out, report, err := gomod.Seed(src, want, replace,
 		gomod.Owned(adapterModules()...),
 		gomod.WithModule(modulePath, goVersion),
-		gomod.WithTools(scaffoldTools...))
+		gomod.WithTools(scaffoldTools...),
+		gomod.WithoutTools(legacyTools...))
 	if err != nil {
 		return errors.Wrap(err, "seed go.mod")
 	}
@@ -91,6 +105,10 @@ func (g *Generator) reportSeed(report gomod.Report) {
 
 	for _, r := range report.Raised {
 		g.props.Logger.Info("go.mod: raised to the version this gtb requires", "module", r.Path, "from", r.From, "to", r.To)
+	}
+
+	for _, p := range report.DroppedTools {
+		g.props.Logger.Info("go.mod: dropped a tool directive; the tool is installed now, not run through go tool", "tool", p)
 	}
 
 	for _, p := range report.Unpinned {
