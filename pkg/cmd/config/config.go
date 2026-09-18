@@ -7,15 +7,30 @@ package config
 import (
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
+// registryLiteralKeys is every plaintext credential key the tool's enabled
+// features declare; the pointer keys beside them are deliberately not included.
+func registryLiteralKeys(props *p.Props) []string {
+	descriptors := credentialposture.DeclaredFor(props.GetFeatures())
+	keys := make([]string, 0, len(descriptors))
+
+	for _, d := range descriptors {
+		keys = append(keys, d.LiteralKey)
+	}
+
+	return keys
+}
+
 // NewCmdConfig returns the top-level "config" command with all subcommands
-// attached. MaskerOptions extend the built-in sensitive key and value patterns,
-// allowing tool authors to register their own credential formats.
+// attached. The masker knows the credential registry's literal keys for the
+// tool's enabled features; MaskerOptions extend the built-in sensitive key and
+// value patterns, allowing tool authors to register their own credential formats.
 func NewCmdConfig(props *p.Props, opts ...MaskerOption) *setup.Command {
-	masker := NewMasker(opts...)
+	masker := NewMasker(append([]MaskerOption{WithLiteralKeys(registryLiteralKeys(props)...)}, opts...)...)
 
 	cmd := &cobra.Command{
 		Use:   "config",

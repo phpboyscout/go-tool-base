@@ -163,7 +163,11 @@ preserved at a reported temp-file path so nothing is lost.
 
 ### `config list`
 
-List all resolved configuration values, sorted alphabetically. Sensitive values are masked.
+List all resolved configuration values, sorted alphabetically. Sensitive values are masked:
+the credential registry's literal keys, leaves that name a token, password or secret, and
+values shaped like a known token. Pointer keys such as `github.auth.env` (a variable name)
+and settings such as `gitlab.ssh.key.type` are shown in full; see
+[sensitive-value masking](../../explanation/components/config/index.md#sensitive-value-masking).
 
 ```bash
 # Human-readable table

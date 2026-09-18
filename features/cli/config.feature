@@ -44,6 +44,23 @@ Feature: CLI Config Command
     And stdout contains "github.auth.token"
     And stdout does not contain "supersecrettoken"
 
+  Scenario: List masks a declared literal and shows the pointer beside it
+    Given a config file exists with:
+      """
+      github:
+        auth:
+          env: MY_GITHUB_TOKEN
+          value: plainliteralvalue
+        ssh:
+          key:
+            type: agent
+      """
+    When I run gtb with "config list"
+    Then the exit code is 0
+    And stdout contains "MY_GITHUB_TOKEN"
+    And stdout contains "agent"
+    And stdout does not contain "plainliteralvalue"
+
   Scenario: Validate heals a missing required key from the embedded defaults
     Given a config file with no log.level key
     When I run gtb with "config validate"

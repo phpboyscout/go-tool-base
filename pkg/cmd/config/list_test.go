@@ -8,7 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/features"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -113,4 +116,37 @@ func TestCmdList_JSONOutput(t *testing.T) {
 	assert.Contains(t, out, `"value"`)
 	assert.Contains(t, out, "log.level")
 	assert.Contains(t, out, "warn")
+}
+
+// The credential registry, not a name pattern, decides that github.auth.value
+// is a secret: the pointer beside it names a variable and stays readable.
+func TestCmdList_MasksRegistryLiteralsAndShowsPointers(t *testing.T) {
+	t.Parallel()
+
+	reg := features.NewRegistry()
+	credentialposture.RegisterOn(reg, credentialposture.Descriptor{
+		Owner:      "forge",
+		Label:      "GitHub credential",
+		EnvKey:     "github.auth.env",
+		LiteralKey: "github.auth.value",
+	})
+
+	set, err := features.Resolve(reg.Snapshot(), nil)
+	require.NoError(t, err)
+
+	p := newTestProps(t, "github:\n  auth:\n    env: GITHUB_TOKEN\n    value: plainliteral\n  ssh:\n    key:\n      type: agent\n")
+	p.Features = set
+
+	root := config.NewCmdConfig(p)
+	root.SetArgs([]string{"list"})
+
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+
+	require.NoError(t, root.Execute())
+
+	out := buf.String()
+	assert.Contains(t, out, "GITHUB_TOKEN", "an env reference is a variable name, not a secret")
+	assert.Contains(t, out, "agent", "a key type is a setting")
+	assert.NotContains(t, out, "plainliteral", "the registry's literal is masked")
 }

@@ -197,13 +197,20 @@ template comments in the user's file survive the wizards.
 
 Masking lives in GTB's `config` **command** (`pkg/cmd/config/sensitive.go`), not in the
 container: the module never inspects values for sensitivity. `config get` / `config
-list` render secrets as `****<tail>` using two independent strategies:
+list` render secrets as `****<tail>` using three independent strategies:
 
-1. **Key-name matching**: the leaf segment of the dotted key against `token`,
-   `password`, `secret`, `key`, `apikey`, `auth`.
-2. **Value-content matching**: the value against known token patterns (e.g. `ghp_…`,
-   `github_pat_…`), which catches keys like `github.auth.value` whose *name* is not
-   sensitive.
+1. **Declared literals**: every plaintext credential key the credential registry
+   declares for the tool's enabled features (`github.auth.value`, `bitbucket.username`,
+   `anthropic.api.key`, ...) is masked by name, exactly. The pointer keys beside them are
+   not: `github.auth.env` holds the *name* of an environment variable and
+   `github.auth.keychain` a service/account reference, and a listing that hides them
+   cannot show where a credential comes from.
+2. **Key-name matching**: the leaf segment of the dotted key against `token`,
+   `password`, `secret`, `apikey`, `api_key`, `auth`, `app_password`, plus `key` when it
+   is the whole leaf. Only the leaf counts, so `gitlab.ssh.key.type`, `update.key_source`
+   and `signing.key_id` are settings and stay readable.
+3. **Value-content matching**: the value against known token patterns (e.g. `ghp_…`,
+   `github_pat_…`), whatever the key, so a token pasted into a pointer key is still hidden.
 
 Tool authors extend it via functional options:
 

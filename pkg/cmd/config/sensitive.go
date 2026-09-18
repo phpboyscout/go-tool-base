@@ -5,25 +5,26 @@ import (
 	"strings"
 )
 
-// defaultKeyPatterns are substrings that mark a config key as
-// holding a credential. Matching is performed against every
-// dot-separated segment of the key path (not just the leaf) so
-// entries like "github.auth.value" are caught via the "auth"
-// segment even though the leaf ("value") is generic.
-//
-// "username" is conservatively included because it forms the left
-// half of a Bitbucket dual-credential pair — masking both halves
-// avoids printing an asymmetric view.
+// defaultKeyPatterns are substrings that mark a config key as holding a
+// credential when they appear in its leaf segment. Only the leaf is matched:
+// a credential's pointer keys (auth.env names a variable, auth.keychain names
+// a service/account) share its mid-path and are not secrets, and a literal
+// whose leaf is generic (github.auth.value, bitbucket.username) is the
+// credential registry's to name through WithLiteralKeys.
 var defaultKeyPatterns = []string{
 	"token",
 	"password",
 	"secret",
-	"key",
 	"apikey",
+	"api_key",
 	"auth",
-	"username",
 	"app_password",
 }
+
+// defaultExactLeaves mark a key as sensitive only when they are the whole
+// leaf: "key" as a substring would also mask key types, key sources and key
+// ids (ssh.key.type, update.key_source, signing.key_id), which are settings.
+var defaultExactLeaves = []string{"key"}
 
 var defaultValuePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`ghp_[A-Za-z0-9]{36}`),
@@ -35,6 +36,8 @@ var defaultValuePatterns = []*regexp.Regexp{
 // The zero value is not useful; construct with NewMasker.
 type Masker struct {
 	keyPatterns   []string
+	exactLeaves   []string
+	literalKeys   map[string]struct{}
 	valuePatterns []*regexp.Regexp
 }
 
@@ -46,6 +49,20 @@ type MaskerOption func(*Masker)
 func WithKeyPattern(pattern string) MaskerOption {
 	return func(m *Masker) {
 		m.keyPatterns = append(m.keyPatterns, strings.ToLower(pattern))
+	}
+}
+
+// WithLiteralKeys marks whole config keys (case-insensitive) as holding a
+// secret regardless of their name. NewCmdConfig passes the credential
+// registry's literal keys for the tool's enabled features, so GTB's own
+// credentials are masked by declaration rather than by the shape of their name.
+func WithLiteralKeys(keys ...string) MaskerOption {
+	return func(m *Masker) {
+		for _, k := range keys {
+			if k != "" {
+				m.literalKeys[strings.ToLower(k)] = struct{}{}
+			}
+		}
 	}
 }
 
@@ -62,6 +79,8 @@ func WithValuePattern(re *regexp.Regexp) MaskerOption {
 func NewMasker(opts ...MaskerOption) *Masker {
 	m := &Masker{
 		keyPatterns:   append([]string(nil), defaultKeyPatterns...),
+		exactLeaves:   append([]string(nil), defaultExactLeaves...),
+		literalKeys:   map[string]struct{}{},
 		valuePatterns: append([]*regexp.Regexp(nil), defaultValuePatterns...),
 	}
 
@@ -72,20 +91,30 @@ func NewMasker(opts ...MaskerOption) *Masker {
 	return m
 }
 
-// IsSensitive returns true if any dot-segment of the key matches a
-// sensitive key pattern OR the value matches a sensitive value
-// pattern. Segment-level matching catches credential keys like
-// "github.auth.value" or "bitbucket.username.env" whose leaf is
-// generic ("value", "env") but whose mid-path identifies the
-// credential.
+// IsSensitive reports whether key names a declared literal, whether its leaf
+// segment looks like a credential, or whether value matches a known token
+// shape. A value pattern applies whatever the key, so a token pasted into a
+// pointer key is still masked.
 func (m *Masker) IsSensitive(key, value string) bool {
 	lowerKey := strings.ToLower(key)
+	if _, ok := m.literalKeys[lowerKey]; ok {
+		return true
+	}
 
-	for _, segment := range strings.Split(lowerKey, ".") {
-		for _, pat := range m.keyPatterns {
-			if strings.Contains(segment, pat) {
-				return true
-			}
+	leaf := lowerKey
+	if i := strings.LastIndex(lowerKey, "."); i >= 0 {
+		leaf = lowerKey[i+1:]
+	}
+
+	for _, pat := range m.keyPatterns {
+		if strings.Contains(leaf, pat) {
+			return true
+		}
+	}
+
+	for _, exact := range m.exactLeaves {
+		if leaf == exact {
+			return true
 		}
 	}
 

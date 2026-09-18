@@ -37,25 +37,31 @@ func TestMasker_IsSensitive_KeyPatterns(t *testing.T) {
 		{"db.password", "somevalue", true},
 		{"api.secret", "somevalue", true},
 		{"service.apikey", "somevalue", true},
+		{"service.api_key", "somevalue", true},
 		{"github.auth", "somevalue", true},
+		{"otel.auth", "somevalue", true},
+		{"bitbucket.app_password", "not-a-token", true},
 		// non-sensitive keys
 		{"log.level", "info", false},
 		{"tool.name", "myapp", false},
-		// Credential keys whose mid-path segment identifies the kind
-		// (auth, username, app_password) are masked even when the
-		// leaf is generic — closes a pre-existing gap surfaced by
-		// the credential-storage-hardening spec.
-		{"github.auth.value", "not-a-token", true},
-		{"github.auth.env", "GITHUB_TOKEN", true},
-		{"bitbucket.username", "alice", true},
-		{"bitbucket.app_password", "not-a-token", true},
-		// Provider-specific env-var reference keys like
-		// anthropic.api.env are NOT masked — the value is a
-		// publicly-known env var NAME, not a secret.
+		// Only the leaf is matched: a credential's mid-path segment does not
+		// make its pointer keys secret. An env reference names a variable and
+		// a keychain reference names a service/account; neither is the value.
+		{"github.auth.env", "GITHUB_TOKEN", false},
+		{"github.auth.keychain", "gtb/github", false},
+		{"bitbucket.username.env", "BITBUCKET_USERNAME", false},
 		{"anthropic.api.env", "ANTHROPIC_API_KEY", false},
-		// github.url.api — "api" alone does not match "apikey"
-		// because the pattern check is substring-of-segment, not
-		// prefix, so the URL segments remain unmasked.
+		// "key" matches only as the whole leaf: key types, key sources and key
+		// ids are settings, not secrets.
+		{"gitlab.ssh.key.type", "agent", false},
+		{"gitlab.ssh.key.env", "GITLAB_SSH_KEY", false},
+		{"update.key_source", "both", false},
+		{"signing.key_id", "ABCD1234", false},
+		// A literal whose leaf is generic is the credential registry's job
+		// (WithLiteralKeys), not the pattern list's.
+		{"github.auth.value", "not-a-token", false},
+		{"bitbucket.username", "alice", false},
+		// github.url.api — "api" alone does not match "apikey".
 		{"github.url.api", "https://api.github.com", false},
 	}
 
@@ -65,6 +71,18 @@ func TestMasker_IsSensitive_KeyPatterns(t *testing.T) {
 			assert.Equal(t, tt.want, m.IsSensitive(tt.key, tt.value))
 		})
 	}
+}
+
+func TestMasker_IsSensitive_LiteralKeys(t *testing.T) {
+	t.Parallel()
+
+	m := config.NewMasker(config.WithLiteralKeys("github.auth.value", "bitbucket.username"))
+
+	assert.True(t, m.IsSensitive("github.auth.value", "not-a-token"))
+	assert.True(t, m.IsSensitive("GitHub.Auth.Value", "not-a-token"))
+	assert.True(t, m.IsSensitive("bitbucket.username", "alice"))
+	assert.False(t, m.IsSensitive("github.auth.env", "GITHUB_TOKEN"), "the pointer beside a literal stays visible")
+	assert.False(t, m.IsSensitive("gitlab.auth.value", "x"), "an exact match, not a shape")
 }
 
 func TestMasker_IsSensitive_KeyPatternsCaseInsensitive(t *testing.T) {
