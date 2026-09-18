@@ -462,7 +462,7 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 	// spec 0025), so ctx bounds the resolution and a rung that refuses fails
 	// construction here with its reason rather than building an
 	// unauthenticated client that is refused later.
-	releaseClient, err := factory(ctx, endpoint, forgeCfg, vcs.CredentialOption(endpoint, forgeCfg, fallbackEnv))
+	releaseClient, err := factory(ctx, endpoint, forgeCfg, vcs.CredentialOptions(endpoint, forgeCfg, fallbackEnv)...)
 	if err != nil {
 		return errors.WithStack(err)
 	}

@@ -266,7 +266,7 @@ func defaultForgeProvider(profile Profile) func(context.Context, config.Reader) 
 		endpoint := forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host}
 		forgeCfg := withShippedClientID(vcs.ConfigFromReader(cfg), profile)
 
-		return factory(ctx, endpoint, forgeCfg, vcs.CredentialOption(endpoint, forgeCfg, profile.FallbackEnv))
+		return factory(ctx, endpoint, forgeCfg, vcs.CredentialOptions(endpoint, forgeCfg, profile.FallbackEnv)...)
 	}
 }
 

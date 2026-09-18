@@ -391,8 +391,8 @@ gitlab.com/phpboyscout/go/errors v0.3.0 h1:MNCCEGdWGj8rpaDFfcufBQZPPMqGY9HbHg8L1
 gitlab.com/phpboyscout/go/errors v0.3.0/go.mod h1:Nzx3wIKEwQd5DlKGFgcFlaUptL9XTqWEFtBN1pAgi78=
 gitlab.com/phpboyscout/go/features v0.1.0 h1:yRu7XU5WnbFGZDFUdbauq9jHLig06QiofX1b9EwDvn0=
 gitlab.com/phpboyscout/go/features v0.1.0/go.mod h1:RRSyDQAFSj5qATB5vcStPYk53L6dKfCFRXPEp7zhPls=
-gitlab.com/phpboyscout/go/forge v0.30.0 h1:kCFIERaJiEkeMoIW8PWXYwHfGOEXelvicqjpyubMJg0=
-gitlab.com/phpboyscout/go/forge v0.30.0/go.mod h1:ACOFQSrVv4ktoOfXyNFzIlFNgk43plxCmcS/dJliO9g=
+gitlab.com/phpboyscout/go/forge v0.31.0 h1:FRvEIXafcqZDglw8qQpyNAiFRFG8i14sDJjVzfgCK/I=
+gitlab.com/phpboyscout/go/forge v0.31.0/go.mod h1:ACOFQSrVv4ktoOfXyNFzIlFNgk43plxCmcS/dJliO9g=
 gitlab.com/phpboyscout/go/grpcclient v0.2.2 h1:Y6qO5f1wzvjZzN0P5Euo1G+HsfF5Z2xjKcqctW8zAgs=
 gitlab.com/phpboyscout/go/grpcclient v0.2.2/go.mod h1:Bw/9YqCyUsWux9MR4Y9sycvoxQdlcRiY+Lhf1X0KLbw=
 gitlab.com/phpboyscout/go/httpclient v0.2.3 h1:GQLhyKmIyTSUWXkVHrBckF7ZUh1duDYJ+4qmMKeKOMc=

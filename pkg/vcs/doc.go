@@ -9,7 +9,7 @@
 // GTB-side glue:
 //
 //   - ConfigFromReader adapts a GTB config.Reader to the narrow forge.Config seam
-//     the provider factories consume, and CredentialOption hands a factory
+//     the provider factories consume, and CredentialOptions hands a factory
 //     GTB's credential chain (ForgeCredential) so it composes none of its own.
 //   - the repo sub-package's config adapter maps GTB props/config to go/repo
 //     Settings.

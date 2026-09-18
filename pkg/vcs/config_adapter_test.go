@@ -126,7 +126,7 @@ func TestEndpointSectionResolvesTheTypeSubtree(t *testing.T) {
 // resolve GTB's chain into auth.value and hide the pointer keys so a provider
 // factory's own composition would not report them as stale (#76); since
 // go/forge v0.30.0 every construction site hands the factory the chain through
-// forge.WithCredential (CredentialOption), so the factory never composes from
+// forge.WithCredential (CredentialOptions), so the factory never composes from
 // these keys and the view has nothing to disguise.
 func TestConfigFromReader_ReadsTheKeysAsConfigured(t *testing.T) {
 	t.Setenv("MY_DEPLOYMENT_TOKEN", "tok-from-env")

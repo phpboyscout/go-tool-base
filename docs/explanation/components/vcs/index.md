@@ -25,15 +25,16 @@ The VCS layer has been **extracted** into standalone modules. What remains in
 typically `props.Config.View()`) to the narrow `forge.Config` seam. The seam is
 two methods wide precisely so a provider needs no config library; this bridge is
 the one place that knows about both, and it reads every key as configured.
-Beside it, `CredentialOption` hands a provider factory GTB's credential chain
-through `forge.WithCredential`: GTB dereferences `auth.env` and `auth.keychain`
+Beside it, `CredentialOptions` hands a provider factory GTB's credential chain
+through `forge.WithCredential` (and `forge.WithUsername` for Bitbucket's
+other half): GTB dereferences `auth.env` and `auth.keychain`
 itself (see [credential precedence](../../../reference/migration/v0.x-forge-credential-precedence.md)),
 and a factory given a source consults it and nothing else, so the pointer keys
 are never read by the module that would report them as stale. Every
 construction site passes it, the construction context bounds the resolution,
 and a rung that refuses (a locked keychain) fails construction with its reason
-rather than building an unauthenticated client. Bitbucket's two halves stay the
-adapter's own composition. This config glue is **all** that remains in
+rather than building an unauthenticated client. Bitbucket's two halves each
+walk their own keys and share one keychain entry, read once. This config glue is **all** that remains in
 GTB: the forge clients themselves (GitHub, GitLab, Gitea/Codeberg, Bitbucket,
 plus the built-in `direct` source) now live in the external `go/forge` and
 `go/forge-<name>` modules. The interactive auth and SSH-key operations GTB used

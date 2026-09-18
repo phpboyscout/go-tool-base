@@ -54,7 +54,7 @@ func defaultKeyManager(profile Profile) func(context.Context, config.Reader) (fo
 		endpoint := forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host}
 		forgeCfg := vcs.ConfigFromReader(cfg)
 
-		provider, err := factory(ctx, endpoint, forgeCfg, vcs.CredentialOption(endpoint, forgeCfg, profile.FallbackEnv))
+		provider, err := factory(ctx, endpoint, forgeCfg, vcs.CredentialOptions(endpoint, forgeCfg, profile.FallbackEnv)...)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

@@ -128,22 +128,38 @@ func readerFor(sub forge.Config) credentialposture.Reader {
 	return sub
 }
 
-// CredentialOption hands a provider factory GTB's credential chain for the
+// CredentialOptions hands a provider factory GTB's credential chain for the
 // endpoint's section of cfg, so the factory consults it and nothing else
-// (go/forge spec 0025 D2): auth.env and auth.keychain are dereferenced by
-// GTB, never read by the factory, and the construction context bounds the
-// resolution. cfg is the ROOT configuration, as the factory receives it.
+// (go/forge spec 0025 D2, spec 0026): auth.env and auth.keychain are
+// dereferenced by GTB, never read by the factory, and the construction
+// context bounds the resolution. cfg is the ROOT configuration, as the
+// factory receives it.
 //
-// Bitbucket authenticates with two halves the adapter composes from its own
-// keys, and GTB's chain knows only auth.*, so for it the option carries nil,
-// which the factory reads as its default (spec 0025 D3, OQ1).
-func CredentialOption(endpoint forge.Endpoint, cfg forge.Config, fallbackEnv string) forge.Option {
+// A single-token forge gets its chain through forge.WithCredential and no
+// username; a factory ignores forge.WithUsername it has no use for. Bitbucket
+// authenticates with two halves, so it gets both: the username through
+// forge.WithUsername and the app password through forge.WithCredential, each
+// walking its own env-reference and literal keys and the one keychain entry
+// that holds both, read once.
+func CredentialOptions(endpoint forge.Endpoint, cfg forge.Config, fallbackEnv string) []forge.Option {
+	sub := endpoint.Section(cfg)
+
 	if endpoint.Type == forge.SourceTypeBitbucket {
-		return forge.WithCredential(nil)
+		username, password := bitbucketSources(sub, bitbucketUserFallbackEnv, bitbucketPassFallbackEnv)
+
+		return []forge.Option{forge.WithUsername(username), forge.WithCredential(password)}
 	}
 
-	return forge.WithCredential(ForgeCredential(endpoint.Section(cfg), fallbackEnv))
+	return []forge.Option{forge.WithCredential(ForgeCredential(sub, fallbackEnv))}
 }
+
+// The well-known variables for Bitbucket's two halves; the profile in
+// pkg/setup/forge names the same two, and the config bundle points its env
+// references at them by default.
+const (
+	bitbucketUserFallbackEnv = "BITBUCKET_USERNAME"
+	bitbucketPassFallbackEnv = "BITBUCKET_APP_PASSWORD" //nolint:gosec // G101: the variable's NAME, not a credential
+)
 
 // ConfigKeyProvider overrides the release-source forge a tool was built with.
 const ConfigKeyProvider = "vcs.provider"

@@ -11,7 +11,7 @@ import (
 // ForgeCredential walks, so the dereferencing rungs see the real auth.env and
 // auth.keychain values. It used to disguise the chain's result as auth.value
 // for the factories; since go/forge v0.30.0 they are handed the chain itself
-// (CredentialOption) and read nothing under auth.* on their own.
+// (CredentialOptions) and read nothing under auth.* on their own.
 type configAdapter struct {
 	cfg    config.Reader
 	prefix string
