@@ -460,6 +460,8 @@ func TestForgeCredential_MalformedKeychainRefIsDiagnosed(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "malformed keychain reference")
+	assert.Equal(t, "gtb.credentialposture.malformed_keychain_ref", errors.KindOf(err),
+		"the updater's construction failure is logged with this kind; errors.join said nothing")
 }
 
 // isProductionGoFile excludes tests from the guard: a test may call the

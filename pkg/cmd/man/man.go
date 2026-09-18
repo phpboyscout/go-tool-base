@@ -1,7 +1,8 @@
-// Package man implements the hidden, opt-in "man" command that emits roff man
-// pages for a tool's own command tree at runtime — for packaging postinstall
-// scripts or ad-hoc preview — without re-running the source-tree generator.
-// It is gated behind the default-off props.ManCmd feature.
+// Package man implements the opt-in "man" command that emits roff man pages
+// for a tool's own command tree at runtime, for packaging postinstall scripts
+// or ad-hoc preview, without re-running the source-tree generator. It is
+// gated behind the default-off props.ManCmd feature and listed in --help once
+// that feature is on: the author asked for it, so it is not hidden from them.
 package man
 
 import (
@@ -12,17 +13,16 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-// NewCmdMan returns the hidden runtime "man" command, gated behind the
-// default-off ManCmd feature. With --dir it writes the full tree under
+// NewCmdMan returns the runtime "man" command, gated behind the default-off
+// ManCmd feature. With --dir it writes the full tree under
 // <dir>/man1; without it, the running tool's top-level page is printed to
 // stdout for preview (e.g. "mytool man | man -l -").
 func NewCmdMan(props *p.Props) *setup.Command {
 	var dir string
 
 	cmd := &cobra.Command{
-		Use:    "man",
-		Short:  "Generate or preview roff man pages for this tool",
-		Hidden: true,
+		Use:   "man",
+		Short: "Generate or preview roff man pages for this tool",
 		Long: `Emit roff man pages for this tool's own command tree.
 
 With --dir, the full tree is written under <dir>/man1/<command-path>.1 (for a

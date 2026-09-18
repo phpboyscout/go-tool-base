@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -189,6 +191,12 @@ func TestResolve_ConfiguredButBrokenIsDiagnosedNotAbsent(t *testing.T) {
 
 	require.Error(t, err, "a malformed reference must be reported, not swallowed")
 	assert.Equal(t, credentialposture.OriginNone, got.Origin)
+
+	// One failing rung is that rung's error, with its own identity: a log
+	// record naming errors.join for a single malformed reference says nothing.
+	require.ErrorIs(t, err, credentialposture.ErrMalformedKeychainRef)
+	assert.Equal(t, "gtb.credentialposture.malformed_keychain_ref", errors.KindOf(err))
+	assert.Contains(t, err.Error(), `malformed keychain reference "no-slash-here"`)
 }
 
 func TestResolve_ContextCancellationIsHonoured(t *testing.T) {

@@ -1,13 +1,20 @@
 @cli @man
 Feature: CLI Man Command
-  The hidden, opt-in `man` command emits roff man pages for the tool's own
-  command tree — to stdout for preview, or to a directory tree for packaging.
-  It is gated behind the default-off ManCmd feature (enabled in the e2e binary).
+  The opt-in `man` command emits roff man pages for the tool's own command
+  tree, to stdout for preview or to a directory tree for packaging. It is
+  gated behind the default-off ManCmd feature (enabled in the e2e binary) and
+  listed in --help once that feature is on.
 
   Background:
     Given the gtb binary is built
     # The keys scratch dir doubles as a generic output directory here.
     And a temporary keys directory
+
+  @smoke
+  Scenario: An enabled man command is listed in help
+    When I run gtb with "--help"
+    Then the exit code is 0
+    And stdout contains "man "
 
   @smoke
   Scenario: man without --dir prints the tool's roff page to stdout

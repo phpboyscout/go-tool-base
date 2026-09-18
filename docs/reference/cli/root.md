@@ -35,7 +35,7 @@ The root command automatically registers the following subcommands:
 | `changelog` | Display the embedded changelog | :material-check: Yes |
 | `config` | Programmatic config access (`get`/`set`/`list`/`validate`): opt-in, off by default | :material-check: Yes |
 | `telemetry` | Opt-in usage telemetry status and management: off by default | :material-check: Yes |
-| `man` | Hidden roff man-page emitter for packaging: opt-in, off by default | :material-check: Yes |
+| `man` | Roff man-page emitter for packaging: opt-in, off by default, listed once enabled | :material-check: Yes |
 
 See the [Commands Overview](index.md) for the full list and which commands are default-enabled versus opt-in.
 

@@ -80,7 +80,7 @@ Two thin command surfaces call this one seam:
   the build-time step for CI and packaging. Respects the generator's
   `--dry-run` (lists intended files instead of writing). A `just man` recipe
   wraps it.
-- **`<tool> man [--dir]`**: a hidden, opt-in runtime command (default-off
+- **`<tool> man [--dir]`**: an opt-in runtime command (default-off
   `props.ManCmd` feature). With `--dir` it writes the tree; without it, the
   tool's top-level page is printed to stdout for preview
   (`mytool man | man -l -`). Enable it with

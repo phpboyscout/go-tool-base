@@ -102,7 +102,7 @@ func (b *bitbucketBlob) load(ctx context.Context) (bitbucketEntry, error) {
 
 		service, account, ok := strings.Cut(ref, "/")
 		if !ok || service == "" || account == "" {
-			b.err = errors.Newf("malformed keychain reference %q: want \"service/account\"", ref)
+			b.err = errors.Wrapf(credentialposture.ErrMalformedKeychainRef, "malformed keychain reference %q", ref)
 
 			return
 		}

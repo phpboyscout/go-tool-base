@@ -62,6 +62,12 @@ var ErrSecureStoreRegressed = errors.NewSentinel(
 	"keychain unavailable; refusing to fall back to a plaintext credential",
 )
 
+// ErrMalformedKeychainRef is a keychain reference that is not "service/account".
+var ErrMalformedKeychainRef = errors.NewSentinel(
+	"gtb.credentialposture.malformed_keychain_ref",
+	`a keychain reference is "service/account"`,
+)
+
 // Reader is the narrow config surface a posture walk needs. Both
 // `config.View` and `forge.Config` satisfy it, which is what lets this package
 // serve forges and AI providers without depending on either.
@@ -245,7 +251,12 @@ func ResolveCredential(ctx context.Context, cfg Reader, d Descriptor) (string, P
 				keychainBroke = true
 			}
 
-			retained = errors.Join(retained, err)
+			// A single failure keeps its own identity; a join names the join.
+			if retained == nil {
+				retained = err
+			} else {
+				retained = errors.Join(retained, err)
+			}
 
 			continue
 		}
@@ -353,7 +364,7 @@ func readKeychain(ctx context.Context, cfg Reader, d Descriptor) (string, error)
 
 	service, account, ok := strings.Cut(ref, "/")
 	if !ok || service == "" || account == "" {
-		return "", errors.Newf("malformed keychain reference %q: want \"service/account\"", ref)
+		return "", errors.Wrapf(ErrMalformedKeychainRef, "malformed keychain reference %q", ref)
 	}
 
 	secret, err := credentials.Retrieve(ctx, service, account)

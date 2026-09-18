@@ -39,11 +39,13 @@ func attach(t *testing.T) (*cobra.Command, *bytes.Buffer) {
 	return root, &buf
 }
 
-func TestNewCmdMan_Hidden(t *testing.T) {
+// The command only exists when the author enabled the feature, so hiding it
+// from --help served nobody.
+func TestNewCmdMan_ListedWhenEnabled(t *testing.T) {
 	t.Parallel()
 
 	cmd := cmdman.NewCmdMan(newProps())
-	assert.True(t, cmd.Hidden, "man must be hidden from --help listings")
+	assert.False(t, cmd.Hidden, "an opt-in command is listed for the author who opted in")
 }
 
 func TestRuntimeMan_StdoutSinglePage(t *testing.T) {
