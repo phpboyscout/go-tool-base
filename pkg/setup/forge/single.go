@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -57,13 +58,23 @@ func (i *Initialiser) configureSingle(ctx context.Context, p *props.Props, cfg s
 	return nil
 }
 
-// hasAnySingleCredential reports whether the config already records a credential
-// under any of the three storage modes. Used to short-circuit the auth wizard
-// when the user re-runs `init`.
+// hasAnySingleCredential reports whether the config already records a
+// credential: a literal, a keychain reference, or an env reference that
+// resolves. Used to short-circuit the auth wizard when the user re-runs
+// init. The env reference must resolve, not merely be present: every forge
+// bundle ships auth.env as a default, so presence alone made the wizard
+// never run for a forge that used this check (deferred item 6 of the
+// v0.43.0 round), while doctor already applied the resolves rule.
 func hasAnySingleCredential(profile Profile, cfg config.Reader) bool {
 	return cfg.GetString(profile.authValueKey()) != "" ||
 		cfg.GetString(profile.authKeychainKey()) != "" ||
-		cfg.GetString(profile.authEnvKey()) != ""
+		envRefResolves(cfg.GetString(profile.authEnvKey()))
+}
+
+// envRefResolves reports whether an env reference names a variable that is
+// set. An empty reference is not a credential.
+func envRefResolves(name string) bool {
+	return name != "" && os.Getenv(name) != ""
 }
 
 func (i *Initialiser) configureAuth(ctx context.Context, p *props.Props, cfg setup.Editor) error {

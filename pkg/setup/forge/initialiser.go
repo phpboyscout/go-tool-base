@@ -2,7 +2,6 @@ package forge
 
 import (
 	"context"
-	"os"
 
 	"gitlab.com/phpboyscout/go/config"
 
@@ -156,11 +155,7 @@ func (i *Initialiser) maybeConfigureSSH(ctx context.Context, p *props.Props, cfg
 func (i *Initialiser) isSingleConfigured(cfg config.Reader) bool {
 	p := i.profile
 
-	authEnv := cfg.GetString(p.authEnvKey())
-	loginConfigured := i.SkipLogin ||
-		cfg.GetString(p.authValueKey()) != "" ||
-		cfg.GetString(p.authKeychainKey()) != "" ||
-		(authEnv != "" && os.Getenv(authEnv) != "")
+	loginConfigured := i.SkipLogin || hasAnySingleCredential(p, cfg)
 
 	return loginConfigured && i.sshConfigured(cfg)
 }
@@ -168,9 +163,11 @@ func (i *Initialiser) isSingleConfigured(cfg config.Reader) bool {
 func (i *Initialiser) isDualConfigured(cfg config.Reader) bool {
 	p := i.profile
 
+	// An env reference counts once it resolves, as for the single shape: the
+	// bundle ships both pointers as defaults.
 	credentialConfigured := cfg.GetString(p.keychainKey()) != "" ||
-		cfg.GetString(p.userEnvKey()) != "" ||
-		cfg.GetString(p.passEnvKey()) != "" ||
+		envRefResolves(cfg.GetString(p.userEnvKey())) ||
+		envRefResolves(cfg.GetString(p.passEnvKey())) ||
 		cfg.GetString(p.userKey()) != "" ||
 		cfg.GetString(p.passKey()) != ""
 

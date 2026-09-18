@@ -200,6 +200,7 @@ func TestIsConfigured(t *testing.T) {
 	tests := []struct {
 		name    string
 		yaml    string
+		env     map[string]string
 		skipKey bool
 		wantYes bool
 	}{
@@ -207,8 +208,12 @@ func TestIsConfigured(t *testing.T) {
 		{name: "credential alone is not enough", yaml: "bitbucket:\n  username: alice\n", wantYes: false},
 		{name: "ssh alone is not enough", yaml: "bitbucket:\n" + sshRecorded, wantYes: false},
 
-		{name: "env-var username + ssh", yaml: "bitbucket:\n  username:\n    env: BB_USER\n" + sshRecorded, wantYes: true},
-		{name: "env-var app_password + ssh", yaml: "bitbucket:\n  app_password:\n    env: BB_APP_PW\n" + sshRecorded, wantYes: true},
+		// An env reference counts once it resolves (deferred item 6 of the
+		// v0.43.0 round): the bundle ships both pointers as defaults, so
+		// their presence alone said nothing.
+		{name: "env-var username + ssh, variable set", yaml: "bitbucket:\n  username:\n    env: BB_USER\n" + sshRecorded, env: map[string]string{"BB_USER": "alice"}, wantYes: true},
+		{name: "env-var username + ssh, variable unset", yaml: "bitbucket:\n  username:\n    env: BB_USER_UNSET\n" + sshRecorded, wantYes: false},
+		{name: "env-var app_password + ssh, variable set", yaml: "bitbucket:\n  app_password:\n    env: BB_APP_PW\n" + sshRecorded, env: map[string]string{"BB_APP_PW": "pw"}, wantYes: true},
 		{name: "keychain ref + ssh", yaml: "bitbucket:\n  keychain: tool/bitbucket.auth\n" + sshRecorded, wantYes: true},
 		{name: "literal username + ssh", yaml: "bitbucket:\n  username: alice\n" + sshRecorded, wantYes: true},
 		{name: "literal app_password + ssh", yaml: "bitbucket:\n  app_password: s3cret\n" + sshRecorded, wantYes: true},
@@ -228,6 +233,11 @@ func TestIsConfigured(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// Not parallel: the env-reference cases set variables.
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+
 			view := testutil.ViewFromYAML(t, tc.yaml)
 			i := &Initialiser{profile: bitbucketProfile, SkipKey: tc.skipKey}
 

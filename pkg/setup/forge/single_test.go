@@ -645,3 +645,25 @@ func TestRegisteredFeatureFlag(t *testing.T) {
 	require.NotNil(t, cmd.Flags().Lookup("skip-login"))
 	assert.Nil(t, cmd.Flags().Lookup(setup.SkipKeyFlag), "--skip-key is the init command's own flag, not GitHub's")
 }
+
+// TestHasAnySingleCredential_AnEnvPointerCountsOnlyWhenItResolves (deferred
+// item 6 of the v0.43.0 round): every forge bundle ships auth.env as a
+// default, so a check that counted the pointer's presence was always true
+// and init <forge> never ran its token wizard; init github went a different
+// route and did ask. "Configured" is what doctor already means by it: the
+// pointer resolves, or a literal or keychain reference is recorded.
+func TestHasAnySingleCredential_AnEnvPointerCountsOnlyWhenItResolves(t *testing.T) {
+	t.Setenv("GITLAB_TOKEN", "")
+
+	pointerOnly := testutil.ViewFromYAML(t, "gitlab:\n  auth:\n    env: GITLAB_TOKEN\n")
+	assert.False(t, hasAnySingleCredential(gitLabProfile, pointerOnly), "the bundled default names an unset variable: nothing is configured yet")
+
+	t.Setenv("GITLAB_TOKEN", "glpat-x")
+	assert.True(t, hasAnySingleCredential(gitLabProfile, pointerOnly), "the pointer resolves")
+
+	t.Setenv("GITLAB_TOKEN", "")
+	literal := testutil.ViewFromYAML(t, "gitlab:\n  auth:\n    value: tok\n")
+	assert.True(t, hasAnySingleCredential(gitLabProfile, literal))
+	keychain := testutil.ViewFromYAML(t, "gitlab:\n  auth:\n    keychain: tool/gitlab.auth\n")
+	assert.True(t, hasAnySingleCredential(gitLabProfile, keychain))
+}
