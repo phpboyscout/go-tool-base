@@ -1164,6 +1164,10 @@ func ValidateManifest(m *Manifest) error {
 		return err
 	}
 
+	if err := validateBackendAgreesWithType(m.ReleaseSource); err != nil {
+		return err
+	}
+
 	if err := ValidateModulePath(m.Properties.ModulePath); err != nil {
 		return err
 	}
@@ -1385,6 +1389,19 @@ func validateManifestHelp(h *ManifestHelp) error {
 // populated; absent fields are permitted in the YAML schema. Owner and
 // Repo are joined into `{{ .Repo }}` / `{{ .ModulePath }}` and rendered
 // raw into CI-executed files, so both are gated here.
+// validateBackendAgreesWithType: the backend implies the forge (spec 0195),
+// so a release type that names a forge must be the backend, or the tool
+// links one adapter and releases from another (F21). A type that names no
+// forge (direct) constrains nothing.
+func validateBackendAgreesWithType(rs ManifestReleaseSource) error {
+	byType := forgeBackendNamed(rs.Type)
+	if byType == "" || rs.Backend == "" || byType == rs.Backend {
+		return nil
+	}
+
+	return errors.Wrapf(ErrBackendContradictsType, "backend %q, type %q", rs.Backend, rs.Type)
+}
+
 func validateManifestReleaseSource(rs *ManifestReleaseSource) error {
 	if err := ValidateReleaseSourceType(rs.Type); err != nil {
 		return err

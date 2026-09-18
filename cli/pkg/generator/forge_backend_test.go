@@ -148,6 +148,27 @@ func TestValidateManifest_RefusesUnknownBackend(t *testing.T) {
 	require.ErrorIs(t, ValidateManifest(bad), ErrInvalidModulePath)
 }
 
+// TestValidateManifest_RefusesABackendContradictingTheReleaseType (F21 of the
+// v0.43.0 manual round): gtb set release_source.backend accepted a forge
+// that contradicted release_source.type, so the tool would link one adapter
+// and release from another. The backend implies the forge (spec 0195), so a
+// release type that names a forge must be that backend.
+func TestValidateManifest_RefusesABackendContradictingTheReleaseType(t *testing.T) {
+	t.Parallel()
+
+	contradiction := &Manifest{Properties: ManifestProperties{Name: "tool"},
+		ReleaseSource: ManifestReleaseSource{Type: "github", Backend: "gitlab", Host: "gitlab.com", Owner: "o", Repo: "r"}}
+	require.ErrorIs(t, ValidateManifest(contradiction), ErrBackendContradictsType)
+
+	agree := &Manifest{Properties: ManifestProperties{Name: "tool"},
+		ReleaseSource: ManifestReleaseSource{Type: "gitlab", Backend: "gitlab", Host: "gitlab.com", Owner: "o", Repo: "r"}}
+	require.NoError(t, ValidateManifest(agree))
+
+	direct := &Manifest{Properties: ManifestProperties{Name: "tool", ModulePath: "example.com/tool"},
+		ReleaseSource: ManifestReleaseSource{Type: "direct", Backend: "gitlab"}}
+	require.NoError(t, ValidateManifest(direct), "a type that names no forge constrains nothing")
+}
+
 func TestValidateModulePath(t *testing.T) {
 	t.Parallel()
 

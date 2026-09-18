@@ -24,7 +24,10 @@ var (
 	ErrInvalidForgeBackend   = errors.NewSentinel("gtb.generator.invalid_forge_backend", "unknown forge backend")
 	ErrInvalidModulePath     = errors.NewSentinel("gtb.generator.invalid_module_path", "invalid Go module path")
 	ErrInvalidReleaseChannel = errors.NewSentinel("gtb.generator.invalid_release_channel", "unknown release channel")
-	ErrAmbiguousForgeBackend = errors.NewSentinel("gtb.generator.ambiguous_forge_backend",
+	// ErrBackendContradictsType reports a release_source.backend naming one
+	// forge while release_source.type names another.
+	ErrBackendContradictsType = errors.NewSentinel("gtb.generator.backend_contradicts_type", "release_source.backend contradicts release_source.type")
+	ErrAmbiguousForgeBackend  = errors.NewSentinel("gtb.generator.ambiguous_forge_backend",
 		"the manifest enables more than one forge and its release source names none of them; set release_source.backend")
 )
 
