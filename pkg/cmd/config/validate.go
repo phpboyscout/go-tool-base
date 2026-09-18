@@ -5,6 +5,11 @@ import (
 	"io"
 	"strings"
 
+	"gitlab.com/phpboyscout/go/features"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/flags"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -74,17 +79,47 @@ func buildBaseSchema() (*cfg.StructSchema, error) {
 // value-validation warnings (required, enum, type).
 const unknownKeyMessage = "unknown configuration key"
 
-// frameworkConfigSections is the set of top-level config sections the framework
-// and its built-in features own. A key beneath one of these is a recognised
-// configuration key, not a typo the base schema simply does not enumerate — the
-// schema cannot list every feature, credential, and resilience key without
-// duplicating each one as a struct-tag literal.
-var frameworkConfigSections = map[string]bool{
-	"log": true, "update": true, "server": true, "telemetry": true,
-	"ai": true, "anthropic": true, "openai": true, "gemini": true, "chat": true,
-	"github": true, "gitlab": true, "gitea": true, "codeberg": true,
-	"direct": true, "bitbucket": true,
-	"output": true, "debug": true, "ci": true,
+// fixedFrameworkSections are the top-level config sections the framework and
+// its built-in features own that no registry declares. A key beneath one of
+// these is a recognised configuration key, not a typo the base schema simply
+// does not enumerate: the schema cannot list every feature and resilience key
+// without duplicating each one as a struct-tag literal.
+var fixedFrameworkSections = []string{
+	"log", "update", "server", "telemetry", "ai", "chat", "output", "debug", "ci",
+}
+
+// frameworkSections is the set of top-level sections the framework owns: the
+// fixed ones, the root of every credential the tool's enabled features
+// declare (the forges, the chat providers, whatever a tool registers), and
+// the dynamic feature flags' root. It used to be a hand list, and the hand list lacked azure
+// (spec 0196 D6) and features (spec 0199), so config validate warned about
+// keys the framework reads (F15).
+func frameworkSections(set features.Set) map[string]bool {
+	sections := make(map[string]bool, len(fixedFrameworkSections))
+	for _, name := range fixedFrameworkSections {
+		sections[name] = true
+	}
+
+	sections[sectionOf(flags.ConfigKey("any"))] = true
+
+	for _, d := range credentialposture.DeclaredFor(set) {
+		for _, key := range []string{d.EnvKey, d.KeychainKey, d.LiteralKey} {
+			if root := sectionOf(key); root != "" {
+				sections[root] = true
+			}
+		}
+	}
+
+	return sections
+}
+
+// sectionOf is the top-level section of a dotted key, or empty for none.
+func sectionOf(key string) string {
+	if i := strings.IndexByte(key, '.'); i >= 0 {
+		return key[:i]
+	}
+
+	return key
 }
 
 // actionableWarnings trims validation warnings to the ones a user can act on.
@@ -99,10 +134,11 @@ var frameworkConfigSections = map[string]bool{
 // never dropped by the unknown-key filter.
 func actionableWarnings(props *p.Props, view *cfg.View, warnings []cfg.ValidationError) []cfg.ValidationError {
 	declared := toolDeclaredKeys(props)
+	sections := frameworkSections(props.GetFeatures())
 	kept := make([]cfg.ValidationError, 0, len(warnings))
 
 	for _, warning := range warnings {
-		if warning.Message == unknownKeyMessage && recognisedConfigKey(warning.Key, declared) {
+		if warning.Message == unknownKeyMessage && recognisedConfigKey(warning.Key, declared, sections) {
 			continue
 		}
 
@@ -118,17 +154,14 @@ func actionableWarnings(props *p.Props, view *cfg.View, warnings []cfg.Validatio
 // legitimately owns: its top-level section is a framework section, or the tool
 // declares the key (or an ancestor of it) in its embedded defaults or init
 // template.
-func recognisedConfigKey(key string, declared map[string]bool) bool {
+func recognisedConfigKey(key string, declared, sections map[string]bool) bool {
 	if key == "" {
 		return false
 	}
 
-	section := key
-	if i := strings.IndexByte(key, '.'); i >= 0 {
-		section = key[:i]
-	}
+	section := sectionOf(key)
 
-	return frameworkConfigSections[section] || declared[key]
+	return sections[section] || declared[key]
 }
 
 // toolDeclaredKeys returns the set of config keys (and their ancestor paths)
