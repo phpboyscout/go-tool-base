@@ -1,6 +1,7 @@
 package enable
 
 import (
+	"context"
 	"slices"
 	"strings"
 
@@ -156,11 +157,11 @@ func mergeSigning(current generator.ManifestSigning, opts *signingOptions, set s
 // re-run that already has an email (e.g. adding --key-id later) never re-asks.
 // When the prompt runs, the email and key source it collects count as provided.
 func maybePromptEmail(cmd *cobra.Command, p *props.Props, opts *signingOptions, current generator.ManifestSigning, set *signingFlagSet) error {
-	if opts.Email != "" || current.ExternalKeyEmail != "" || !p.GetIO().Interactive() || isCI(cmd, p) {
+	if opts.Email != "" || current.ExternalKeyEmail != "" || !setup.Promptable(p.GetIO()) || isCI(cmd, p) {
 		return nil
 	}
 
-	if err := opts.promptInteractive(); err != nil {
+	if err := opts.promptInteractive(cmd.Context(), p); err != nil {
 		return err
 	}
 
@@ -223,7 +224,7 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 
 // promptInteractive collects the WKD email and key source in a small
 // huh form. require_signature is never prompted.
-func (o *signingOptions) promptInteractive() error {
+func (o *signingOptions) promptInteractive(ctx context.Context, p *props.Props) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -241,9 +242,9 @@ func (o *signingOptions) promptInteractive() error {
 				).
 				Value(&o.KeySource),
 		),
-	).WithTheme(setup.FormTheme())
+	)
 
-	return form.Run()
+	return setup.RunForm(ctx, p, form)
 }
 
 // normaliseKeySource maps the framework default ("both") to an empty

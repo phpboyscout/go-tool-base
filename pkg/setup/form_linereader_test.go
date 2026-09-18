@@ -37,3 +37,14 @@ func TestRunFormOn_AccessibleAnswersOnAPipeAllArrive(t *testing.T) {
 	assert.Equal(t, "two", second, "the second prompt must see its own line, not an empty read")
 	assert.Equal(t, "three", third, "and so must a prompt on a later page")
 }
+
+// TestPromptable: one rule for every prompt gate.
+func TestPromptable(t *testing.T) {
+	t.Parallel()
+
+	pipe := props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+	assert.False(t, setup.Promptable(pipe), "a plain pipe cannot be prompted")
+
+	pipe.AccessibleMode = true
+	assert.True(t, setup.Promptable(pipe), "a pipe with accessible asked for takes line prompts")
+}

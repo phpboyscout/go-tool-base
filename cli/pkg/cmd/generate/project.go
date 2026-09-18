@@ -1657,7 +1657,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		return err
 	}
 
-	templates, err := o.resolveTemplateSources(p)
+	templates, err := o.resolveTemplateSources(ctx, p)
 	if err != nil {
 		return err
 	}
@@ -1753,7 +1753,7 @@ func isCIEnv(p *props.Props) bool {
 // TemplateSource and, for a remote (git) source, confirms the trust decision
 // with the operator (suppressible under --ci / non-interactive). Adding a
 // source is the trust decision; the pin records exactly what was trusted.
-func (o *SkeletonOptions) resolveTemplateSources(p *props.Props) ([]generator.TemplateSource, error) {
+func (o *SkeletonOptions) resolveTemplateSources(ctx context.Context, p *props.Props) ([]generator.TemplateSource, error) {
 	if len(o.Templates) == 0 {
 		return nil, nil
 	}
@@ -1766,7 +1766,7 @@ func (o *SkeletonOptions) resolveTemplateSources(p *props.Props) ([]generator.Te
 			return nil, err
 		}
 
-		if err := icmd.ConfirmRemoteTemplate(p, isCIEnv(p), ts); err != nil {
+		if err := icmd.ConfirmRemoteTemplate(ctx, p, isCIEnv(p), ts); err != nil {
 			return nil, err
 		}
 

@@ -41,7 +41,7 @@ cloning; that confirmation is skipped under --ci or a non-interactive session.`,
 				return err
 			}
 
-			if err := icmd.ConfirmRemoteTemplate(p, isCI(cmd, p), ts); err != nil {
+			if err := icmd.ConfirmRemoteTemplate(cmd.Context(), p, isCI(cmd, p), ts); err != nil {
 				return err
 			}
 

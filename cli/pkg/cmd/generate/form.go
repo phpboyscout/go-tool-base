@@ -27,9 +27,7 @@ import (
 // the framework's wizards; the generator's used to demand a terminal and so
 // refused a piped stdin that had asked for line prompts.
 func promptable(p *props.Props) bool {
-	io := p.GetIO()
-
-	return io.Interactive() || io.Accessible()
+	return setup.Promptable(p.GetIO())
 }
 
 // runForm runs a wizard form on the invocation's streams through the

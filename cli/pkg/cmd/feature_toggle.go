@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -71,11 +72,11 @@ func resolveFeatureSelection(cmd *cobra.Command, p *props.Props, gen *generator.
 	}
 
 	// No name: pick interactively, unless we cannot prompt.
-	if !p.GetIO().Interactive() || featureToggleIsCI(cmd, p) {
+	if !setup.Promptable(p.GetIO()) || featureToggleIsCI(cmd, p) {
 		return nil, ErrFeatureNameRequired
 	}
 
-	selected, err := pickFeatures(gen, enable)
+	selected, err := pickFeatures(cmd.Context(), p, gen, enable)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func resolveFeatureSelection(cmd *cobra.Command, p *props.Props, gen *generator.
 
 // pickFeatures presents the multi-select of candidate features — those not
 // already in the target state — and returns the chosen names.
-func pickFeatures(gen *generator.Generator, enable bool) ([]string, error) {
+func pickFeatures(ctx context.Context, p *props.Props, gen *generator.Generator, enable bool) ([]string, error) {
 	candidates, err := featureCandidates(gen, enable)
 	if err != nil {
 		return nil, err
@@ -120,9 +121,9 @@ func pickFeatures(gen *generator.Generator, enable bool) ([]string, error) {
 				Options(options...).
 				Value(&selected),
 		),
-	).WithTheme(setup.FormTheme())
+	)
 
-	if err := form.Run(); err != nil {
+	if err := setup.RunForm(ctx, p, form); err != nil {
 		return nil, err
 	}
 

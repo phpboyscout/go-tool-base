@@ -558,7 +558,14 @@ func (g *Generator) isNonInteractive() bool {
 		return true
 	}
 
-	if !g.props.GetIO().Interactive() {
+	io := g.props.GetIO()
+
+	// Accessible line prompts read stdin and need no controlling terminal.
+	if io.Accessible() {
+		return false
+	}
+
+	if !io.Interactive() {
 		return true
 	}
 
