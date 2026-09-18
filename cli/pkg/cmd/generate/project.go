@@ -41,6 +41,9 @@ type SkeletonOptions struct {
 	TeamsChannel string
 	TeamsTeam    string
 	EnvPrefix    string
+	// envPrefixChoice is the env-prefix page's answer: derived, none or
+	// other; afterWizard resolves it into EnvPrefix.
+	envPrefixChoice string
 
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
@@ -842,6 +845,37 @@ func deriveEnvPrefix(name string) string {
 	return strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 }
 
+// The env-prefix page's choices. The prefix itself is resolved after the
+// wizard so the page can be a select with the derived name as its default.
+const (
+	envPrefixDerived = "derived"
+	envPrefixNone    = "none"
+	envPrefixOther   = "other"
+)
+
+// envPrefixChoiceFor is the choice a recorded prefix corresponds to, for a
+// revisit to pre-select.
+func envPrefixChoiceFor(name, prefix string) string {
+	switch prefix {
+	case "":
+		return envPrefixNone
+	case deriveEnvPrefix(name):
+		return envPrefixDerived
+	default:
+		return envPrefixOther
+	}
+}
+
+// resolveEnvPrefix turns the page's choice into the prefix recorded.
+func (o *SkeletonOptions) resolveEnvPrefix() {
+	switch o.envPrefixChoice {
+	case envPrefixDerived:
+		o.EnvPrefix = deriveEnvPrefix(o.Name)
+	case envPrefixNone:
+		o.EnvPrefix = ""
+	}
+}
+
 func (o *SkeletonOptions) runWizard() error {
 	if err := o.wizardForm().Run(); err != nil {
 		return err
@@ -856,6 +890,7 @@ func (o *SkeletonOptions) runWizard() error {
 // discarded here rather than letting an earlier email re-enable signing that
 // a later No switched off (#46). The flag path keeps "email implies signing".
 func (o *SkeletonOptions) afterWizard() error {
+	o.resolveEnvPrefix()
 	o.NoForge = !o.hosted
 
 	if o.NoForge {
@@ -1015,6 +1050,7 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.forgeGroup(),
 		o.moduleGroup(),
 		o.envPrefixGroup(),
+		o.envPrefixCustomGroup(),
 		o.selfUpdateGroup(),
 		o.chatProvidersGroup(),
 		o.chatEndpointGroup(),
@@ -1271,29 +1307,68 @@ func chatProviderOptions(selected []string) []huh.Option[string] {
 	return opts
 }
 
-// envPrefixGroup collects the config env-var prefix. The derived prefix is
-// offered as a suggestion (accepted with tab or the right arrow), not written
-// into the field, because huh binds an Input's value once (#41); empty means
-// no prefix, the same as the flag.
+// envPrefixGroup is the env-prefix page: a select whose default is the
+// prefix derived from the project name, with None and Other beside it. A
+// free-text field that started empty led people to leave it empty, and a
+// tool with no prefix reads no environment overrides at all; the derived
+// name is what nearly every project wants, so it is the answer that needs
+// no keystroke. Other opens the custom page.
 func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
+	if o.envPrefixChoice == "" {
+		o.envPrefixChoice = envPrefixDerived
+	}
+
 	return huh.NewGroup(
-		huh.NewInput().
+		huh.NewSelect[string]().
 			Key("env-prefix").
 			Title("Environment Variable Prefix").
 			DescriptionFunc(func() string {
-				return fmt.Sprintf("Prefix for config env var overrides (e.g. %[1]s → %[1]s_LOG_LEVEL). ctrl+e accepts the suggestion; leave empty to disable.", deriveEnvPrefix(o.Name))
+				return fmt.Sprintf("Config keys can be overridden from the environment under this prefix (%[1]s → %[1]s_LOG_LEVEL).", deriveEnvPrefix(o.Name))
 			}, &o.Name).
-			Placeholder("e.g. MY_APP").
-			SuggestionsFunc(func() []string {
-				return []string{deriveEnvPrefix(o.Name)}
-			}, &o.Name).
-			Value(&o.EnvPrefix).
+			// Static options are what a driver that runs no commands sees;
+			// OptionsFunc relabels the derived row as the name is typed.
+			Options(envPrefixOptions(o.Name)...).
+			OptionsFunc(func() []huh.Option[string] { return envPrefixOptions(o.Name) }, &o.Name).
+			Value(&o.envPrefixChoice).
 			Validate(func(s string) error {
-				return hintedValidation(generator.ValidateEnvPrefix(s))
+				if s == envPrefixDerived {
+					return hintedValidation(generator.ValidateEnvPrefix(deriveEnvPrefix(o.Name)))
+				}
+
+				return nil
 			}),
 	).
 		Title("Environment Variable Prefix").
 		Description("Scopes config env var lookups so only variables starting with this prefix are considered.\n")
+}
+
+func envPrefixOptions(name string) []huh.Option[string] {
+	return []huh.Option[string]{
+		huh.NewOption(deriveEnvPrefix(name)+" (from the project name)", envPrefixDerived),
+		huh.NewOption("None: environment variables do not override config", envPrefixNone),
+		huh.NewOption("Other: type a prefix", envPrefixOther),
+	}
+}
+
+// envPrefixCustomGroup takes the prefix when the page's answer is Other.
+func (o *SkeletonOptions) envPrefixCustomGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Key("env-prefix-custom").
+			Title("Prefix").
+			Description("Upper-case letters, digits and underscores, starting with a letter (e.g. MY_APP).").
+			Placeholder("e.g. MY_APP").
+			Value(&o.EnvPrefix).
+			Validate(func(s string) error {
+				if s == "" {
+					return errors.New("type a prefix, or go back and choose None")
+				}
+
+				return hintedValidation(generator.ValidateEnvPrefix(s))
+			}),
+	).
+		Title("Environment Variable Prefix").
+		WithHideFunc(func() bool { return o.envPrefixChoice != envPrefixOther })
 }
 
 // forgeGroup is the forge page (spec 0195 D3, D4, D6): which forge, where,

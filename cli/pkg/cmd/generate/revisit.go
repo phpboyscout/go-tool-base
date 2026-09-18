@@ -49,6 +49,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		}
 	}
 
+	o.envPrefixChoice = envPrefixChoiceFor(cfg.Name, cfg.EnvPrefix)
 	o.hosted = cfg.ForgeBackend != ""
 	o.NoForge = !o.hosted
 

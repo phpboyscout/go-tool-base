@@ -247,8 +247,11 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   from. A tool that is never imported can be a single word.
 
 **Environment variable prefix**
-: The derived prefix is offered as a suggestion (`ctrl+e` accepts it); empty
-  means no prefix, the same as the flag.
+: A choice: the prefix derived from the project name (`my-app` gives
+  `MY_APP`, so `MY_APP_LOG_LEVEL` overrides `log.level`), which is the
+  default; *None*, so environment variables never override config; or
+  *Other*, which opens a page to type one. The flag takes the value itself
+  and empty means none.
 
 **Self-update** *(the `update` feature selected)*
 : The release channel, *this forge*; the self-update policy (notify only,

@@ -57,6 +57,12 @@ func TestWizard_FieldsRefuseWhatTheGeneratorRefuses(t *testing.T) {
 		m = driveUntilKey(f, m, o, "env-prefix")
 		require.Equal(t, "env-prefix", f.GetFocusedField().GetKey())
 
+		// Other, then the custom prefix page.
+		m = typeAnswer(m, "↓↓")
+		m, ok := advance(f, m)
+		require.True(t, ok, "Other is accepted and the custom page follows")
+		require.Equal(t, "env-prefix-custom", f.GetFocusedField().GetKey())
+
 		_, err := typeAndSubmit(f, m, "1FOO")
 		require.Error(t, err, "a prefix starting with a digit is refused by the generator")
 	})
