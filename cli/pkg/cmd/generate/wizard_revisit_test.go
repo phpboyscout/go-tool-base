@@ -16,17 +16,25 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
-const revisitManifest = "properties:\n  name: mytool\n  description: old\n  features:\n    - name: ai\n      enabled: true\n" +
+const revisitManifestHead = "properties:\n  name: mytool\n  description: old\n  features:\n    - name: ai\n      enabled: true\n" +
 	"  chat:\n    providers: [claude]\n    default:\n      provider: claude\n  module_path: github.com/org/mytool\n" +
 	"release_source:\n  type: github\n  backend: github\n  host: github.com\n  owner: org\n  repo: mytool\n" +
-	"version:\n  gtb: v1.0.0\n  go: \"1.26\"\ncommands: []\n"
+	"version:\n  gtb: v1.0.0\n  go: \"1.26\"\n"
+
+const revisitManifest = revisitManifestHead + "commands: []\n"
 
 func revisitProject(t *testing.T) (*props.Props, afero.Fs) {
 	t.Helper()
 
+	return revisitProjectFrom(t, revisitManifest)
+}
+
+func revisitProjectFrom(t *testing.T, manifest string) (*props.Props, afero.Fs) {
+	t.Helper()
+
 	fs := afero.NewMemMapFs()
 	require.NoError(t, fs.MkdirAll("/work/.gtb", 0o755))
-	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/manifest.yaml", []byte(revisitManifest), 0o644))
+	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/manifest.yaml", []byte(manifest), 0o644))
 	require.NoError(t, afero.WriteFile(fs, "/work/go.mod", []byte("module github.com/org/mytool\n"), 0o644))
 	require.NoError(t, fs.MkdirAll("/work/pkg/cmd/root", 0o755))
 	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/root/cmd.go", []byte("package root\n"), 0o644))

@@ -30,6 +30,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		TeamsTeam:             cfg.TeamsTeam,
 		EnvPrefix:             cfg.EnvPrefix,
 		UpdatePolicy:          cfg.UpdatePolicy,
+		MCPMode:               cfg.MCPMode,
 		UpdateCheckInterval:   cfg.UpdateCheckInterval,
 		TelemetryEndpoint:     cfg.TelemetryEndpoint,
 		TelemetryOTelEndpoint: cfg.TelemetryOTelEndpoint,
@@ -39,6 +40,13 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		ChatProviders:         cfg.Chat.Providers,
 		ChatDefault:           cfg.Chat.Default,
 		revisit:               true,
+	}
+
+	o.mcpCommands = mcpCommandChoices(m.Commands)
+	for _, c := range o.mcpCommands {
+		if c.Exposed {
+			o.MCPExposed = append(o.MCPExposed, c.Path)
+		}
 	}
 
 	o.hosted = cfg.ForgeBackend != ""

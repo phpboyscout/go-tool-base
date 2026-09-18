@@ -48,6 +48,11 @@ type SkeletonOptions struct {
 	UpdatePolicy string
 	// MCPMode is the MCP publication mode (spec 0201 D3).
 	MCPMode string
+	// MCPExposed are the command paths ticked on the revisit wizard's surface
+	// page; mcpCommands is what the page offers, loaded from the manifest
+	// (spec 0202 D9).
+	MCPExposed  []string
+	mcpCommands []mcpCommandChoice
 
 	// UpdateCheckInterval is the generated tool's baseline self-update-check
 	// throttle as a Go duration string (e.g. "24h"). Empty leaves it unset so
@@ -902,6 +907,10 @@ func (o *SkeletonOptions) clearFeaturePages() {
 		}
 	}
 
+	if !o.mcpSelected() {
+		o.MCPMode, o.MCPExposed = "", nil
+	}
+
 	if !slices.Contains(o.Features, string(props.TelemetryCmd)) {
 		o.TelemetryEndpoint, o.TelemetryOTelEndpoint = "", ""
 	}
@@ -989,6 +998,12 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 	// The confirm is bound positively (spec 0195 D3); the flag is the negative.
 	o.hosted = !o.NoForge
 
+	// The mode select needs a value to sit on; compact is the framework's
+	// default and what an untouched flag path means.
+	if o.MCPMode == "" {
+		o.MCPMode = string(props.MCPCompact)
+	}
+
 	return newForm(
 		o.basicsGroup(),
 		o.forgeGroup(),
@@ -1000,6 +1015,7 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.chatEndpointGroup(),
 		o.chatCloudGroup(),
 		o.telemetryGroup(),
+		o.mcpGroup(),
 		o.slackGroup(),
 		o.teamsGroup(),
 		o.signingEnableGroup(),

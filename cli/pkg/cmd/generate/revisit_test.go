@@ -27,7 +27,7 @@ func TestOptionsFromManifest_RoundTrip(t *testing.T) {
 		ConfigLayers: []string{"flags", "env", "files", "defaults"}, GoVersion: "1.26",
 		ChatProviders: []string{"claude", "openai"}, CIComponentSource: "gitlab.example.com/mirror/cicd",
 		Signing: true, SigningEmail: "rel@example.com", SigningKeySource: "external", SigningKeyID: "alias/k",
-		SigningRequireChecksum: true,
+		SigningRequireChecksum: true, MCPMode: "direct",
 	}
 	o.ChatDefault.Provider = "openai"
 	o.Bootstrap.AutoInitialise = true

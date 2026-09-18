@@ -108,6 +108,10 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 		generator.ApplyAuthorSettingsTo(&after, cfg)
 
 		diff := generator.DiffAuthorSettings(before, &after)
+		for _, change := range so.mcpSurfaceChanges() {
+			diff = append(diff, change.describe())
+		}
+
 		if len(diff) == 0 {
 			_, _ = fmt.Fprintln(out, "no changes")
 
@@ -119,5 +123,17 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 		return nil
 	}
 
-	return g.ApplyAuthorSettings(ctx, cfg)
+	if err := g.ApplyAuthorSettings(ctx, cfg); err != nil {
+		return err
+	}
+
+	// The surface is per command, not an author setting: each changed tick is
+	// the same call gtb enable mcp <path> / gtb disable mcp <path> makes.
+	for _, change := range so.mcpSurfaceChanges() {
+		if err := g.SetMCPEnabled(ctx, change.Path, change.Exposed); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -38,7 +38,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "EnvPrefix", Kind: KindSetting, Flag: "env-prefix", Wizard: "env-prefix", Manifest: "properties.env_prefix"},
 	{Field: "ConfigLayers", Kind: KindSetting, Flag: "config-layers", Manifest: "properties.config_layers"},
 	{Field: "UpdatePolicy", Kind: KindSetting, Flag: "update-policy", Wizard: "update-policy", Manifest: "properties.update_policy"},
-	{Field: "MCPMode", Kind: KindSetting, Flag: "mcp-mode", Manifest: "properties.mcp.mode"},
+	{Field: "MCPMode", Kind: KindSetting, Flag: "mcp-mode", Wizard: "mcp-mode", Manifest: "properties.mcp.mode"},
 	{Field: "UpdateCheckInterval", Kind: KindSetting, Flag: "update-check-interval", Wizard: "update-check-interval", Manifest: "properties.update_check_interval"},
 	{Field: "HelpType", Kind: KindSetting, Flag: "help-type", Wizard: "help-type", Manifest: "properties.help.type"},
 	{Field: "SlackChannel", Kind: KindSetting, Flag: "slack-channel", Wizard: "slack-channel", Manifest: "properties.help.slack_channel"},
