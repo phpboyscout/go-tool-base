@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -38,6 +39,20 @@ type VersionInfo struct {
 	// absent and Current is false because the answer is unknown — scripts
 	// must not read this as "up to date" or "behind".
 	CheckFailed bool `json:"check_failed,omitempty"`
+	// CheckSkipped marks a response that made no release-source call because
+	// the tool is running in CI (the --ci flag, the ci config key, or
+	// CI=true). Latest is absent and Current is unknown, as for CheckFailed.
+	CheckSkipped bool `json:"check_skipped,omitempty"`
+}
+
+// inCI agrees with the root's gate: the --ci flag or ci config key through the
+// config layers, and the bare CI=true variable.
+func inCI(props *p.Props) bool {
+	if props.Config != nil && props.Config.View().GetBool("ci") {
+		return true
+	}
+
+	return os.Getenv("CI") == "true"
 }
 
 // NewCmdVersion creates the version command that displays build information.
@@ -73,6 +88,19 @@ builds.`,
 			// can probe the release source from a dev build; the
 			// disabled-update fast path always skips the network.
 			if !props.GetFeatures().Enabled(p.UpdateCmd) || (props.Version.IsDevelopment() && !check) {
+				return writeVersion(out, info)
+			}
+
+			// CI is the one environment the tool has agreed to make no
+			// network call in (the pre-run check, telemetry consent), and
+			// version was the exception; --check still asks, since it is an
+			// explicit request. Not throttled by the check interval: version
+			// is a diagnostic, and "live" is what it should mean.
+			if !check && inCI(props) {
+				props.Logger.Info("live version check skipped: CI environment detected")
+
+				info.CheckSkipped = true
+
 				return writeVersion(out, info)
 			}
 

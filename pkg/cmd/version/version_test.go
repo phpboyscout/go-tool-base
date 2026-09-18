@@ -111,3 +111,39 @@ func TestPrintVersionText(t *testing.T) {
 		})
 	}
 }
+
+// TestNewCmdVersion_CISkipsTheLiveCheck (deferred item 8 of the v0.43.0
+// round): version performed its own release lookup under --ci and CI=true,
+// unlike every other network call the tool makes there. It now skips the
+// call and says so; --check is an explicit request and still asks.
+func TestNewCmdVersion_CISkipsTheLiveCheck(t *testing.T) {
+	t.Setenv("CI", "true")
+
+	l := logger.NewBuffer()
+	props := &p.Props{
+		Tool: p.Tool{Name: "test-tool", ReleaseSource: p.ReleaseSource{Type: "github", Owner: "owner", Repo: "repo"},
+			ReleaseProvider: releaseProvider("v9.0.0")},
+		Logger: l, FS: afero.NewMemMapFs(), Config: testutil.StoreFromYAML(t, testConfig),
+		Version:      ver.NewInfo("v1.0.0", "", ""),
+		ErrorHandler: errorhandling.New(logger.ToSlog(l), nil),
+	}
+
+	var out bytes.Buffer
+
+	cmd := NewCmdVersion(props)
+	cmd.Flags().String("output", "json", "")
+	cmd.SetOut(&out)
+	require.NoError(t, cmd.Execute())
+
+	assert.Contains(t, out.String(), `"check_skipped": true`)
+	assert.NotContains(t, out.String(), `"latest"`, "no release-source call was made")
+	assert.True(t, l.Contains("CI environment detected"))
+
+	out.Reset()
+	cmd = NewCmdVersion(props)
+	cmd.Flags().String("output", "json", "")
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"--check"})
+	_ = cmd.Execute()
+	assert.Contains(t, out.String(), `"latest": "v9.0.0"`, "--check is an explicit request and still asks")
+}

@@ -29,6 +29,19 @@ type cliWorld struct {
 	projectDir string // repo-root dir holding a project-local .gtb.yaml; sets cmd.Dir
 }
 
+// withoutEnv returns env with every entry for key removed.
+func withoutEnv(env []string, key string) []string {
+	out := make([]string, 0, len(env))
+
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, key+"=") {
+			out = append(out, kv)
+		}
+	}
+
+	return out
+}
+
 func getCLIWorld(ctx context.Context) *cliWorld {
 	return ctx.Value(cliWorldKey{}).(*cliWorld)
 }
@@ -288,10 +301,17 @@ func runGTB(ctx context.Context, parts []string) context.Context {
 	// scenarios or into the developer's real config.
 	cmd.Env = append(os.Environ(), "HOME="+w.configDir)
 
-	if len(w.envVars) > 0 {
-		for k, v := range w.envVars {
-			cmd.Env = append(cmd.Env, k+"="+v)
+	// A scenario that sets a variable to "" wants it absent: the runners
+	// export CI=true, and "CI=" left in the environment would still be a
+	// value, so the inherited entry is dropped instead.
+	for k, v := range w.envVars {
+		if v == "" {
+			cmd.Env = withoutEnv(cmd.Env, k)
+
+			continue
 		}
+
+		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 
 	var stdout, stderr strings.Builder

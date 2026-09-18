@@ -29,14 +29,25 @@ Feature: CLI Version Command
   # The following scenarios drive the in-memory stub release source
   # (GTB_E2E_RELEASE_SCENARIO, see cmd/e2e/release_stub.go), which pins a
   # non-development current version so the latest-version check actually
-  # runs — hermetically, with no network.
+  # runs, hermetically, with no network. The live check honours the CI gate,
+  # so the scenario that expects it to run uses the bare runner (no --ci).
 
   Scenario: Unreachable release source still prints the local version
+    Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "unreachable"
+    # The runners export CI=true, under which version skips the live check.
+    And I set environment variable "CI" to ""
+    When I run gtb bare with "version"
+    Then the exit code is 0
+    And stdout contains "Version:"
+    And stderr contains "failed to check latest version"
+
+  Scenario: In CI the live version check is skipped and says so
     Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "unreachable"
     When I run gtb with "version"
     Then the exit code is 0
     And stdout contains "Version:"
-    And stderr contains "failed to check latest version"
+    And stderr contains "live version check skipped: CI environment detected"
+    And stderr does not contain "failed to check latest version"
 
   Scenario: Explicit check against an unreachable release source fails
     Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "unreachable"

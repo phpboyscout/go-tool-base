@@ -136,7 +136,8 @@ func TestNewCmdVersion_UpdateDisabledSkipsCheck(t *testing.T) {
 // setup.NewUpdater returns an error: the command warns and still succeeds,
 // reporting the local version with the degraded check_failed marker.
 func TestNewCmdVersion_UpdaterLoadFailureIsNonFatal(t *testing.T) {
-	t.Parallel()
+	// Serial: the live lookup is skipped under CI=true, which the runners set.
+	t.Setenv("CI", "")
 
 	props := newTestProps(t, failingReleaseProvider())
 	// An unknown vcs.provider makes release.Lookup (inside NewUpdater) fail,
@@ -171,7 +172,8 @@ func TestNewCmdVersion_UpdaterLoadFailureIsFatalWithCheck(t *testing.T) {
 // the local build information, emitting a single warning about the failed
 // check instead of a hard error.
 func TestNewCmdVersion_LatestFetchFailureDegrades(t *testing.T) {
-	t.Parallel()
+	// Serial: the live lookup is skipped under CI=true, which the runners set.
+	t.Setenv("CI", "")
 
 	props := newTestProps(t, failingReleaseProvider())
 
@@ -191,7 +193,8 @@ func TestNewCmdVersion_LatestFetchFailureDegrades(t *testing.T) {
 // current false, and an explicit check_failed marker so scripts can
 // distinguish "up to date" from "could not check".
 func TestNewCmdVersion_LatestFetchFailureJSONCarriesMarker(t *testing.T) {
-	t.Parallel()
+	// Serial: the live lookup is skipped under CI=true, which the runners set.
+	t.Setenv("CI", "")
 
 	props := newTestProps(t, failingReleaseProvider())
 
@@ -278,7 +281,8 @@ func TestNewCmdVersion_JSONHappyPath(t *testing.T) {
 // reachable-source default behaviour: when the release source reports a newer
 // version, the Latest line is appended and a warning is logged.
 func TestNewCmdVersion_OutdatedWarnsAndAnnotates(t *testing.T) {
-	t.Parallel()
+	// Serial: the live lookup is skipped under CI=true, which the runners set.
+	t.Setenv("CI", "")
 
 	props := newTestProps(t, releaseProvider("v2.0.0"))
 
