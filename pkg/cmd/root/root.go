@@ -541,6 +541,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	selfUpdater, err := setup.NewUpdater(ctx, props, "", false)
 	if err != nil {
 		props.Logger.Error("failed to create updater", "error", err)
+		stampFailedCheck(props)
 
 		return result
 	}
@@ -567,6 +568,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	})
 	if spinErr != nil {
 		props.Logger.Error("failed to check for latest version", "error", spinErr)
+		stampFailedCheck(props)
 
 		return result
 	}
@@ -740,6 +742,16 @@ func recordCheckedVersion(ctx context.Context, props *p.Props, updater *setup.Se
 	}
 
 	if err := setup.SetCheckedVersion(props.FS, props.Tool.Name, version); err != nil {
+		props.Logger.Warn("unable to set last checked time", "error", err)
+	}
+}
+
+// stampFailedCheck records that a check ran although it failed, keeping the
+// latest version an earlier check cached. Without it a broken release source
+// is retried on every invocation, and its credential resolved each time.
+func stampFailedCheck(props *p.Props) {
+	cached := setup.GetCheckedVersion(props.FS, props.Tool.Name)
+	if err := setup.SetCheckedVersion(props.FS, props.Tool.Name, cached); err != nil {
 		props.Logger.Warn("unable to set last checked time", "error", err)
 	}
 }
