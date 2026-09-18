@@ -43,6 +43,13 @@ func TestInfo_IsDevelopment(t *testing.T) {
 		{"prerelease", "1.0.0-beta.1", false},
 		{"dirty build metadata", "0.42.0+dirty", true},
 		{"dev prerelease segment", "0.42.0-rc.1.dev", true},
+		// A go build or go install ...@main stamps a Go pseudo-version, which is
+		// valid semver with no dev segment and no build metadata, so it read as a
+		// release and ran the update check against an older release source (F19
+		// of the v0.43.0 manual round, architecture review A8).
+		{"pseudo-version from a commit", "0.42.1-0.20260918131217-27ba9833f144", true},
+		{"pseudo-version from a tagged prerelease", "0.43.0-rc.1.0.20260918131217-27ba9833f144", true},
+		{"pseudo-version with no prior tag", "0.0.0-20260918131217-27ba9833f144", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

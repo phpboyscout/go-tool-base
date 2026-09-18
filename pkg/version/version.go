@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/mod/module"
+
 	"golang.org/x/mod/semver"
 )
 
@@ -44,11 +46,16 @@ func (i Info) Compare(other string) int {
 }
 
 // IsDevelopment reports whether this is not a release build: an invalid
-// version, a prerelease carrying a dev or dirty segment, or any build
+// version, a Go pseudo-version (what go build and go install ...@main stamp
+// from a commit), a prerelease carrying a dev or dirty segment, or any build
 // metadata (a VCS-stamped module build reports the tag plus "+dirty").
 func (i Info) IsDevelopment() bool {
 	v := FormatVersionString(i.Version, true)
 	if !semver.IsValid(v) {
+		return true
+	}
+
+	if module.IsPseudoVersion(v) {
 		return true
 	}
 
