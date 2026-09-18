@@ -98,6 +98,10 @@ pinpoint a misconfigured or missing dependency.`,
 	// the whole doctor subtree via SkipUpdateCheck's parent-chain walk.
 	setup.MarkSkipUpdateCheck(cmd)
 
+	// A missing config file is one of the things doctor diagnoses, so the
+	// root's missing-config gate must not refuse the run before it starts.
+	setup.SkipConfigCheck(cmd)
+
 	doctorCmd := setup.AnnotateMCP(setup.Wrap(p.DoctorCmd, cmd), setup.MCPReadOnly())
 
 	// `doctor report` — the paste-ready, redacted support bundle that wraps the

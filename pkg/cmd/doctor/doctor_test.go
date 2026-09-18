@@ -59,12 +59,43 @@ func TestCheckGoVersion_OldVersions(t *testing.T) {
 func TestCheckConfig_Loaded(t *testing.T) {
 	t.Parallel()
 
-	props := &p.Props{Config: testutil.StoreFromYAML(t, "{}\n")}
+	props := &p.Props{Config: testutil.FileStoreFromYAML(t, "{}\n")}
 
 	result := checkConfig(context.Background(), props)
 	assert.Equal(t, "Configuration", result.Name)
 	assert.Equal(t, CheckPass, result.Status)
-	assert.Equal(t, "loaded successfully", result.Message)
+	assert.Contains(t, result.Message, "loaded from ")
+}
+
+// A store built from embedded defaults alone (no file layer) is what the root
+// hands doctor on a fresh HOME: that is a first run, not a fault.
+func TestCheckConfig_NoFileYetIsASkip(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		Config: testutil.StoreFromYAML(t, "{}\n"),
+		Tool:   p.Tool{Name: "fresh-tool", Features: p.SetFeatures(p.Enable(p.InitCmd))},
+	}
+
+	result := checkConfig(context.Background(), props)
+	assert.Equal(t, "Configuration", result.Name)
+	assert.Equal(t, CheckSkip, result.Status)
+	assert.Equal(t, "no config file yet", result.Message)
+	assert.Contains(t, result.Details, "fresh-tool init")
+}
+
+func TestCheckConfig_NoFileAndNoInitCommand(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		Config: testutil.StoreFromYAML(t, "{}\n"),
+		Tool:   p.Tool{Name: "fresh-tool", Features: p.SetFeatures(p.Disable(p.InitCmd))},
+	}
+
+	result := checkConfig(context.Background(), props)
+	assert.Equal(t, CheckSkip, result.Status)
+	assert.Equal(t, "no config file yet", result.Message)
+	assert.Contains(t, result.Details, "embedded defaults")
 }
 
 func TestCheckConfig_Missing(t *testing.T) {
@@ -257,8 +288,8 @@ func TestCheckPermissions_MissingDirWarns(t *testing.T) {
 
 	result := checkPermissions(context.Background(), props)
 
-	assert.Equal(t, CheckWarn, result.Status)
-	assert.Contains(t, result.Message, "does not exist")
+	assert.Equal(t, CheckSkip, result.Status)
+	assert.Contains(t, result.Message, "not created yet")
 
 	// The check must not have created the directory as a side effect.
 	configDir := setup.GetDefaultConfigDir(fs, "missingdirtest")
@@ -284,8 +315,8 @@ func TestCheckPermissions_NonExistent(t *testing.T) {
 
 	result := checkPermissions(context.Background(), props)
 	assert.Equal(t, "Permissions", result.Name)
-	assert.Equal(t, CheckWarn, result.Status)
-	assert.Contains(t, result.Message, "does not exist")
+	assert.Equal(t, CheckSkip, result.Status)
+	assert.Contains(t, result.Message, "not created yet")
 }
 
 func TestCheckPermissions_NotADirectory(t *testing.T) {

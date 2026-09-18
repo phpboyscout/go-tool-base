@@ -20,3 +20,10 @@ Feature: CLI Doctor Command
     And the JSON field "command" equals "doctor"
     And the JSON field "data.tool" is not empty
     And the JSON field "data.checks" is an array with at least 3 items
+
+  Scenario: A fresh install with no config file is diagnosed, not refused
+    When I run gtb bare with "doctor --ci"
+    Then the exit code is 0
+    And stdout contains "[SKIP] Configuration: no config file yet"
+    And stdout contains "init` creates one"
+    And stdout contains "[SKIP] Permissions: config directory not created yet"

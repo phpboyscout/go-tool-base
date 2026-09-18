@@ -43,12 +43,27 @@ func compareGoVersion(version string) CheckResult {
 	}
 }
 
+// checkConfig distinguishes a store with no file layer (a first run, before
+// init has written anything) from one that failed to build: doctor opts out of
+// the root's missing-config gate so it can say which of the two it found.
 func checkConfig(_ context.Context, props *p.Props) CheckResult {
+	const name = "Configuration"
+
 	if props.Config == nil {
-		return CheckResult{Name: "Configuration", Status: CheckFail, Message: "no configuration loaded"}
+		return CheckResult{Name: name, Status: CheckFail, Message: "no configuration loaded"}
 	}
 
-	return CheckResult{Name: "Configuration", Status: CheckPass, Message: "loaded successfully"}
+	files := p.ConfigFileSources(props.Config.Snapshot())
+	if len(files) == 0 {
+		details := "Running on embedded defaults."
+		if props.GetFeatures().Enabled(p.InitCmd) {
+			details = fmt.Sprintf("Running on embedded defaults; `%s init` creates one.", props.Tool.Name)
+		}
+
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no config file yet", Details: details}
+	}
+
+	return CheckResult{Name: name, Status: CheckPass, Message: "loaded from " + strings.Join(files, ", ")}
 }
 
 // checkForgeAdapters reports whether every enabled forge feature has its
@@ -268,7 +283,7 @@ func checkPermissions(_ context.Context, props *p.Props) CheckResult {
 	info, err := props.FS.Stat(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return CheckResult{Name: "Permissions", Status: CheckWarn, Message: fmt.Sprintf("config list: %s (does not exist)", configDir)}
+			return CheckResult{Name: "Permissions", Status: CheckSkip, Message: fmt.Sprintf("config directory not created yet: %s", configDir)}
 		}
 
 		return CheckResult{Name: "Permissions", Status: CheckFail, Message: fmt.Sprintf("unable to stat config directory: %v", err)}

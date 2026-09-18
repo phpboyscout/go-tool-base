@@ -222,7 +222,7 @@ Now the commands run:
 mytool vnone
 
   [OK] Go version: go1.26.5
-  [OK] Configuration: loaded successfully
+  [OK] Configuration: loaded from /home/you/.mytool/config.yaml
   [OK] Credential storage: no literal credentials in config
   [OK] Permissions: config dir: /home/you/.mytool (-rwxr-xr-x)
 ```

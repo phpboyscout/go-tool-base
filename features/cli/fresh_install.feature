@@ -31,7 +31,14 @@ Feature: Fresh install auxiliary commands
     And stdout contains "version"
 
   Scenario: a config-gated command fails with a run-init hint
-    When I run gtb with "doctor"
+    # doctor used to be the example here; it now runs without a config file
+    # and reports the absence itself, so a command that reads config stands in.
+    When I run gtb with "config list"
     Then the exit code is not 0
     And stderr contains "no config file found"
     And stderr contains "gtb init"
+
+  Scenario: doctor is not config-gated and diagnoses the fresh install
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "no config file yet"

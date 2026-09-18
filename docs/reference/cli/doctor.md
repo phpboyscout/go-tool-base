@@ -35,13 +35,13 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | Check | What it validates |
 |-------|-------------------|
 | **Go version** | Runtime Go version is 1.22+ |
-| **Configuration** | Config is loaded and accessible |
+| **Configuration** | A config file was found and loaded, naming which. Before `init` has written one the tool runs on its embedded defaults and the check reports `skip` rather than refusing to run, because a missing file is one of the things `doctor` is for |
 | **Git** | `git` binary is available and the current directory is a repository |
 | **Chat providers** | With the `ai` feature enabled: `ai.provider` and every `ai.fallback.providers` member is a provider this binary registers. A failure names the module to blank-import, the way Forge adapters does; no `ai.provider` at all warns and lists what the binary links. Skipped without `ai`. Replaced the old **API keys** count, which the credential resolution check had made redundant |
 | **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config: warns and lists the offending key *names* (never values), pointing to env-var migration |
 | **Forge adapters** | Every enabled forge feature has its adapter module linked into the binary. Fixed at build time, so a failure names the blank import to add rather than a config key to set. Skipped when no forge feature is enabled |
 | **Credential resolution** | Whether each declared credential actually **resolves**, and from which rung: `auth.env`/`api.env`, the keychain, the literal, or the well-known fallback variable. Only credentials of enabled features are reported, and a chat credential only when one of the providers it serves is linked in this binary (a `claude-local`-only tool hears nothing about an Anthropic key). Reports the key name only, never the value |
-| **Permissions** | Config directory exists with correct owner permissions (rwx) |
+| **Permissions** | Config directory has correct owner permissions (rwx). A directory that has not been created yet is a `skip`, not a warning |
 
 ## Output Example
 
@@ -49,7 +49,7 @@ Runs a series of built-in and feature-registered health checks, then reports the
 mytool v1.2.3
 
   [OK] Go version: go1.26.0
-  [OK] Configuration: loaded successfully
+  [OK] Configuration: loaded from /home/user/.config/mytool/config.yaml
   [OK] Git: repository accessible
   [OK] Chat providers: claude, claude-local linked
   [OK] Permissions: config dir: /home/user/.config/mytool (drwxr-xr-x)
@@ -58,6 +58,14 @@ mytool v1.2.3
        malformed keychain reference "no-slash-here": want "service/account". …
   [SKIP] Gitea credential: no credential configured
        Run `init gitea` to configure one, or set GITEA_TOKEN.
+```
+
+On a fresh install, before `init` has run, the first two checks read:
+
+```
+  [SKIP] Configuration: no config file yet
+       Running on embedded defaults; `mytool init` creates one.
+  [SKIP] Permissions: config directory not created yet: /home/user/.config/mytool
 ```
 
 JSON output (`--output json`) returns a `DoctorReport` struct with the tool name, version, and an array of check results.
