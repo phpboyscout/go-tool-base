@@ -33,6 +33,10 @@ var readOnlyReasons = map[string]string{
 	"properties.docs_layout":      "recorded by the generator",
 	"properties.module_published": "recorded by the generator",
 	"version.gtb":                 "recorded by the gtb that generates",
+	// The direct release channel is withdrawn until its design lands (#90);
+	// its keys stay in the table so an older manifest loads, but nothing
+	// offers them, set included.
+	"release_source.direct": "the direct release channel is withdrawn until its design lands (go-tool-base #90)",
 }
 
 // SetSetting writes one author setting into the manifest by its dotted path,

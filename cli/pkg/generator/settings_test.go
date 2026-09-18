@@ -136,3 +136,14 @@ func TestAuthorSettingPaths_MatchTheManifestSchema(t *testing.T) {
 		require.NoErrorf(t, err, "%s: path %q does not resolve", s.Field, s.Manifest)
 	}
 }
+
+// TestSetSetting_RefusesTheWithdrawnDirectChannel (D10 of the v0.43.0 manual
+// round): set release_source.type direct was refused but the direct sub-keys
+// were still settable, half exposing a channel the wizard and flags withdrew.
+func TestSetSetting_RefusesTheWithdrawnDirectChannel(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolveSettingPath("release_source.direct.url_template")
+	require.ErrorIs(t, err, ErrSettingReadOnly)
+	assert.Contains(t, errors.FlattenHints(err), "#90")
+}
