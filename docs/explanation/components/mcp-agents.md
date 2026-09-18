@@ -239,7 +239,10 @@ import has no `mcp` command, no `mcp` feature, and neither
 go version -m ./bin/<tool> | grep -E 'go/mcp|modelcontextprotocol'
 ```
 
-prints nothing for such a build, and an SBOM taken from the binary agrees. A
+prints nothing for such a build, and an SBOM taken from the binary agrees. One
+caveat: the `ai` feature's chat providers link `go/chat-mcptools`, which
+imports the same SDK for the chat side's MCP tool bridge, so a tool with a
+chat provider still carries the SDK (not `go/mcp`) through that module. A
 hand-wired tool adds or omits the import itself; the
 [migration note](../../reference/migration/v0.x-mcp-link-kind.md) covers a tool
 that predates the link.

@@ -41,8 +41,9 @@ props := &props.Props{
 `mcp` is not a `SetFeatures` toggle. The tool has it while its `main` package
 blank-imports `gitlab.com/phpboyscout/go-tool-base/pkg/mcp` (a generated
 project's `cmd/<name>/mcp.go`); without the import there is no `mcp` command
-and the binary carries neither `go/mcp` nor the MCP SDK. Omit the import for a
-build that must ship without an MCP surface. A `props.Disable(props.McpCmd)`
+and the binary carries neither `go/mcp` nor the MCP SDK (a chat provider
+brings the SDK back through `go/chat-mcptools`, for the chat side's tool
+bridge). Omit the import for a build that must ship without an MCP surface. A `props.Disable(props.McpCmd)`
 left in an older `main` is ignored and listed by `doctor`.
 
 ## Enabling Opt-in Features
