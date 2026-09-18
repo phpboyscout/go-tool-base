@@ -164,10 +164,10 @@ Every `gtb update` emits two structured log lines that tell you exactly which tr
 
 ### `update signature verification configured`
 
-Emitted once at the start of an update attempt, **before** any network I/O for signature material. The `resolver` field names the concrete `KeyResolver` that will be asked to produce the trust set.
+Emitted at debug level when the updater is constructed, **before** any network I/O for signature material. The `resolver` field names the concrete `KeyResolver` that will be asked to produce the trust set. It is debug rather than info because the updater is built during the root pre-run of every command, so at info it appeared under `version` and `--help` as well as under `update`; pass `--debug` to see it.
 
 ```
-INFO update signature verification configured resolver=<name>
+DEBUG update signature verification configured resolver=<name>
 ```
 
 | `resolver=<name>` value | Meaning | Trust-anchor count |

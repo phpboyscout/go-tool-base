@@ -267,10 +267,12 @@ where to look.
 ## What you'll see in `gtb update` logs
 
 Every update emits two structured log lines that tell you exactly
-which trust anchors were consulted:
+which trust anchors were consulted. The first is at debug level (pass
+`--debug`), because the updater is built on every invocation, not only
+on an update:
 
 ```
-INFO update signature verification configured resolver=<name>
+DEBUG update signature verification configured resolver=<name>
 INFO signature verified resolver=<name>
 ```
 

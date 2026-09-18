@@ -312,10 +312,10 @@ verify.DefaultRequireExternalCrosscheck = true
 
 ### Diagnosing live updates from logs
 
-Every `gtb update` (or your tool's equivalent) emits structured log lines that name the concrete resolver used:
+Every `gtb update` (or your tool's equivalent) emits structured log lines that name the concrete resolver used. The first is at debug level, because the updater is built on every invocation and the line would otherwise appear under `version` and `--help` too, so run with `--debug` to see it:
 
 ```
-INFO update signature verification configured resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
+DEBUG update signature verification configured resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
 INFO signature verified resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
 ```
 

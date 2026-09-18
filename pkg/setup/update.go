@@ -516,7 +516,7 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 	}
 
 	s.keyResolver = r
-	s.logger.Info("update signature verification configured", "resolver", r.Name())
+	s.logger.Debug("update signature verification configured", "resolver", r.Name())
 
 	return nil
 }
