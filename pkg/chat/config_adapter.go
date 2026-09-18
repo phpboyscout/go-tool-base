@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"gitlab.com/phpboyscout/go/features"
+
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/httpclient"
 
@@ -27,8 +29,12 @@ func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, erro
 		return gochat.Settings{}, err
 	}
 
+	// The rung reads the providers the tool declares (spec 0196 D5), the same
+	// view doctor and init ai use: a module registers more than the author
+	// chose, and "the only one this binary links" is the author's one.
 	log := props.SlogLogger(p)
-	if err := applyDefaultProvider(log, &cfg, gochat.RegisteredProviders()); err != nil {
+
+	if err := applyDefaultProvider(log, &cfg, defaultCandidates(p.GetFeatures(), gochat.RegisteredProviders())); err != nil {
 		return gochat.Settings{}, err
 	}
 
@@ -295,4 +301,13 @@ func credentialConfigRoot(provider gochat.Provider) string {
 	default:
 		return ""
 	}
+}
+
+// defaultCandidates is the list the default-provider rung chooses from: the
+// providers the tool declares that its binary registers, or every registered
+// provider for a binary that declares none (a hand-wired tool).
+func defaultCandidates(set features.Set, registered []gochat.Provider) []gochat.Provider {
+	linked, _ := LinkedProvidersIn(set, registered)
+
+	return linked
 }

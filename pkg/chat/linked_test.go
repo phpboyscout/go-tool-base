@@ -92,3 +92,33 @@ func TestLinkedProvidersIn_DeclaredLinksNarrowTheRegistry(t *testing.T) {
 	assert.Equal(t, []gochat.Provider{gochat.ProviderClaude}, linked, "the module's other provider is not the author's choice")
 	assert.Equal(t, []gochat.Provider{gochat.ProviderGemini}, unregistered, "declared but its module is not linked")
 }
+
+// TestDefaultCandidates_AreTheDeclaredProviders (F14 of the v0.43.0 manual
+// round): the default-provider rung counted module registrations, so a tool
+// generated with --chat-providers claude alone was told "this binary links:
+// claude, claude-local" (chat-anthropic registers both) while its own doctor
+// said "claude linked". The rung now chooses from the providers the tool
+// declares, the same view doctor and init ai use, so one declared provider
+// is its own default.
+func TestDefaultCandidates_AreTheDeclaredProviders(t *testing.T) {
+	t.Setenv(EnvAIProvider, "")
+
+	registered := []gochat.Provider{gochat.ProviderClaude, gochat.ProviderClaudeLocal}
+
+	r := features.NewRegistry()
+	require.NoError(t, props.DeclareLinksOn(r, props.ChatLinkPrefix, string(gochat.ProviderClaude)))
+
+	set, err := features.Resolve(r.Snapshot(), nil)
+	require.NoError(t, err)
+
+	candidates := defaultCandidates(set, registered)
+	assert.Equal(t, []gochat.Provider{gochat.ProviderClaude}, candidates)
+
+	cfg := gochat.Config{}
+	require.NoError(t, applyDefaultProvider(slog.New(slog.DiscardHandler), &cfg, candidates))
+	assert.Equal(t, gochat.ProviderClaude, cfg.Provider, "one declared provider is its own default, whatever else its module registers")
+
+	none, err := features.Resolve(features.NewRegistry().Snapshot(), nil)
+	require.NoError(t, err)
+	assert.Equal(t, registered, defaultCandidates(none, registered), "a binary that declares no links chooses from the registry")
+}
