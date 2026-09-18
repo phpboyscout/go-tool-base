@@ -6,7 +6,10 @@ package changelog
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
+
+	"golang.org/x/term"
 
 	"github.com/spf13/cobra"
 
@@ -91,13 +94,18 @@ func loadChangelog(p props.AssetProvider) (string, error) {
 	return content, nil
 }
 
+// filterReleases selects the releases to show, newest first. The parser
+// yields them oldest-first (the order the file is written in); a reader of a
+// changelog wants the current release at the top.
 func filterReleases(cl *changelog.Changelog, version, since string, latest bool) []changelog.Release {
-	if latest && len(cl.Releases) > 0 {
-		return cl.Releases[len(cl.Releases)-1:]
+	releases := newestFirst(cl.Releases)
+
+	if latest && len(releases) > 0 {
+		return releases[:1]
 	}
 
 	if version != "" {
-		for _, r := range cl.Releases {
+		for _, r := range releases {
 			if r.Version == version {
 				return []changelog.Release{r}
 			}
@@ -107,24 +115,63 @@ func filterReleases(cl *changelog.Changelog, version, since string, latest bool)
 	}
 
 	if since != "" {
-		var filtered []changelog.Release
-
-		var found bool
-
-		for _, r := range cl.Releases {
-			if found {
-				filtered = append(filtered, r)
-			}
-
+		// Everything newer than since, which in newest-first order is
+		// everything before it.
+		for i, r := range releases {
 			if r.Version == since {
-				found = true
+				return releases[:i]
 			}
 		}
 
-		return filtered
+		return nil
 	}
 
-	return cl.Releases
+	return releases
+}
+
+func newestFirst(releases []changelog.Release) []changelog.Release {
+	out := make([]changelog.Release, len(releases))
+	for i, r := range releases {
+		out[len(releases)-1-i] = r
+	}
+
+	return out
+}
+
+// releaseView is the command's wire shape for a release: snake_case keys and
+// the category by name, rather than the parser's struct with an iota.
+type releaseView struct {
+	Version string      `json:"version"`
+	Entries []entryView `json:"entries"`
+}
+
+type entryView struct {
+	Category string `json:"category"`
+	Scope    string `json:"scope,omitempty"`
+	Text     string `json:"description"`
+}
+
+var categoryNames = map[changelog.Category]string{
+	changelog.CategoryBreaking:    "breaking",
+	changelog.CategoryFeature:     "feature",
+	changelog.CategoryFix:         "fix",
+	changelog.CategoryPerformance: "performance",
+	changelog.CategoryOther:       "other",
+}
+
+func viewOf(releases []changelog.Release) []releaseView {
+	out := make([]releaseView, 0, len(releases))
+
+	for _, r := range releases {
+		v := releaseView{Version: r.Version, Entries: make([]entryView, 0, len(r.Entries))}
+		for _, e := range r.Entries {
+			v.Entries = append(v.Entries, entryView{Category: categoryNames[e.Category], Scope: e.Scope, Text: e.Description})
+		}
+
+		out = append(out, v)
+	}
+
+	return out
 }
 
 func renderOutput(cmd *cobra.Command, releases []changelog.Release) error {
@@ -138,11 +185,10 @@ func renderOutput(cmd *cobra.Command, releases []changelog.Release) error {
 		return ocobra.Emit(cmd, output.Response{
 			Status:  output.StatusSuccess,
 			Command: "changelog",
-			Data:    releases,
+			Data:    viewOf(releases),
 		})
 	}
 
-	// Text output — render as markdown
 	var sb strings.Builder
 
 	for _, r := range releases {
@@ -159,8 +205,22 @@ func renderOutput(cmd *cobra.Command, releases []changelog.Release) error {
 		sb.WriteString("\n")
 	}
 
-	rendered := output.RenderMarkdown(sb.String())
-	_, _ = fmt.Fprintln(cmd.OutOrStdout(), rendered)
+	// Styled through glamour for a person at a terminal; plain Markdown for a
+	// pipe, which would otherwise receive one escape sequence per word.
+	out := cmd.OutOrStdout()
+	if isTerminal(out) {
+		_, _ = fmt.Fprintln(out, output.RenderMarkdown(sb.String()))
+
+		return nil
+	}
+
+	_, _ = fmt.Fprint(out, sb.String())
 
 	return nil
+}
+
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+
+	return ok && term.IsTerminal(int(f.Fd()))
 }

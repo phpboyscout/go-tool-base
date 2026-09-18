@@ -117,19 +117,25 @@ func TestFilterReleases(t *testing.T) {
 		assert.Nil(t, filterReleases(cl, "v9.9.9", "", false))
 	})
 
-	t.Run("since is exclusive", func(t *testing.T) {
+	t.Run("since is exclusive, newest first", func(t *testing.T) {
 		t.Parallel()
 
 		got := filterReleases(cl, "", "v1.0.0", false)
 		require.Len(t, got, 2)
-		assert.Equal(t, "v1.1.0", got[0].Version)
-		assert.Equal(t, "v1.2.0", got[1].Version)
+		assert.Equal(t, "v1.2.0", got[0].Version)
+		assert.Equal(t, "v1.1.0", got[1].Version)
 	})
 
-	t.Run("default returns all", func(t *testing.T) {
+	// F20 of the v0.43.0 manual round: the parsed changelog is oldest-first,
+	// and the command rendered it that way, so a reader scrolled past every
+	// release to reach the current one. A changelog reads newest-first.
+	t.Run("default returns all, newest first", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Len(t, filterReleases(cl, "", "", false), 3)
+		got := filterReleases(cl, "", "", false)
+		require.Len(t, got, 3)
+		assert.Equal(t, "v1.2.0", got[0].Version)
+		assert.Equal(t, "v1.0.0", got[2].Version)
 	})
 }
 
@@ -153,8 +159,8 @@ func TestRenderOutput(t *testing.T) {
 	releases := []changelog.Release{{
 		Version: "v1.2.0",
 		Entries: []changelog.Entry{
-			{Scope: "http", Description: "add server"},
-			{Description: "tidy up"},
+			{Category: changelog.CategoryFix, Scope: "http", Description: "add server"},
+			{Category: changelog.CategoryOther, Description: "tidy up"},
 		},
 	}}
 
@@ -167,28 +173,35 @@ func TestRenderOutput(t *testing.T) {
 		assert.Contains(t, out.String(), "No matching changelog entries")
 	})
 
-	t.Run("json output emits a structured response", func(t *testing.T) {
+	t.Run("json output emits a structured response with named fields", func(t *testing.T) {
 		t.Parallel()
 
 		cmd, out := cmdWithOutput("json")
 
 		require.NoError(t, renderOutput(cmd, releases))
-		assert.Contains(t, out.String(), "v1.2.0")
+		// F20: the wire shape is this command's, not the parser's Go struct:
+		// snake_case keys and a category by name rather than an iota.
 		assert.Contains(t, out.String(), "\"status\"")
+		assert.Contains(t, out.String(), "\"version\": \"v1.2.0\"")
+		assert.Contains(t, out.String(), "\"category\": \"fix\"")
+		assert.Contains(t, out.String(), "\"scope\": \"http\"")
+		assert.NotContains(t, out.String(), "\"Category\": 2")
 	})
 
-	t.Run("text output renders entries with and without scope", func(t *testing.T) {
+	t.Run("text output on a pipe is plain markdown, newest release first", func(t *testing.T) {
 		t.Parallel()
 
 		cmd, out := cmdWithOutput("")
 
-		require.NoError(t, renderOutput(cmd, releases))
-		// glamour v2 emits each word as a separately-styled ANSI span, so strip
-		// escapes before matching the rendered text.
-		plain := ansi.Strip(out.String())
-		assert.Contains(t, plain, "v1.2.0")
-		assert.Contains(t, plain, "add server")
-		assert.Contains(t, plain, "tidy up")
+		two := append([]changelog.Release{{Version: "v1.3.0", Entries: []changelog.Entry{{Description: "newer"}}}}, releases...)
+		require.NoError(t, renderOutput(cmd, two))
+
+		// F20: a buffer is not a terminal, so no ANSI, and each heading starts
+		// its own block rather than rendering as literal text inside the
+		// previous release's list.
+		s := out.String()
+		assert.Equal(t, s, ansi.Strip(s), "no escape sequences on a non-terminal")
+		assert.Contains(t, s, "## v1.3.0\n\n- newer\n\n## v1.2.0\n\n- **http:** add server\n- tidy up\n")
 	})
 }
 

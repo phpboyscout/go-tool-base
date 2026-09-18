@@ -269,7 +269,7 @@ gtb-embedded-assets:
     - go generate ./... ./cli/...
     - go test ./cli/pkg/cmd/root/ -run TestEmbeddedAssetsArePresent -count=1
     - go build -o /tmp/gtb ./cli/cmd/gtb
-    - /tmp/gtb changelog --latest --output json | grep -q '"Version"' || { echo "gtb changelog returned no release"; exit 1; }
+    - /tmp/gtb changelog --latest --output json | grep -q '"version"' || { echo "gtb changelog returned no release"; exit 1; }
 
 # generated-project-builds — the compile gate on a scaffolded project. The
 # generator's tests assert file shapes; only this scaffolds a tree with
