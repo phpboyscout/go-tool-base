@@ -30,3 +30,6 @@ bin/*
 config/local.yaml
 site/*
 CHANGELOG.md
+
+# Embedded documentation, filled by go generate (see pkg/cmd/root/generate.go)
+pkg/cmd/root/assets/docs

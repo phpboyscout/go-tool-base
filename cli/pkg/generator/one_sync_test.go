@@ -101,7 +101,8 @@ func TestSyncDerivedFromManifest_RewritesTheFrameworkOwnedGoFiles(t *testing.T) 
 
 		generateGo, err := afero.ReadFile(fs, "/work/pkg/cmd/root/generate.go")
 		require.NoError(t, err)
-		assert.NotContains(t, string(generateGo), "go:generate", "the directive follows the manifest: changelog is off")
+		assert.NotContains(t, string(generateGo), "go tool changelog", "the directive follows the manifest: changelog is off")
+		assert.Contains(t, string(generateGo), "go tool docs", "docs is on, so its embed directive is written")
 	})
 
 	t.Run("a rule leaves the file alone", func(t *testing.T) {

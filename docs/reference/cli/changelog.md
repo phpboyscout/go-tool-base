@@ -56,6 +56,8 @@ GTB uses a pure-Go changelog generator (`go tool changelog generate`) to produce
 
 For generated tools, the CI pipeline runs `go tool changelog generate --output CHANGELOG.md` before `go build` so the embed picks it up. The tool is declared as a Go `tool` directive in `go.mod`.
 
+The same `pkg/cmd/root/generate.go` carries `go tool docs --project-root ../../.. --target-dir pkg/cmd/root/assets`, which fills `assets/docs` for the `docs` command; `go generate ./...` runs both, and the generated release pipeline runs it before every build. A project generated before the docs directive existed gains it on its next `regenerate project`.
+
 ## Integration with Update
 
 After a successful self-update, the update command suggests viewing the changelog:
