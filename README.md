@@ -87,7 +87,7 @@ Every tool built on GTB inherits these essential capabilities:
 
 - **`init`**: Bootstraps local environments, configures GitHub/GitLab auth, and manages SSH keys.
 - **`version`**: Reports the current version and checks for available updates.
-- **`update`**: Downloads and installs the latest release binary from GitHub or GitLab.
+- **`update`**: Downloads and installs the latest release binary from the project's forge (GitHub, GitLab, Gitea, Codeberg or Bitbucket).
 - **`mcp`**: Exposes CLI commands as Model Context Protocol (MCP) tools for use in IDEs.
 - **`docs`**: Interactive terminal browser for documentation with built-in AI Q&A.
 - **`doctor`**: Runs diagnostic checks to validate configuration, connectivity, and runtime environment.

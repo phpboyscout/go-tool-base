@@ -31,7 +31,7 @@ Flags:
       --provider string   AI provider to use (openai/claude/gemini/claude-local/openai-compatible)
 
 Global Flags:
-      --ci                   flag to indicate the tools is running in a CI environment
+      --ci                   the tool is running in a CI environment: no prompts, no update check, no telemetry consent
       --config stringArray   config files to use (default [/home/mcockayne/.gtb/config.yaml,/etc/gtb/config.yaml])
       --debug                forces debug log output
 ```

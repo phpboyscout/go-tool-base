@@ -165,7 +165,7 @@ func NewCmdSkeleton(p *props.Props, shared *SharedFlags) *cobra.Command {
 Generates the full module layout: go.mod, the root command and main entry
 point, the .gtb manifest, embedded default config and assets, the feature
 commands selected by --features (see that flag for the full set), and the CI
-pipeline for the chosen Git backend (GitHub or GitLab). Optional release-signing
+pipeline for the forge backend where one exists (GitHub and GitLab). Optional release-signing
 and custom template overlays can be layered in. By default the new project is
 git-initialised with an initial commit; pass --no-git to skip that or --push to
 also add the remote and push.

@@ -178,7 +178,7 @@ Available Commands:
   version     Print version, commit, and build date
 
 Flags:
-      --ci                   flag to indicate the tools is running in a CI environment
+      --ci                   the tool is running in a CI environment: no prompts, no update check, no telemetry consent
       --config stringArray   config files to use (default [/etc/mytool/config.yaml,/home/you/.mytool/config.yaml])
       --debug                forces debug log output
   -h, --help                 help for mytool

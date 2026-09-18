@@ -57,7 +57,7 @@ sequenceDiagram
 -   **Jennifer & Templates**: We use a hybrid approach.
     -   `github.com/dave/jennifer` is used for generating complex Go files where imports need to be managed dynamically (though `skeleton.go` currently uses our own tempaltes).
     -   `text/template` is used for static boilerplate and config files.
--   **Asset Embed**: The `assets/skeleton`, `assets/skeleton-github`, and `assets/skeleton-gitlab` directories are all embedded into the binary using `//go:embed`. The common assets in `assets/skeleton` are always applied; VCS-specific assets (`skeleton-github` or `skeleton-gitlab`) are selected based on the `--git-backend` flag. This allows the CLI to operate as a single static binary without needing external resource files.
+-   **Asset Embed**: The `assets/skeleton`, `assets/skeleton-github`, and `assets/skeleton-gitlab` directories are all embedded into the binary using `//go:embed`. The common assets in `assets/skeleton` are always applied; forge-specific assets (`skeleton-github` or `skeleton-gitlab`) are selected by the forge backend (`--forge-backend`, recorded as `release_source.backend`); Gitea, Codeberg and Bitbucket have no CI skeleton yet. This allows the CLI to operate as a single static binary without needing external resource files.
 
 ### Generated Files Reference
 

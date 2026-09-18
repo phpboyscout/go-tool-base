@@ -1170,7 +1170,7 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	rootCmd.PersistentFlags().StringArrayVar(&state.cfgPaths, "config", defaultConfigPaths, "config files to use")
 	rootCmd.PersistentFlags().Bool("debug", false, "forces debug log output")
 
-	rootCmd.PersistentFlags().Bool("ci", false, "flag to indicate the tools is running in a CI environment")
+	rootCmd.PersistentFlags().Bool("ci", false, "the tool is running in a CI environment: no prompts, no update check, no telemetry consent")
 	rootCmd.PersistentFlags().Bool("accessible", false, "run wizards as line prompts rather than a full-screen form (also GTB_ACCESSIBLE=true)")
 	rootCmd.PersistentFlags().String("output", "text", "output format (text, json)")
 }
