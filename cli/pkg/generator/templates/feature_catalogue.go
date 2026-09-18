@@ -6,9 +6,10 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
 	// The catalogue is derived from what this binary declares, so the generator
-	// links every scaffoldable feature: the forges and the keychain link. A
-	// downstream tool's own registrations are not GTB's to scaffold and are
-	// filtered by kind (spec 0184 D6, spec 0199 D6).
+	// links every scaffoldable feature: the forges and the framework links
+	// (keychain, mcp). A downstream tool's own registrations are not GTB's to
+	// scaffold and are filtered by kind (spec 0184 D6, spec 0199 D6).
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/mcp"
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"
 )

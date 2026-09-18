@@ -203,6 +203,9 @@ var builtinOrder = []FeatureID{
 	ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
 }
 
+// The mcp feature keeps its place in the order but is not declared here:
+// pkg/mcp declares it as a link when a main imports it (spec 0202 D1).
+
 func init() {
 	for _, d := range []struct {
 		id        FeatureID
@@ -211,7 +214,6 @@ func init() {
 	}{
 		{UpdateCmd, "UpdateCmd", true},
 		{InitCmd, "InitCmd", true},
-		{McpCmd, "McpCmd", true},
 		{DocsCmd, "DocsCmd", true},
 		{AiCmd, "AiCmd", false},
 		{DoctorCmd, "DoctorCmd", true},

@@ -31,7 +31,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/mcp"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
@@ -1261,12 +1260,6 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props) {
 
 			rootCmd.Register(cmd)
 		}
-	}
-
-	if props.GetFeatures().Enabled(p.McpCmd) {
-		// Everything go/mcp-specific is in pkg/mcp (spec 0201 D1); the root
-		// only passes the level its --debug and config reload already move.
-		rootCmd.Register(mcp.NewCmdMCP(props, props.GetLogLevel()))
 	}
 
 	if props.GetFeatures().Enabled(p.DocsCmd) {

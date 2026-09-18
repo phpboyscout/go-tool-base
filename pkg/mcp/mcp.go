@@ -1,9 +1,10 @@
-// Package mcp is GTB's glue over the go/mcp module: it builds the `mcp`
-// command tree with the framework's conventions applied once, so a tool built
-// on GTB serves its commands over MCP without repeating them (spec 0201 D1).
-//
-// Everything go/mcp-specific in the framework sits here. When the mcp feature
-// becomes a link kind this is the package that moves.
+// Package mcp is GTB's glue over the go/mcp module, and the link that gives a
+// tool the mcp feature. A blank import from the tool's main (the generator
+// writes cmd/<name>/mcp.go to do so) declares the feature as a link kind and
+// contributes the `mcp` command to the root, with the framework's conventions
+// applied once (spec 0201 D1, spec 0202 D1). Nothing else in the framework
+// imports go/mcp, so a binary without the import carries neither the module
+// nor the MCP SDK.
 package mcp
 
 import (
@@ -18,6 +19,28 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
+
+// Feature is the feature this import declares: props.McpCmd, kept there as
+// the ID so a main that names it links nothing.
+const Feature = props.McpCmd
+
+// PackagePath is this package's import path, the ConstPackage the descriptor
+// carries: for a link, the package to blank-import.
+const PackagePath = "gitlab.com/phpboyscout/go-tool-base/pkg/mcp"
+
+func init() {
+	props.RegisterFeature(props.FeatureDescriptor{
+		ID:           Feature,
+		ConstName:    "Feature",
+		ConstPackage: PackagePath,
+		Kind:         props.KindLink,
+		Default:      true,
+	})
+
+	setup.RegisterRootCommands(Feature, func(p *props.Props) *setup.Command {
+		return NewCmdMCP(p, p.GetLogLevel())
+	})
+}
 
 // globalFlags are the root's persistent flags every command inherits. They
 // steer the process, not the command, so a client never sees them: --config

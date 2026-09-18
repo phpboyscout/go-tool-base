@@ -27,7 +27,7 @@ func TestSetFeatures_DefaultsPlusOverrides(t *testing.T) {
 
 	assert.False(t, set.Enabled(UpdateCmd))
 	assert.True(t, set.Enabled(InitCmd))
-	assert.True(t, set.Enabled(McpCmd))
+	assert.False(t, set.Enabled(McpCmd), "mcp is declared by pkg/mcp's link, not here")
 	assert.True(t, set.Enabled(DocsCmd))
 	assert.True(t, set.Enabled(DoctorCmd))
 	assert.True(t, set.Enabled(AiCmd))
@@ -95,7 +95,7 @@ func TestIsDefaultEnabled(t *testing.T) {
 	}{
 		{UpdateCmd, true},
 		{InitCmd, true},
-		{McpCmd, true},
+		{McpCmd, false}, // a link: pkg/mcp declares it, this package does not
 		{DocsCmd, true},
 		{DoctorCmd, true},
 		{AiCmd, false},

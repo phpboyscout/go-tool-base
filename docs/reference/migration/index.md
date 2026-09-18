@@ -48,6 +48,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [features as a value, and a root that owns its registries](v0.x-features-as-a-value.md) |
 | v0.x | v0.x | [the scaffold's go.mod is edited in place](v0.x-gomod-seeded-in-place.md) |
 | v0.x | v0.x | [MCP publishes progressively, on the estate's own module](v0.x-mcp-progressive-discovery.md) |
+| v0.x | v0.x | [The mcp feature is a link, and a tool without it ships without go/mcp](v0.x-mcp-link-kind.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

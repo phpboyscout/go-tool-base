@@ -26,7 +26,6 @@ func TestBuiltinsAreRegistered(t *testing.T) {
 	}{
 		UpdateCmd:    {"UpdateCmd", true},
 		InitCmd:      {"InitCmd", true},
-		McpCmd:       {"McpCmd", true},
 		DocsCmd:      {"DocsCmd", true},
 		DoctorCmd:    {"DoctorCmd", true},
 		ChangelogCmd: {"ChangelogCmd", true},
@@ -79,9 +78,11 @@ func TestOrdering_IsTotalAndIndependentOfRegistrationOrder(t *testing.T) {
 		ids = append(ids, d.FeatureID())
 	}
 
-	// Built-ins first, in the order the const block declares them.
+	// Built-ins first, in the order the const block declares them. McpCmd
+	// keeps its rank but is declared by pkg/mcp, which this package does not
+	// import.
 	wantHead := []FeatureID{
-		UpdateCmd, InitCmd, McpCmd, DocsCmd, AiCmd, DoctorCmd,
+		UpdateCmd, InitCmd, DocsCmd, AiCmd, DoctorCmd,
 		ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
 	}
 	require.GreaterOrEqual(t, len(ids), len(wantHead))
