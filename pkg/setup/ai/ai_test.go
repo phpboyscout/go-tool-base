@@ -572,6 +572,11 @@ func TestAIInitialiser_Configure(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestAIInitialiser_Configure_NoKey (F16 of the v0.43.0 manual round):
+// literal mode with no key entered and none to keep is refused and nothing
+// is written. It used to write the provider alone and report success, which
+// over a pipe (where the password prompt cannot read) left a tool with a
+// provider and no credential and a log line saying it was saved.
 func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 	// Not parallel: the TUI route is paced by time (see keyIO), and literal
 	// mode is only offered outside CI.
@@ -579,17 +584,12 @@ func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
-	// No credential supplied, so only the provider is written — but still
-	// through the single combined Apply.
-	cfg.EXPECT().Apply([]config.Change{
-		config.Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)),
-	}).Return(nil).Once()
 
 	props := newTestProps(t)
 	props.IO = keyIO(t, "openai", credentials.ModeLiteral, "")
 
 	err := (&AIInitialiser{}).Configure(t.Context(), props, cfg)
-	assert.NoError(t, err)
+	require.ErrorIs(t, err, ErrNoKeyEntered)
 }
 
 // TestInitTemplate_SeedsNoEmptyCredentials pins the #1 fix: the AI init

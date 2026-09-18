@@ -316,6 +316,16 @@ func TestFinaliseAIConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "sk-existing", got.APIKey, "blank keeps the existing key")
 
+	// F16 of the v0.43.0 manual round: with nothing to keep, a blank key in
+	// literal or keychain mode is a refusal, not a success that stores
+	// nothing. Over a pipe huh's password prompt cannot read (it needs a
+	// tty) and the wizard used to report "saved successfully" regardless.
+	none := testutil.ViewFromYAML(t, "{}\n")
+	_, err = finaliseAIConfig(&AIConfig{Provider: "claude", StorageMode: credentials.ModeLiteral}, none, allLinked)
+	require.ErrorIs(t, err, ErrNoKeyEntered, "literal mode with no key and none to keep")
+	_, err = finaliseAIConfig(&AIConfig{Provider: "claude", StorageMode: credentials.ModeKeychain}, none, allLinked)
+	require.ErrorIs(t, err, ErrNoKeyEntered, "keychain mode likewise")
+
 	_, err = finaliseAIConfig(&AIConfig{Provider: "bedrock"}, view, func(gochat.Provider) bool { return false })
 	require.ErrorIs(t, err, ErrProviderNotLinked)
 

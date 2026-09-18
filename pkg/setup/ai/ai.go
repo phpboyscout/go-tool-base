@@ -75,6 +75,12 @@ type AIConfig struct {
 // not register: writing it to config would only fail at first use.
 var ErrProviderNotLinked = errors.NewSentinel("gtb.setup.ai.provider_not_linked", "this tool does not link the chosen chat provider")
 
+// ErrNoKeyEntered is returned when the key prompt closes without a key in a
+// mode that stores one and there is no existing key to keep. The password
+// prompt needs a terminal, so over a pipe it reads nothing; reporting success
+// then would store nothing and say otherwise.
+var ErrNoKeyEntered = errors.NewSentinel("gtb.setup.ai.no_key_entered", "no API key was entered")
+
 // linkedProviders builds the predicate from the registry. A binary that
 // registers no provider at all cannot narrow, so every known provider is
 // offered and doctor's Chat providers check is what reports the gap.
@@ -517,8 +523,14 @@ func finaliseAIConfig(aiCfg *AIConfig, existing config.Reader, linked func(gocha
 		return aiCfg, nil
 	}
 
-	// Blank submission in literal or keychain mode preserves the existing key.
-	if aiCfg.APIKey == "" && aiCfg.ExistingKey != "" {
+	// Blank submission in literal or keychain mode preserves the existing key;
+	// with none to keep it is a refusal, never a success that stores nothing.
+	if aiCfg.APIKey == "" {
+		if aiCfg.ExistingKey == "" {
+			return nil, errors.WithHint(ErrNoKeyEntered,
+				"Enter the key at a terminal, or choose the environment-variable mode, which needs no key here.")
+		}
+
 		aiCfg.APIKey = aiCfg.ExistingKey
 	}
 
