@@ -1,6 +1,14 @@
 package generate
 
-import "gitlab.com/phpboyscout/go/errors"
+import (
+	"strings"
+
+	"charm.land/huh/v2"
+	"gitlab.com/phpboyscout/go/errorhandling"
+	"gitlab.com/phpboyscout/go/errors"
+
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+)
 
 var (
 	ErrCommandNameRequired      = errors.NewSentinel("gtb.generate.command_name_required", "command name is required")
@@ -21,3 +29,27 @@ var (
 	ErrHelpChannelRequired      = errors.NewSentinel("gtb.generate.help_channel_required", "a help channel type needs its channel: --slack-channel for slack, --teams-channel for teams")
 	ErrSigningKeyWithoutSigning = errors.NewSentinel("gtb.generate.signing_key_without_signing", "--signing-key-id wires the release pipeline's signs block, which needs --signing (or --signing-email)")
 )
+
+// usageError marks what ValidateOrPrompt refused as a usage error, so the
+// process exits errorhandling.ExitCodeUsage as the reference promises rather
+// than the generic 1. A refusal is a missing or invalid input: the generator's
+// ErrInvalidInput, or one of this package's own sentinels. A wizard the user
+// cancelled is neither, and nor is a failure past validation.
+func usageError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, huh.ErrUserAborted):
+		return err
+	case errors.Is(err, generator.ErrInvalidInput), isGenerateRefusal(err):
+		return errorhandling.WithExitCode(err, errorhandling.ExitCodeUsage)
+	default:
+		return err
+	}
+}
+
+// isGenerateRefusal reports whether err is one of this package's own refusals
+// (every sentinel here is one, by construction).
+func isGenerateRefusal(err error) bool {
+	return strings.HasPrefix(errors.KindOf(err), "gtb.generate.")
+}

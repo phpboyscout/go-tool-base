@@ -142,7 +142,11 @@ An interrupted run exits **128 + signum**: `130` for SIGINT, `143` for SIGTERM.
 That code is used regardless of what the command tree returned, because an
 interrupt is a deliberate user choice rather than a failure, which is also why
 the notice is logged at debug rather than error. Any other command failure exits
-`1` unless the error carries an explicit code.
+`1` unless the error carries an explicit code. The gtb generator's commands
+(`generate project`, `generate command`, `generate add-flag`, `regenerate`)
+exit `2` when they refuse an invocation, a missing or invalid input, and `3`
+when files were written but verification failed; see the
+[regenerate reference](regenerate.md#exit-codes-emitted-is-not-verified).
 
 A service supervisor such as [`go/controls`](https://controls.go.phpboyscout.uk)
 observes the context the framework cancels; that is the intended arrangement and

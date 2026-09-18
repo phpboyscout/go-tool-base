@@ -174,7 +174,7 @@ Run without --name/--repo in an interactive terminal to launch a guided wizard;
 otherwise supply the flags directly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
-				return err
+				return usageError(err)
 			}
 
 			return opts.Run(cmd.Context(), p)

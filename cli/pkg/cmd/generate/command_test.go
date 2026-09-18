@@ -134,8 +134,11 @@ version:
 	// Verify docs
 	docContent, err := afero.ReadFile(fs, filepath.Join(projectRoot, "docs/commands/test-cmd/index.md"))
 	require.NoError(t, err)
-	assert.Contains(t, string(docContent), "# test-cmd")
+	// The provider-free page is the same layout-aware boilerplate the provider
+	// path falls back to: the full command name, the description, the flags.
+	assert.Contains(t, string(docContent), "# test-project test-cmd")
 	assert.Contains(t, string(docContent), "A test command")
+	assert.Contains(t, string(docContent), "`--name`")
 
 	// Verify manifest was updated
 	manifestUpdated, err := afero.ReadFile(fs, filepath.Join(projectRoot, ".gtb/manifest.yaml"))

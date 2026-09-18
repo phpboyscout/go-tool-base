@@ -142,7 +142,7 @@ Examples:
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
-				return err
+				return usageError(err)
 			}
 
 			// Handle tri-state protected flag
