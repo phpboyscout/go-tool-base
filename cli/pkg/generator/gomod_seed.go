@@ -68,8 +68,11 @@ func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersi
 	// An owned adapter's known version is a floor (spec 0200 D9, #87): the
 	// adapters move with the framework, and a line left below what this gtb
 	// links surfaces as a compile error inside the adapter after an upgrade.
+	// The framework itself is the first floor: the regenerated code is written
+	// against the running gtb's version, so a line left below it fails
+	// typecheck on the symbols the new templates use.
 	want := gomod.LockstepFloors(gomod.Requirements(g.modulesFor(imports), g.versions, gomod.Floors), adapterModules())
-	want = append([]gomod.Requirement{{Path: frameworkModule, Version: frameworkVersion}}, want...)
+	want = append([]gomod.Requirement{{Path: frameworkModule, Version: frameworkVersion, Floor: frameworkVersion != gomod.Latest}}, want...)
 
 	var replace *gomod.Replace
 	if dir := frameworkReplace(); dir != "" {

@@ -52,10 +52,12 @@ rewritten only with `--force`.
 
 `go.mod` is edited in place, never re-rendered (spec 0200). On every run the
 seed adds a `require` line for each module the generated tree imports, drops
-the line of an adapter whose import has gone, and raises an adapter the
-generator owns (the forge and chat adapters, the keychain and signing links)
-to at least the version this gtb was built against, since those move with the
-framework; a module you added yourself is never touched. It also drops the
+the line of an adapter whose import has gone, raises the framework's own line
+to at least the version of the gtb running (the regenerated code is written
+against it), and raises an adapter the generator owns (the forge and chat
+adapters, the keychain and signing links) to at least the version this gtb
+was built against, since those move with the framework; a module you added
+yourself is never touched. It also drops the
 `tool` directives a scaffold carried before gtb, golangci-lint and mockery
 became installed binaries, and keeps the framework's own (`cmd/changelog`,
 `cmd/docs`). `go mod tidy` then owns the result.
