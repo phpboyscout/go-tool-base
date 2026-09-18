@@ -198,6 +198,25 @@ func TestInitialise_SkipsWizardsWhenNonInteractive(t *testing.T) {
 	assert.Zero(t, rec.calls, "credential wizard must not run without an interactive terminal")
 }
 
+// TestInitialise_RunsWizardsWhenAccessibleOnAPipe: --accessible on a piped
+// stdin asks for line prompts, so the credential wizards run rather than
+// being skipped as "no terminal". The setup wizards honoured the switch once
+// reached; the init runner is what decided not to reach them.
+func TestInitialise_RunsWizardsWhenAccessibleOnAPipe(t *testing.T) {
+	t.Parallel()
+
+	pipe := props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: true}
+	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), IO: pipe}
+	rec := &recordingInitialiser{}
+
+	_, err := Initialise(t.Context(), p, InitOptions{
+		Dir:          t.TempDir(),
+		Initialisers: []Initialiser{rec},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, rec.calls, "an unconfigured initialiser must run under --accessible on a pipe")
+}
+
 func TestInitialise_RunsWizardsWhenInteractive(t *testing.T) {
 	t.Parallel()
 

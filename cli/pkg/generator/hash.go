@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 )
@@ -112,13 +114,17 @@ func (g *Generator) askOverwriteAction(path string, existing, newContent []byte)
 			opts = append(opts, huh.NewOption("View diff", "view"))
 		}
 
-		err := huh.NewSelect[string]().
-			Title("Conflict: " + path + " has been modified since it was last generated.").
-			Description("What would you like to do?").
-			Options(opts...).
-			Value(&action).
-			Run()
-		if err != nil {
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Conflict: " + path + " has been modified since it was last generated.").
+				Description("What would you like to do?").
+				Options(opts...).
+				Value(&action),
+		))
+
+		// Reached from the file-walk helpers, which carry no context; a person
+		// at the prompt bounds it.
+		if err := setup.PrepareForm(g.props.GetIO(), form).Run(); err != nil {
 			g.props.Logger.Warn(fmt.Sprintf("Prompt failed (non-interactive?): %v. Skipping overwrite.", err))
 
 			return false

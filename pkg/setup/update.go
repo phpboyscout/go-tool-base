@@ -951,7 +951,7 @@ func (s *SelfUpdater) resolveTargetPath(ctx context.Context) (string, error) {
 	// we cannot prompt — default to the running executable rather than
 	// blocking on a select that can never be answered.
 	io := s.streams()
-	if !io.Interactive() {
+	if !Promptable(io) {
 		s.logger.Warn("multiple installations detected; updating the running executable",
 			"running", targetPath, "on_path", execPath)
 

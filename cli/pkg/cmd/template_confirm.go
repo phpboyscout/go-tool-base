@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -26,12 +27,12 @@ var ErrRemoteTemplateDeclined = errors.NewSentinel("gtb.cmd.remote_template_decl
 // a non-interactive session (CI, --ci, GTB_NON_INTERACTIVE) the prompt is
 // skipped and the source is accepted: supplying --template in CI is itself the
 // explicit acceptance, mirroring the signing wizard's CI behaviour.
-func ConfirmRemoteTemplate(p *props.Props, ci bool, ts generator.TemplateSource) error {
+func ConfirmRemoteTemplate(ctx context.Context, p *props.Props, ci bool, ts generator.TemplateSource) error {
 	if ts.Type != generator.TemplateSourceGit {
 		return nil
 	}
 
-	if ci || !p.GetIO().Interactive() || os.Getenv("GTB_NON_INTERACTIVE") == "true" {
+	if ci || !setup.Promptable(p.GetIO()) || os.Getenv("GTB_NON_INTERACTIVE") == "true" {
 		p.Logger.Warn("trusting remote template source (non-interactive)", "location", ts.Location, "ref", refOrDefault(ts.Ref))
 
 		return nil
@@ -48,9 +49,9 @@ func ConfirmRemoteTemplate(p *props.Props, ci bool, ts generator.TemplateSource)
 				Negative("No, abort").
 				Value(&confirmed),
 		),
-	).WithTheme(setup.FormTheme())
+	)
 
-	if err := form.Run(); err != nil {
+	if err := setup.RunForm(ctx, p, form); err != nil {
 		return errors.Wrap(err, "remote template confirmation failed")
 	}
 

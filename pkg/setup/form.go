@@ -30,11 +30,19 @@ func RunForm(ctx context.Context, p *props.Props, f *huh.Form) error {
 // RunFormOn is RunForm for a caller that holds the streams rather than the
 // Props (the self-updater, built without them).
 func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
-	if !io.Interactive() && !io.Accessible() {
+	if !Promptable(io) {
 		return errors.WithHint(ErrNonInteractive,
 			"Run this from a terminal, or non-interactively: pass the answers as flags, or set GTB_ACCESSIBLE=true for line prompts on a piped stdin.")
 	}
 
+	return PrepareForm(io, f).RunWithContext(ctx)
+}
+
+// PrepareForm binds f to the IO's streams the way RunFormOn does, without
+// running it: the accessible decision, the theme, and the headless program
+// options. It is for the few prompts reached from code that carries no
+// context, which then call Run themselves; everything else uses RunFormOn.
+func PrepareForm(io props.IO, f *huh.Form) *huh.Form {
 	// Read once: an IO may hand each form its own input (formtest.TUIForms).
 	in, out := io.In(), io.Err()
 
@@ -52,7 +60,7 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 		f = f.WithProgramOptions(programOptions(in, out)...)
 	}
 
-	return f.RunWithContext(ctx)
+	return f
 }
 
 // FormTheme is the theme every wizard renders with: huh's Charm theme with the
@@ -67,6 +75,15 @@ func FormTheme() huh.Theme {
 
 		return styles
 	})
+}
+
+// Promptable reports whether a wizard can run on these streams: stdin is a
+// terminal, or accessible line prompts were asked for (--accessible,
+// GTB_ACCESSIBLE=true, TERM=dumb), which read any stdin. It is the one rule
+// every prompt gate in the framework and the gtb CLI applies; a gate that
+// demanded a terminal refused a piped stdin that had asked for line prompts.
+func Promptable(io props.IO) bool {
+	return io.Interactive() || io.Accessible()
 }
 
 // lineReader hands out one line per Read, however many the underlying

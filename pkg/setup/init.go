@@ -207,10 +207,10 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 		return targetFile, err
 	}
 
-	// Credential wizards prompt on the invocation's stdin; without a terminal
-	// they would block, so they are skipped rather than hung. A test sets
-	// Props.IO to say which it is.
-	interactive := p.GetIO().Interactive()
+	// Credential wizards prompt on the invocation's stdin; with neither a
+	// terminal nor accessible line prompts they would block, so they are
+	// skipped rather than hung. A test sets Props.IO to say which it is.
+	interactive := Promptable(p.GetIO())
 
 	for _, init := range opts.Initialisers {
 		if init.IsConfigured(editor.View()) {
@@ -222,7 +222,7 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 		// The base config is still written, and the user can run the
 		// dedicated "init <provider>" subcommand interactively later.
 		if !interactive {
-			p.Logger.Info("setup skipped: no interactive terminal", "component", init.Name())
+			p.Logger.Info("setup skipped: no terminal and no --accessible", "component", init.Name())
 
 			continue
 		}
