@@ -33,6 +33,11 @@ var readOnlyReasons = map[string]string{
 	"properties.docs_layout":      "recorded by the generator",
 	"properties.module_published": "recorded by the generator",
 	"version.gtb":                 "recorded by the gtb that generates",
+	// A rename touches cmd/<name>/, the README, the release configuration
+	// and every docs page; set wrote a second entry point and left the
+	// rest for the next regenerate. Until a rename command exists it is a
+	// hand job.
+	"properties.name": "renaming a project is not supported by set: move cmd/<old> to cmd/<new>, update the manifest and README by hand, then regenerate",
 	// The direct release channel is withdrawn until its design lands (#90);
 	// its keys stay in the table so an older manifest loads, but nothing
 	// offers them, set included.

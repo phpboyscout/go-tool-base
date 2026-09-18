@@ -147,3 +147,17 @@ func TestSetSetting_RefusesTheWithdrawnDirectChannel(t *testing.T) {
 	require.ErrorIs(t, err, ErrSettingReadOnly)
 	assert.Contains(t, errors.FlattenHints(err), "#90")
 }
+
+// TestSetSetting_RefusesARename (deferred item 1 of the v0.43.0 round): set
+// name wrote a second cmd/<new>/ entry point and left cmd/<old>/ and the
+// README in place, so the tree held two mains until the author noticed. A
+// rename is refused with the hand steps until a command owns it.
+func TestSetSetting_RefusesARename(t *testing.T) {
+	t.Parallel()
+
+	for _, path := range []string{"name", "properties.name"} {
+		_, err := resolveSettingPath(path)
+		require.ErrorIs(t, err, ErrSettingReadOnly, path)
+		assert.Contains(t, errors.FlattenHints(err), "cmd/<old>")
+	}
+}
