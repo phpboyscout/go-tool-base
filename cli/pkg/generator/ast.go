@@ -54,6 +54,12 @@ func (g *Generator) registerSubcommand() (bool, error) {
 		return false, errors.Wrap(err, "failed to read parent command file")
 	}
 
+	// Whether the parent matches its recorded hash is decided before this run
+	// writes into it; the hash is refreshed afterwards only when it did.
+	// Recording the hash of a hand-edited parent made the edit read as
+	// generated, and the reshape or the next regenerate overwrote it (F23).
+	g.parentWasPristine = g.parentMatchesRecordedHash(fsrc)
+
 	g.props.Logger.Debug("Parsing parent command AST...")
 
 	f, err := decorator.Parse(fsrc)
@@ -614,6 +620,33 @@ func insertIntoRootCall(call *dst.CallExpr, ctx *subcommandContext) {
 
 	newCmdCall.Decs.Before = dst.NewLine
 	call.Args = append(call.Args, newCmdCall)
+}
+
+// parentMatchesRecordedHash reports whether the parent file's content is the
+// one the manifest recorded for it. A root command records no hash and
+// counts as pristine, as does a parent with no recorded hash at all.
+func (g *Generator) parentMatchesRecordedHash(content []byte) bool {
+	parentParts := g.getParentPathParts()
+	if len(parentParts) == 0 {
+		return true
+	}
+
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
+	if err != nil {
+		return true
+	}
+
+	cmd := walkCommandPath(m.Commands, parentParts)
+	if cmd == nil {
+		return true
+	}
+
+	recorded, ok := cmd.Hashes["cmd.go"]
+	if !ok || recorded == "" {
+		return true
+	}
+
+	return recorded == calculateHash(content)
 }
 
 // rootCommandLiteral returns the composite literal holding the local commands

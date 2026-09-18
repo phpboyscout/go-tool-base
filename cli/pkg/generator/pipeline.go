@@ -118,13 +118,17 @@ func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDi
 	if !p.opts.SkipRegistration {
 		p.g.props.Logger.Info("registering subcommand", "name", data.Name)
 
-		// The parent's recorded hash moves only when this run changed the
-		// parent; re-hashing an untouched (possibly kept) file would record
-		// the author's content as generated.
+		// The parent's recorded hash moves only when this run changed a
+		// parent that matched its recorded hash beforehand; re-hashing an
+		// untouched or hand-edited file would record the author's content as
+		// generated, and the next regenerate would overwrite it unwarned.
 		switch wrote, err := p.g.registerSubcommand(); {
 		case err != nil:
 			p.g.props.Logger.Warn("failed to register subcommand", "name", data.Name, "error", err)
 			result.warn("registerInParent", err)
+		case wrote && !p.g.parentWasPristine:
+			p.g.props.Logger.Warn("registered the command in a parent that has been modified since it was generated; the parent's recorded hash is left as it was, so the next regenerate reports the conflict",
+				"parent", filepath.Join(p.g.getParentPathParts()...))
 		case wrote:
 			if err := p.g.updateParentCmdHash(); err != nil {
 				p.g.props.Logger.Warn("failed to update parent command hash", "error", err)

@@ -156,6 +156,11 @@ type Generator struct {
 	// written (a conflict under --overwrite deny, or an ignore rule), so the
 	// child re-registration leaves the file and its recorded hash alone.
 	registrationKept bool
+
+	// parentWasPristine records whether the parent command's cmd.go matched
+	// its recorded hash before this run registered a child in it, so the
+	// hash is refreshed only for a parent the author had not edited.
+	parentWasPristine bool
 }
 
 // withTemplateClone injects the git template-source clone implementation.
