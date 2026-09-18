@@ -74,6 +74,7 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	assert.Equal(t, "Platform", after.Properties.Help.SlackTeam)
 	assert.Equal(t, DocsLayoutDiataxis, after.Properties.DocsLayout)
 	assert.Equal(t, before.ReleaseSource, after.ReleaseSource, "the release source round-trips, backend included (#85)")
+	assert.Equal(t, before.Properties.ModulePath, after.Properties.ModulePath, "the module path round-trips")
 
 	// The delta feature set round-trips exactly: doctor disabled, ai/config
 	// enabled, keychain recovered from its artefact; default-state features carry
@@ -96,4 +97,35 @@ func readManifest(t *testing.T, fs afero.Fs, path string) Manifest {
 	require.NoError(t, yaml.Unmarshal(data, &m))
 
 	return m
+}
+
+// TestRegenerateManifest_FromScratchRecoversTheModulePathOfANoForgeProject
+// (F12 of the v0.43.0 manual round): a project not hosted on a forge has no
+// host and repository to derive a module path from, so the from-scratch
+// rebuild lost it and the next regenerate wrote "//" into the lint, release
+// and mockery configs. go.mod is the source of truth for every project.
+func TestRegenerateManifest_FromScratchRecoversTheModulePathOfANoForgeProject(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Config: emptyTestStore(t), Version: version.NewInfo("v1.0.0", "", "")}
+
+	const path = "/noforge"
+
+	g := New(p, &Config{Path: path})
+	g.runCommand = func(context.Context, string, string, ...string) ([]byte, error) { return nil, nil }
+
+	cfg := SkeletonConfig{Name: "noforge", ModulePath: "example.internal/tools/noforge", Description: "not hosted", Path: path,
+		Features: []ManifestFeature{{Name: "update", Enabled: false}}}
+	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
+
+	before := readManifest(t, fs, path)
+	require.Equal(t, "example.internal/tools/noforge", before.Properties.ModulePath)
+
+	require.NoError(t, fs.Remove(ManifestPathFor(path)))
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	after := readManifest(t, fs, path)
+	assert.Equal(t, "example.internal/tools/noforge", after.Properties.ModulePath, "recovered from go.mod")
+	assert.Empty(t, after.ReleaseSource.Host)
 }

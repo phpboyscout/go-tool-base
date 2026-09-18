@@ -167,6 +167,12 @@ func manifestModulePath(m Manifest) string {
 	}
 
 	_, org, repoName := m.GetReleaseSource()
+	if m.ReleaseSource.Host == "" || org == "" || repoName == "" {
+		// Nothing to derive from: a project not hosted on a forge records
+		// its module path, and a manifest without one is left as is rather
+		// than given "//" (F12).
+		return ""
+	}
 
 	return m.ReleaseSource.Host + "/" + org + "/" + repoName
 }
@@ -231,9 +237,11 @@ func deriveMissingManifestFields(m *Manifest) (bool, error) {
 		}
 	}
 
-	if m.Properties.ModulePath == "" && m.ReleaseSource.Host != "" {
-		m.Properties.ModulePath = manifestModulePath(*m)
-		changed = true
+	if m.Properties.ModulePath == "" {
+		if derived := manifestModulePath(*m); derived != "" {
+			m.Properties.ModulePath = derived
+			changed = true
+		}
 	}
 
 	// A manifest from before version.go existed keeps the go line it has

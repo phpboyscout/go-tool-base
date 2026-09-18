@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/mod/modfile"
+
 	"github.com/spf13/afero"
 )
 
@@ -85,9 +87,27 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 		props.CI.ComponentSource = src
 	}
 
+	// go.mod is the one place every project states its module path; a
+	// project not hosted on a forge has no host and repository to derive it
+	// from, and lost it here (F12).
+	if path := g.recoverModulePath(); path != "" {
+		props.ModulePath = path
+	}
+
 	// Signing, template-overlay provenance, and module_published are not in the
 	// generated source; recover them from the annotated provenance file.
 	g.applyProvenanceFile(props)
+}
+
+// recoverModulePath reads the module line of the project's go.mod, or returns
+// empty when there is none to read.
+func (g *Generator) recoverModulePath() string {
+	src, err := afero.ReadFile(g.props.FS, filepath.Join(g.config.Path, "go.mod"))
+	if err != nil {
+		return ""
+	}
+
+	return modfile.ModulePath(src)
 }
 
 // recoverDocsLayout infers the docs layout from the generated tree: the Diátaxis
