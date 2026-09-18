@@ -152,6 +152,44 @@ func SkipsUpdateCheck(cmd *cobra.Command) bool {
 	return cmd.Annotations[SkipUpdateCheckAnnotation] == "true"
 }
 
+// ProtocolStdoutAnnotation is the cobra.Command.Annotations key under which
+// [MarkProtocolStdout] records that a command's stdout carries a wire
+// protocol, so the root withholds interactive UI (the telemetry consent
+// prompt) from it and its subtree (spec 0202 D5).
+const ProtocolStdoutAnnotation = "gtb.protocol_stdout"
+
+// MarkProtocolStdout stamps cmd as a command whose stdout is a protocol
+// stream: an MCP server's JSON-RPC frames, for one. [IsProtocolStdout]
+// recognises the stamp across the subtree. It says nothing about the update
+// check; a server stamps [MarkSkipUpdateCheck] as well. A nil cmd is returned
+// unchanged.
+func MarkProtocolStdout(cmd *cobra.Command) *cobra.Command {
+	if cmd == nil {
+		return cmd
+	}
+
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+
+	cmd.Annotations[ProtocolStdoutAnnotation] = "true"
+
+	return cmd
+}
+
+// IsProtocolStdout reports whether cmd or any ancestor carries the
+// [MarkProtocolStdout] stamp. A feature match or a name match would tie the
+// root to the features that have such commands; the stamp does not.
+func IsProtocolStdout(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Annotations[ProtocolStdoutAnnotation] == "true" {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Register adds each child as a subcommand and wraps the child's RunE
 // with the middleware [Chain] for the child's own feature.
 //

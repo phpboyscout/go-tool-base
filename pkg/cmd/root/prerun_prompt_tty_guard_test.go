@@ -184,25 +184,22 @@ func TestPromptTelemetryConsent_NonInteractiveDoesNotPersist(t *testing.T) {
 		"a deferred prompt must not auto-persist a telemetry choice")
 }
 
-// TestIsMCPFeatureSubtree proves the mcp prompt exemption matches on the McpCmd
-// feature annotation (stamped by setup.Wrap), across the whole subtree, and
-// never on a name match alone.
-func TestIsMCPFeatureSubtree(t *testing.T) {
+// TestConsentGuardReadsTheProtocolStdoutMarker proves the prompt exemption is
+// the setup.MarkProtocolStdout stamp, across the subtree, and no longer the
+// mcp feature: a tree wrapped for McpCmd without the stamp is prompted like
+// any other, so the root has nothing to know about which features own a
+// protocol command (spec 0202 D5).
+func TestConsentGuardReadsTheProtocolStdoutMarker(t *testing.T) {
 	t.Parallel()
 
-	mcp := &cobra.Command{Use: "mcp"}
-	setup.Wrap(p.McpCmd, mcp)
-
+	server := setup.MarkProtocolStdout(&cobra.Command{Use: "serve"})
 	start := &cobra.Command{Use: "start"}
-	mcp.AddCommand(start)
+	server.AddCommand(start)
 
-	// A command merely named "mcp" but never wrapped must NOT match.
-	unwrapped := &cobra.Command{Use: "mcp"}
+	featureOnly := &cobra.Command{Use: "mcp"}
+	setup.Wrap(p.McpCmd, featureOnly)
 
-	other := &cobra.Command{Use: "status"}
-
-	assert.True(t, isMCPFeatureSubtree(mcp), "the wrapped mcp command matches")
-	assert.True(t, isMCPFeatureSubtree(start), "a descendant of mcp matches (parent walk)")
-	assert.False(t, isMCPFeatureSubtree(unwrapped), "an unwrapped command named mcp must not match")
-	assert.False(t, isMCPFeatureSubtree(other), "an unrelated command must not match")
+	assert.True(t, setup.IsProtocolStdout(server), "the stamped command")
+	assert.True(t, setup.IsProtocolStdout(start), "a descendant of it (parent walk)")
+	assert.False(t, setup.IsProtocolStdout(featureOnly), "the mcp feature stamp alone is not the exemption")
 }

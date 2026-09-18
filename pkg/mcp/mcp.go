@@ -44,9 +44,11 @@ func NewCmdMCP(p *props.Props, level *slog.LevelVar, extra ...cli.Option) *setup
 
 	cmd := cli.Command(append(options, extra...)...)
 
-	// An MCP server's stdout carries JSON-RPC frames; the pre-run update
-	// check's output must never race it. The stamp covers the whole subtree.
+	// An MCP server's stdout carries JSON-RPC frames: neither the pre-run
+	// update check's output nor a consent prompt may race it. Both stamps
+	// cover the whole subtree.
 	setup.MarkSkipUpdateCheck(cmd)
+	setup.MarkProtocolStdout(cmd)
 
 	return setup.Wrap(props.McpCmd, cmd)
 }

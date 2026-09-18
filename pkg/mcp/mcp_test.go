@@ -116,6 +116,7 @@ func TestNewCmdMCP_IsWrappedForTheFeatureAndSkipsUpdateChecks(t *testing.T) {
 
 	assert.Equal(t, props.McpCmd, setup.FeatureOf(cmd))
 	assert.Equal(t, "true", cmd.Annotations[setup.SkipUpdateCheckAnnotation])
+	assert.Equal(t, "true", cmd.Annotations[setup.ProtocolStdoutAnnotation], "a protocol stdout gets no prompt UI")
 	assert.Equal(t, "true", cmd.Annotations["mcp.phpboyscout.uk/omit"])
 
 	for _, sub := range []string{"start", "stream", "tools", "claude", "cursor", "vscode"} {

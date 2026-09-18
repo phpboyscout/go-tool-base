@@ -958,11 +958,11 @@ func newRootPreRunE(props *p.Props, configPaths []string, state *rootState, boun
 		configureLogging(props, flags, view)
 
 		// Prompt for telemetry consent if the feature is enabled but not yet
-		// configured. Never under the mcp subtree: an MCP server's stdout carries
-		// JSON-RPC frames, so prompt UI must not be rendered there even on an
-		// interactive terminal (the update check is already exempt via
+		// configured. Never under a command whose stdout carries a protocol (an
+		// MCP server's JSON-RPC frames): prompt UI must not be rendered there
+		// even on an interactive terminal (the update check is exempt through
 		// MarkSkipUpdateCheck).
-		if !isMCPFeatureSubtree(cmd) {
+		if !setup.IsProtocolStdout(cmd) {
 			promptTelemetryConsent(cmd.Context(), props)
 		}
 
@@ -1069,21 +1069,6 @@ func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, sta
 func isInitFeatureSubtree(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		if setup.FeatureOf(c) == p.InitCmd {
-			return true
-		}
-	}
-
-	return false
-}
-
-// isMCPFeatureSubtree reports whether cmd is the mcp command or any descendant
-// of it, identified by walking up the tree for the McpCmd feature annotation
-// stamped by setup.Wrap. Used to suppress the interactive pre-run prompts
-// (telemetry consent) whose UI would corrupt the MCP server's JSON-RPC stdout —
-// a feature match, never a fragile name match.
-func isMCPFeatureSubtree(cmd *cobra.Command) bool {
-	for c := cmd; c != nil; c = c.Parent() {
-		if setup.FeatureOf(c) == p.McpCmd {
 			return true
 		}
 	}
