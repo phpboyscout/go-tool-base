@@ -12,6 +12,9 @@ To get the most out of GTB, it is helpful to understand the core concepts and ar
 
 ## Core Pillars
 
+### [The Go Toolkit](go-toolkit.md)
+What the phpboyscout Go toolkit is, its naming convention, and the standalone modules GTB is assembled from.
+
 ### [Architecture Fundamentals](architecture.md)
 Explore the high-level system design, command registry, and execution flow.
 
