@@ -21,7 +21,13 @@ func (g *Generator) applyRecoveredProperties(m *Manifest, manifestExisted bool) 
 		return
 	}
 
+	// The Tool literal carries no backend (spec 0195 D2: the backend is the
+	// manifest's), so the scan cannot rebuild it. With a manifest present its
+	// own value is kept; from scratch it is derived below once the features
+	// and type are known (#85).
+	backend := m.ReleaseSource.Backend
 	m.ReleaseSource = *rs
+	m.ReleaseSource.Backend = backend
 
 	if manifestExisted {
 		m.Properties.Name = mProps.Name
@@ -40,6 +46,14 @@ func (g *Generator) applyRecoveredProperties(m *Manifest, manifestExisted bool) 
 	// telemetry, bootstrap) plus the non-literal recoveries below.
 	m.Properties = *mProps
 	g.recoverNonLiteralProperties(&m.Properties)
+
+	// The backend is derived the way the derived-fields sync derives it for
+	// an older manifest: from the one forge feature, else the release type.
+	if backend, err := deriveForgeBackend(m); err == nil {
+		m.ReleaseSource.Backend = backend
+	} else {
+		g.props.Logger.Warn("could not derive the forge backend from source", "error", err)
+	}
 }
 
 // recoverNonLiteralProperties fills the ManifestProperties fields that are not

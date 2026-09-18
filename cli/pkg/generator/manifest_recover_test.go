@@ -38,14 +38,15 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	g.runCommand = func(context.Context, string, string, ...string) ([]byte, error) { return nil, nil }
 
 	cfg := SkeletonConfig{
-		Name:        "roundtrip",
-		Repo:        "acme/roundtrip",
-		Host:        "gitlab.com",
-		Description: "round trip",
-		Path:        path,
-		EnvPrefix:   "RT",
-		HelpType:    "slack",
-		SlackTeam:   "Platform",
+		Name:         "roundtrip",
+		Repo:         "acme/roundtrip",
+		Host:         "gitlab.com",
+		ForgeBackend: "gitlab",
+		Description:  "round trip",
+		Path:         path,
+		EnvPrefix:    "RT",
+		HelpType:     "slack",
+		SlackTeam:    "Platform",
 		// A disabled default (doctor), enabled opt-ins (ai/config), and keychain
 		// (recovered from its blank-import artefact, not SetFeatures).
 		Features: []ManifestFeature{
@@ -72,6 +73,7 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	assert.Equal(t, "slack", after.Properties.Help.Type)
 	assert.Equal(t, "Platform", after.Properties.Help.SlackTeam)
 	assert.Equal(t, DocsLayoutDiataxis, after.Properties.DocsLayout)
+	assert.Equal(t, before.ReleaseSource, after.ReleaseSource, "the release source round-trips, backend included (#85)")
 
 	// The delta feature set round-trips exactly: doctor disabled, ai/config
 	// enabled, keychain recovered from its artefact; default-state features carry

@@ -59,6 +59,12 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
   features:
     - name: config
       enabled: true
+release_source:
+  type: github
+  backend: github
+  host: github.com
+  owner: acme
+  repo: test-tool
 `
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0o755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte(manifestYAML), 0o644))
@@ -80,4 +86,6 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
 	assert.True(t, m.Properties.ModulePublished, "module_published must be preserved")
 	// And the AST-recoverable fields stay correct.
 	assert.Equal(t, "test-tool", m.Properties.Name)
+	// The backend is the manifest's, not the literal's: the scan must not drop it (#85).
+	assert.Equal(t, "github", string(m.ReleaseSource.Backend), "release_source.backend must be preserved")
 }

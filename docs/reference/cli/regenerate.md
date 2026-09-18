@@ -125,4 +125,13 @@ then names what it could not register and still exits 0.
 | `--path, -p` | `.` | Project root. |
 | `--dry-run` | `false` | Preview changes without writing. |
 
+The scan rebuilds the command tree and the fields the root's `Tool` literal
+carries. With a manifest present, everything else in it is kept as authored,
+`release_source.backend` included: the literal has no backend, so the scan
+cannot rebuild it and must not drop it. On a from-scratch rebuild (no manifest
+on disk) the backend is derived the way an older manifest's is, from the one
+forge feature the project enables, else the release source's type, so a
+generate, delete-manifest, `regenerate manifest`, `regenerate project` round
+trip reproduces the manifest byte for byte.
+
 > Run any subcommand with `--help` for the complete, authoritative flag set.
