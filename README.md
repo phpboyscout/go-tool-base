@@ -134,7 +134,7 @@ gtb generate project --name mytool --repo myorg/mytool --description "My CLI too
 For a GitLab-hosted project with nested groups:
 
 ```bash
-gtb generate project --name mytool --repo myorg/mygroup/mytool --git-backend gitlab --host gitlab.mycompany.com --path ./mytool
+gtb generate project --name mytool --repo myorg/mygroup/mytool --forge-backend gitlab --host gitlab.mycompany.com --path ./mytool
 ```
 
 ### Generated Project Structure

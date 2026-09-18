@@ -90,7 +90,7 @@ Inject secrets directly as environment variables. This is the simplest method fo
 ## Core Principles
 
 1. **Secrets are Runtime Dependencies**: They belong to the environment, not the application code.
-2. **Standard Config Paths**: GTB provides the abstraction (Viper) and conventional paths. The deployment platform provides the storage mechanism.
+2. **Standard Config Paths**: GTB provides the abstraction (the `go/config` store) and conventional paths. The deployment platform provides the storage mechanism.
 3. **Secure Defaults**: GTB defaults to secure settings (e.g., gRPC reflection disabled) and requires explicit opt-in for development conveniences.
 
 ## Server-Side Authentication
