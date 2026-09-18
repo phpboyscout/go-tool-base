@@ -154,12 +154,15 @@ func getIntConstantValue(flag CommandFlag) jen.Code {
 		i = 0
 	}
 
-	if flag.Type == "int64" || flag.Type == "uint64" {
-		return jen.Lit(i)
+	// jen renders an int64 literal as int64(n), so wrapping it in the target
+	// type gave int(int64(n)) (D11). The literal is emitted as an untyped
+	// integer and converted once, and a plain int needs no conversion.
+	lit := jen.Op(strconv.FormatInt(i, 10))
+	if goType == "int" {
+		return lit
 	}
 
-	// jen.Lit accepts int64 directly; no narrowing required.
-	return jen.Id(goType).Call(jen.Lit(i))
+	return jen.Id(goType).Call(lit)
 }
 
 const (
