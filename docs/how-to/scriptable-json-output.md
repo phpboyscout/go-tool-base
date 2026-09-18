@@ -179,7 +179,7 @@ if !ocobra.IsJSONOutput(cmd) {
 
 ## Rendering Markdown in Terminal Output
 
-Many commands receive markdown content (AI responses, release notes, changelogs) 
+Many commands receive markdown content (AI responses, release notes, changelogs)
 and need to display it styled in the terminal. Use `output.RenderMarkdown`:
 
 ```go
@@ -289,7 +289,6 @@ mytool deploy staging --output json | jq '.data.environment'
 
 ## Related Documentation
 
-- **[Output component](../explanation/components/output.md)**: the extracted module and its GTB wiring
 - **[Module docs](https://output.go.phpboyscout.uk)**: full guides, and the [API reference on pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/output)
 - **[Adding Custom Commands](custom-commands.md)**: command wiring patterns
 - **[Switch to Structured JSON Logging for Containers](structured-json-logging.md)**: complement to JSON output for daemon/container deployments

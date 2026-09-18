@@ -77,9 +77,9 @@ Much of what GTB once implemented now lives in the standalone [phpboyscout Go to
 | **[controls](docs/explanation/components/controls/)** | [go/controls](https://controls.go.phpboyscout.uk) | Service lifecycle: startup ordering, health probes, graceful shutdown. |
 | **[pkg/http](docs/explanation/components/http.md), [pkg/grpc](docs/explanation/components/grpc.md), [pkg/gateway](docs/explanation/components/gateway.md)** | [go/transport](https://transport.go.phpboyscout.uk) | Hardened HTTP/gRPC servers and the REST gateway; the `pkg/` packages are the config adapters. |
 | **[pkg/setup](docs/explanation/components/setup/)** | GTB | Bootstrap logic: auth, key management, command middleware, and pluggable self-updating. |
-| **[pkg/vcs](docs/explanation/components/version-control.md)** | [go/forge](https://forge.go.phpboyscout.uk) + [go/repo](https://repo.go.phpboyscout.uk) | GitHub/GitLab/Gitea/Bitbucket releases and auth; `pkg/vcs` wires them from resolved config. |
+| **[pkg/vcs](docs/explanation/components/vcs/index.md)** | [go/forge](https://forge.go.phpboyscout.uk) + [go/repo](https://repo.go.phpboyscout.uk) | GitHub/GitLab/Gitea/Bitbucket releases and auth; `pkg/vcs` wires them from resolved config. |
 | **[errorhandling](docs/explanation/components/error-handling.md)** | [go/errorhandling](https://errorhandling.go.phpboyscout.uk) | Structured errors with user-facing hints, exit codes, stack traces and log integration. |
-| **[pkg/docs](docs/explanation/components/docs.md)**, **[output](docs/explanation/components/output.md)** | GTB / [go/output](https://output.go.phpboyscout.uk) | Interactive TUI documentation browser; structured text/JSON/YAML/CSV output. |
+| **[pkg/docs](docs/explanation/components/docs.md)**, **[output](https://output.go.phpboyscout.uk)** | GTB / [go/output](https://output.go.phpboyscout.uk) | Interactive TUI documentation browser; structured text/JSON/YAML/CSV output. |
 
 ## 🛠️ Built-in Commands
 

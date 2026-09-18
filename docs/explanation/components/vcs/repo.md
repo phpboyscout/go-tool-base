@@ -20,9 +20,10 @@ backends, the `RepoLike` role interfaces, `ThreadSafeRepo` and the live
 remains GTB's concern: **turning GTB configuration into the module's
 `Settings`.**
 
-The billy↔afero bridge behind the worktree view was extracted alongside it, to
-[`aferobilly`](https://aferobilly.go.phpboyscout.uk). See
-[aferobilly](aferobilly.md).
+The billy↔afero bridge behind the worktree view (`WorkFS()`/`WithWorkFS()`) is a
+separate standalone module, [`go/aferobilly`](https://aferobilly.go.phpboyscout.uk):
+it presents a go-billy `Filesystem` as an `afero.Fs`. GTB does not import it
+directly; it arrives transitively via `go/repo`.
 
 ---
 
@@ -109,7 +110,7 @@ migration is required.
 - **[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk)**: module guides:
   clone and commit, authentication, in-memory repositories, the worktree
   filesystem, concurrency, and testing with the role mocks
-- **[aferobilly](aferobilly.md)**: the extracted billy↔afero bridge
+- **[go/aferobilly](https://aferobilly.go.phpboyscout.uk)**: the billy↔afero bridge behind the worktree view
 - **[VCS index](index.md)**: package overview and authentication helper
 - **[forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk)**: the forge provider clients (separate from git operations)
 - **[Generator](../cli/generator.md)**: GTB's main consumer, for scaffold

@@ -41,7 +41,7 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
 
     The `gtb` CLI behaviour is unchanged. The canonical reference for the
     verifier API is the
-    [signing module documentation](https://signing.phpboyscout.uk) and
+    [signing module documentation](https://signing.go.phpboyscout.uk) and
     [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify);
     this page keeps the gtb-specific operator guidance (config keys, env
     vars, posture/rollout) and how the framework wires the module in.
@@ -345,7 +345,7 @@ Trust sets hold multiple keys, and verification passes if **any** key validates 
 
 ## See Also
 
-- [signing module documentation](https://signing.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify): the canonical reference for the extracted verifier API.
+- [signing module documentation](https://signing.go.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify): the canonical reference for the extracted verifier API.
 - [Setup Package](index.md): the surrounding self-update system and Phase 1 checksum verification.
 - [Secure Releases How-To](../../../how-to/secure-releases.md): operator-facing setup story.
 - [HTTP client](../http.md): the hardened client `WKDResolver` expects.

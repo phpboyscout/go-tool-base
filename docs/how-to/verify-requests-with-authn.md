@@ -1,6 +1,6 @@
 ---
 title: How to Verify Requests (API Keys & JWT/OIDC)
-description: Authenticate HTTP requests with API keys or JWT/OIDC using pkg/authn and the AuthMiddleware.
+description: Authenticate HTTP requests with API keys or JWT/OIDC using go/authn and the transport AuthMiddleware.
 date: 2026-06-26
 tags: [how-to, authn, security, http, jwt, oidc, api-key]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -12,7 +12,8 @@ When your tool exposes an HTTP service, you usually need to authenticate callers
 The standalone [`go/authn`](https://authn.go.phpboyscout.uk) module provides the
 verifiers (API key, JWT/OIDC, mTLS) and `go/transport/http` wraps them in a fail-closed
 `AuthMiddleware`. This guide shows the common setups. For the threat model and
-verification internals, see the [Auth component](../explanation/components/authn.md)
+verification internals, see the
+[module's security model](https://authn.go.phpboyscout.uk/explanation/security-model/)
 and the [module docs](https://authn.go.phpboyscout.uk).
 
 ## Authenticate with API keys
@@ -122,6 +123,6 @@ auth, err := transporthttp.AuthMiddleware(
 
 ## Related
 
-- [Auth component](../explanation/components/authn.md): threat model, JWKS caching, the `AuthorizeFunc` policy seam
+- [`go/authn` module docs](https://authn.go.phpboyscout.uk): threat model, JWKS caching, the `AuthorizeFunc` policy seam
 - [Use middleware](use-middleware.md): how middleware composes on the server
 - [Add security headers](security-headers.md)

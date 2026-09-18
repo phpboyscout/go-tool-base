@@ -21,19 +21,25 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 
 ## Functions
 
-- **`NewServer(settings ServerSettings, opts ...any) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered from typed settings. The variadic accepts both `ServerOption` values and `grpc.ServerOption` values.
+`pkg/grpc` (`gtbgrpc`) exports only the config-key adapters below; construction,
+start, health-service wiring and registration (`NewServer`, `Start`,
+`RegisterHealthService`, `Register`) are `transportgrpc`'s own functions,
+taking explicit typed settings rather than a `config.Reader` — see
+[go/transport/grpc](https://transport.go.phpboyscout.uk) for those.
+
 - **`ServerSettingsFromConfig(cfg config.Reader, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.grpc`.
 - **`ObserveServerSettingsFromConfig(cfg config.Binder, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
-- **`NewServerFromReader(cfg config.Reader, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `NewServer`.
-- **`Start(logger *slog.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
-- **`StartFromReader(cfg config.Reader, logger logger.Logger, srv *grpc.Server, opts ...any) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config.
-- **`RegisterHealthService(srv *grpc.Server, controller controls.Controllable)`**: Wires the gRPC health service to the controller status.
-- **`Register(id string, controller controls.Controllable, logger *slog.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
-- **`RegisterFromReader(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: GTB adapter that reads the existing config structure and delegates to typed registration.
+- **`NewServerFromReader(cfg config.Reader, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `transportgrpc.NewServer`.
+- **`StartFromReader(cfg config.Reader, logger logger.Logger, srv *grpc.Server, opts ...any) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config, then delegates to `transportgrpc.Start`.
+- **`DialLocalFromReader(cfg config.Reader, opts ...any) (*grpc.ClientConn, error)`**: see [Client Credentials and Local Dialling](#client-credentials-and-local-dialling).
+- **`RegisterFromReader(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: GTB adapter that reads the existing config structure and delegates to `transportgrpc.Register`.
 
 ### Server Options
 
-`ServerOption` values select the config block (and port) a gRPC server uses, so you can run more than one gRPC server in a process. They are accepted by `NewServer`, `Start`, `DialLocal` and `Register`:
+GTB's own `ServerOption` (`gtbgrpc`) selects the config block (and port) a
+gRPC server uses, so you can run more than one gRPC server in a process. The
+`*FromReader` adapters accept these alongside `transportgrpc.ServerOption` and
+`grpc.ServerOption` values:
 
 - **`WithConfigPrefix(prefix string) ServerOption`**: Config prefix for port, reflection and TLS (default `server.grpc`). The keys become `<prefix>.port`, `<prefix>.host`, `<prefix>.reflection`, `<prefix>.tls.*`.
 - **`WithPort(port int) ServerOption`**: Explicit listen/dial port, bypassing config lookup (overrides `<prefix>.port` and the `server.port` fallback).
@@ -85,63 +91,35 @@ immutable value through `Current()`. Existing gRPC servers do not automatically
 restart when the port changes; use the observed source for newly constructed
 servers or explicit package-level reconfiguration logic.
 
-## Interceptor Chaining
+## Interceptors
 
 > Interceptors are gRPC's expression of the same chain pattern used by HTTP middleware. For the unified transport story: server/client × HTTP/gRPC, the resilience composition rules, and the config-prefix convention. See the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept.
 
-The interceptor chaining API lives in [`gitlab.com/phpboyscout/go/transit/grpc`](https://transit.go.phpboyscout.uk) (import as `transitgrpc`); `WithInterceptors` is a `transportgrpc` `RegisterOption`.
+The interceptor chain API, `LoggingInterceptor` and `RateLimitInterceptor` live
+in [`go/transit/grpc`](https://transit.go.phpboyscout.uk) (`transitgrpc`); the
+server-side `AuthInterceptor` and the client-side circuit breaker
+interceptors live in [`go/transport/grpc`](https://transport.go.phpboyscout.uk)
+(`transportgrpc`), and `WithInterceptors` is a `transportgrpc` `RegisterOption`.
+Full API, option tables and config keys are on those modules' own reference
+pages; GTB's only adapters here are the two config-key mappings below (both
+stay in `pkg/grpc`, prefix defaults to `server.grpc`):
 
-- **`transitgrpc.NewInterceptorChain(interceptors ...Interceptor) InterceptorChain`**: Creates a chain from paired unary/stream interceptors.
-- **`(c InterceptorChain) Append(interceptors ...Interceptor) InterceptorChain`**: Returns a new chain with additional interceptors (immutable).
-- **`(c InterceptorChain) ServerOptions() []grpc.ServerOption`**: Returns `grpc.ChainUnaryInterceptor` and `grpc.ChainStreamInterceptor` options.
-- **`transportgrpc.WithInterceptors(chain transitgrpc.InterceptorChain) RegisterOption`**: Applies an interceptor chain when using `Register`.
+- **`RateLimitConfigFromConfig(cfg config.Reader, prefix string) transitgrpc.RateLimitConfig`**: `<prefix>.ratelimit.{requests_per_second,burst,max_tracked_keys}`
+- **`CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) transitgrpc.CircuitBreakerConfig`**: `<prefix>.circuitbreaker.{failure_threshold,cooldown,half_open_max_requests}`
 
-## Built-in Logging Interceptor
+The standard health (`/grpc.health.v1.Health/*`) and reflection
+(`/grpc.reflection.v1*`) services are **auto-skipped** by the auth and
+rate-limit interceptors so probes keep working; a custom skipper adds to that
+set.
 
-`LoggingInterceptor` (in `transitgrpc`) logs each completed RPC with structured fields (method, status code, latency, RPC type).
-
-- **`transitgrpc.LoggingInterceptor(logger *slog.Logger, opts ...GRPCLoggingOption) Interceptor`**
-
-**Options**: `WithGRPCLogLevel`, `WithoutGRPCLatency`, `WithGRPCPathFilter`.
-
-## Built-in Rate-Limit Interceptor
-
-`RateLimitInterceptor` protects a gRPC server from overload, mirroring the HTTP server limiter. It admits RPCs under a token-bucket limiter and rejects excess with **`codes.ResourceExhausted`**. It is an `Interceptor` (unary + stream), so it composes into any `InterceptorChain`.
-
-- **`transitgrpc.RateLimitInterceptor(log *slog.Logger, cfg RateLimitConfig) Interceptor`**
-- **`transitgrpc.DefaultRateLimitConfig() RateLimitConfig`**: 50 rps, burst 100, single global bucket
-- **`transitgrpc.PeerKey(ctx, fullMethod) string`**: a ready-made per-peer `KeyFunc`
-- **`gtbgrpc.RateLimitConfigFromConfig(cfg config.Reader, prefix string) transitgrpc.RateLimitConfig`**: GTB config adapter (stays in `pkg/grpc`)
-
-Admission is **non-blocking** (`Allow`, not `Wait`). Per-method or per-client scoping is achieved with `KeyFunc` (key on `fullMethod`, or use `PeerKey`); the per-key bucket store is **bounded and LRU-evicting** (`MaxTrackedKeys`, default 8192). Config keys live under `server.grpc.ratelimit.*` (`requests_per_second`, `burst`, `max_tracked_keys`).
-
-## Built-in Circuit Breaker (client)
-
-`CircuitBreakerInterceptor` and `CircuitBreakerStreamInterceptor` are **client** interceptors that fail fast while a downstream is consistently failing, sharing the same Closed/Open/HalfOpen core as the HTTP breaker. While open they reject calls with **`codes.Unavailable`**: indistinguishable on the wire from a genuine outage.
-
-- **`transitgrpc.CircuitBreakerInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor`**: install via `grpc.WithChainUnaryInterceptor`
-- **`transitgrpc.CircuitBreakerStreamInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor`**
-- **`transitgrpc.DefaultCircuitBreakerConfig()`**: threshold 5, cooldown 30s, half-open trial 1
-- **`gtbgrpc.CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string)`**: GTB config adapter (stays in `pkg/grpc`)
-
-By default only `Unavailable` and `DeadlineExceeded` count as failures. **`ResourceExhausted` does not trip the breaker**: like an HTTP 429 it is a "slow down" signal (retry's domain), not a downstream-health signal, so a server's own rate limiter cannot trip its callers' breakers. The stream breaker inspects **per-message** errors (a `RecvMsg`/`SendMsg` returning a classified failure), not just stream establishment; a clean `io.EOF` closes the stream as a success. Config keys live under `server.grpc.circuitbreaker.*`.
-
-## Built-in Authentication Interceptor
-
-`AuthInterceptor` authenticates (and optionally authorizes) each RPC from an [`go/authn`](authn.md) verifier: an API key or JWT/OIDC bearer token from metadata, or an mTLS client certificate from the peer: storing the verified identity in the RPC context. It is a paired unary + stream `Interceptor`; the stream check runs once at stream open.
-
-`AuthInterceptor` and its options live in `transportgrpc`.
-
-- **`transportgrpc.AuthInterceptor(opts ...GRPCAuthOption) (transitgrpc.Interceptor, error)`**: fail-closed: no verifier is a construction error
-- **`transportgrpc.IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`**: read the identity in a handler (same key as the HTTP middleware)
+`AuthInterceptor` wraps an [`go/authn`](https://authn.go.phpboyscout.uk)
+verifier; GTB does not wire it itself. Usage:
 
 ```go
 authIC, _ := transportgrpc.AuthInterceptor(transportgrpc.WithGRPCBearerVerifier(jwtVerifier))
 chain := transitgrpc.NewInterceptorChain(transitgrpc.LoggingInterceptor(log), authIC)
 gtbgrpc.RegisterFromReader(ctx, "api", controller, cfg, log, transportgrpc.WithInterceptors(chain))
 ```
-
-Options: `WithGRPCBearerVerifier`, `WithGRPCAPIKeyMetadata`, `WithGRPCMTLSVerifier`, `WithGRPCAuthorize`, `WithGRPCAuthLogger`, `WithGRPCMethodSkipper`. Failures yield a generic `codes.Unauthenticated` / `codes.PermissionDenied` with the cause logged redacted. **The standard health (`/grpc.health.v1.Health/*`) and reflection (`/grpc.reflection.v1*`) services are auto-skipped** so probes keep working; a custom skipper adds to that set. **See [Authentication & Authorization](authn.md) for the full reference.**
 
 ## TLS
 

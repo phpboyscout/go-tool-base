@@ -135,7 +135,7 @@ Phase 1 defends against accidental corruption and single-asset tampering, but a 
     `verify.`; `setup.NewUpdater` remains in `pkg/setup`, and
     `DefaultRequireChecksum` (Phase 1) stays there too.
     See the [Signature Verification component reference][svdocs] and the
-    [signing module docs](https://signing.phpboyscout.uk).
+    [signing module docs](https://signing.go.phpboyscout.uk).
 
 > **Status**: the rollout is complete for `gtb` itself. Every release carries a
 > detached `checksums.txt.sig` alongside the manifest, produced by the GoReleaser

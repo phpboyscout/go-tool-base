@@ -330,14 +330,12 @@ The chain in tabular form:
 
 - [`gtb keys mint`](../../how-to/mint-signing-key.md): the production
   signing key recipe.
-- [`gtb keys generate-rotation`](../../how-to/generate-rotation-key.md)
-, the offline-storage flow.
+- [`gtb keys generate-rotation`](../../how-to/generate-rotation-key.md): the offline-storage flow.
 - [Adding a signing backend](../../how-to/add-signing-backend.md): for
   GCP KMS, Vault, YubiKey, etc.
 - [openpgpkey](../components/openpgpkey.md) and
   [signing](../components/signing.md), the programmatic APIs, now
   extracted into the standalone
-  [signing module](https://signing.phpboyscout.uk)
+  [signing module](https://signing.go.phpboyscout.uk)
   (`gitlab.com/phpboyscout/go/signing`).
-- [Phase 2 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
-, verifier design.
+- [Phase 2 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification): verifier design.

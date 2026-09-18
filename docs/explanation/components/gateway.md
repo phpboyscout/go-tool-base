@@ -35,28 +35,31 @@ register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientCo
 
 ## Functions
 
-- **`New(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, opts ...Option) (http.Handler, error)`**: Builds a grpc-gateway handler ready to mount on an existing HTTP server from an already prepared gRPC client connection.
+`pkg/gateway` exports only the config-key adapters below; the pure `New` and
+`Register` constructors (taking explicit typed settings and an already-dialled
+`*grpc.ClientConn`) are [`go/transport/gateway`](https://transport.go.phpboyscout.uk)'s
+own functions.
+
 - **`SettingsFromConfig(cfg config.Reader) Settings`**: GTB adapter helper that composes typed HTTP settings/TLS from `server.gateway.*` and typed gRPC dial settings/TLS from `server.grpc.*`.
 - **`ObserveSettingsFromConfig(cfg config.Binder, opts ...config.SectionBindingOption[Settings]) (*config.ObservedSection[Settings], error)`**: GTB adapter helper for reload-aware typed gateway transport settings.
-- **`NewFromConfig(ctx context.Context, cfg config.Reader, register RegisterFunc, opts ...Option) (http.Handler, error)`**: GTB adapter that resolves typed gRPC dial settings from existing config, dials the local gRPC server, then delegates to `New`.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, logger *slog.Logger, conn *grpc.ClientConn, httpSettings gtbhttp.ServerSettings, httpTLS gtbtls.Pair, register RegisterFunc, opts ...Option) (*http.Server, error)`**: Runs the gateway as its own controller-managed HTTP server from explicit typed HTTP settings and a prepared gRPC connection.
-- **`RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: GTB adapter that resolves typed HTTP/gRPC transport settings from the `server.gateway` config block, dials the local gRPC server, then delegates to the typed registration path.
+- **`NewFromConfig(ctx context.Context, cfg config.Reader, register RegisterFunc, opts ...Option) (http.Handler, error)`**: GTB adapter that resolves typed gRPC dial settings from existing config, dials the local gRPC server, then delegates to `transportgateway.New`.
+- **`RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: GTB adapter that resolves typed HTTP/gRPC transport settings from the `server.gateway` config block, dials the local gRPC server, then delegates to `transportgateway.Register`.
 
 ## Middleware on the REST surface
 
 The gateway handler is an ordinary `http.Handler`, so the
-[HTTP server middleware chain](http.md#middleware-chaining), logging, security
+[HTTP server middleware chain](http.md#middleware), logging, security
 headers, rate limiting, auth, applies to it like any other handler. Pass
 `WithMiddleware` to either entry point:
 
 ```go
-chain := gtbhttp.NewChain(
-    gtbhttp.SecurityHeadersMiddleware(),
-    gtbhttp.RateLimitMiddleware(log, gtbhttp.DefaultRateLimitConfig()),
+chain := transithttp.NewChain(
+    transporthttp.SecurityHeadersMiddleware(),
+    transithttp.RateLimitMiddleware(log, transithttp.DefaultRateLimitConfig()),
 )
 
 // Managed server (RegisterFromConfig): the chain wraps the REST routes; health endpoints
-// (/healthz, /livez, /readyz) stay OUTSIDE it, exactly as with http.Register.
+// (/healthz, /livez, /readyz) stay OUTSIDE it, exactly as with the HTTP server's own Register.
 srv, _ := gateway.RegisterFromConfig(ctx, "gateway", controller, cfg, log, registerFn,
     gateway.WithMiddleware(chain))
 
@@ -64,7 +67,7 @@ srv, _ := gateway.RegisterFromConfig(ctx, "gateway", controller, cfg, log, regis
 handler, _ := gateway.NewFromConfig(ctx, cfg, registerFn, gateway.WithMiddleware(chain))
 ```
 
-- **`WithMiddleware(chain http.Chain) Option`**: wraps the gateway's REST surface
+- **`WithMiddleware(chain transithttp.Chain) Option`**: wraps the gateway's REST surface
   with an HTTP middleware chain. On the `RegisterFromConfig` path it is threaded to the
   managed server so health probes remain unauthenticated/unthrottled; on the
   `NewFromConfig` path it wraps the returned handler.
@@ -129,7 +132,7 @@ reconfiguration logic.
 |--------|-------------|
 | `WithMuxOptions(opts ...runtime.ServeMuxOption)` | Passes `runtime.ServeMuxOption` values to the gateway mux (e.g. a custom error handler or header matcher). |
 | `WithDialOptions(opts ...grpc.DialOption)` | Passes extra `grpc.DialOption` values to the connection the gateway opens to the gRPC server. Transport security is set automatically. |
-| `WithMiddleware(chain http.Chain)` | Wraps the REST surface with an HTTP middleware chain. On `Register` the chain wraps the routes while health endpoints stay outside it; on `New` it wraps the returned handler. See [Middleware on the REST surface](#middleware-on-the-rest-surface). |
+| `WithMiddleware(chain transithttp.Chain)` | Wraps the REST surface with an HTTP middleware chain. On `RegisterFromConfig` the chain wraps the routes while health endpoints stay outside it; on `NewFromConfig` it wraps the returned handler. See [Middleware on the REST surface](#middleware-on-the-rest-surface). |
 
 ## Usage Example: mounted on an existing server
 
@@ -176,6 +179,6 @@ if err != nil {
 
 The package builds on the rest of the web-service stack:
 
-- **`pkg/grpc`**: `DialLocal` opens the connection to the local gRPC server with matching transport security.
-- **`pkg/http`**: `Register` and `WithConfigPrefix` host the gateway as a controller-managed server when using `Register`.
+- **`pkg/grpc`** (via `go/transport/grpc`'s `DialLocal`): opens the connection to the local gRPC server with matching transport security.
+- **`pkg/http`** (via `go/transport/http`'s `Register`): hosts the gateway as a controller-managed server when using `RegisterFromConfig`.
 - **grpc-gateway/v2 `runtime`**: provides the `ServeMux` and the generated handler registration.

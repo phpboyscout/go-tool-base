@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The standard `gtb` binary ships with two backends: `aws-kms` and
 `local` (PEM file on disk). If you need to sign against something
-else (GCP KMS, Azure Key Vault, HashiCorp Vault Transit, a YubiKey) 
+else (GCP KMS, Azure Key Vault, HashiCorp Vault Transit, a YubiKey)
 you implement a `signing.Backend`, register it from your own `main`
 package, and `gtb keys mint --backend <name>` / `gtb sign --backend
 <name>` picks it up.
@@ -21,7 +21,7 @@ package, and `gtb keys mint --backend <name>` / `gtb sign --backend
     v0.1.0). The canonical, in-depth "Implement a custom backend"
     how-to: plus the trust model, threat model, and per-backend
     guides. Now lives in the
-    [signing module documentation](https://signing.phpboyscout.uk),
+    [signing module documentation](https://signing.go.phpboyscout.uk),
     with the API on
     [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing).
 
@@ -111,7 +111,7 @@ the linked binary entirely.
 
 ## See also
 
-- [signing module documentation](https://signing.phpboyscout.uk):
+- [signing module documentation](https://signing.go.phpboyscout.uk):
   the canonical "Implement a custom backend" guide, trust model, and
   per-backend reference.
 - [`gtb keys mint`](mint-signing-key.md): the user-facing surface your
@@ -120,6 +120,5 @@ the linked binary entirely.
   registry overview as consumed by gtb.
 - [`gitlab.com/phpboyscout/go/signing-aws-kms`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing-aws-kms)
   and
-  [`gitlab.com/phpboyscout/go/signing/local`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/local)
-, production example backends.
-</content>
+  [`gitlab.com/phpboyscout/go/signing/local`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/local),
+  production example backends.

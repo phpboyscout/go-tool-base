@@ -12,9 +12,7 @@ Conventional-Commits changelog **generation** (`GenerateFromRepo`, via go-git) a
 **parsing** (`Parse`, `ParseFromArchive`, `FormatSummary`, and the `Changelog` / `Release`
 / `Entry` / `Category` model) now live in the standalone module
 **[`gitlab.com/phpboyscout/go/changelog`](https://gitlab.com/phpboyscout/go/changelog)**.
-
-It is framework-free. Its graph is go-git, the leodido conventional-commits parser,
-`x/mod`, and `cockroachdb/errors`.
+It is framework-free.
 
 - **Docs:** [changelog.go.phpboyscout.uk](https://changelog.go.phpboyscout.uk)
 - **API reference:** [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/changelog)

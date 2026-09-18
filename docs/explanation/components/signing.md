@@ -15,7 +15,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     go-tool-base consumes it as an ordinary dependency.
 
     - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing)
-    - **Module documentation:** [signing.phpboyscout.uk](https://signing.phpboyscout.uk)
+    - **Module documentation:** [signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk)
 
     The `gtb` CLI behaviour is unchanged, only the Go import paths moved.
 
@@ -23,39 +23,15 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     shareable [`go/signing-cli`](https://signing-cli.go.phpboyscout.uk) module,
     which go-tool-base and the standalone `sigillum` CLI both attach.
 
-## What it does
-
-A tiny registry. Each backend (AWS KMS, local PEM file, GCP KMS,
-HashiCorp Vault, …) implements one interface and registers itself
-from its package's `init()`. Downstream binaries opt-in by
-**blank-importing** the backend package. `gtb keys mint --backend
-<name>` then resolves the registered backend, invokes its
-`NewSigner`, and hands the resulting `crypto.Signer` to
-[`openpgpkey`](openpgpkey.md) for OpenPGP packet assembly.
-
-This is the same activate-by-side-effect pattern used by
-`net/http/pprof`, `image/*` decoders, and the framework's own
-`go/credentials/keychain`.
-
-## The contract is CLI-agnostic
-
-As part of the extraction the `Backend` contract was narrowed to two
-methods, it no longer references any CLI types:
-
-```go
-// gitlab.com/phpboyscout/go/signing
-type Backend interface {
-    Name() string
-    NewSigner(ctx context.Context, keyID string) (crypto.Signer, error)
-}
-```
-
-`RegisterFlags` is **no longer part of the `Backend` contract**. A
-backend that needs CLI flags (e.g. aws-kms's `--kms-region`) implements
-an *optional* interface that the CLI front-end type-asserts for; a
-backend with no flags simply omits it. The only seams are stdlib:
-`crypto.Signer` for keys and `*slog.Logger` for logging. This keeps the
-module free of any dependency on Cobra/pflag or go-tool-base.
+A tiny registry: each backend (AWS KMS, local PEM file, GCP KMS, HashiCorp
+Vault, …) implements a two-method `Backend` interface (`Name`, `NewSigner`)
+and registers itself from its package's `init()`. Downstream binaries opt in
+by **blank-importing** the backend package; `gtb keys mint --backend <name>`
+resolves the registered backend, invokes its `NewSigner`, and hands the
+resulting `crypto.Signer` to [`openpgpkey`](openpgpkey.md) for OpenPGP packet
+assembly. The full `Backend` contract, the registry API, and the
+compile-time opt-out story are on the
+[module documentation](https://signing.go.phpboyscout.uk).
 
 ## Built-in backends
 
@@ -71,15 +47,6 @@ The standard `gtb` binary blank-imports both built-in backends:
   for the onboarding tutorial, local development, and the
   rotation-authority signing path, not production CI.
 
-## Reference
-
-The full registry API (`Register`, `Get`, `Names`, `ErrUnknownBackend`,
-`ResetForTesting`), error-handling shapes, the compile-time backend
-opt-out story, concurrency guarantees, and the backend test pattern now
-live in the
-[signing module documentation](https://signing.phpboyscout.uk) and on
-[pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing).
-
 ## Adding a new backend
 
 See [How-to: add a signing backend](../../how-to/add-signing-backend.md).
@@ -89,4 +56,3 @@ See [How-to: add a signing backend](../../how-to/add-signing-backend.md).
 - [Release-binary signing concept](../concepts/release-binary-signing.md)
 - [`openpgpkey`](openpgpkey.md): the consumer that turns a
   `crypto.Signer` into an OpenPGP packet.
-</content>

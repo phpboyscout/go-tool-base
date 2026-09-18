@@ -96,19 +96,22 @@ Inject secrets directly as environment variables. This is the simplest method fo
 ## Server-Side Authentication
 
 When a tool exposes an HTTP or gRPC management/API surface, route caller
-authentication through [`go/authn`](../explanation/components/authn.md) rather than
+authentication through [`go/authn`](https://authn.go.phpboyscout.uk) rather than
 hand-rolling it. The package centralises the easy-to-get-wrong primitives:
 constant-time API-key comparison, JWT/OIDC verification with an algorithm-confusion
 defence (`alg:none` and HMAC-with-JWKS rejected), a bounded single-purpose JWKS
 cache, mTLS client-certificate identity, and non-leaky failure surfacing (a
 generic `401`/`403` or `Unauthenticated`/`PermissionDenied`, with the cause logged
 [redacted](../explanation/components/redact.md)). It is opt-in and ships no policy engine or
-token-issuance flow. Authorization is a single tool-supplied predicate. See the
-[Authentication & Authorization](../explanation/components/authn.md) component reference and
-its security model.
+token-issuance flow. Authorization is a single tool-supplied predicate. `go/transport/http`
+and `go/transport/grpc` wrap its verifiers as `AuthMiddleware`/`AuthInterceptor`; see
+[HTTP](../explanation/components/http.md) and [gRPC](../explanation/components/grpc.md)
+for how GTB's config adapters register a server that uses them, and the module's own
+[security model](https://authn.go.phpboyscout.uk/explanation/security-model/) for the
+verifiers themselves.
 
 ## Opening External URLs
 
-All URL-opening (browser or mail-client invocation) routes through [`go/browser`](../explanation/components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention, new call sites must use `pkg/browser.OpenURL`.
+All URL-opening (browser or mail-client invocation) routes through [`go/browser`](../explanation/components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention, new call sites must use `gitlab.com/phpboyscout/go/browser`'s `OpenURL`.
 
 Callers that construct `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value to prevent header injection. See the `EmailDeletionRequestor` implementation in `pkg/telemetry/deletion.go` for the canonical pattern, and its test suite for the caller-contract assertion.

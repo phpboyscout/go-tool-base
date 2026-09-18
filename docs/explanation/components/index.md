@@ -32,7 +32,7 @@ Many components began life in `pkg/` and were later extracted. The
 | **[Logger](logger.md)** | `pkg/logger` | Unified logging abstraction with charmbracelet, slog, and noop backends. |
 | **[Commands](../../reference/cli/index.md)** | `cmd/` | Built-in Cobra commands for configuration (`init`), updates (`version`, `update`), interactive browser (`docs`), and agentic workflows (`mcp`). |
 | **[Error Handling](error-handling.md)** | `go/errorhandling` | Centralized error reporting and formatting, ensuring consistent exit codes and log output. |
-| **[Output](output.md)** | `go/output` | Structured CLI output (text/JSON/YAML/CSV/TSV/Markdown), tables, spinners, progress and the JSON envelope behind one `Renderer` façade: now a standalone module; GTB wires it in via the opt-in `go/output/cobra` subpackage. |
+| **[Output](https://output.go.phpboyscout.uk)** | `go/output` | Structured CLI output (text/JSON/YAML/CSV/TSV/Markdown), tables, spinners, progress and the JSON envelope behind one `Renderer` façade. GTB consumes it directly across its built-in commands via the opt-in `go/output/cobra` subpackage; there is no GTB-side adapter. |
 | **[Version](version.md)** | `pkg/version` | Semantic version parsing, comparison, and development-build detection. |
 | **[Errors](errors.md)** | `pkg/...` | Catalogue of sentinel errors defined across GTB packages, with descriptions and handling guidance. |
 | **[Changelog](changelog.md)** | `go/changelog` | Framework-free Conventional-Commits changelog generation (via go-git) and parsing, now a standalone module; GTB wires it into the `changelog` command, the generator tool, and self-update. |
@@ -43,11 +43,11 @@ Many components began life in `pkg/` and were later extracted. The
 | :--- | :--- | :--- |
 | **[Controls](controls/index.md)** | `go/controls` | Service orchestration and lifecycle management for long-running processes (e.g., servers, watchers). |
 | **[Setup](setup/index.md)** | `pkg/setup` | bootstrapping logic for tool initialization, including GitHub authentication and self-updates. |
-| **[VCS](vcs/index.md)** | `pkg/vcs/...` | Git operations, GitHub/GitLab API clients, and backend-agnostic release provider. (See also the [Version Control](version-control.md) redirect page.) |
+| **[VCS](vcs/index.md)** | `pkg/vcs/...` | Git operations, GitHub/GitLab API clients, and backend-agnostic release provider. |
 | **[Chat](chat/index.md)** | `pkg/chat` | Multi-provider AI client (OpenAI, Anthropic, Gemini) for building intelligent features. |
 | **[Telemetry](telemetry/index.md)** | `pkg/telemetry` | Opt-in, consent-gated product analytics with pluggable backends (OTLP, PostHog, Datadog), bounded buffering and GDPR deletion. Distinct from web-service **[Observability](observability.md)**. |
 | **[Docs](docs.md)** | `pkg/docs` | Logic for the interactive TUI documentation browser. |
-| **[Workspace](workspace.md)** | `go/workspace` | Framework-free project-root detection: a marker-file walk over an injected `afero.Fs`, now a standalone module. |
+| **[Workspace](https://workspace.go.phpboyscout.uk)** | `go/workspace` | Framework-free project-root detection: a marker-file walk over an injected `afero.Fs`. GTB's generator commands (`regenerate`, `generate`, `remove`) use it to resolve the project root when run from a subdirectory. |
 | **[OS Info](osinfo.md)** | `pkg/osinfo` | Human-readable OS-version string; the single shared implementation behind the telemetry OS field and the doctor support bundle. |
 
 ## Security & Credentials
@@ -61,7 +61,7 @@ Many components began life in `pkg/` and were later extracted. The
 
 ## Release Signing
 
-These packages were extracted into the standalone, independently-versioned [signing module](https://signing.phpboyscout.uk) (v0.1.0); go-tool-base now consumes them as dependencies. The **`sign` and `keys` command builders** were likewise extracted into `go/signing-cli`, so go-tool-base and the standalone `sigillum` CLI share one command surface. The `gtb` CLI behaviour is unchanged, only the Go import paths moved.
+These packages were extracted into the standalone, independently-versioned [signing module](https://signing.go.phpboyscout.uk) (v0.1.0); go-tool-base now consumes them as dependencies. The **`sign` and `keys` command builders** were likewise extracted into `go/signing-cli`, so go-tool-base and the standalone `sigillum` CLI share one command surface. The `gtb` CLI behaviour is unchanged, only the Go import paths moved.
 
 | Component | Module | Description |
 | :--- | :--- | :--- |
@@ -77,10 +77,10 @@ Components for running a CLI as a long-lived service. See also **[Controls](cont
 | :--- | :--- | :--- |
 | **[gRPC](grpc.md)** | `pkg/grpc` | gRPC server wired to the controller, with health, reflection, interceptors and TLS: plus `DialLocal` and client credentials for in-process callers. |
 | **[HTTP](http.md)** | `pkg/http` | Hardened HTTP server and client, health endpoints, middleware chains, and per-server config prefixes. |
-| **[Auth](authn.md)** | `go/authn` | Opt-in credential verification (API-key, JWT/OIDC, mTLS) and a minimal authorization seam for the HTTP and gRPC transports. |
+| **[Auth](https://authn.go.phpboyscout.uk)** | `go/authn` | Opt-in credential verification (API-key, JWT/OIDC, mTLS) and a minimal authorization seam. `go/transport/http` and `go/transport/grpc` wrap its verifiers as `AuthMiddleware`/`AuthInterceptor`; GTB does not wire this itself. |
 | **[TLS](tls.md)** | `pkg/tls` | Shared hardened TLS config, the typed `Pair`, shared/per-transport resolution, and client cert-pool helpers. |
 | **[Gateway](gateway.md)** | `pkg/gateway` | grpc-gateway as a first-class transport: REST-to-gRPC, mounted or as its own server. |
-| **[OpenAPI](openapi.md)** | `go/transport-openapi` | Serve an OpenAPI spec and an embedded Stoplight Elements docs site from one `Register` call: now a standalone companion module to `go/transport`. |
+| **[OpenAPI](https://transport-openapi.go.phpboyscout.uk)** | `go/transport-openapi` | Serve an OpenAPI spec and an embedded Stoplight Elements docs site from one `Register` call: a standalone companion module to `go/transport`. GTB itself does not consume this; it is a downstream-facing feature for tools built on GTB. |
 | **[Observability](observability.md)** | `pkg/telemetry/*` | OTel-native traces, metrics and logs over OTLP; one-line transport instrumentation in `pkg/http`/`pkg/grpc`; trace-correlated request logs. |
 
 ## Testing Support

@@ -250,4 +250,4 @@ controller.Register("myservice",
 - **[gRPC component](../explanation/components/grpc.md)**: `NewServer`, `RegisterHealthService`, `Start`/`Stop`/`Status`, `DialLocal`
 - **[TLS component](../explanation/components/tls.md)**: shared TLS config, the typed `Pair`, and per-transport resolution
 - **[Gateway component](../explanation/components/gateway.md)**: expose the gRPC service as REST via grpc-gateway
-- **[OpenAPI component](../explanation/components/openapi.md)**: serve an OpenAPI spec and a Stoplight docs site
+- **[go/transport-openapi](https://transport-openapi.go.phpboyscout.uk)**: serve an OpenAPI spec and a Stoplight docs site

@@ -90,4 +90,3 @@ documented under [setup](../setup/index.md).
 
 - [Repo](repo.md): GTB's adapters for the git module
 - [forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk): the release contract, credential chain, and every provider client
-- [Version control](../version-control.md): the component family

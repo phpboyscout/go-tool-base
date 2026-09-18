@@ -31,33 +31,18 @@ opener (`exec.Command("open"|"xdg-open"|"rundll32")` or `cli/browser`) directly.
 Callers building `mailto:` URLs from user-influenced data must additionally
 `url.QueryEscape` every parameter value.
 
-## Why the validation exists (threat model)
+## Why the validation exists
 
-Handing a URL to the OS opener is handing it to whatever handler the platform
-has registered for that scheme, and the OS will happily execute **dangerous
-schemes**. A `file://` URL opens a local file (a local-file-disclosure vector),
-`javascript:` runs script in the launched browser, and `data:` can carry an
-inline payload (a script/exfiltration vector); custom protocol handlers extend
-the blast radius further. That is why `OpenURL` enforces a **scheme allowlist**
-of `https`, `http`, and `mailto` and rejects everything else, alongside a length
-bound (URLs above 8 KiB, below every supported platform's command-line limit)
-and rejection of ASCII control characters and NUL bytes. Both of which can
-smuggle a second argument or command past a platform URL handler.
-
-The allowlist is deliberately **non-configurable**. There is no option to widen
-the permitted schemes, because a configurable allowlist would become the exact
-thing an attacker targets: a downstream tool tricked (via a config file, an
-environment value, or a crafted release asset) into re-enabling `file://` or
-`javascript:` would silently undo the whole control. A single hard-coded set
-means every tool built on GTB inherits the same guarantee, and no configuration
-surface can downgrade it.
-
-`OpenURL` validates only the scheme and the URL's overall shape. It **cannot**
-detect header-injection in `mailto:` URLs (an attacker-supplied `cc=`, `bcc=`,
-or `body=`), which is why callers constructing `mailto:` from user-influenced
-data must `url.QueryEscape` every parameter themselves. It is also not
-context-aware once the OS spawns the handler process; the context it takes only
-governs pre-open cancellation.
+`OpenURL` enforces a non-configurable scheme allowlist (`https`, `http`,
+`mailto`), a length bound, and control-character rejection, because handing a
+URL to the OS opener hands it to whatever handler the platform registers for
+that scheme (`file://`, `javascript:`, `data:`, and custom protocol handlers
+are all live risks). `OpenURL` validates only the scheme and the URL's shape,
+it **cannot** detect header-injection in `mailto:` URLs, which is why a GTB
+caller building one from user-influenced data must `url.QueryEscape` every
+parameter itself. The full threat model, including why the allowlist is
+non-configurable, is on the module's own
+[explanation page](https://browser.go.phpboyscout.uk/explanation/threat-model/).
 
 ## Related
 
