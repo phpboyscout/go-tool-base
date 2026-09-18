@@ -3,10 +3,13 @@ package generate
 import (
 	"testing"
 
+	"github.com/spf13/afero"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
@@ -35,19 +38,35 @@ func TestSkeletonOptions_ForgeFlags(t *testing.T) {
 		assert.Empty(t, o.skeletonConfig(nil).ForgeBackend)
 	})
 
-	t.Run("update without a channel is refused when not hosted", func(t *testing.T) {
+	t.Run("update is refused when not hosted, and the direct channel is withdrawn", func(t *testing.T) {
 		t.Parallel()
 
 		o := &SkeletonOptions{Name: "tool", NoForge: true, Module: "myapp", Features: []string{"update"}}
-		require.ErrorIs(t, o.validateFields(), ErrReleaseChannelRequired)
+		require.ErrorIs(t, o.validateFields(), ErrReleaseChannelRequired, "not hosted: self-update has no channel in this release")
 
 		o.ReleaseChannel = generator.ReleaseChannelDirect
-		require.ErrorIs(t, o.validateFields(), ErrDirectSourceIncomplete, "direct needs a URL template and a version URL")
-
 		o.Direct.URLTemplate = "https://dl.example.com/{{.Version}}/{{.Asset}}"
 		o.Direct.VersionURL = "https://dl.example.com/latest"
-		require.NoError(t, o.validateFields())
-		assert.Equal(t, generator.ReleaseChannelDirect, o.skeletonConfig(nil).ReleaseChannel)
+		require.ErrorIs(t, o.validateFields(), ErrDirectChannelWithdrawn,
+			"the direct channel is withdrawn pending its design (#90), however complete its settings")
+
+		hosted := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: []string{"update"},
+			ReleaseChannel: generator.ReleaseChannelDirect}
+		require.ErrorIs(t, hosted.validateFields(), ErrDirectChannelWithdrawn, "hosted or not")
+	})
+
+	t.Run("the direct channel's flags are hidden from help but still bound", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := NewCmdSkeleton(&props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop()}, &SharedFlags{})
+		for _, name := range []string{"release-url-template", "release-checksum-url-template", "release-signature-url-template",
+			"release-version-url", "release-version-format", "release-version-key", "release-pinned-version"} {
+			f := cmd.Flags().Lookup(name)
+			require.NotNilf(t, f, "--%s stays bound so the author-settings table keeps naming a real flag", name)
+			assert.Truef(t, f.Hidden, "--%s is withdrawn from help", name)
+		}
+
+		assert.False(t, cmd.Flags().Lookup("release-channel").Hidden, "the channel flag stays, forge is its only value")
 	})
 
 	t.Run("hosted defaults to the forge channel and records the backend", func(t *testing.T) {

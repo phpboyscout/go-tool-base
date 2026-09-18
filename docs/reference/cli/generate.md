@@ -51,7 +51,7 @@ manifest.
 | `--no-forge` | `false` | The project is not hosted on a forge: no backend, no repository; requires `--module`. |
 | `--module` | *(`<host>/<org>/<repo>`)* | Go module path. Required with `--no-forge`; otherwise an override for a vanity import path. Recorded as `module_path`. |
 | `--forge-credentials` | — | Further forges to enable for credential capture (their `init <forge>` wizard and adapter), never the release source. |
-| `--release-channel` | *(`forge` when hosted)* | Where self-update releases from when `update` is enabled: `forge` or `direct`. Required with `update`; `direct` needs `--release-url-template` and `--release-version-url`, and accepts `--release-checksum-url-template`, `--release-signature-url-template`, `--release-version-format`, `--release-version-key`, `--release-pinned-version`. |
+| `--release-channel` | *(`forge` when hosted)* | Where self-update releases from when `update` is enabled. `forge` is the only channel in this release, so a project generated with `--no-forge` cannot enable `update`. The direct channel (a static location, no forge) is withdrawn pending its design, [#90](https://gitlab.com/phpboyscout/go-tool-base/-/issues/90); `direct` is refused. |
 | `--host` | *(backend's canonical host)* | Git host, for a self-managed instance. |
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |

@@ -186,7 +186,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.Module, "module", "", "Go module path (required with --no-forge; overrides <host>/<org>/<repo> otherwise)")
 	cmd.Flags().StringSliceVar(&opts.ForgeCredentials, "forge-credentials", nil,
 		"Further forges to enable for credential capture (their init wizard and adapter), not the release source")
-	cmd.Flags().StringVar(&opts.ReleaseChannel, "release-channel", "", "Release channel for self-update: forge (default when hosted) or direct")
+	cmd.Flags().StringVar(&opts.ReleaseChannel, "release-channel", "", "Release channel for self-update: forge (the default when hosted, and the only channel in this release)")
 	cmd.Flags().StringVar(&opts.Direct.URLTemplate, "release-url-template", "", "direct channel: asset URL template")
 	cmd.Flags().StringVar(&opts.Direct.ChecksumURLTemplate, "release-checksum-url-template", "", "direct channel: checksum URL template")
 	cmd.Flags().StringVar(&opts.Direct.SignatureURLTemplate, "release-signature-url-template", "", "direct channel: signature URL template")
@@ -194,6 +194,15 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.Direct.VersionFormat, "release-version-format", "", "direct channel: version endpoint format (text, json, yaml, xml)")
 	cmd.Flags().StringVar(&opts.Direct.VersionKey, "release-version-key", "", "direct channel: key holding the version in a structured endpoint")
 	cmd.Flags().StringVar(&opts.Direct.PinnedVersion, "release-pinned-version", "", "direct channel: pin to one version")
+
+	// The direct channel is withdrawn until its design lands (#90): the flags
+	// stay bound so the author-settings table keeps naming real flags and an
+	// existing manifest keeps loading, but nothing offers them.
+	for _, name := range []string{"release-url-template", "release-checksum-url-template", "release-signature-url-template",
+		"release-version-url", "release-version-format", "release-version-key", "release-pinned-version"} {
+		_ = cmd.Flags().MarkHidden(name)
+	}
+
 	cmd.Flags().StringVar(&opts.Host, "host", "", "Git host (defaults to backend's canonical host)")
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "A tool built with gtb", "Project description")
@@ -368,7 +377,9 @@ func (o *SkeletonOptions) validateForgeSelection() error {
 }
 
 // validateReleaseChannel enforces spec 0195 D7: a self-updating tool has a
-// release channel, and the direct channel has the URLs the source needs.
+// release channel. The direct channel is withdrawn until #90 settles its
+// shape, so the forge is the only channel and a project that is not hosted
+// cannot self-update.
 func (o *SkeletonOptions) validateReleaseChannel() error {
 	if err := generator.ValidateReleaseChannel(o.ReleaseChannel); err != nil {
 		return err
@@ -380,11 +391,7 @@ func (o *SkeletonOptions) validateReleaseChannel() error {
 
 	switch o.resolvedReleaseChannel() {
 	case generator.ReleaseChannelDirect:
-		if o.Direct.URLTemplate == "" || o.Direct.VersionURL == "" {
-			return errors.WithStack(ErrDirectSourceIncomplete)
-		}
-
-		return nil
+		return errors.WithStack(ErrDirectChannelWithdrawn)
 	case generator.ReleaseChannelForge:
 		return nil
 	default:
@@ -867,9 +874,8 @@ func (o *SkeletonOptions) afterWizard() error {
 		o.Signing = false
 	}
 
-	if o.ReleaseChannel != generator.ReleaseChannelDirect {
-		o.Direct = generator.ManifestDirectSource{}
-	}
+	// Nothing direct is recorded while the channel is withdrawn (#90).
+	o.Direct = generator.ManifestDirectSource{}
 
 	if !o.Signing {
 		o.SigningEmail = ""
@@ -1010,7 +1016,6 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.moduleGroup(),
 		o.envPrefixGroup(),
 		o.selfUpdateGroup(),
-		o.directSourceGroup(),
 		o.chatProvidersGroup(),
 		o.chatEndpointGroup(),
 		o.chatCloudGroup(),
@@ -1091,7 +1096,10 @@ func (o *SkeletonOptions) moduleGroup() *huh.Group {
 
 // selfUpdateGroup is the one page for the update feature (spec 0195 D7): the
 // release channel, the policy and the check interval. Shown only when the
-// feature is selected; the channel cannot be left empty.
+// feature is selected; the channel cannot be left empty. The forge is the
+// only channel offered while the direct channel is withdrawn (#90), so a
+// project that is not hosted is refused here and sent back to deselect
+// Self-Update.
 func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewSelect[string]().
@@ -1100,15 +1108,15 @@ func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 			Description("Where the tool fetches its releases from.").
 			Options(
 				huh.NewOption("This forge", generator.ReleaseChannelForge),
-				huh.NewOption("Direct URL (a server you name)", generator.ReleaseChannelDirect),
 			).
 			Value(&o.ReleaseChannel).
 			Validate(func(s string) error {
 				switch {
 				case s == "":
 					return ErrReleaseChannelRequired
-				case s == generator.ReleaseChannelForge && !o.hosted:
-					return errors.WithHint(ErrReleaseChannelRequired, "This project is not hosted on a forge; choose the direct channel.")
+				case !o.hosted:
+					return errors.WithHint(ErrReleaseChannelRequired,
+						"This project is not hosted on a forge, and the forge is the only release channel in this release. Go back and deselect Self-Update.")
 				default:
 					return nil
 				}
@@ -1132,47 +1140,6 @@ func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 		Title("Self-update").
 		Description("How the generated tool finds and applies its own releases.\n").
 		WithHideFunc(func() bool { return !o.updateSelected() })
-}
-
-// directSourceGroup collects the go/forge direct source's settings when the
-// direct channel is chosen (spec 0195 D7, OQ7: all of them; the URL template
-// and the version URL are required).
-func (o *SkeletonOptions) directSourceGroup() *huh.Group {
-	required := func(s string) error {
-		if s == "" {
-			return ErrDirectSourceIncomplete
-		}
-
-		return nil
-	}
-
-	return huh.NewGroup(
-		huh.NewInput().Key("release-url").Title("Asset URL template").
-			Description("Where a release asset is fetched from; {{.Version}} and {{.Asset}} are substituted.").
-			Placeholder("https://dl.example.com/myapp/{{.Version}}/{{.Asset}}").
-			Value(&o.Direct.URLTemplate).Validate(required),
-		huh.NewInput().Key("release-version-url").Title("Version URL").
-			Description("An endpoint that reports the latest version.").
-			Placeholder("https://dl.example.com/myapp/latest").
-			Value(&o.Direct.VersionURL).Validate(required),
-		huh.NewInput().Title("Checksum URL template (optional)").
-			Value(&o.Direct.ChecksumURLTemplate),
-		huh.NewInput().Title("Signature URL template (optional)").
-			Value(&o.Direct.SignatureURLTemplate),
-		huh.NewInput().Title("Version format (optional)").
-			Description("text, json, yaml or xml; empty means text.").
-			Value(&o.Direct.VersionFormat),
-		huh.NewInput().Title("Version key (optional)").
-			Description("The key holding the version in a structured endpoint.").
-			Value(&o.Direct.VersionKey),
-		huh.NewInput().Title("Pinned version (optional)").
-			Value(&o.Direct.PinnedVersion),
-	).
-		Title("Direct release source").
-		Description("Recorded under release_source.direct in the manifest.\n").
-		WithHideFunc(func() bool {
-			return !o.updateSelected() || o.ReleaseChannel != generator.ReleaseChannelDirect
-		})
 }
 
 // chatProvidersGroup is the AI page (spec 0196 D1): which providers the tool
@@ -1663,9 +1630,6 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 
 	if slices.Contains(o.Features, string(props.UpdateCmd)) {
 		cfg.ReleaseChannel = o.resolvedReleaseChannel()
-		if cfg.ReleaseChannel == generator.ReleaseChannelDirect {
-			cfg.Direct = o.Direct
-		}
 	}
 
 	return cfg
