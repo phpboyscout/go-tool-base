@@ -401,11 +401,14 @@ func TestGeneratedProjectShipsItsChatDefault(t *testing.T) {
 	}
 
 	// Spec 0196 D8: the built tool's doctor knows which providers it links.
+	// Since #81 that is the author's exact choice (the generated chat.go
+	// declares one link per chosen provider), not every name the module
+	// registers, so chat-anthropic linked for claude-local reports one name.
 	doctorCmd := exec.Command(bin, "doctor")
 	doctorCmd.Env = env
 	doctorOut, _ := doctorCmd.CombinedOutput()
-	assert.Contains(t, string(doctorOut), "Chat providers: claude, claude-local linked",
-		"the tool links chat-anthropic, which registers both claude names\n%s", doctorOut)
+	assert.Contains(t, string(doctorOut), "Chat providers: claude-local linked",
+		"the tool declares the provider its author chose\n%s", doctorOut)
 }
 
 // TestGeneratedProjectWithPostureBuilds proves spec 0197 D4 end to end: the
