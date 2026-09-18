@@ -2,7 +2,9 @@ package root
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
+	"time"
 
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 
@@ -306,4 +308,52 @@ func updateTool(provider *forgetest.Source) p.Tool {
 			p.Disable(p.TelemetryCmd),
 		),
 	}
+}
+
+// TestCheckForUpdates_FailureStampsTheThrottle: a check that fails still
+// records that it ran, so a broken release source is retried at the check
+// interval rather than on every invocation. Before the stamp, every command
+// re-ran the failing check, and with it re-resolved the credential, a
+// keychain read per command for a keychain-backed configuration.
+func TestCheckForUpdates_FailureStampsTheThrottle(t *testing.T) {
+	// Not parallel: the marker lives under the HOME-derived config dir.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CI", "")
+
+	provider := forgetest.New() // no release to report: the check fails
+	props := newUpdateProps(t, "v1.0.0", provider)
+	cmd := mkUpdateCmd(t)
+
+	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "no marker yet")
+
+	result := checkForUpdates(context.Background(), cmd, props, newRootState())
+	require.NotNil(t, result)
+	require.NoError(t, result.Error, "a failed passive check never fails the command")
+
+	assert.True(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour),
+		"the failed check is stamped, so the next invocation inside the interval skips it")
+}
+
+// TestCheckForUpdates_FailureKeepsTheCachedVersion: the stamp on failure must
+// not lose the latest version an earlier check cached, or a transient failure
+// would silence the out-of-date reminder.
+func TestCheckForUpdates_FailureKeepsTheCachedVersion(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CI", "")
+
+	provider := forgetest.New()
+	props := newUpdateProps(t, "v1.0.0", provider)
+	cmd := mkUpdateCmd(t)
+
+	// An old marker carrying a cached version: old enough that the check runs.
+	require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool.Name, "v2.0.0"))
+	marker := filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "last_checked")
+	stale := time.Now().Add(-48 * time.Hour)
+	require.NoError(t, props.FS.Chtimes(marker, stale, stale))
+	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "the marker is stale, so the check runs")
+
+	checkForUpdates(context.Background(), cmd, props, newRootState())
+
+	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(props.FS, props.Tool.Name), "the cached version survives a failed check")
+	assert.True(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "and the marker is fresh")
 }
