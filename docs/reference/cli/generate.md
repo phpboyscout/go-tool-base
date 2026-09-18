@@ -104,6 +104,7 @@ in one command: the root command, the adapter files and any derived field a
 newly enabled feature needs (the `ai` feature's provider list) are written by
 the same run, and no `regenerate` is needed afterwards.
 
+<a id="adapters"></a>
 **Adapters.** A chat provider or a forge is a module the tool blank-imports
 from its own `main` package, and the generator writes those imports from the
 manifest into two `DO NOT EDIT` files beside `keychain.go`:
@@ -144,6 +145,7 @@ whose `cloud.google.com/go/compute` made `go mod tidy` ambiguous the moment
 
 **Every author setting has one home.** Each flag above that says "recorded as" names the manifest field it writes, and `regenerate` reads that field back unchanged; `cli/pkg/generator/author_settings.go` is the table, and a test holds it and `SkeletonConfig` to each other (spec [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface) D1, D2). Nothing about a generated project depends on the machine `regenerate` runs on.
 
+<a id="chat-defaults"></a>
 **Chat defaults.** AI in a generated tool is one decision with several parts:
 which providers to link, which is the default, which model, and the endpoint a
 few providers need. The manifest records the answer under `chat:` and the

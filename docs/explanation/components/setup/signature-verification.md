@@ -21,30 +21,19 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
 
     Downstream tools using `pkg/setup` get the same wiring out of the box by setting `verify.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification) cover the rollout history end-to-end.
 
-!!! info "Verification primitives extracted into the signing module"
-    The verification implementation, `TrustSet`, the `KeyResolver` chain
-    (embedded, WKD, composite), `BuildKeyResolver`, the minimum-strength
-    policy, the sentinel errors, the `Max*` bounds, and the
-    `DefaultRequireSignature` / `DefaultKeySource` / `DefaultExternalKeyEmail`
-    / `DefaultRequireExternalCrosscheck` package variables. Now lives in the
-    standalone, independently-versioned **signing** module at
-    **`gitlab.com/phpboyscout/go/signing/verify`** (v0.1.0). Those symbols are
-    shown below with the `verify.` prefix; the `SelfUpdater` constructor
-    (`setup.NewUpdater`) remains in `pkg/setup`.
-
-    go-tool-base's `SelfUpdater` (still in `pkg/setup`) **consumes**
-    `signing/verify`, injecting its own dependencies through the module's
-    stdlib seams: an `*slog.Logger` built via `slog.New(logger.Handler())`
-    and the hardened `*http.Client` from [`pkg/http`](../http.md) for WKD
-    fetches. `DefaultRequireChecksum` (the Phase 1 checksum gate) stays in
-    `pkg/setup`: only the signature-verification `Default*` variables moved.
-
-    The `gtb` CLI behaviour is unchanged. The canonical reference for the
-    verifier API is the
-    [signing module documentation](https://signing.go.phpboyscout.uk) and
-    [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify);
-    this page keeps the gtb-specific operator guidance (config keys, env
-    vars, posture/rollout) and how the framework wires the module in.
+The verifier itself, `TrustSet`, the `KeyResolver` chain (embedded, WKD,
+composite), `BuildKeyResolver`, the minimum-strength policy, the sentinel
+errors, the `Max*` bounds and the `Default*` package variables, is the
+`gitlab.com/phpboyscout/go/signing/verify` package, documented at
+[signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk) and
+[pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify).
+This page covers what GTB owns: how `SelfUpdater` (`pkg/setup`) wires the
+module in, injecting an `*slog.Logger` and the hardened `*http.Client` from
+[`pkg/http`](../http.md) for WKD fetches; the `update.*` config keys and
+`Tool.Signing` fields an author and an operator set; and how to read the
+verifier's log lines. `DefaultRequireChecksum` (the Phase 1 checksum gate) is
+GTB's; only the signature-verification `Default*` variables live in the
+module.
 
 ## Threat Model
 
@@ -64,20 +53,11 @@ The objective is not invulnerability but **cost**: raising the attacker's bar fr
 
 A `TrustSet` is an immutable collection of public keys that can validate an update signature. It is constructed by a [`KeyResolver`](#keyresolver) per update attempt.
 
-```go
-type TrustSet struct { /* ... */ }
+`LoadTrustSet` parses one or more ASCII-armored public-key blobs and enforces the [minimum-strength policy](#minimum-strength-policy) at construction time. Any weak key in the input aborts the load, so a weak key never enters a trust set even transiently.
 
-func LoadTrustSet(armoredKeys ...[]byte) (*TrustSet, error)
-
-func (t *TrustSet) Fingerprints() []string
-func (t *TrustSet) VerifyManifestSignature(manifest, signature []byte) error
-func (t *TrustSet) VerifyManifestSignatureSigner(manifest, signature []byte) (string, error)
-```
-
-- **`LoadTrustSet`** parses one or more ASCII-armored public-key blobs and enforces the [minimum-strength policy](#minimum-strength-policy) at construction time. Any weak key in the input aborts the load, so a weak key never enters a trust set even transiently.
-- **`Fingerprints`** returns the 40-character uppercase hex fingerprint of every key, sorted ascending, so two trust sets can be compared for equality by their fingerprint slices (this is what [`CompositeResolver`](#compositeresolver) uses to cross-check).
-- **`VerifyManifestSignature`** verifies an ASCII-armored detached signature over the manifest using any key in the set. It returns `nil` on the first key that validates, and `ErrSignatureInvalid` for an empty, malformed, or non-validating signature. The failure path deliberately does **not** name the keys tried, so a caller that logs only the sentinel does not leak which key rejected the signature.
-- **`VerifyManifestSignatureSigner`** is the fingerprint-returning form: on success it returns the 40-char uppercase hex fingerprint of the key that validated the signature (empty on any error), so the updater can record which key authorised the update for the audit trail. `VerifyManifestSignature` delegates to it.
+- `Fingerprints` returns the 40-character uppercase hex fingerprint of every key, sorted ascending, so two trust sets can be compared for equality by their fingerprint slices (this is what [`CompositeResolver`](#compositeresolver) uses to cross-check).
+- `VerifyManifestSignature` verifies an ASCII-armored detached signature over the manifest using any key in the set. It returns `nil` on the first key that validates, and `ErrSignatureInvalid` for an empty, malformed, or non-validating signature. The failure path deliberately does **not** name the keys tried, so a caller that logs only the sentinel does not leak which key rejected the signature.
+- `VerifyManifestSignatureSigner` is the fingerprint-returning form: on success it returns the 40-char uppercase hex fingerprint of the key that validated the signature (empty on any error), so the updater can record which key authorised the update for the audit trail. `VerifyManifestSignature` delegates to it.
 
 ### Minimum-Strength Policy
 
@@ -108,10 +88,6 @@ Three implementations ship in Phase 2.
 
 Keys baked into the binary via `//go:embed`. No I/O; always available; preserves offline and air-gapped update paths.
 
-```go
-func NewEmbeddedResolver(armoredKeys ...[]byte) KeyResolver
-```
-
 Keys are parsed and strength-checked **at construction**, so a weak, malformed, or empty input **panics** in `NewEmbeddedResolver`. This is intentional: a broken embedded key is a build-time defect and must surface when the binary starts, not at the first update attempt. Tool authors typically call this from an internal `trustkeys` package at init, embedding their public keys:
 
 ```go
@@ -128,18 +104,7 @@ func Resolver() verify.KeyResolver {
 
 Fetches a public key from a [Web Key Directory](https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/) URL derived from a release email. This is the independent, externally-administered trust anchor.
 
-```go
-type WKDResolverConfig struct {
-    Email      string       // e.g. "release@phpboyscout.uk"
-    HTTPClient *http.Client // wire pkg/http.NewClient
-    URLOverride string      // tests only
-}
-
-func NewWKDResolver(cfg WKDResolverConfig) (KeyResolver, error)
-
-// URL derivation, exported for tooling:
-func WKDURLs(email string) (advanced, direct, advancedHost string, err error)
-```
+`NewWKDResolver` takes the release email and the hardened HTTP client; `WKDURLs` derives the two addresses below and is exported for tooling.
 
 #### URL derivation: the only configurable input is the email
 
@@ -295,12 +260,7 @@ updater, err := setup.NewUpdater(ctx, props, version, force)
 
 ### BuildKeyResolver
 
-```go
-// gitlab.com/phpboyscout/go/signing/verify
-func BuildKeyResolver(cfg KeyResolverConfig, embeddedKeys ...[]byte) (KeyResolver, error)
-```
-
-Maps a `key_source` onto a concrete resolver:
+`verify.BuildKeyResolver` maps a `key_source` onto a concrete resolver:
 
 | `key_source` | Result | Errors when |
 |--------------|--------|-------------|

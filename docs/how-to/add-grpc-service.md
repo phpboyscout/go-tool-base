@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Add a gRPC Management Service
 
-GTB's `pkg/grpc` package provides curried `Start`, `Stop`, and `Status` functions that integrate directly with the `controls.Controller`. You register your gRPC server as a managed service, and the controller handles startup ordering, health reporting, and graceful shutdown.
+GTB's `pkg/grpc` package is the config adapter over the `go/transport/grpc` server: it reads the `server.grpc` block and hands you `RegisterFromReader`, `StartFromReader` and `DialLocalFromReader`, each curried for the `controls.Controller`. You register your gRPC server as a managed service, and the controller handles startup ordering, health reporting, and graceful shutdown.
 
 ---
 
@@ -61,7 +61,7 @@ func (s *Server) DoThing(ctx context.Context, req *pb.DoThingRequest) (*pb.DoThi
 
 ## Step 3: Register with the Controller
 
-Use `grpc.Register`: a single call that creates the server, wires health checks, and adds it to the controller:
+Use `RegisterFromReader`: a single call that creates the server, wires health checks, and adds it to the controller:
 
 ```go
 import (
@@ -84,7 +84,7 @@ func registerGRPCService(ctx context.Context, controller controls.Controllable, 
 }
 ```
 
-`grpc.Register` does four things:
+`RegisterFromReader` does four things:
 1. Creates a `*grpc.Server` with optional server options
 2. Calls `RegisterHealthService` to wire the standard gRPC health protocol
 3. Registers `Start`, `Stop`, and `Status` functions with the controller under the given ID
@@ -156,23 +156,29 @@ server:
     key: /etc/certs/server.key
 ```
 
-`grpc.Register` and `Start` pick this up automatically: including advertising HTTP/2 via ALPN, which modern gRPC clients require. Resolution, the typed `Pair`, and the client-side cert-pool helpers live in the **[TLS component](../explanation/components/tls.md)**. For an in-process client (such as the gateway) that needs to dial the server with matching transport security, use `gtbgrpc.DialLocal(p.Config)`.
+`RegisterFromReader` and `StartFromReader` pick this up automatically: including advertising HTTP/2 via ALPN, which modern gRPC clients require. Resolution, the typed `Pair`, and the client-side cert-pool helpers live in the **[TLS component](../explanation/components/tls.md)**. For an in-process client (such as the gateway) that needs to dial the server with matching transport security, use `gtbgrpc.DialLocalFromReader(p.Config.View())`.
 
 ---
 
-## Manual Control (Without `grpc.Register`)
+## Manual Control (Without `RegisterFromReader`)
 
-If you need more control (e.g. custom server options, interceptors), use the lower-level functions directly:
+If you need more control (e.g. custom server options, interceptors), build the server through the config adapter and wire the `go/transport/grpc` lifecycle functions yourself:
 
 ```go
 import (
+    "context"
+
     "google.golang.org/grpc"
-    grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware/v2"
+    "gitlab.com/phpboyscout/go/controls"
+    transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
     gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-// Create server with interceptors
-srv, err := gtbgrpc.NewServer(p.Config,
+view := p.Config.View()
+
+// Create the server from the server.grpc block, forwarding grpc.ServerOption values
+srv, err := gtbgrpc.NewServerFromReader(view,
     grpc.ChainUnaryInterceptor(
         myAuthInterceptor,
         myLoggingInterceptor,
@@ -182,19 +188,25 @@ if err != nil {
     return err
 }
 
-// Wire health checks from the controller
-gtbgrpc.RegisterHealthService(srv, controller)
+// Wire health checks from the controller; the returned func stops the poller
+stopHealth := transportgrpc.RegisterHealthService(srv, controller)
 
 // Register your services
 pb.RegisterMyServiceServer(srv, &myservice.Server{props: p})
 
-// Register with controller manually
+// Register with the controller manually
+slogger := logger.ToSlog(p.Logger)
 controller.Register("grpc",
-    controls.WithStart(gtbgrpc.StartFromReader(p.Config.View(), p.Logger, srv)),
-    controls.WithStop(gtbgrpc.Stop(logger.ToSlog(p.Logger), srv)),
-    controls.WithStatus(gtbgrpc.Status(srv)),
+    controls.WithStart(gtbgrpc.StartFromReader(view, p.Logger, srv)),
+    controls.WithStop(func(ctx context.Context) {
+        stopHealth()
+        transportgrpc.Stop(slogger, srv)(ctx)
+    }),
+    controls.WithStatus(transportgrpc.Status(srv)),
 )
 ```
+
+`StartFromReader` reads the port and TLS from the same block `NewServerFromReader` did; `Stop` and `Status` are the module's own and need no configuration.
 
 ---
 
@@ -247,7 +259,7 @@ controller.Register("myservice",
 
 - **[Managing Background Services](manage-background-services.md)**: controller setup, service registration basics
 - **[Controls component](../explanation/components/controls/index.md)**: `Controllable`, `Runner`, `HealthReporter` interface reference
-- **[gRPC component](../explanation/components/grpc.md)**: `NewServer`, `RegisterHealthService`, `Start`/`Stop`/`Status`, `DialLocal`
+- **[gRPC component](../explanation/components/grpc.md)**: the `pkg/grpc` config adapters (`RegisterFromReader`, `NewServerFromReader`, `StartFromReader`, `DialLocalFromReader`) over the [go/transport gRPC server](https://transport.go.phpboyscout.uk)
 - **[TLS component](../explanation/components/tls.md)**: shared TLS config, the typed `Pair`, and per-transport resolution
 - **[Gateway component](../explanation/components/gateway.md)**: expose the gRPC service as REST via grpc-gateway
 - **[go/transport-openapi](https://transport-openapi.go.phpboyscout.uk)**: serve an OpenAPI spec and a Stoplight docs site

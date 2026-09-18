@@ -58,8 +58,9 @@ cut-overs, each one a clean repoint with no compatibility shim.
 
 The tables below list every `gitlab.com/phpboyscout/go/*` module `go.mod` and
 `cli/go.mod` require directly, as of 2026-09-18. A provider submodule (forge, chat, signing backend) is
-documented on its parent's microsite rather than its own; where a module has
-no published microsite yet, the link goes to its `pkg.go.dev` reference
+documented on its parent's microsite rather than its own, and so is a
+companion module such as `config-afero` or `signing-aws-kms`; where a
+microsite is not yet serving, the link goes to its `pkg.go.dev` reference
 instead and that gap is called out.
 
 ### Configuration and errors
@@ -67,7 +68,7 @@ instead and that gap is called out.
 | Module | What it does | What GTB uses it for | Docs |
 |---|---|---|---|
 | `config` | Layered configuration that can report where a value came from, and write one back without disturbing the rest of the file | The `props.Config` store: embedded defaults, project-local layer, env-prefix, flag binding, hot reload | [config.go.phpboyscout.uk](https://config.go.phpboyscout.uk) |
-| `config-afero` | Adapts an `afero.Fs` to the module's `config.FS` seam | Lets the config store read/write through GTB's existing `afero.Fs` rather than the OS filesystem directly | [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/config-afero) (no microsite published yet) |
+| `config-afero` | Adapts an `afero.Fs` to the module's `config.FS` seam | Lets the config store read/write through GTB's existing `afero.Fs` rather than the OS filesystem directly | part of the config family: [config.go.phpboyscout.uk, the afero how-to](https://config.go.phpboyscout.uk/how-to/afero/) |
 | `errors` | Stack traces, user-facing hints, structured attributes and a well-behaved aggregate, importing nothing outside the standard library | GTB's own error creation and wrapping estate-wide (see `AGENTS.md`); every symbol previously used from `cockroachdb/errors` has a same-named equivalent | [errors.go.phpboyscout.uk](https://errors.go.phpboyscout.uk) |
 | `errorhandling` | Structured, user-facing error reporting: hints, exit codes carried on the error, debug-gated stack traces, a pluggable support-channel message | `pkg/cmd/root`'s `Execute` funnel: the one place every command's error is reported and the process exits | [errorhandling.go.phpboyscout.uk](https://errorhandling.go.phpboyscout.uk) |
 | `features` | Feature gating as values rather than process state: a `Registry` declared at init, an immutable `Snapshot`, a resolved `Set`, and an `Evaluator` seam for dynamic flags | The core `props`/`setup` build on: which built-in commands, forges and link-kind features a binary carries | [features.go.phpboyscout.uk](https://features.go.phpboyscout.uk) DNS resolves but the TLS certificate does not yet cover this hostname; use [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/features) meanwhile |
@@ -78,7 +79,7 @@ instead and that gap is called out.
 |---|---|---|---|
 | `credentials` | Storage-mode abstraction for user-supplied secrets: env-var reference, OS keychain, or literal, with a pluggable backend and an auditable keychain opt-out | The setup wizard's storage-mode selector, `pkg/vcs`'s and `pkg/chat`'s credential resolution, and the `credentials.no-literal` doctor check | [credentials.go.phpboyscout.uk](https://credentials.go.phpboyscout.uk) |
 | `signing` (+ `signing/openpgpkey`, `signing/verify`, `signing/local` subpackages) | OpenPGP/WKD release signing and verification: a backend registry, trust-set and key-resolver primitives, and OpenPGP packet assembly from any `crypto.Signer` | `gtb sign` / `gtb keys`, and Phase 2 self-update signature verification in `pkg/setup` | [signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk) |
-| `signing-aws-kms` | The AWS KMS signing backend for `signing`, wrapping an asymmetric RSA-4096 `SIGN_VERIFY` key | One of the two backends the standard `gtb` binary blank-imports; kept in its own module so a build that omits the import drops the AWS SDK | no microsite published; see [signing.go.phpboyscout.uk's AWS KMS how-to](https://signing.go.phpboyscout.uk/how-to/sign-with-aws-kms/) |
+| `signing-aws-kms` | The AWS KMS signing backend for `signing`, wrapping an asymmetric RSA-4096 `SIGN_VERIFY` key | One of the two backends the standard `gtb` binary blank-imports; kept in its own module so a build that omits the import drops the AWS SDK | part of the signing family: [signing.go.phpboyscout.uk, sign with AWS KMS](https://signing.go.phpboyscout.uk/how-to/sign-with-aws-kms/) |
 | `signing-cli` | The shareable `sign`/`keys` Cobra command builders over `signing`, decoupled from any specific CLI framework behind a narrow `Logger` seam | The `gtb sign`/`gtb keys` command surface, re-attached unchanged; also used standalone by the `sigillum` CLI | [signing-cli.go.phpboyscout.uk](https://signing-cli.go.phpboyscout.uk) |
 
 ### Forge and repo
