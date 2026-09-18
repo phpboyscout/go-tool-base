@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bufio"
 	"context"
 	"io"
 
@@ -37,6 +38,14 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 	// Read once: an IO may hand each form its own input (formtest.TUIForms).
 	in, out := io.In(), io.Err()
 
+	if io.Accessible() {
+		// huh builds a fresh scanner for every accessible prompt, and a scanner
+		// over a pipe reads ahead, so every answer after the first was lost
+		// with the scanner that read it. One line per Read means a prompt can
+		// take no more than its own answer.
+		in = newLineReader(in)
+	}
+
 	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible()).WithTheme(FormTheme())
 
 	if !io.Accessible() {
@@ -58,6 +67,33 @@ func FormTheme() huh.Theme {
 
 		return styles
 	})
+}
+
+// lineReader hands out one line per Read, however many the underlying
+// reader would give at once. See RunFormOn.
+type lineReader struct {
+	r       *bufio.Reader
+	pending []byte
+}
+
+func newLineReader(r io.Reader) *lineReader {
+	return &lineReader{r: bufio.NewReader(r)}
+}
+
+func (l *lineReader) Read(p []byte) (int, error) {
+	if len(l.pending) == 0 {
+		line, err := l.r.ReadBytes('\n')
+		if len(line) == 0 {
+			return 0, err
+		}
+
+		l.pending = line
+	}
+
+	n := copy(p, l.pending)
+	l.pending = l.pending[n:]
+
+	return n, nil
 }
 
 // The margin every wizard renders with: one line above, two columns in.
