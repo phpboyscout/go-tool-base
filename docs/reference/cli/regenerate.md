@@ -38,6 +38,18 @@ A persistent `--dry-run` previews changes without writing files.
 | `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` afterwards; exit 0 unverified (see exit codes). |
 | `--dry-run` | `false` | Preview changes without writing. |
 
+#### What it rewrites
+
+Every generated file the framework owns is brought to the current skeleton on
+every run: the root command (`pkg/cmd/root/cmd.go`), the entry point
+(`cmd/<name>/main.go`), the version package (`internal/version/version.go`),
+the generate directives (`pkg/cmd/root/generate.go`), the adapter and link
+files beside the entry point, the signing files, and each command's `cmd.go`.
+The files beside the root carry no hash, so they never raise a conflict; a rule
+in [`.gtb/ignore`](../../how-to/configure-generator-ignore.md) is what keeps one
+as it is. The per-command `main.go` implementation files are yours and are
+rewritten only with `--force`.
+
 #### Exit codes: emitted is not verified
 
 After the files are written, `go mod tidy` and `golangci-lint run --fix` run

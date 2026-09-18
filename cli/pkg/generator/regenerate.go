@@ -441,20 +441,8 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 	// The root carries no hash, so it cannot conflict, but a rule still
 	// outranks the write (#32): `sealed` is "never written, wiring included",
 	// and a plain rule is "leave it alone". Recorded so the summary is true.
-	const rootRel = "pkg/cmd/root/cmd.go"
-
-	switch g.ignoreRules().State(rootRel) {
-	case StateSealed:
-		g.props.Logger.Warn("sealed, not written", "path", rootRel)
-		g.conflicts.recordSealed(rootRel)
-
+	if !g.managedGeneratedFile("pkg/cmd/root/cmd.go") {
 		return nil
-	case StateIgnored:
-		g.props.Logger.Debug("ignored by .gtb/ignore, leaving untouched", "path", rootRel)
-		g.conflicts.recordIgnored(rootRel)
-
-		return nil
-	case StateManaged:
 	}
 
 	g.props.Logger.Info("Regenerating root command...")

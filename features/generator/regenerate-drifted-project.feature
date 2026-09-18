@@ -77,3 +77,21 @@ Feature: regenerate project completes on a project with hand-modified files
     When I run gtb in the project with "ignore list"
     Then the project output contains "pkg/cmd/alpha/cmd.go"
     And the project output does not contain "stale rule"
+
+  Scenario: The entry point and the version package are the framework's, and regenerate brings them back
+    Given a freshly generated gtb project
+    When I hand-edit the generated "cmd/feattool/main.go" file
+    And I delete the generated "internal/version/version.go" file
+    And I run gtb in the project with "regenerate project"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/main.go" file does not contain "hand-edited, do not clobber"
+    And the generated "cmd/feattool/main.go" file contains "root.NewCmdRoot(version.Get())"
+    And the generated "internal/version/version.go" file exists
+
+  Scenario: An ignore rule keeps a hand-edited entry point
+    Given a freshly generated gtb project
+    When I run gtb in the project with "ignore add cmd/feattool/main.go"
+    And I hand-edit the generated "cmd/feattool/main.go" file
+    And I run gtb in the project with "regenerate project"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/main.go" file contains "hand-edited, do not clobber"

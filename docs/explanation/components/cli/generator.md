@@ -313,6 +313,15 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 
 This function is the single source of truth for mapping manifest fields (including the full `ManifestHelp` struct (help type, Slack channel/team, Teams channel/team)) to `SkeletonRootData`. Keeping this mapping in one place prevents settings from being silently dropped when the root command is regenerated.
 
+The entry point, the version package and the generate directives
+(`cmd/<name>/main.go`, `internal/version/version.go`, `pkg/cmd/root/generate.go`)
+are rewritten by `syncSkeletonGoFiles`, a step of the shared
+`syncDerivedFromManifest` that every manifest writer runs (spec 0197 D7), under
+the same `.gtb/ignore` gate as the root (`managedGeneratedFile`). They carry no
+hash and were once written only at generation, so a project scaffolded by an
+older gtb kept an entry point the current root no longer compiled against
+([#84](https://gitlab.com/phpboyscout/go-tool-base/-/issues/84)).
+
 Each non-root command is handled by `regenerateCommandRecursive`, which calls through `performGeneration` → `postGenerate` → `CommandPipeline.Run` with `SkipRegistration: true` (children re-register themselves in step 3 of the pipeline).
 
 The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction, so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating).
