@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -166,6 +167,10 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 	}
 
 	if err != nil {
+		// An unknown subcommand is cobra's own error and reaches here bare;
+		// give it the hint and the usage exit code an unknown flag gets.
+		err = hintUnknownCommand(rootCmd, err)
+
 		// No special case for ErrUpdateComplete. It carries an Outcome saying
 		// "exit zero, report at warn, and use this message", which Fatal honours
 		// — so a completed self-update reports itself and returns 0 through the
@@ -342,4 +347,17 @@ func flushTelemetry(props *p.Props) {
 	defer cancel()
 
 	_ = props.Collector.Close(ctx)
+}
+
+// hintUnknownCommand gives cobra's "unknown command" error the usage hint
+// and exit code the flag-error path already gives an unknown flag; every
+// other error passes through unchanged.
+func hintUnknownCommand(rootCmd *setup.Command, err error) error {
+	if !strings.HasPrefix(err.Error(), "unknown command ") {
+		return err
+	}
+
+	return errorhandling.WithExitCode(
+		errors.WithHintf(err, "Run '%s --help' for usage.", rootCmd.CommandPath()),
+		errorhandling.ExitCodeUsage)
 }

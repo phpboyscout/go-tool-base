@@ -218,6 +218,12 @@ func timeSinceLast(fs afero.Fs, name string, status timeSinceKey) (time.Duration
 	return 0, false
 }
 
+// TimeSinceLast returns the duration since the last update check or update,
+// and whether one has been recorded at all.
+func TimeSinceLast(fs afero.Fs, name string, status timeSinceKey) (time.Duration, bool) {
+	return timeSinceLast(fs, name, status)
+}
+
 // GetTimeSinceLast returns the duration since the last update check or update,
 // or [DefaultCheckInterval] when no timestamp has been recorded yet.
 func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Duration {

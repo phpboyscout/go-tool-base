@@ -536,7 +536,11 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 		return result
 	}
 
-	props.Logger.Debug("time since last update check", "duration", setup.GetTimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey))
+	if age, ok := setup.TimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey); ok {
+		props.Logger.Debug("time since last update check", "duration", age)
+	} else {
+		props.Logger.Debug("no update check recorded yet")
+	}
 
 	selfUpdater, err := setup.NewUpdater(ctx, props, "", false)
 	if err != nil {
