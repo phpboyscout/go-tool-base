@@ -47,19 +47,15 @@ func (g *Generator) applyRecoveredProperties(m *Manifest, manifestExisted bool) 
 // project. Called only on a from-scratch rebuild (no existing manifest); with a
 // manifest present those fields are preserved as authored.
 //
-//   - keychain: a delta feature entry, from the presence of the blank-import
-//     artefact cmd/<name>/keychain.go (it has no FeatureID, so the literal
-//     scanner never sees it).
+//   - the framework links (keychain, mcp): a delta feature entry when the
+//     blank-import artefact cmd/<name>/<id>.go disagrees with the link's
+//     default (the literal scanner never sees a link).
 //   - docs_layout: inferred from the docs tree shape.
 //   - CI component source: read from the scaffolded .gitlab-ci.yml include base.
 //
 // Hashes and template-overlay provenance are recovered by their own paths.
 func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
-	if g.keychainArtefactExists() {
-		// keychain defaults off; its presence is a delta entry, matching what
-		// generate writes (normaliseManifestFeatures keeps it).
-		props.Features = append(props.Features, ManifestFeature{Name: KeychainFeature, Enabled: true})
-	}
+	props.Features = g.recoverLinks(props.Features)
 
 	// Canonical (name-sorted) order so the from-scratch feature list matches
 	// generate's normalised form byte-for-byte.
@@ -78,15 +74,6 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 	// Signing, template-overlay provenance, and module_published are not in the
 	// generated source; recover them from the annotated provenance file.
 	g.applyProvenanceFile(props)
-}
-
-// keychainArtefactExists reports whether the scaffolded keychain blank-import
-// file (cmd/<name>/keychain.go) is present, which is how the keychain feature is
-// enabled.
-func (g *Generator) keychainArtefactExists() bool {
-	matches, err := afero.Glob(g.props.FS, filepath.Join(g.config.Path, "cmd", "*", "keychain.go"))
-
-	return err == nil && len(matches) > 0
 }
 
 // recoverDocsLayout infers the docs layout from the generated tree: the Diátaxis

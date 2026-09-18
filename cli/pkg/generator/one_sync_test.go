@@ -39,6 +39,33 @@ func TestSyncAdapterFiles_KeychainFollowsTheManifest(t *testing.T) {
 	assert.True(t, exists, "a hand-deleted file comes back while the feature is enabled")
 }
 
+// TestSyncAdapterFiles_MCPFollowsTheManifest: the mcp link defaults on, so a
+// manifest that says nothing writes cmd/<name>/mcp.go, an explicit mcp: false
+// removes it, and the same sync brings a deleted file back (spec 0202 D3, D6).
+func TestSyncAdapterFiles_MCPFollowsTheManifest(t *testing.T) {
+	t.Parallel()
+
+	g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+
+	silent := &Manifest{Properties: ManifestProperties{Name: "tool"}}
+	require.NoError(t, g.syncAdapterFiles(silent))
+
+	src, err := afero.ReadFile(fs, "/proj/cmd/tool/mcp.go")
+	require.NoError(t, err, "a manifest that says nothing about mcp links it")
+	assert.Contains(t, string(src), `_ "gitlab.com/phpboyscout/go-tool-base/pkg/mcp"`)
+
+	disabled := &Manifest{Properties: ManifestProperties{Name: "tool",
+		Features: []ManifestFeature{{Name: "mcp", Enabled: false}}}}
+	require.NoError(t, g.syncAdapterFiles(disabled))
+
+	exists, _ := afero.Exists(fs, "/proj/cmd/tool/mcp.go")
+	assert.False(t, exists, "mcp: false removes the link")
+
+	require.NoError(t, g.syncAdapterFiles(silent))
+	exists, _ = afero.Exists(fs, "/proj/cmd/tool/mcp.go")
+	assert.True(t, exists, "the link comes back with the manifest")
+}
+
 // TestApplyFeatures_LeavesTheTreeInLine pins spec 0197 D7: enable ai alone
 // records the default providers and writes chat.go with their modules; no
 // regenerate is needed afterwards. It used to re-render the root and stop.

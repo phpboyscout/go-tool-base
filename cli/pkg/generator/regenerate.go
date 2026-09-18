@@ -543,9 +543,10 @@ type skeletonTemplateData struct {
 	// regenerated later without the directive is a normal project.
 	FrameworkReplace string
 	DisabledFeatures []string
-	// KeychainEnabled says whether cmd/<name>/keychain.go is emitted; the
-	// manifest's explicit keychain entry decides (spec 0197 D8).
-	KeychainEnabled bool
+	// Links are the framework links the scaffold carries as cmd/<name>/<id>.go:
+	// the manifest's entry decides, the link's default otherwise (spec 0197
+	// D8, spec 0202 D6).
+	Links           []props.FeatureDescriptor
 	EnabledFeatures []string
 	// ChatModules and ForgeModules are the blank imports cmd/<name>/chat.go and
 	// forge.go carry, derived from the manifest's chat.providers and enabled
@@ -622,7 +623,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		FrameworkReplace:      frameworkReplace(),
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
-		KeychainEnabled:       featureEnabledIn(m.Properties.Features, KeychainFeature),
+		Links:                 enabledLinks(m.Properties.Features),
 		ChatModules:           chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
 		ChatProviders:         chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
 		ForgeLinks:            enabledForges(m.Properties.Features),

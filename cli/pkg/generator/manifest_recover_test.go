@@ -53,6 +53,8 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 			{Name: "ai", Enabled: true},
 			{Name: "config", Enabled: true},
 			{Name: "keychain", Enabled: true},
+			// mcp defaults on, so its absence is the delta (spec 0202 D3).
+			{Name: "mcp", Enabled: false},
 		},
 	}
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
@@ -78,6 +80,7 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	assert.False(t, featureEnabledIn(after.Properties.Features, "doctor"))
 	assert.True(t, featureEnabledIn(after.Properties.Features, "ai"))
 	assert.True(t, featureEnabledIn(after.Properties.Features, "keychain"))
+	assert.False(t, featureEnabledIn(after.Properties.Features, "mcp"), "mcp recovered from its artefact's absence")
 	assert.True(t, featureEnabledIn(after.Properties.Features, "update"), "default-on feature inferred")
 }
 

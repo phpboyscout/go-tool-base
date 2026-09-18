@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -567,41 +568,46 @@ func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
 	assert.True(t, exists, "root cmd.go should always exist")
 }
 
-// TestSkeletonFeatures_KeychainScaffolding pins the default-on
-// behaviour of the keychain feature in scaffolded projects: a default
-// config lays down cmd/<name>/keychain.go (the blank-import side-
-// effect file that registers the go-keyring backend), while a config
-// that explicitly disables the keychain feature omits the file so the
-// generated binary runs with the stub backend and no IPC-to-keychain
-// code linked.
-func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
+// TestSkeletonFeatures_LinkScaffolding pins the framework links in a scaffold
+// (spec 0202 D6): each is cmd/<name>/<id>.go, a blank import of the package
+// the descriptor names, present when the manifest's entry (or the link's
+// default) says so and absent otherwise, so a build without it links no
+// keychain IPC code, or no go/mcp and MCP SDK.
+func TestSkeletonFeatures_LinkScaffolding(t *testing.T) {
 	t.Parallel()
 
 	testutil.SkipIfNotIntegration(t, "generator")
 
 	tests := []struct {
-		name         string
-		features     []ManifestFeature
-		wantKeychain bool
+		name     string
+		features []ManifestFeature
+		want     map[string]bool
 	}{
 		{
-			name:         "enabled by default",
-			features:     nil,
-			wantKeychain: true,
+			// The keychain defaults off and mcp on (spec 0202 D3): with no
+			// manifest entry only mcp is linked. `gtb generate project` is what
+			// adds the keychain entry (DefaultSelectedFeatures), not the
+			// skeleton; the keychain case here used to expect the file from a
+			// nil manifest and never passed.
+			name:     "defaults",
+			features: nil,
+			want:     map[string]bool{"keychain": false, "mcp": true},
 		},
 		{
 			name: "explicitly enabled",
 			features: []ManifestFeature{
 				{Name: "keychain", Enabled: true},
+				{Name: "mcp", Enabled: true},
 			},
-			wantKeychain: true,
+			want: map[string]bool{"keychain": true, "mcp": true},
 		},
 		{
 			name: "explicitly disabled",
 			features: []ManifestFeature{
 				{Name: "keychain", Enabled: false},
+				{Name: "mcp", Enabled: false},
 			},
-			wantKeychain: false,
+			want: map[string]bool{"keychain": false, "mcp": false},
 		},
 	}
 
@@ -616,7 +622,7 @@ func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
 				Config: emptyTestStore(t),
 			}
 
-			path := filepath.Join("/", "kc-test", tc.name)
+			path := filepath.Join("/", "link-test", tc.name)
 
 			g := New(p, &Config{})
 			g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {
@@ -624,27 +630,29 @@ func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
 			}
 
 			cfg := SkeletonConfig{
-				Name:        "kc-tool",
-				Repo:        "test/kc-tool",
+				Name:        "link-tool",
+				Repo:        "test/link-tool",
 				Host:        "github.com",
-				Description: "Keychain scaffolding test",
+				Description: "Link scaffolding test",
 				Path:        path,
 				Features:    tc.features,
 			}
 
 			require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
 
-			keychainFile := filepath.Join(path, "cmd", "kc-tool", "keychain.go")
-			exists, _ := afero.Exists(fs, keychainFile)
-			assert.Equal(t, tc.wantKeychain, exists,
-				"keychain.go presence must follow the feature flag")
+			for _, d := range templates.FrameworkLinks() {
+				file := filepath.Join(path, "cmd", "link-tool", string(d.ID)+".go")
+				exists, _ := afero.Exists(fs, file)
+				assert.Equalf(t, tc.want[string(d.ID)], exists, "%s presence must follow the manifest", file)
 
-			if tc.wantKeychain {
-				content, err := afero.ReadFile(fs, keychainFile)
+				if !exists {
+					continue
+				}
+
+				content, err := afero.ReadFile(fs, file)
 				require.NoError(t, err)
-				assert.Contains(t, string(content),
-					`import _ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"`,
-					"scaffolded keychain.go must blank-import the subpackage")
+				assert.Contains(t, string(content), `import _ "`+d.ConstPackage+`"`,
+					"a scaffolded link blank-imports the package its descriptor names")
 			}
 		})
 	}

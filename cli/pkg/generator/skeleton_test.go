@@ -490,6 +490,14 @@ func TestCalculateDisabledFeatures(t *testing.T) {
 			features: []ManifestFeature{},
 			want:     []string{}, // Note: calculateDisabledFeatures now only returns what is EXPLICITLY disabled in the slice
 		},
+		{
+			name: "A link is its file, never a SetFeatures toggle",
+			features: []ManifestFeature{
+				{Name: "mcp", Enabled: false},
+				{Name: "keychain", Enabled: false},
+			},
+			want: []string{},
+		},
 	}
 
 	for _, tt := range tests {

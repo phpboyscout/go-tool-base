@@ -481,7 +481,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		FrameworkReplace:      frameworkReplace(),
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
-		KeychainEnabled:       featureEnabledIn(config.Features, KeychainFeature),
+		Links:                 enabledLinks(config.Features),
 		ChatModules:           chatModulesFor(config.Chat.Providers, config.Features),
 		ChatProviders:         chatProvidersFor(config.Chat.Providers, config.Features),
 		ForgeLinks:            enabledForges(config.Features),
@@ -786,16 +786,12 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 		})
 	}
 
-	// Keychain support is default-enabled. Scaffold cmd/<name>/keychain.go
-	// unless the operator explicitly opted out via --features or the
-	// interactive multi-select. Deleting the scaffolded file later is
-	// the escape hatch for regulated builds — linker dead-code elimination
-	// then keeps go-keyring, godbus, and wincred out of the linked artefact.
-	// Keychain has no catalogue entry, so it never reached DisabledFeatures
-	// and the file was written whatever the manifest said; the manifest's
-	// explicit entry is the record now (spec 0197 D8).
-	if data.KeychainEnabled {
-		goFiles[filepath.Join("cmd", data.Name, "keychain.go")] = templates.SkeletonKeychain()
+	// A framework link (keychain, mcp) is its file: cmd/<name>/<id.go> blank
+	// imports the package that declares the feature, and a build without the
+	// file carries nothing that package reaches. The manifest's entry is the
+	// record (spec 0197 D8, spec 0202 D6).
+	for _, d := range data.Links {
+		goFiles[linkFile(data.Name, d)] = templates.SkeletonLink(d)
 	}
 
 	// The adapter files are always written, empty when nothing is selected, so
@@ -1323,6 +1319,11 @@ func calculateDisabledFeatures(features []ManifestFeature) []string {
 	disabled := []string{}
 
 	for _, d := range templates.Catalogue() {
+		// A link kind is its file, not a SetFeatures toggle.
+		if d.Kind == props.KindLink {
+			continue
+		}
+
 		name := string(d.ID)
 		if d.Default && !featureEnabledIn(features, name) {
 			disabled = append(disabled, name)

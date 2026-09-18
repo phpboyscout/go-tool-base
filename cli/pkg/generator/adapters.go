@@ -298,25 +298,7 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 		return err
 	}
 
-	return g.syncKeychainFile(name, m.Properties.Features)
-}
-
-// syncKeychainFile writes cmd/<name>/keychain.go while the keychain feature
-// is enabled and removes it when it is not (spec 0197 D8). The file used to
-// be emitted on generate and never touched again, so deleting it was the
-// only durable way to drop the keychain, and the manifest did not know.
-func (g *Generator) syncKeychainFile(name string, features []ManifestFeature) error {
-	path := filepath.Join(g.config.Path, "cmd", name, "keychain.go")
-
-	if !featureEnabledIn(features, KeychainFeature) {
-		if err := g.props.FS.Remove(path); err != nil && !os.IsNotExist(err) {
-			return errors.Newf("failed to remove %s: %w", path, err)
-		}
-
-		return nil
-	}
-
-	return g.writeGeneratedGoFile(filepath.Join("cmd", name, "keychain.go"), templates.SkeletonKeychain())
+	return g.syncLinkFiles(name, m.Properties.Features)
 }
 
 // chatDefaultsFor is the author's default gated on the ai feature, the way
