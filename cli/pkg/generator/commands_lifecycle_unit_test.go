@@ -101,6 +101,34 @@ func TestRegenerateProject_Lifecycle(t *testing.T) {
 	assert.True(t, exists)
 }
 
+// TestRegenerateProject_DropsAPre0200GoModHash (#88): go.mod stopped being
+// hash-compared (spec 0200 D1); an older manifest's entry for it is dropped
+// on the first regenerate rather than refreshed on every one.
+func TestRegenerateProject_DropsAPre0200GoModHash(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Config: emptyTestStore(t), Version: version.NewInfo("v1.0.0", "", "")}
+
+	root := "/work"
+	_ = fs.MkdirAll(root+"/.gtb", 0o755)
+	_ = afero.WriteFile(fs, root+"/.gtb/manifest.yaml", []byte("properties:\n  name: mytool\nversion:\n  gtb: v1.0.0\ncommands: []\nhashes:\n  go.mod: deadbeef\n  justfile: cafe\n"), 0o644)
+	_ = afero.WriteFile(fs, root+"/go.mod", []byte("module test-mod\n"), 0o644)
+	_ = fs.MkdirAll(root+"/pkg/cmd/root", 0o755)
+	_ = afero.WriteFile(fs, root+"/pkg/cmd/root/cmd.go", []byte("package root\nfunc NewCmdRoot(p interface{}) {}\n"), 0o644)
+
+	g := New(p, &Config{Path: root, Overwrite: OverwriteAllow})
+	g.runCommand = func(context.Context, string, string, ...string) ([]byte, error) { return []byte("done"), nil }
+
+	require.NoError(t, g.RegenerateProject(context.Background()))
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	_, hasGoMod := m.Hashes["go.mod"]
+	assert.False(t, hasGoMod, "the stale go.mod hash is gone")
+	assert.Contains(t, m.Hashes, "justfile", "every other hash is kept")
+}
+
 func TestRegenerateManifest_Lifecycle(t *testing.T) {
 	t.Parallel()
 

@@ -654,6 +654,11 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		storedHashes = make(map[string]string)
 	}
 
+	// go.mod stopped being a rendered, hash-compared file (spec 0200 D1); an
+	// older manifest's entry is dropped here rather than merged back and
+	// refreshed on every run (#88).
+	delete(storedHashes, "go.mod")
+
 	// The same set the conflict resolver uses, so a rule cannot cover a file
 	// at one stage of the run and miss it at another.
 	ignoreRules := g.ignoreRules()
