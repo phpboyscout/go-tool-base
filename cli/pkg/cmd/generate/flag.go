@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
@@ -58,7 +56,7 @@ Examples:
   gtb generate add-flag -c deploy -n output -t string -d "Output path" -s o
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.ValidateOrPrompt(p); err != nil {
+			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
 				return err
 			}
 
@@ -77,12 +75,12 @@ Examples:
 	return cmd
 }
 
-func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
+func (o *AddFlagOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) error {
 	if o.CommandName != "" && o.FlagName != "" {
 		return o.validateNonInteractive()
 	}
 
-	if !p.GetIO().Interactive() {
+	if !promptable(p) {
 		return ErrNonInteractive
 	}
 
@@ -133,9 +131,9 @@ func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 				Title("Path to project root").
 				Value(&o.Path),
 		),
-	).WithTheme(setup.FormTheme())
+	)
 
-	return form.Run()
+	return runForm(ctx, p, form)
 }
 
 // validateNonInteractive applies the same field rules the interactive

@@ -173,7 +173,7 @@ also add the remote and push.
 Run without --name/--repo in an interactive terminal to launch a guided wizard;
 otherwise supply the flags directly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.ValidateOrPrompt(p); err != nil {
+			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
 				return err
 			}
 
@@ -261,13 +261,13 @@ otherwise supply the flags directly.`,
 	return cmd
 }
 
-func (o *SkeletonOptions) ValidateOrPrompt(p *props.Props) error {
+func (o *SkeletonOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) error {
 	if o.Name == "" || (o.Repo == "" && !o.NoForge) {
-		if !p.GetIO().Interactive() {
+		if !promptable(p) {
 			return ErrNonInteractive
 		}
 
-		if err := o.runWizard(); err != nil {
+		if err := o.runWizard(ctx, p); err != nil {
 			return err
 		}
 	}
@@ -876,8 +876,8 @@ func (o *SkeletonOptions) resolveEnvPrefix() {
 	}
 }
 
-func (o *SkeletonOptions) runWizard() error {
-	if err := o.wizardForm().Run(); err != nil {
+func (o *SkeletonOptions) runWizard(ctx context.Context, p *props.Props) error {
+	if err := runForm(ctx, p, o.wizardForm()); err != nil {
 		return err
 	}
 

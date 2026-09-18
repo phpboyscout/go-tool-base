@@ -10,7 +10,7 @@ var (
 	ErrEmptyCommandPath         = errors.NewSentinel("gtb.generate.empty_command_path", "empty command path")
 	ErrCommandNotFound          = errors.NewSentinel("gtb.generate.command_not_found", "command not found in manifest")
 	ErrUpdateManifestFailed     = errors.NewSentinel("gtb.generate.update_manifest_failed", "failed to update manifest")
-	ErrNonInteractive           = errors.NewSentinel("gtb.generate.non_interactive", "non-interactive mode detected, missing required flags")
+	ErrNonInteractive           = errors.NewSentinel("gtb.generate.non_interactive", "non-interactive mode detected, missing required flags: run from a terminal, pass the answers as flags, or add --accessible (GTB_ACCESSIBLE=true) for line prompts on a piped stdin")
 	ErrInvalidOverwriteValue    = errors.NewSentinel("gtb.generate.invalid_overwrite_value", "invalid --overwrite value: must be allow, deny, or ask")
 	ErrInvalidSigningKeySource  = errors.NewSentinel("gtb.generate.invalid_signing_key_source", "invalid --signing-key-source: must be embedded, external, or both")
 	ErrInvalidSigningBackend    = errors.NewSentinel("gtb.generate.invalid_signing_backend", "invalid --signing-backend: not a registered signing backend")
