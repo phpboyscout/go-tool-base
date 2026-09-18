@@ -17,10 +17,9 @@ of them on its own, without taking any of GTB. Collectively they are the
 GTB is one consumer of the toolkit, an opinionated assembly of it: the Props
 container, the command tree, the config-key schemas, the doctor checks, and
 the generator that scaffolds a new tool from it. The toolkit modules
-themselves carry no dependency on GTB, and none of GTB's `pkg/` packages that
-still exist assumes a reader has read this page first, this is the
-orientation for someone new to the estate, not a prerequisite for the
-component pages under [Components](../components/index.md).
+themselves carry no dependency on GTB. This page is the orientation for
+someone new to the estate; the component pages under
+[Components](../components/index.md) do not assume you have read it.
 
 ## Naming convention
 
@@ -49,17 +48,16 @@ Where GTB still has a `pkg/` package for something a module now owns, that
 package is a **thin adapter**: it maps GTB's config store, `Props` and
 logger onto the module's own constructors, and owns only what is GTB's to
 own, a config-key schema, a doctor check, a link-kind blank import, a
-generator template. The module is never the authority on its own API inside
-a GTB doc page; every [component page](../components/index.md) that wires
-one links out to the module's own docs for the API itself. See the
+generator template. A GTB page is never the authority on a module's API;
+every [component page](../components/index.md) that wires one links out to
+the module's own docs for that. See the
 [migration guides](../../reference/migration/index.md) for the individual
 cut-overs, each one a clean repoint with no compatibility shim.
 
 ## Modules GTB depends on
 
 The tables below list every `gitlab.com/phpboyscout/go/*` module `go.mod` and
-`cli/go.mod` require directly, at HEAD (colophon versions, not pinned to a
-release date). A provider submodule (forge, chat, signing backend) is
+`cli/go.mod` require directly, as of 2026-09-18. A provider submodule (forge, chat, signing backend) is
 documented on its parent's microsite rather than its own; where a module has
 no published microsite yet, the link goes to its `pkg.go.dev` reference
 instead and that gap is called out.
