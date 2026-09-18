@@ -72,7 +72,7 @@ func TestWizard_HostedDefaultPath(t *testing.T) {
 	assert.Contains(t, seen, "backend")
 	assert.Contains(t, seen, "channel")
 	assert.NotContains(t, seen, "module", "a hosted project derives its module path")
-	assert.NotContains(t, seen, "release-url", "the direct settings hide behind the direct channel")
+	assert.NotContains(t, seen, "release-url", "the direct channel is withdrawn: no settings page exists")
 
 	cfg := o.skeletonConfig(nil)
 	assert.Equal(t, forge.GithubFeature, cfg.ForgeBackend)
@@ -80,35 +80,24 @@ func TestWizard_HostedDefaultPath(t *testing.T) {
 	assert.Contains(t, enabledNames(cfg.Features), "github")
 }
 
-// TestWizard_NotHostedWithDirectUpdates: no on the start page shows the module
-// page instead of the forge page, and the self-update page offers the direct
-// channel only, whose settings are then asked for.
-func TestWizard_NotHostedWithDirectUpdates(t *testing.T) {
+// TestWizard_NotHostedCannotSelfUpdate: no on the start page shows the module
+// page instead of the forge page. With the direct channel withdrawn (#90) the
+// self-update page offers only this forge, which a project that is not hosted
+// cannot take, so the page refuses and the form does not complete; the way
+// through is to go back and deselect Self-Update.
+func TestWizard_NotHostedCannotSelfUpdate(t *testing.T) {
 	t.Parallel()
 
 	o := &SkeletonOptions{Features: generator.DefaultSelectedFeatures}
-	f, seen := keysSeen(t, o, map[string]string{
-		"hosted":              "n",
-		"module":              "myapp",
-		"channel":             "↓",
-		"release-url":         "https://dl.example.com/{{.Version}}/{{.Asset}}",
-		"release-version-url": "https://dl.example.com/latest",
-	})
-
-	require.Equal(t, huh.StateCompleted, f.State, "seen %v", seen)
-	require.NoError(t, o.afterWizard())
+	f, seen := keysSeen(t, o, map[string]string{"hosted": "n", "module": "myapp"})
 
 	assert.Contains(t, seen, "module")
 	assert.NotContains(t, seen, "backend", "a project that is not hosted has no forge page")
-	assert.Contains(t, seen, "release-url")
-
-	cfg := o.skeletonConfig(nil)
-	assert.True(t, o.NoForge)
-	assert.Equal(t, "myapp", cfg.ModulePath)
-	assert.Empty(t, cfg.ForgeBackend)
-	assert.Equal(t, generator.ReleaseChannelDirect, cfg.ReleaseChannel)
-	assert.Equal(t, "https://dl.example.com/latest", cfg.Direct.VersionURL)
-	assert.NotContains(t, enabledNames(cfg.Features), "github")
+	assert.Contains(t, seen, "channel", "the self-update page is reached")
+	assert.NotContains(t, seen, "release-url", "the direct settings page is gone")
+	assert.NotEqual(t, huh.StateCompleted, f.State, "the channel select refuses: not hosted and no other channel")
+	require.NoError(t, o.afterWizard())
+	assert.Empty(t, o.Direct, "nothing direct is ever recorded")
 }
 
 // TestWizard_NoSelfUpdateShowsNoUpdatePages: with the update feature unticked

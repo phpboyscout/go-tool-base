@@ -251,13 +251,13 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   means no prefix, the same as the flag.
 
 **Self-update** *(the `update` feature selected)*
-: The release channel, *this forge* or a *direct URL*; the self-update
-  policy (notify only, prompt, enforce); and the check interval. A
-  self-updating tool cannot be generated without a channel: to have none, go
-  back and deselect Self-Update. Choosing the direct channel opens a page for
-  the direct source's settings (asset URL template and version URL required;
-  checksum and signature templates, version format and key, pinned version
-  optional).
+: The release channel, *this forge*; the self-update policy (notify only,
+  prompt, enforce); and the check interval. A self-updating tool cannot be
+  generated without a channel, and the forge is the only channel in this
+  release, so a project that is not hosted on a forge is refused here: go
+  back and deselect Self-Update. A static release channel with no forge is
+  being designed under
+  [#90](https://gitlab.com/phpboyscout/go-tool-base/-/issues/90).
 
 **AI Chat** *(the `ai` feature selected)*
 : Which providers the tool links (per module: `codex-local` links `chat-openai`,
