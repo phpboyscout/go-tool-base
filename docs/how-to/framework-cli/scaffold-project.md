@@ -254,7 +254,9 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   and empty means none.
 
 **Self-update** *(the `update` feature selected)*
-: The release channel, *this forge*; the self-update policy (notify only,
+: The release channel, named for the forge chosen on the forge page and its
+  host (*GitLab releases (code.example.com)*): the tool reads that
+  repository's releases; the self-update policy (notify only,
   prompt, enforce); and the check interval. A self-updating tool cannot be
   generated without a channel, and the forge is the only channel in this
   release, so a project that is not hosted on a forge is refused here: go

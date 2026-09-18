@@ -1130,6 +1130,18 @@ func (o *SkeletonOptions) moduleGroup() *huh.Group {
 		WithHideFunc(func() bool { return o.hosted })
 }
 
+// releaseChannelOptions names the forge channel by the forge chosen on the
+// forge page and its host, so the row reads "GitLab releases (gitlab.com)"
+// rather than "This forge". The direct channel returns here with #90.
+func releaseChannelOptions(backend, host string) []huh.Option[string] {
+	label := backendDisplay(backend).Label + " releases"
+	if host != "" {
+		label += " (" + host + ")"
+	}
+
+	return []huh.Option[string]{huh.NewOption(label, generator.ReleaseChannelForge)}
+}
+
 // selfUpdateGroup is the one page for the update feature (spec 0195 D7): the
 // release channel, the policy and the check interval. Shown only when the
 // feature is selected; the channel cannot be left empty. The forge is the
@@ -1141,10 +1153,17 @@ func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 		huh.NewSelect[string]().
 			Key("channel").
 			Title("Release channel").
-			Description("Where the tool fetches its releases from.").
-			Options(
-				huh.NewOption("This forge", generator.ReleaseChannelForge),
-			).
+			DescriptionFunc(func() string {
+				return fmt.Sprintf("Where the tool looks for new versions of itself and downloads them from. "+
+					"The %s channel reads the releases of the repository chosen on the forge page, "+
+					"and needs no configuration beyond a token for a private repository.", backendDisplay(o.ForgeBackend).Label)
+			}, &o.ForgeBackend).
+			// Static options are what a driver that runs no commands sees;
+			// OptionsFunc renames the row as the forge and host change.
+			Options(releaseChannelOptions(o.ForgeBackend, o.resolvedHost())...).
+			OptionsFunc(func() []huh.Option[string] {
+				return releaseChannelOptions(o.ForgeBackend, o.resolvedHost())
+			}, []*string{&o.ForgeBackend, &o.Host}). // hashstructure follows both pointers
 			Value(&o.ReleaseChannel).
 			Validate(func(s string) error {
 				switch {

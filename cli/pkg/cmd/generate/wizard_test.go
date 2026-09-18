@@ -132,3 +132,17 @@ func TestOptionsFromManifest_EnvPrefixChoice(t *testing.T) {
 		assert.Equal(t, prefix, back.EnvPrefix)
 	}
 }
+
+// TestReleaseChannelOptions_NameTheChosenForge: the channel row says which
+// forge's releases the tool reads and where, never "this forge".
+func TestReleaseChannelOptions_NameTheChosenForge(t *testing.T) {
+	t.Parallel()
+
+	opts := releaseChannelOptions("gitlab", "code.example.com")
+	require.Len(t, opts, 1, "the forge is the only channel while the direct channel is withdrawn (#90)")
+	assert.Equal(t, "GitLab releases (code.example.com)", opts[0].Key)
+	assert.Equal(t, generator.ReleaseChannelForge, opts[0].Value)
+
+	assert.Equal(t, "GitHub releases (github.com)", releaseChannelOptions("", "github.com")[0].Key, "the default backend is GitHub")
+	assert.Equal(t, "Gitea releases", releaseChannelOptions("gitea", "")[0].Key, "a forge with no default host names none")
+}
