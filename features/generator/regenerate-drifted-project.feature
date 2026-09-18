@@ -19,6 +19,17 @@ Feature: regenerate project completes on a project with hand-modified files
     And the project output contains "kept your version"
     And the project output contains "gtb ignore add pkg/cmd/alpha/cmd.go"
 
+  Scenario: A kept hand edit on a parent command survives a second regenerate
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name alpha --short alpha-cmd"
+    And I run gtb in the project with "generate command --name child --parent alpha --short child-cmd"
+    And I hand-edit the generated "pkg/cmd/alpha/cmd.go" file
+    And I run gtb in the project with "regenerate project --overwrite deny"
+    And I run gtb in the project with "regenerate project --overwrite deny"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/alpha/cmd.go" file contains "hand-edited, do not clobber"
+    And the project output contains "kept your version"
+
   Scenario: An ignore rule suppresses the conflict entirely
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name alpha --short alpha-cmd"

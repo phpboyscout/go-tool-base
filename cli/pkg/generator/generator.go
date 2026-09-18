@@ -151,6 +151,11 @@ type Generator struct {
 	// conflicts accumulates the files this run left alone, for the
 	// end-of-run summary. Reset at the start of each regeneration.
 	conflicts conflictLog
+
+	// registrationKept records that this command's cmd.go was kept rather than
+	// written (a conflict under --overwrite deny, or an ignore rule), so the
+	// child re-registration leaves the file and its recorded hash alone.
+	registrationKept bool
 }
 
 // withTemplateClone injects the git template-source clone implementation.

@@ -155,6 +155,7 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 		// Kept or ignored: leave the file alone and carry on. The recorded
 		// hash is the resolver's, not this render's — see D3/D4 of spec 0187.
 		g.props.Logger.Info(fmt.Sprintf("Keeping registration file: %s", cmdPath))
+		g.registrationKept = true
 
 		return decision.RecordHash, nil
 	}

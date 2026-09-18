@@ -118,12 +118,18 @@ func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDi
 	if !p.opts.SkipRegistration {
 		p.g.props.Logger.Info("registering subcommand", "name", data.Name)
 
-		if err := p.g.registerSubcommand(); err != nil {
+		// The parent's recorded hash moves only when this run changed the
+		// parent; re-hashing an untouched (possibly kept) file would record
+		// the author's content as generated.
+		switch wrote, err := p.g.registerSubcommand(); {
+		case err != nil:
 			p.g.props.Logger.Warn("failed to register subcommand", "name", data.Name, "error", err)
 			result.warn("registerInParent", err)
-		} else if err := p.g.updateParentCmdHash(); err != nil {
-			p.g.props.Logger.Warn("failed to update parent command hash", "error", err)
-			result.warn("updateParentCmdHash", err)
+		case wrote:
+			if err := p.g.updateParentCmdHash(); err != nil {
+				p.g.props.Logger.Warn("failed to update parent command hash", "error", err)
+				result.warn("updateParentCmdHash", err)
+			}
 		}
 	}
 
@@ -153,6 +159,15 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 		return nil
 	}
 
+	// A kept file is the author's: its children are already registered in it,
+	// and rewriting it would record the hand-edited content as generated, so
+	// the next regenerate would see no conflict and overwrite the edit.
+	if g.registrationKept {
+		g.props.Logger.Debug("cmd.go was kept, leaving child registrations and its hash alone", "name", g.config.Name)
+
+		return nil
+	}
+
 	// Every child re-registers into this same parent cmd.go, so a sealed parent
 	// is checked once here rather than once per child.
 	if g.wiringSealed(filepath.Join(cmdDir, "cmd.go"), "re-registering child commands") {
@@ -168,7 +183,7 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 		childCtx := buildCommandContext(g.config, child, childParentPath)
 		childGen := New(g.props, childCtx.ToConfig())
 
-		if err := childGen.registerSubcommand(); err != nil {
+		if _, err := childGen.registerSubcommand(); err != nil {
 			g.props.Logger.Warn("failed to re-register child command", "child", child.Name, "parent", g.config.Name, "error", err)
 		}
 	}

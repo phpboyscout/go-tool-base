@@ -35,30 +35,30 @@ type subcommandContext struct {
 	registered           bool
 }
 
-func (g *Generator) registerSubcommand() error {
+func (g *Generator) registerSubcommand() (bool, error) {
 	g.props.Logger.Debug("Preparing subcommand context for registration...")
 
 	ctx, err := g.prepareSubcommandContext()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if g.wiringSealed(ctx.parentFile, "registering subcommand "+g.config.Name) {
-		return nil
+		return false, nil
 	}
 
 	g.props.Logger.Debug("reading parent command file", "path", ctx.parentFile)
 
 	fsrc, err := afero.ReadFile(g.props.FS, ctx.parentFile)
 	if err != nil {
-		return errors.Wrap(err, "failed to read parent command file")
+		return false, errors.Wrap(err, "failed to read parent command file")
 	}
 
 	g.props.Logger.Debug("Parsing parent command AST...")
 
 	f, err := decorator.Parse(fsrc)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse parent command file")
+		return false, errors.Wrap(err, "failed to parse parent command file")
 	}
 
 	g.props.Logger.Debug("adding import", "import", ctx.importPath)
@@ -66,13 +66,23 @@ func (g *Generator) registerSubcommand() error {
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	g.props.Logger.Debug(fmt.Sprintf("Analyzing target function NewCmd%s for existing registrations", PascalCase(ctx.parentName)))
 	g.analyzeTargetFunction(f, targetFunc, ctx)
 
-	return g.applySubcommandRegistration(f, targetFunc, ctx)
+	if ctx.registered {
+		// The parent already registers this command. Writing the parsed file
+		// back would reformat a file the author may have kept, and recording
+		// its hash would make that content read as generated, so the next
+		// regenerate saw no conflict and overwrote it.
+		g.props.Logger.Debug("subcommand already registered in parent, leaving the file alone", "command", g.config.Name)
+
+		return false, nil
+	}
+
+	return true, g.applySubcommandRegistration(f, targetFunc, ctx)
 }
 
 func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
@@ -420,8 +430,9 @@ func (g *Generator) handleNewCmdRootInit(as *dst.AssignStmt, call *dst.CallExpr,
 		}
 	}
 
-	// Check arguments for inline subcommand initialization
-	for _, arg := range call.Args {
+	// Check arguments for inline subcommand initialization; with the external
+	// adapter attached the local commands sit in a literal inside append.
+	for _, arg := range rootCommandArgs(call) {
 		if argCall, ok := arg.(*dst.CallExpr); ok {
 			if argSel, ok := argCall.Fun.(*dst.SelectorExpr); ok {
 				if xid, ok := argSel.X.(*dst.Ident); ok && xid.Name == ctx.pkgName && argSel.Sel.Name == ctx.funcNameToBeCalled {
@@ -497,12 +508,6 @@ func (g *Generator) handleAllAssetsAssignment(as *dst.AssignStmt, expr dst.Expr,
 }
 
 func (g *Generator) applySubcommandRegistration(f *dst.File, fn *dst.FuncDecl, ctx *subcommandContext) error {
-	if ctx.registered {
-		g.props.Logger.Debug("subcommand already registered in parent, saving AST", "command", g.config.Name)
-
-		return g.saveAstFile(f, ctx.parentFile)
-	}
-
 	if ctx.isRoot && ctx.rootCmdInitIdx != -1 {
 		g.props.Logger.Debug("inserting subcommand into root NewCmdRoot call", "command", g.config.Name)
 		g.insertIntoRoot(fn, ctx)
@@ -558,31 +563,92 @@ func (g *Generator) insertIntoRoot(fn *dst.FuncDecl, ctx *subcommandContext) {
 
 func (g *Generator) appendSubcommandCallToRootInit(fn *dst.FuncDecl, ctx *subcommandContext) {
 	for _, stmt := range fn.Body.List {
-		if as, ok := stmt.(*dst.AssignStmt); ok {
-			for _, expr := range as.Rhs {
-				if call, ok := expr.(*dst.CallExpr); ok {
-					if sel, ok := call.Fun.(*dst.SelectorExpr); ok && sel.Sel.Name == "NewCmdRoot" {
-						// Create the new CallExpr: pkg.NewCmdName(p)
-						newCmdCall := &dst.CallExpr{
-							Fun: &dst.SelectorExpr{
-								X:   dst.NewIdent(ctx.pkgName),
-								Sel: dst.NewIdent(ctx.funcNameToBeCalled),
-							},
-							Args: []dst.Expr{dst.NewIdent("p")},
-						}
+		as, ok := stmt.(*dst.AssignStmt)
+		if !ok {
+			continue
+		}
 
-						// Ensure the argument is on a new line
-						newCmdCall.Decs.Before = dst.NewLine
+		for _, expr := range as.Rhs {
+			if call := rootCall(expr); call != nil {
+				insertIntoRootCall(call, ctx)
 
-						// Append this call to NewCmdRoot args
-						call.Args = append(call.Args, newCmdCall)
-
-						return
-					}
-				}
+				return
 			}
 		}
 	}
+}
+
+// rootCall returns expr as the NewCmdRoot call it is, or nil.
+func rootCall(expr dst.Expr) *dst.CallExpr {
+	call, ok := expr.(*dst.CallExpr)
+	if !ok {
+		return nil
+	}
+
+	if sel, ok := call.Fun.(*dst.SelectorExpr); ok && sel.Sel.Name == "NewCmdRoot" {
+		return call
+	}
+
+	return nil
+}
+
+// insertIntoRootCall adds pkg.NewCmdName(p) to the root call. With the
+// external adapter the call is
+// NewCmdRoot(p, append([]*setup.Command{…}, external.Commands(p)...)...) and Go
+// forbids an argument after the spread, so the command goes inside the
+// literal; otherwise it is one more variadic argument on its own line.
+func insertIntoRootCall(call *dst.CallExpr, ctx *subcommandContext) {
+	newCmdCall := &dst.CallExpr{
+		Fun: &dst.SelectorExpr{
+			X:   dst.NewIdent(ctx.pkgName),
+			Sel: dst.NewIdent(ctx.funcNameToBeCalled),
+		},
+		Args: []dst.Expr{dst.NewIdent("p")},
+	}
+
+	if lit := rootCommandLiteral(call); lit != nil {
+		lit.Elts = append(lit.Elts, newCmdCall)
+
+		return
+	}
+
+	newCmdCall.Decs.Before = dst.NewLine
+	call.Args = append(call.Args, newCmdCall)
+}
+
+// rootCommandLiteral returns the composite literal holding the local commands
+// when the root call has the external adapter's shape,
+// NewCmdRoot(p, append([]*setup.Command{…}, external.Commands(p)...)...),
+// and nil for the plain variadic form.
+func rootCommandLiteral(call *dst.CallExpr) *dst.CompositeLit {
+	const rootAndSpread = 2
+
+	if !call.Ellipsis || len(call.Args) != rootAndSpread {
+		return nil
+	}
+
+	appendCall, ok := call.Args[1].(*dst.CallExpr)
+	if !ok || len(appendCall.Args) == 0 {
+		return nil
+	}
+
+	if fn, ok := appendCall.Fun.(*dst.Ident); !ok || fn.Name != "append" {
+		return nil
+	}
+
+	lit, _ := appendCall.Args[0].(*dst.CompositeLit)
+
+	return lit
+}
+
+// rootCommandArgs is every expression that registers a command in the root
+// call, whichever shape the call has.
+func rootCommandArgs(call *dst.CallExpr) []dst.Expr {
+	if lit := rootCommandLiteral(call); lit != nil {
+		return lit.Elts
+	}
+
+	return call.Args
 }
 
 func (g *Generator) insertGeneric(fn *dst.FuncDecl, stmt dst.Stmt) {

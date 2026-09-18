@@ -1,13 +1,18 @@
 package generator
 
 import (
+	"bytes"
 	"go/token"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/dave/dst/decorator"
 
 	"github.com/dave/dst"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -869,4 +874,64 @@ func TestInsertIntoRoot(t *testing.T) {
 	as := fn.Body.List[0].(*dst.AssignStmt)
 	call := as.Rhs[0].(*dst.CallExpr)
 	assert.Len(t, call.Args, 2)
+}
+
+// spreadRootFunc is the root a project with the external adapter renders:
+// the local commands in a composite literal, appended to the adapter's slice
+// and spread into NewCmdRoot.
+func spreadRootFunc(t *testing.T) (*dst.File, *dst.FuncDecl) {
+	t.Helper()
+
+	src := `package root
+
+func NewCmdRoot() {
+	rootCmd := gtbRoot.NewCmdRoot(p, append([]*setup.Command{hello.NewCmdHello(p)}, external.Commands(p)...)...)
+	_ = rootCmd
+}
+`
+	f, err := decorator.Parse(src)
+	require.NoError(t, err)
+
+	fn, ok := f.Decls[0].(*dst.FuncDecl)
+	require.True(t, ok)
+
+	return f, fn
+}
+
+// TestRootCall_SpreadForm: with the external adapter attached the root call
+// is NewCmdRoot(p, append([]*setup.Command{...}, external.Commands(p)...)...),
+// and Go forbids a further argument after a spread. A command registered
+// into that root goes inside the literal, and one already there is seen as
+// registered rather than added a second time.
+func TestRootCall_SpreadForm(t *testing.T) {
+	t.Parallel()
+
+	t.Run("an existing command inside the literal is recognised", func(t *testing.T) {
+		t.Parallel()
+
+		_, fn := spreadRootFunc(t)
+		g := &Generator{}
+		ctx := &subcommandContext{pkgName: "hello", funcNameToBeCalled: "NewCmdHello", rootCmdInitIdx: -1}
+
+		as := fn.Body.List[0].(*dst.AssignStmt)
+		g.handleNewCmdRootInit(as, as.Rhs[0].(*dst.CallExpr), 0, 0, ctx)
+
+		assert.True(t, ctx.registered, "hello is inside the literal, so it is registered")
+	})
+
+	t.Run("a new command goes inside the literal, not after the spread", func(t *testing.T) {
+		t.Parallel()
+
+		f, fn := spreadRootFunc(t)
+		g := &Generator{}
+		ctx := &subcommandContext{pkgName: "world", funcNameToBeCalled: "NewCmdWorld"}
+
+		g.appendSubcommandCallToRootInit(fn, ctx)
+
+		var out bytes.Buffer
+		require.NoError(t, decorator.Fprint(&out, f))
+
+		assert.Contains(t, out.String(), "append([]*setup.Command{hello.NewCmdHello(p), world.NewCmdWorld(p)}, external.Commands(p)...)...)")
+		assert.Equal(t, 1, strings.Count(out.String(), "world.NewCmdWorld(p)"))
+	})
 }
