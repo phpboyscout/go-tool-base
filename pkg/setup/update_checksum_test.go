@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 
@@ -46,6 +47,10 @@ func (r *fakeRelease) GetTagName() string              { return r.name }
 func (r *fakeRelease) GetBody() string                 { return "" }
 func (r *fakeRelease) GetDraft() bool                  { return false }
 func (r *fakeRelease) GetAssets() []forge.ReleaseAsset { return r.assets }
+
+// GetReleasedAt is the zero time: a test double has no forge publish time
+// (go/forge v0.28.0 notes).
+func (r *fakeRelease) GetReleasedAt() time.Time { return time.Time{} }
 
 // fakeProvider implements [forge.Provider] only — no
 // [forge.ChecksumProvider]. Used to exercise the asset-list

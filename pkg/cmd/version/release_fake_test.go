@@ -3,6 +3,7 @@ package version
 import (
 	"context"
 	"io"
+	"time"
 
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/forge"
@@ -16,6 +17,10 @@ func (r fakeRelease) GetTagName() string              { return r.tag }
 func (r fakeRelease) GetBody() string                 { return "" }
 func (r fakeRelease) GetDraft() bool                  { return false }
 func (r fakeRelease) GetAssets() []forge.ReleaseAsset { return nil }
+
+// GetReleasedAt is the zero time: a test double has no forge publish time
+// (go/forge v0.28.0 notes).
+func (r fakeRelease) GetReleasedAt() time.Time { return time.Time{} }
 
 // fakeProvider answers every release query with one tag, or one error. It is
 // injected through props.Tool.ReleaseProvider, the seam the self-updater
