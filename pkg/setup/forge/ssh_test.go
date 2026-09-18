@@ -292,6 +292,7 @@ func TestValidatePassphrase(t *testing.T) {
 	t.Parallel()
 
 	require.ErrorIs(t, validatePassphrase("short"), ErrPassphraseTooShort)
+	assert.Contains(t, errors.FlattenHints(validatePassphrase("short")), "at least 12 characters", "the message reads as one sentence (a manual-round niggle: it used to read \"12 characters: passphrase must be at least\")")
 	require.NoError(t, validatePassphrase(testPassphrase))
 }
 

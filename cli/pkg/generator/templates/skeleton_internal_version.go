@@ -48,7 +48,11 @@ func SkeletonInternalVersion() *jen.File {
 					Id("info").Dot("Main").Dot("Version").Op("!=").Lit("(devel)"),
 			).Block(
 				jen.Id("version").Op("=").Id("info").Dot("Main").Dot("Version"),
-			).Else().Block(
+			).Else().If(jen.Id("commit").Op("!=").Lit("none")).Block(
+				// A build without VCS info kept the "none" placeholder as its
+				// version, which printed as vnone and seeded a require line
+				// no later regenerate could parse; "dev" is a development
+				// build the framework recognises.
 				jen.Id("version").Op("=").Id("commit"),
 			),
 		),

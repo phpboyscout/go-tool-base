@@ -326,3 +326,28 @@ func TestDivergedUnignoredFiles(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"README.md"}, diverged)
 }
+
+// TestGeneratorIgnoreList_TheManagedUnhashedFilesAreTracked (D13 of the
+// v0.43.0 manual round): a rule on cmd/<name>/main.go was reported stale
+// while regenerate honoured it, because the entry point and the version
+// package (managed without a hash since #84) were not in the tracked set.
+func TestGeneratorIgnoreList_TheManagedUnhashedFilesAreTracked(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	writeIgnore(t, fs, "proj", "cmd/tool/main.go\ninternal/version/version.go\npkg/cmd/root/generate.go\n")
+
+	m := &Manifest{Properties: ManifestProperties{Name: "tool"}}
+	require.NoError(t, EncodeManifestFile(fs, ManifestPathFor("proj"), m))
+
+	listing, err := newIgnoreTestGenerator(fs, "proj").ListIgnoreRules()
+	require.NoError(t, err)
+
+	paths := make([]string, 0, len(listing.Entries))
+	for _, e := range listing.Entries {
+		paths = append(paths, e.Path)
+	}
+
+	assert.ElementsMatch(t, []string{"cmd/tool/main.go", "internal/version/version.go", "pkg/cmd/root/generate.go"}, paths)
+	assert.Empty(t, listing.StaleRules, "a rule on a file the generator manages is live")
+}

@@ -86,8 +86,16 @@ func (g *Generator) CheckIgnorePaths(paths []string) []IgnoreCheckResult {
 // cmd.go report as stale while `ignore check` reported the same path ignored
 // (issue #13).
 // unhashedGeneratedFiles are the files the generator writes on every
-// regenerate without recording a hash for them.
-var unhashedGeneratedFiles = []string{"pkg/cmd/root/cmd.go", "pkg/cmd/root/generate.go"}
+// regenerate without recording a hash for them: the root command and the
+// three the shared sync rewrites (#84). A rule on any of them is live.
+func unhashedGeneratedFiles(m *Manifest) []string {
+	return []string{
+		"pkg/cmd/root/cmd.go",
+		"pkg/cmd/root/generate.go",
+		"internal/version/version.go",
+		filepath.Join("cmd", m.Properties.Name, "main.go"),
+	}
+}
 
 func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 	manifest, err := g.loadManifest()
@@ -103,7 +111,9 @@ func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 
 	files := manifest.TrackedFiles()
 
-	tracked := make([]string, 0, len(files)+len(unhashedGeneratedFiles))
+	unhashed := unhashedGeneratedFiles(manifest)
+
+	tracked := make([]string, 0, len(files)+len(unhashed))
 	for path := range files {
 		tracked = append(tracked, path)
 	}
@@ -111,7 +121,7 @@ func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 	// Generated without a hash, so absent from TrackedFiles, yet a rule
 	// covering one is live: the root command is the file a project seals
 	// most (#32).
-	for _, path := range unhashedGeneratedFiles {
+	for _, path := range unhashed {
 		if _, hashed := files[path]; !hashed {
 			tracked = append(tracked, path)
 		}

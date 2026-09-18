@@ -138,7 +138,7 @@ func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
 
 func validatePassphrase(s string) error {
 	if len(s) < minPassphraseLength {
-		return errors.Wrapf(ErrPassphraseTooShort, "%d characters", minPassphraseLength)
+		return errors.WithHintf(ErrPassphraseTooShort, "Use at least %d characters.", minPassphraseLength)
 	}
 
 	return nil
@@ -148,7 +148,7 @@ func validatePassphrase(s string) error {
 // shorter than minPassphraseLength, including when huh's accessible mode
 // could not read one at all (no terminal) and left it blank.
 var ErrPassphraseTooShort = errors.NewSentinel("gtb.setup.forge.passphrase_too_short",
-	"passphrase must be at least")
+	"passphrase is too short")
 
 // ConfigureSSHKey runs the interactive SSH key configuration flow on p's IO
 // and returns the key type ("file" or "agent") and path.
