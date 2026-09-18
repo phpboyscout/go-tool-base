@@ -1454,43 +1454,24 @@ func (g *Generator) buildCommandsIndexTable(commands []ManifestCommand, diataxis
 	return content.String()
 }
 
-// Legacy doc functions.
+// generateDocs writes a command's boilerplate page without a provider. It
+// resolves the page's path through the same layout-aware context the
+// provider path uses, so a Diátaxis project's page lands under
+// docs/reference/cli and the commands index is refilled; it used to write a
+// bare docs/commands/<cmd>/index.md whatever the layout, which is how every
+// regenerate grew a legacy tree beside the real one (F11).
 func (g *Generator) generateDocs() error {
 	parentParts := g.getParentPathParts()
-	docsDir := filepath.Join(g.config.Path, "docs", "commands")
+	relPath := filepath.Join("pkg", "cmd", filepath.Join(parentParts...), g.config.Name)
 
-	for _, part := range parentParts {
-		docsDir = filepath.Join(docsDir, part)
+	fullCmdName, outputPath := g.prepareDocsContext(g.config.Name, relPath, false)
+
+	if err := g.writeBasicCommandDocs(g.config.Name, fullCmdName, outputPath); err != nil {
+		return err
 	}
 
-	// Create directory for the command
-	docsDir = filepath.Join(docsDir, g.config.Name)
-
-	// This legacy fallback writes straight to the filesystem rather than
-	// through writeDocFile, so it needs the ignore check of its own — it is the
-	// path that actually runs whenever GenerateDocs errors, which on a project
-	// with many commands is every command.
-	if g.docPathIgnored(filepath.Join(docsDir, "index.md")) {
-		return nil
-	}
-
-	if err := g.props.FS.MkdirAll(docsDir, os.ModePerm); err != nil {
-		return errors.Wrap(err, "failed to create docs directory")
-	}
-
-	docPath := filepath.Join(docsDir, "index.md")
-
-	f, err := g.props.FS.Create(docPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to create docs file")
-	}
-
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if _, err = fmt.Fprintf(f, "# %s\n\n%s\n\n%s\n", g.config.Name, g.config.Short, g.config.Long); err != nil {
-		return errors.Wrap(err, "failed to write docs content")
+	if err := g.generateCommandsIndex(); err != nil {
+		return err
 	}
 
 	return g.regenerateMkdocsNav()

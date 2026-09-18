@@ -186,6 +186,15 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return err
 	}
 
+	// The skeleton pass re-renders the commands index from its asset, whose
+	// table is empty, and the docs pass above skips a page that exists, so
+	// the table is filled from the manifest once everything else has run.
+	if len(m.Commands) > 0 {
+		if err := g.generateCommandsIndex(); err != nil {
+			g.props.Logger.Warn("failed to refresh the commands index", "error", err)
+		}
+	}
+
 	return nil
 }
 
