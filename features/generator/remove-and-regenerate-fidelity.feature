@@ -15,6 +15,18 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     And the generated "pkg/cmd/root/cmd.go" file does not contain "foo.NewCmdFoo"
     And the generated "pkg/cmd/root/cmd.go" file does not contain "pkg/cmd/foo"
 
+  Scenario: removing a parent's last child reshapes it back to a leaf
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name serve --agentless --short serve-it"
+    And I run gtb in the project with "generate command --name status --parent serve --agentless --short status-it"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "setup.GroupRunE"
+    When I run gtb in the project with "remove command --name status --parent serve"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "setup.GroupRunE"
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "status.NewCmdStatus"
+    And the generated "pkg/cmd/serve/main.go" file exists
+
   Scenario: remove refuses a protected command unless forced
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name guarded --agentless --short guarded-widget --protected"

@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/afero"
@@ -42,6 +43,13 @@ func (g *Generator) Remove(ctx context.Context) error {
 	}
 
 	g.cleanupDocumentation(docPath)
+
+	// The mirror of the first-child reshape on add: a parent that has just
+	// lost its last child is a leaf again, and its cmd.go still wired
+	// setup.GroupRunE with nothing under it until the next regenerate.
+	if err := g.reshapeParentIfLeafAgain(ctx); err != nil {
+		g.props.Logger.Warn("failed to reshape the parent after its last child was removed", "error", err)
+	}
 
 	// Also regenerate indices
 	if err := g.generateCommandsIndex(); err != nil {
@@ -134,4 +142,32 @@ func (g *Generator) cleanupDocumentation(docPath string) {
 			g.props.Logger.Warn("failed to remove documentation", "path", target, "error", err)
 		}
 	}
+}
+
+// reshapeParentIfLeafAgain re-renders the parent canonically when the command
+// just removed was its last child (a parent -> leaf transition). No-op for a
+// root-level command or a parent that still has children. RegenerateCommand
+// applies the conflict rules, so a hand-edited parent is kept and reported.
+func (g *Generator) reshapeParentIfLeafAgain(ctx context.Context) error {
+	parentParts := g.getParentPathParts()
+	if len(parentParts) == 0 {
+		return nil
+	}
+
+	m, err := g.loadManifest()
+	if err != nil {
+		return nil //nolint:nilerr // no manifest, nothing to reshape
+	}
+
+	grandparent := parentParts[:len(parentParts)-1]
+	parentName := parentParts[len(parentParts)-1]
+
+	parent := findCommandAt(m.Commands, grandparent, parentName)
+	if parent == nil || len(parent.Commands) != 0 {
+		return nil
+	}
+
+	g.props.Logger.Debug(fmt.Sprintf("Parent %q lost its last child; reshaping to canonical leaf form", parentName))
+
+	return g.RegenerateCommand(ctx, *parent, grandparent)
 }
