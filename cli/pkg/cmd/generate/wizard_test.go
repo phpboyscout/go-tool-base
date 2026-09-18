@@ -146,3 +146,22 @@ func TestReleaseChannelOptions_NameTheChosenForge(t *testing.T) {
 	assert.Equal(t, "GitHub releases (github.com)", releaseChannelOptions("", "github.com")[0].Key, "the default backend is GitHub")
 	assert.Equal(t, "Gitea releases", releaseChannelOptions("gitea", "")[0].Key, "a forge with no default host names none")
 }
+
+// TestWizard_ModulePageAcceptsEmptyAndUsesTheName: the module page must not
+// trap a user who answered "not hosted" and wants to go back, so empty is
+// accepted at the field and filled from the project name after the wizard.
+// A module typed and then abandoned by switching to hosted is discarded.
+func TestWizard_ModulePageAcceptsEmptyAndUsesTheName(t *testing.T) {
+	t.Parallel()
+
+	o := &SkeletonOptions{Features: []string{"init", "docs"}}
+	f, seen := keysSeen(t, o, map[string]string{"hosted": "n"})
+	require.Equal(t, huh.StateCompleted, f.State, "seen %v", seen)
+	require.NoError(t, o.afterWizard())
+	assert.Contains(t, seen, "module")
+	assert.Equal(t, "my-app", o.skeletonConfig(nil).ModulePath, "empty falls back to the project name")
+
+	hosted := &SkeletonOptions{Features: []string{"init", "docs"}, Module: "typed-then-abandoned", hosted: true, Repo: "org/my-app", Name: "my-app"}
+	require.NoError(t, hosted.afterWizard())
+	assert.Empty(t, hosted.Module, "a hosted project derives its module path; a typed one is discarded")
+}

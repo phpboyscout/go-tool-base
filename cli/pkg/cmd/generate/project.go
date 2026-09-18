@@ -897,6 +897,10 @@ func (o *SkeletonOptions) afterWizard() error {
 		o.ForgeBackend, o.Repo, o.Host = "", "", ""
 		o.Private = false
 		o.ForgeCredentials = nil
+
+		if o.Module == "" {
+			o.Module = o.Name
+		}
 	} else {
 		o.Module = ""
 		o.ForgeCredentials = slices.DeleteFunc(o.ForgeCredentials, func(f string) bool { return f == o.ForgeBackend })
@@ -1114,15 +1118,20 @@ func (o *SkeletonOptions) moduleGroup() *huh.Group {
 		huh.NewInput().
 			Key("module").
 			Title("Go module path").
-			Description("The module line of go.mod. A tool that is never imported can be a single word.").
-			Placeholder("myapp").
+			DescriptionFunc(func() string {
+				return fmt.Sprintf("The module line of go.mod. A tool that is never imported can be a single word; empty uses the project name (%s).", o.Name)
+			}, &o.Name).
+			PlaceholderFunc(func() string { return o.Name }, &o.Name).
 			Value(&o.Module).
+			// Empty is accepted here and filled from the name after the wizard:
+			// huh validates on blur, so a field that refused empty also refused
+			// to let the user go back and choose a forge instead.
 			Validate(func(s string) error {
 				if s == "" {
-					return ErrModuleRequired
+					return nil
 				}
 
-				return generator.ValidateModulePath(s)
+				return hintedValidation(generator.ValidateModulePath(s))
 			}),
 	).
 		Title("Module").

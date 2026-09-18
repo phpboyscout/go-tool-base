@@ -244,7 +244,9 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
 
 **Module** *(hosted on a forge: no)*
 : The Go module path, since there is no host and repository to derive one
-  from. A tool that is never imported can be a single word.
+  from. A tool that is never imported can be a single word, and empty uses
+  the project name, so the page never stops you going back to choose a forge
+  after all.
 
 **Environment variable prefix**
 : A choice: the prefix derived from the project name (`my-app` gives
