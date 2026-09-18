@@ -217,3 +217,20 @@ func replaceOnce(t *testing.T, s, old, repl string) string {
 
 	return strings.Replace(s, old, repl, 1)
 }
+
+// TestSeedGoMod_StripsBuildMetadataFromTheFrameworkVersion: a gtb built from
+// a dirty working tree carries "+dirty", and a require line with build
+// metadata is not a version go can resolve ("invalid: unknown revision").
+// The seed writes the version without it; tidy would have to strip it
+// otherwise, and a --no-verify run left it in the file.
+func TestSeedGoMod_StripsBuildMetadataFromTheFrameworkVersion(t *testing.T) {
+	t.Parallel()
+
+	g, fs := seededProject(t, githubOnly)
+	require.NoError(t, g.seedGoMod("/work", "example.com/mytool", "1.27.1", "v1.0.0+dirty"))
+
+	out, err := afero.ReadFile(fs, "/work/go.mod")
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "gitlab.com/phpboyscout/go-tool-base v1.0.0\n")
+	assert.NotContains(t, string(out), "+dirty")
+}

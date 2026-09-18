@@ -72,6 +72,9 @@ func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersi
 	// against the running gtb's version, so a line left below it fails
 	// typecheck on the symbols the new templates use.
 	want := gomod.LockstepFloors(gomod.Requirements(g.modulesFor(imports), g.versions, gomod.Floors), adapterModules())
+	// Build metadata (+dirty on a build from a modified tree) is not part of a
+	// version go can resolve, so it never reaches the file.
+	frameworkVersion, _, _ = strings.Cut(frameworkVersion, "+")
 	want = append([]gomod.Requirement{{Path: frameworkModule, Version: frameworkVersion, Floor: frameworkVersion != gomod.Latest}}, want...)
 
 	var replace *gomod.Replace
