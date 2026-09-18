@@ -456,8 +456,13 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 	}
 
 	forgeCfg := vcs.ConfigFromReader(cfg)
+	fallbackEnv := strings.ToUpper(vcsProvider) + "_TOKEN"
 
-	releaseClient, err := factory(ctx, endpoint, forgeCfg)
+	// The factory is handed GTB's chain and consults nothing else (go/forge
+	// spec 0025), so ctx bounds the resolution and a rung that refuses fails
+	// construction here with its reason rather than building an
+	// unauthenticated client that is refused later.
+	releaseClient, err := factory(ctx, endpoint, forgeCfg, vcs.CredentialOption(endpoint, forgeCfg, fallbackEnv))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -470,7 +475,7 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 	// costs nothing and resolves nothing (spec 0193 D5).
 	s.endpoint = endpoint
 	s.authConfig = endpoint.Section(forgeCfg)
-	s.fallbackEnv = strings.ToUpper(vcsProvider) + "_TOKEN"
+	s.fallbackEnv = fallbackEnv
 
 	return nil
 }

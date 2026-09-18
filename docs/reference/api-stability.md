@@ -39,7 +39,7 @@ the next major version.
 | `pkg/logger` | `Level`, `Formatter` types and constants | v1.0 |
 | `pkg/logger` | `NewCharm`, `NewNoop` | v1.0 |
 | `pkg/setup` | `Register*` functions | v0.1 |
-| `pkg/vcs` | `ConfigFromReader` (config→`forge.Config` bridge; token resolution moved to `go/forge`) | v0.x |
+| `pkg/vcs` | `ConfigFromReader` (config→`forge.Config` bridge), `ForgeCredential`, `CredentialOption` (GTB's chain, handed to a factory) | v0.x |
 
 !!! info "Extracted modules are not covered by this policy"
     Several packages that once lived in `pkg/` are now standalone modules with

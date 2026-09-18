@@ -125,14 +125,24 @@ func readerFor(sub forge.Config) credentialposture.Reader {
 		return nil
 	}
 
-	// GTB's own walk dereferences auth.env and auth.keychain, so it reads the
-	// raw configuration; the forge-facing view hides those keys because it
-	// exists for provider factories, which must not read them (#76).
-	if view, ok := sub.(configAdapter); ok {
-		return view.raw
+	return sub
+}
+
+// CredentialOption hands a provider factory GTB's credential chain for the
+// endpoint's section of cfg, so the factory consults it and nothing else
+// (go/forge spec 0025 D2): auth.env and auth.keychain are dereferenced by
+// GTB, never read by the factory, and the construction context bounds the
+// resolution. cfg is the ROOT configuration, as the factory receives it.
+//
+// Bitbucket authenticates with two halves the adapter composes from its own
+// keys, and GTB's chain knows only auth.*, so for it the option carries nil,
+// which the factory reads as its default (spec 0025 D3, OQ1).
+func CredentialOption(endpoint forge.Endpoint, cfg forge.Config, fallbackEnv string) forge.Option {
+	if endpoint.Type == forge.SourceTypeBitbucket {
+		return forge.WithCredential(nil)
 	}
 
-	return sub
+	return forge.WithCredential(ForgeCredential(endpoint.Section(cfg), fallbackEnv))
 }
 
 // ConfigKeyProvider overrides the release-source forge a tool was built with.
