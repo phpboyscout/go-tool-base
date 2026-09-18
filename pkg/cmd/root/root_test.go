@@ -567,13 +567,7 @@ func TestConfigureLogging(t *testing.T) {
 			view := testutil.ViewFromYAML(t,
 				"log:\n  level: "+tt.logLevel+"\n  format: "+tt.logFormat+"\n")
 
-			// Create level var for MCP logging
-			mcpLogLevel := &slog.LevelVar{}
-			// Default to info
-			mcpLogLevel.Set(slog.LevelInfo)
-
-			// Configure logging
-			configureLogging(props, flags, view, mcpLogLevel)
+			configureLogging(props, flags, view)
 
 			// Map the expected charm level to slog for the assertions below.
 			var expectedSlogLevel slog.Level
@@ -602,8 +596,8 @@ func TestConfigureLogging(t *testing.T) {
 					"logger should be disabled below the configured level")
 			}
 
-			// Verify MCP log level matches.
-			assert.Equal(t, expectedSlogLevel, mcpLogLevel.Level())
+			// The Props level, which a command's own slog handler follows, matches.
+			assert.Equal(t, expectedSlogLevel, props.GetLogLevel().Level())
 		})
 	}
 }
@@ -1481,9 +1475,8 @@ func TestNewRootPreRunE_ConfigPathsNotAccumulated(t *testing.T) {
 		},
 	}
 
-	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
-	preRun := newRootPreRunE(props, configPaths, mcpLogLevel, state, map[string]*pflag.Flag{})
+	preRun := newRootPreRunE(props, configPaths, state, map[string]*pflag.Flag{})
 
 	mkCmd := func() *cobra.Command {
 		cmd := &cobra.Command{Use: "tool"}

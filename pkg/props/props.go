@@ -52,6 +52,12 @@ type Props struct {
 	// Features (every answer static); a service wires a features.Dynamic over a
 	// backend for the features that opt in (spec 0199 D10).
 	Flags features.Evaluator
+	// LogLevel is the level the root's --debug and the config's log.level
+	// move, for a command that builds its own slog handler (the MCP server
+	// does: its stdout carries the protocol, so it logs to stderr on its own
+	// handler). Per root, like everything else here (spec 0202 D4). Read
+	// through GetLogLevel.
+	LogLevel *slog.LevelVar
 
 	// Construction-only: the snapshot and resolver New resolves Features from.
 	featureSnapshot features.Snapshot

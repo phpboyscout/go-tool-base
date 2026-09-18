@@ -1,6 +1,8 @@
 package props
 
 import (
+	"log/slog"
+
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -150,6 +152,10 @@ func (p *Props) ApplyDefaults() {
 
 	if p.Flags == nil {
 		p.Flags = p.Features
+	}
+
+	if p.LogLevel == nil {
+		p.LogLevel = &slog.LevelVar{}
 	}
 
 	if p.ErrorHandler == nil && p.Logger != nil {

@@ -26,7 +26,7 @@ func TestReloadLoggingObserver_ReappliesLevel(t *testing.T) {
 		"precondition: debug is not enabled at info level")
 
 	props := &p.Props{Tool: p.Tool{Name: "t"}, Logger: log, FS: afero.NewMemMapFs()}
-	observer := reloadLoggingObserver(props, &FlagValues{Debug: false}, &slog.LevelVar{})
+	observer := reloadLoggingObserver(props, &FlagValues{Debug: false})
 
 	// Simulate a reload whose new snapshot sets log.level: debug.
 	require.NoError(t, observer(testutil.ViewFromYAML(t, "log:\n  level: debug\n")))
@@ -45,7 +45,7 @@ func TestReloadLoggingObserver_DebugFlagWins(t *testing.T) {
 	logger.SetLevel(log, slog.LevelDebug)
 
 	props := &p.Props{Tool: p.Tool{Name: "t"}, Logger: log, FS: afero.NewMemMapFs()}
-	observer := reloadLoggingObserver(props, &FlagValues{Debug: true}, &slog.LevelVar{})
+	observer := reloadLoggingObserver(props, &FlagValues{Debug: true})
 
 	require.NoError(t, observer(testutil.ViewFromYAML(t, "log:\n  level: error\n")))
 

@@ -461,26 +461,26 @@ func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOp
 // the hot-reload half of logging setup: without it a reloaded log.level/log.format
 // changes the store but never the logger. The --debug flag still wins (see
 // configureLogging), so a reload cannot downgrade an explicit --debug.
-func reloadLoggingObserver(props *p.Props, flags *FlagValues, mcpLogLevel *slog.LevelVar) func(config.Observed) error {
+func reloadLoggingObserver(props *p.Props, flags *FlagValues) func(config.Observed) error {
 	return func(o config.Observed) error {
-		configureLogging(props, flags, o, mcpLogLevel)
+		configureLogging(props, flags, o)
 
 		return nil
 	}
 }
 
 // configureLogging sets up logging based on debug flag and config values.
-func configureLogging(props *p.Props, flags *FlagValues, cfg config.Reader, mcpLogLevel *slog.LevelVar) {
+func configureLogging(props *p.Props, flags *FlagValues, cfg config.Reader) {
 	// Apply debug flag first. SetLevel/SetFormatter are no-ops for an injected
 	// plain *slog.Logger (which owns its own level); they take effect on GTB's
 	// default Charm-backed logger, which implements Leveller/Reformatter.
 	if flags.Debug {
 		logger.SetLevel(props.Logger, slog.LevelDebug)
-		mcpLogLevel.Set(slog.LevelDebug)
+		props.GetLogLevel().Set(slog.LevelDebug)
 	} else if level, err := logger.ParseLevel(cfg.GetString(setup.ConfigKeyLogLevel)); err == nil {
 		// Apply config-based log level if debug flag is not set
 		logger.SetLevel(props.Logger, mapLogLevel(level))
-		mcpLogLevel.Set(mapLogLevel(level))
+		props.GetLogLevel().Set(mapLogLevel(level))
 	}
 
 	// Apply log format from config
@@ -818,14 +818,11 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 
 	state := newRootState()
 
-	// mcpLogLevel is used to control the log level of the MCP server dynamically
-	mcpLogLevel := &slog.LevelVar{}
-
 	var rootCmd = &cobra.Command{
 		Use:               props.Tool.Name,
 		Short:             props.Tool.Summary,
 		Long:              props.Tool.Description,
-		PersistentPreRunE: newRootPreRunE(props, o.configPaths, mcpLogLevel, state, o.boundFlags),
+		PersistentPreRunE: newRootPreRunE(props, o.configPaths, state, o.boundFlags),
 	}
 
 	setupRootFlags(rootCmd, props, state)
@@ -841,7 +838,7 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 
 	wrapped := setup.Wrap("", rootCmd)
 	wrapped.UseChain(rootChain(props, o))
-	registerFeatureCommands(wrapped, props, mcpLogLevel)
+	registerFeatureCommands(wrapped, props)
 
 	wrapped.Register(o.subcommands...)
 
@@ -884,7 +881,7 @@ func commandTreeHasPersistentPreRun(cmd *cobra.Command) bool {
 	return false
 }
 
-func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState, boundFlags map[string]*pflag.Flag) func(*cobra.Command, []string) error {
+func newRootPreRunE(props *p.Props, configPaths []string, state *rootState, boundFlags map[string]*pflag.Flag) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// The invocation's streams, from cobra in the one place cobra may touch
 		// Props (spec 0198 D1). At execution rather than construction because
@@ -918,7 +915,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		//     AuxiliaryCommands, so the set is extensible without a framework
 		//     release.
 		if isInitFeatureSubtree(cmd) || isAuxiliaryCommand(props, cmd) {
-			applyDebugFlag(props, cmd, mcpLogLevel)
+			applyDebugFlag(props, cmd)
 
 			return nil
 		}
@@ -949,7 +946,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Set config in props
 		props.Config = cfg
 
-		startConfigWatch(props, cfg, cmd, state, flags, mcpLogLevel)
+		startConfigWatch(props, cfg, cmd, state, flags)
 
 		// One pinned view for the bootstrap reads below.
 		view := cfg.View()
@@ -958,7 +955,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		validateConfig(view, props.Logger)
 
 		// Configure logging based on flags and config
-		configureLogging(props, flags, view, mcpLogLevel)
+		configureLogging(props, flags, view)
 
 		// Prompt for telemetry consent if the feature is enabled but not yet
 		// configured. Never under the mcp subtree: an MCP server's stdout carries
@@ -1018,10 +1015,10 @@ func configLoadError(props *p.Props, err error) error {
 // remains the backstop: a raw ExecuteContext embedder has no cleanup slot, so
 // the watcher stops when its context is cancelled (config-family spec F10).
 //
-// A reload observer re-applies logging (flags/mcpLogLevel) so an edited
+// A reload observer re-applies logging (flags and the Props log level) so an edited
 // log.level/log.format takes effect on a long-running command without a
 // restart, with --debug still winning.
-func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, state *rootState, flags *FlagValues, mcpLogLevel *slog.LevelVar) {
+func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, state *rootState, flags *FlagValues) {
 	if state.watching {
 		return
 	}
@@ -1036,7 +1033,7 @@ func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, sta
 	// --debug flag winning, so a reload can never downgrade an explicit --debug.
 	// The observer only mutates the logger (never configuration), so it cannot
 	// trip ErrWriteFromObserver.
-	cfg.AddObserverFunc(reloadLoggingObserver(props, flags, mcpLogLevel))
+	cfg.AddObserverFunc(reloadLoggingObserver(props, flags))
 
 	stop, err := cfg.Watch(cmd.Context(), state.watchOpts...)
 	if err != nil {
@@ -1151,14 +1148,14 @@ func isCobraGeneratedCommand(c *cobra.Command) bool {
 // commands that skip the config-driven configureLogging. Tolerant of commands
 // whose flags are not parsed (cobra's __complete disables flag parsing), where
 // the debug flag is simply unavailable.
-func applyDebugFlag(props *p.Props, cmd *cobra.Command, mcpLogLevel *slog.LevelVar) {
+func applyDebugFlag(props *p.Props, cmd *cobra.Command) {
 	flags, err := extractFlags(cmd)
 	if err != nil || !flags.Debug {
 		return
 	}
 
 	logger.SetLevel(props.Logger, slog.LevelDebug)
-	mcpLogLevel.Set(slog.LevelDebug)
+	props.GetLogLevel().Set(slog.LevelDebug)
 }
 
 func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
@@ -1247,7 +1244,7 @@ func registerFeatureAssets(props *p.Props) {
 	}
 }
 
-func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
+func registerFeatureCommands(rootCmd *setup.Command, props *p.Props) {
 	// version produces its output from build-time ldflags and embedded assets,
 	// so it must run on a fresh install with no config file yet. Relaxing the
 	// missing-config gate (rather than erroring) is what lets it.
@@ -1284,7 +1281,7 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 	if props.GetFeatures().Enabled(p.McpCmd) {
 		// Everything go/mcp-specific is in pkg/mcp (spec 0201 D1); the root
 		// only passes the level its --debug and config reload already move.
-		rootCmd.Register(mcp.NewCmdMCP(props, mcpLogLevel))
+		rootCmd.Register(mcp.NewCmdMCP(props, props.GetLogLevel()))
 	}
 
 	if props.GetFeatures().Enabled(p.DocsCmd) {

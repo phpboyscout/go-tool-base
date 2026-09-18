@@ -336,9 +336,8 @@ func TestNewRootPreRunE_InitCmdSkipsConfig(t *testing.T) {
 		Tool:   p.Tool{Name: "covinit"},
 	}
 
-	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
-	preRun := newRootPreRunE(props, nil, mcpLogLevel, state, map[string]*pflag.Flag{})
+	preRun := newRootPreRunE(props, nil, state, map[string]*pflag.Flag{})
 
 	// setup.Wrap stamps the InitCmd feature annotation the closure checks.
 	wrapped := setup.Wrap(p.InitCmd, &cobra.Command{Use: "init"})
@@ -351,7 +350,7 @@ func TestNewRootPreRunE_InitCmdSkipsConfig(t *testing.T) {
 	require.NoError(t, preRun(cmd, nil))
 
 	assert.Nil(t, props.Config, "init path must skip config loading")
-	assert.Equal(t, slog.LevelDebug, mcpLogLevel.Level(), "debug flag must still apply on init path")
+	assert.Equal(t, slog.LevelDebug, props.GetLogLevel().Level(), "debug flag must still apply on init path")
 }
 
 // TestNewRootPreRunE_UpdateExit proves the closure returns ErrUpdateComplete
@@ -402,10 +401,9 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 	// Accept the update at the prompt.
 	props.IO = promptIO("y")
 
-	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
 
-	preRun := newRootPreRunE(props, nil, mcpLogLevel, state, map[string]*pflag.Flag{})
+	preRun := newRootPreRunE(props, nil, state, map[string]*pflag.Flag{})
 
 	cmd := preRunCmd(t)
 	err := preRun(cmd, nil)
@@ -425,9 +423,8 @@ func TestNewRootPreRunE_UpToDate(t *testing.T) {
 	props.FS = afero.NewOsFs()
 	props.Config = testutil.StoreFromYAML(t, "{}\n")
 
-	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
-	preRun := newRootPreRunE(props, nil, mcpLogLevel, state, map[string]*pflag.Flag{})
+	preRun := newRootPreRunE(props, nil, state, map[string]*pflag.Flag{})
 
 	require.NoError(t, preRun(preRunCmd(t), nil))
 	require.NotNil(t, props.Config, "config must be loaded")
@@ -457,9 +454,8 @@ func TestNewRootPreRunE_UpdateDisabledReturnsEarly(t *testing.T) {
 		},
 	}
 
-	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
-	preRun := newRootPreRunE(props, nil, mcpLogLevel, state, map[string]*pflag.Flag{})
+	preRun := newRootPreRunE(props, nil, state, map[string]*pflag.Flag{})
 
 	require.NoError(t, preRun(preRunCmd(t), nil))
 	require.NotNil(t, props.Config)
