@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.43.0
+	gitlab.com/phpboyscout/go-tool-base v0.45.0
 	gitlab.com/phpboyscout/go/chat v0.24.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.14.2
 	gitlab.com/phpboyscout/go/chat-bedrock v0.2.1
