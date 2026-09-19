@@ -3,6 +3,7 @@ package generator
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain"
@@ -185,6 +186,10 @@ func (g *Generator) ApplyFeatures(ctx context.Context, desired map[string]bool) 
 		return nil, err
 	}
 
+	if slices.Contains(changed, string(props.AiCmd)) && !desired[string(props.AiCmd)] {
+		g.warnProvidersOutliveAi(m)
+	}
+
 	// On a real filesystem, format/fix the re-rendered root so the tree stays
 	// building and lint-clean. Skipped on in-memory fs (unit tests).
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
@@ -246,4 +251,17 @@ func upsertOrClearFeature(features []ManifestFeature, name string, enabled bool)
 	}
 
 	return append(out, ManifestFeature{Name: name, Enabled: enabled})
+}
+
+// warnProvidersOutliveAi: the provider list is the author's record of linked
+// modules and outlives the ai feature (#94); a default project that ran
+// `enable ai` once would otherwise carry every module without a word.
+func (g *Generator) warnProvidersOutliveAi(m *Manifest) {
+	linked := chatProvidersFor(m.Properties.Chat.Providers)
+	if len(linked) == 0 {
+		return
+	}
+
+	g.props.Logger.Warn("ai is off, but chat.providers still links " + strings.Join(linked, ", ") +
+		"; run `gtb unset chat.providers` to drop the modules, or leave them for the tool's own use")
 }

@@ -201,3 +201,30 @@ func TestSelectableFeatures_NoDuplicates(t *testing.T) {
 
 	assert.Contains(t, SelectableFeatures, KeychainFeature)
 }
+
+// #94: disabling ai turns GTB's AI features off and leaves the linked
+// providers as the manifest records them; the warning names the way to drop
+// them, because a default project that ran `enable ai` once would otherwise
+// carry every module silently.
+func TestApplyFeatures_DisableAiKeepsProvidersAndSaysSo(t *testing.T) {
+	t.Parallel()
+
+	g, fs := newFeatureProject(t)
+	buf := logger.NewBuffer()
+	g.props.Logger = buf
+
+	_, err := g.ApplyFeatures(context.Background(), map[string]bool{"ai": true})
+	require.NoError(t, err)
+
+	_, err = g.ApplyFeatures(context.Background(), map[string]bool{"ai": false})
+	require.NoError(t, err)
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	assert.Equal(t, DefaultChatProviders(), m.Properties.Chat.Providers, "the list is the author's record and stays")
+
+	chatGo, err := afero.ReadFile(fs, "/work/cmd/feat-tool/chat.go")
+	require.NoError(t, err)
+	assert.Contains(t, string(chatGo), "chat-anthropic")
+	assert.True(t, buf.Contains("still links"), "the author is told the modules stay: %s", buf.String())
+}

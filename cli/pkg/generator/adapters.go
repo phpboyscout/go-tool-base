@@ -179,25 +179,18 @@ func chatDefaultsYAML(d ManifestChatDefault) []byte {
 	return []byte(b.String())
 }
 
-// chatModulesFor is chatModules gated on the ai feature: a tool without ai
-// links no chat provider whatever the manifest lists, because the feature is
-// what chooses the adapter (spec 0194 D4).
-func chatModulesFor(providers []string, features []ManifestFeature) []string {
-	if !featureEnabledIn(features, string(props.AiCmd)) {
-		return nil
-	}
-
+// chatModulesFor is the modules the manifest's provider list links. The list
+// is the record of linked adapters on its own: a tool drives go/chat from its
+// own code without the ai feature, which switches GTB's AI-based features
+// (#94, revising spec 0194 D4).
+func chatModulesFor(providers []string) []string {
 	return chatModules(providers)
 }
 
 // chatProvidersFor is the provider names chat.go declares as link features:
 // the manifest's choice, in order, with unknown names and repeats dropped the
-// way chatModules drops them, and nothing at all while ai is disabled.
-func chatProvidersFor(providers []string, features []ManifestFeature) []string {
-	if !featureEnabledIn(features, string(props.AiCmd)) {
-		return nil
-	}
-
+// way chatModules drops them.
+func chatProvidersFor(providers []string) []string {
 	var names []string
 
 	for _, p := range providers {
@@ -274,20 +267,20 @@ func forgeModules(features []ManifestFeature) []string {
 // syncAdapterFiles rewrites cmd/<name>/chat.go and forge.go from the manifest
 // on regenerate. The manifest is the source of truth and the files follow it,
 // so a provider removed from the manifest leaves the binary on the next
-// regenerate, and a feature the tool does not use leaves no file at all:
-// chat.go exists only under the ai feature, forge.go only while a forge
-// feature is enabled, the way keychain.go follows keychain (spec 0197 D8,
-// extended 2026-09-19). A manifest with no chat block had the default
+// regenerate, and nothing the tool does not use leaves a file: chat.go
+// exists while a provider is linked or the ai feature is on, forge.go while a
+// forge feature is enabled, the way keychain.go follows keychain (spec 0197
+// D8, extended 2026-09-19). A manifest with no chat block had the default
 // recorded by syncDerivedManifestFields before rendering (spec 0194 D7).
 func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	name := m.Properties.Name
 	withDefaults := chatDefaultsFor(m.Properties)
 
 	chatFile := filepath.Join("cmd", name, "chat.go")
-	if featureEnabledIn(m.Properties.Features, string(props.AiCmd)) {
+	if chatFileWanted(m.Properties) {
 		if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(
-			chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
-			chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
+			chatProvidersFor(m.Properties.Chat.Providers),
+			chatModulesFor(m.Properties.Chat.Providers),
 			!withDefaults.IsZero(),
 		)); err != nil {
 			return err
@@ -322,6 +315,13 @@ func (g *Generator) removeGeneratedFile(relPath string) error {
 	}
 
 	return nil
+}
+
+// chatFileWanted: chat.go exists while the manifest links a provider, and
+// under the ai feature whatever the list says, so that chat.providers: []
+// with ai on is still a file and keeps its meaning (spec 0197 D9).
+func chatFileWanted(p ManifestProperties) bool {
+	return len(chatProvidersFor(p.Chat.Providers)) > 0 || featureEnabledIn(p.Features, string(props.AiCmd))
 }
 
 // chatDefaultsFor is the author's default gated on the ai feature, the way

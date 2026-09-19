@@ -603,9 +603,9 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
 		Links:                 enabledLinks(config.Features),
-		ChatModules:           chatModulesFor(config.Chat.Providers, config.Features),
-		ChatProviders:         chatProvidersFor(config.Chat.Providers, config.Features),
-		AiEnabled:             featureEnabledIn(config.Features, string(props.AiCmd)),
+		ChatModules:           chatModulesFor(config.Chat.Providers),
+		ChatProviders:         chatProvidersFor(config.Chat.Providers),
+		ChatFile:              chatFileWanted(ManifestProperties{Features: config.Features, Chat: config.Chat}),
 		ForgeLinks:            enabledForges(config.Features),
 		ChatDefault:           chatDefaultsFor(ManifestProperties{Features: config.Features, Chat: config.Chat}),
 		ForgeModules:          forgeModules(config.Features),
@@ -916,11 +916,12 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 		goFiles[linkFile(data.Name, d)] = templates.SkeletonLink(d)
 	}
 
-	// An adapter file exists only for a feature the tool uses: chat.go under
-	// ai, forge.go while a forge feature is enabled (spec 0197 D8). Under the
-	// feature, an empty selection is still a file, so shipping no provider is
-	// a manifest field (chat.providers: []), never a deleted file (D9).
-	if data.AiEnabled {
+	// An adapter file exists only for what the tool uses: chat.go while a
+	// provider is linked or the ai feature is on, forge.go while a forge
+	// feature is enabled (spec 0197 D8). Under ai an empty selection is still
+	// a file, so shipping no provider is a manifest field (chat.providers:
+	// []), never a deleted file (D9).
+	if data.ChatFile {
 		goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatProviders, data.ChatModules, !data.ChatDefault.IsZero())
 	}
 

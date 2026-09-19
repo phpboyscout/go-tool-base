@@ -160,6 +160,29 @@ func TestSyncAdapterFiles(t *testing.T) {
 		assert.False(t, exists, "a feature the tool does not use leaves no file behind")
 	})
 
+	// #94: the provider list is the record of linked modules, a shortcut for
+	// a tool that drives go/chat from its own code; the ai feature is the
+	// switch for GTB's AI-based features and is not needed to link.
+	t.Run("providers without ai render chat.go", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		m := &Manifest{Properties: ManifestProperties{
+			Name:     "tool",
+			Features: []ManifestFeature{{Name: string(props.AiCmd), Enabled: false}},
+			Chat:     ManifestChat{Providers: []string{"claude", "gemini"}},
+		}}
+
+		require.NoError(t, g.syncAdapterFiles(m))
+
+		chatGo, err := afero.ReadFile(fs, "/proj/cmd/tool/chat.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(chatGo), `_ "gitlab.com/phpboyscout/go/chat-anthropic"`)
+		assert.Contains(t, string(chatGo), `_ "gitlab.com/phpboyscout/go/chat-gemini"`)
+		assert.Contains(t, string(chatGo), `props.DeclareLinks(props.ChatLinkPrefix, "claude", "gemini")`)
+		assert.NotContains(t, string(chatGo), "chat/assets", "the defaults bundle is the ai feature's")
+	})
+
 	t.Run("no forge feature leaves no forge.go, and removes one left over", func(t *testing.T) {
 		t.Parallel()
 
@@ -220,12 +243,16 @@ func init() {
 	})
 }
 
-func TestChatModulesFor_GatedOnAI(t *testing.T) {
+// The provider list links its modules whatever the ai feature says (#94);
+// the feature gates GTB's AI-based features, not the wiring.
+func TestChatModulesFor_FollowsTheListNotTheFeature(t *testing.T) {
 	t.Parallel()
 
-	off := []ManifestFeature{{Name: string(props.AiCmd), Enabled: false}}
-	on := []ManifestFeature{{Name: string(props.AiCmd), Enabled: true}}
+	assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, chatModulesFor([]string{"claude"}))
+	assert.Empty(t, chatModulesFor(nil))
 
-	assert.Empty(t, chatModulesFor([]string{"claude"}, off))
-	assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, chatModulesFor([]string{"claude"}, on))
+	assert.False(t, chatFileWanted(ManifestProperties{}))
+	assert.True(t, chatFileWanted(ManifestProperties{Chat: ManifestChat{Providers: []string{"claude"}}}))
+	assert.True(t, chatFileWanted(ManifestProperties{Features: []ManifestFeature{{Name: string(props.AiCmd), Enabled: true}}}),
+		"under ai an empty list is still a file")
 }

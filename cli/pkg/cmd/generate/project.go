@@ -108,10 +108,15 @@ type SkeletonOptions struct {
 	SigningKMSRegion string
 	SigningPublicKey string
 
-	// ChatProviders is what cmd/<name>/chat.go links, as chat.Provider names.
-	// Defaults to every provider the framework can configure; an empty list
-	// with the ai feature selected is refused (spec 0194 D5, OQ4, OQ5).
+	// ChatProviders is what cmd/<name>/chat.go links, as chat.Provider names:
+	// a shortcut for wiring go/chat modules, recorded whether or not the ai
+	// feature is on (#94). Nothing by default; ai with no explicit list takes
+	// every provider the framework can configure, and an explicit empty list
+	// with ai is refused (spec 0194 D5, D7, OQ4, OQ5).
 	ChatProviders []string
+	// ChatProvidersSet records that the list was given, so ai can tell an
+	// omitted list (take the defaults) from an empty one (refused).
+	ChatProvidersSet bool
 
 	// TelemetryEndpoint and TelemetryOTelEndpoint are where the telemetry
 	// feature sends; recorded under properties.telemetry (spec 0197 D4).
@@ -173,6 +178,8 @@ also add the remote and push.
 Run without --name/--repo in an interactive terminal to launch a guided wizard;
 otherwise supply the flags directly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.ChatProvidersSet = cmd.Flags().Changed("chat-providers")
+
 			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
 				return usageError(err)
 			}
@@ -215,8 +222,9 @@ otherwise supply the flags directly.`,
 	// var's.
 	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", slices.Clone(generator.DefaultSelectedFeatures),
 		"Features to enable ("+strings.Join(generator.SelectableFeatures, ", ")+")")
-	cmd.Flags().StringSliceVar(&opts.ChatProviders, "chat-providers", generator.DefaultChatProviders(),
-		"Chat providers the tool links when the ai feature is enabled ("+strings.Join(generator.DefaultChatProviders(), ", ")+")")
+	cmd.Flags().StringSliceVar(&opts.ChatProviders, "chat-providers", nil,
+		"go/chat provider modules to wire into the binary, for the tool's own use or the ai feature's ("+
+			strings.Join(generator.DefaultChatProviders(), ", ")+"); with ai and no list, all of them")
 	cmd.Flags().StringVar(&opts.ChatDefault.Provider, "chat-default-provider", "",
 		"Default chat provider; required when --chat-providers links more than one")
 	cmd.Flags().StringVar(&opts.ChatDefault.Model, "chat-default-model", "", "Default model for the default provider (blank: the module's choice)")
@@ -278,8 +286,18 @@ func (o *SkeletonOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) 
 	// group ("group/sub/tool") has no host-like first segment and is left
 	// intact. Runs after both the wizard and flag paths.
 	o.Repo, o.Host = normalizeRepoHost(o.Repo, o.Host)
+	o.settleChatProviders()
 
 	return o.validateFields()
+}
+
+// settleChatProviders applies spec 0194 D7 to the flag path: the ai feature
+// with no list given links the default set. The wizard sets the list itself,
+// and a list given without ai stands as the tool's own wiring (#94).
+func (o *SkeletonOptions) settleChatProviders() {
+	if o.aiSelected() && !o.ChatProvidersSet && o.ChatProviders == nil {
+		o.ChatProviders = generator.DefaultChatProviders()
+	}
 }
 
 // validateFields applies the structural validation rules from
@@ -1679,12 +1697,12 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) generator.SkeletonConfig {
 	features := o.resolveFeatures()
 
-	// The chat list only means something with the ai feature; without it the
-	// manifest carries no chat block, and enabling ai later records the
-	// default set (spec 0194 D4, D7).
+	// The provider list is the tool's wiring and is recorded as given (#94).
+	// The default is the ai feature's: without ai none is kept, and with ai
+	// and one provider it is that provider (spec 0196 D3).
 	chat := generator.ManifestChat{Providers: o.ChatProviders, Default: o.ChatDefault}
-	if !slices.Contains(o.Features, string(props.AiCmd)) {
-		chat = generator.ManifestChat{}
+	if !o.aiSelected() {
+		chat.Default = generator.ManifestChatDefault{}
 	} else if chat.Default.Provider == "" && len(chat.Providers) == 1 {
 		chat.Default.Provider = chat.Providers[0]
 	}

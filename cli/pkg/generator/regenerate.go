@@ -552,9 +552,10 @@ type skeletonTemplateData struct {
 	ChatModules   []string
 	ChatProviders []string
 	ForgeLinks    []string
-	// AiEnabled decides whether cmd/<name>/chat.go exists at all; under the
-	// feature an empty ChatProviders is still a file (spec 0197 D8, D9).
-	AiEnabled bool
+	// ChatFile decides whether cmd/<name>/chat.go exists at all: a linked
+	// provider or the ai feature; under ai an empty ChatProviders is still a
+	// file (spec 0197 D8, D9).
+	ChatFile bool
 	// ChatDefault is the author's chat default, rendered as the ai defaults
 	// bundle beside chat.go when set (spec 0196 D4).
 	ChatDefault           ManifestChatDefault
@@ -624,8 +625,8 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
 		Links:                 enabledLinks(m.Properties.Features),
-		ChatModules:           chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
-		ChatProviders:         chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
+		ChatModules:           chatModulesFor(m.Properties.Chat.Providers),
+		ChatProviders:         chatProvidersFor(m.Properties.Chat.Providers),
 		ForgeLinks:            enabledForges(m.Properties.Features),
 		ChatDefault:           chatDefaultsFor(m.Properties),
 		ForgeModules:          forgeModules(m.Properties.Features),

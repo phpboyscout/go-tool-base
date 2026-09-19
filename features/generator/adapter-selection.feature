@@ -13,8 +13,8 @@ Feature: A generated tool links only the adapters it selects
 
   Scenario: A default project links its backend's forge and no chat provider
     Given a freshly generated gtb project
-    # A feature the tool does not use leaves no file behind: chat.go exists
-    # only under the ai feature, the way keychain.go exists only under keychain.
+    # Nothing the tool does not use leaves a file behind: chat.go exists while
+    # a provider is linked or the ai feature is on, forge.go while a forge is.
     Then the generated "cmd/feattool/chat.go" file does not exist
     And the generated "cmd/feattool/forge.go" file contains "gitlab.com/phpboyscout/go/forge-github"
     And the generated "cmd/feattool/forge.go" file does not contain "forge-gitlab"
@@ -45,6 +45,18 @@ Feature: A generated tool links only the adapters it selects
     Given I generate a gtb project with features "update,github"
     Then the project exit code is not zero
     And the project output contains "--forge-backend"
+
+  Scenario: A tool links providers for its own code without the ai feature
+    # The provider list is a shortcut for wiring go/chat modules; the ai feature
+    # switches GTB's AI-based features and is not needed to link (go-tool-base #94).
+    Given I generate a gtb project with features "init,update" and chat providers "claude,gemini"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat.go" file contains "gitlab.com/phpboyscout/go/chat-anthropic"
+    And the generated "cmd/feattool/chat.go" file contains "gitlab.com/phpboyscout/go/chat-gemini"
+    And the generated "cmd/feattool/chat.go" file contains 'props.DeclareLinks(props.ChatLinkPrefix, "claude", "gemini")'
+    And the project manifest contains "- claude"
+    And the project manifest does not contain "name: ai"
+    And the generated "cmd/feattool/chat/assets/config.yaml" file does not exist
 
   Scenario: Selecting ai and one provider links exactly that provider's module
     Given I generate a gtb project with features "init,update,ai" and chat providers "claude-local"
@@ -160,6 +172,10 @@ Feature: A generated tool links only the adapters it selects
     And the project output contains "names no default"
     And the generated "cmd/feattool/chat/assets/config.yaml" file does not exist
     When I run gtb in the project with "disable ai"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat.go" file contains "chat-anthropic"
+    And the project output contains "still links"
+    When I run gtb in the project with "unset chat.providers"
     Then the project exit code is 0
     And the generated "cmd/feattool/chat.go" file does not exist
 

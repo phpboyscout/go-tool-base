@@ -69,7 +69,7 @@ func TestSkeletonOptions_ChatFlags(t *testing.T) {
 		assert.Equal(t, "https://llm.internal/v1", o.skeletonConfig(nil).Chat.Default.BaseURL)
 	})
 
-	t.Run("without ai the default is dropped", func(t *testing.T) {
+	t.Run("without ai the default is dropped and the list stays", func(t *testing.T) {
 		t.Parallel()
 
 		o := base()
@@ -77,7 +77,10 @@ func TestSkeletonOptions_ChatFlags(t *testing.T) {
 		o.ChatProviders = []string{"claude", "openai"}
 		o.ChatDefault.Provider = "openai"
 		require.NoError(t, o.validateFields())
-		assert.True(t, o.skeletonConfig(nil).Chat.IsZero(), "no ai, no chat block")
+
+		cfg := o.skeletonConfig(nil)
+		assert.Equal(t, []string{"claude", "openai"}, cfg.Chat.Providers, "the wiring is the tool's (#94)")
+		assert.True(t, cfg.Chat.Default.IsZero(), "the default is the ai feature's")
 	})
 }
 
@@ -89,4 +92,52 @@ func TestProjectCommand_ChatFlagsExist(t *testing.T) {
 	for _, name := range []string{"chat-default-provider", "chat-default-model", "chat-base-url", "chat-api-version", "chat-project", "chat-location"} {
 		assert.NotNilf(t, cmd.Flags().Lookup(name), "flag --%s", name)
 	}
+}
+
+// #94: the provider list is a shortcut for wiring go/chat modules and is
+// recorded whether or not the ai feature is on; ai without an explicit list
+// links the default set (spec 0194 D7), and an explicit empty list with ai is
+// still refused.
+func TestSkeletonOptions_ChatProvidersWithoutAi(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a list without ai is recorded", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github",
+			Features: generator.DefaultSelectedFeatures, ChatProviders: []string{"claude", "gemini"}}
+		o.settleChatProviders()
+		require.NoError(t, o.validateFields())
+
+		cfg := o.skeletonConfig(nil)
+		assert.Equal(t, []string{"claude", "gemini"}, cfg.Chat.Providers)
+		assert.Empty(t, cfg.Chat.Default.Provider, "the default is the ai feature's")
+	})
+
+	t.Run("no list and no ai links nothing", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: generator.DefaultSelectedFeatures}
+		o.settleChatProviders()
+		require.NoError(t, o.validateFields())
+		assert.Empty(t, o.skeletonConfig(nil).Chat.Providers)
+	})
+
+	t.Run("ai with no list takes the default set", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github",
+			Features: append([]string{"ai"}, generator.DefaultSelectedFeatures...)}
+		o.settleChatProviders()
+		assert.Equal(t, generator.DefaultChatProviders(), o.ChatProviders)
+	})
+
+	t.Run("ai with an explicit empty list is refused", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github",
+			Features: append([]string{"ai"}, generator.DefaultSelectedFeatures...), ChatProviders: []string{}, ChatProvidersSet: true}
+		o.settleChatProviders()
+		require.ErrorIs(t, o.validateFields(), generator.ErrChatProvidersRequired)
+	})
 }
