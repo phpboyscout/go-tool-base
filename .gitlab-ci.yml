@@ -98,21 +98,11 @@ include:
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
   # carries the custom manager that auto-bumps the pins above.
 
-  # Announce releases to the Discord announcements channel. Minor and
-  # major cuts only by default; the webhook comes from the
-  # DISCORD_RELEASE_WEBHOOK group variable, which is protected and so
-  # reaches this job because `v*` is a protected tag here.
-  - component: gitlab.com/phpboyscout/cicd/discord-release@main
-    inputs:
-      # Headline project: patch releases are news here too.
-      announce_patches: true
-
 stages:
   - lint
   - test
   - security
   - release
-  - notify
   - pages
   - renovate
 
@@ -209,10 +199,6 @@ goreleaser:
     # exported in before_script) because GitLab runs each script entry
     # in its own shell — exports don't persist between steps.
     AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
-    # The release store's keys, for goreleaser's `blobs` pipe; `signs.env`
-    # blanks them for the signer (colophon 0025 D15).
-    AWS_ACCESS_KEY_ID: $R2_RELEASE_ACCESS_KEY_ID
-    AWS_SECRET_ACCESS_KEY: $R2_RELEASE_SECRET_ACCESS_KEY
   # The static docs site for `gtb docs serve` is built by gtb-docs-site in the
   # docs image and arrives here as an artefact: dev-tools has no zensical, so
   # the `go generate` in goreleaser's before hook syncs the raw docs and keeps
