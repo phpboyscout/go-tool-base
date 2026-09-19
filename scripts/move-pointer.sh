@@ -35,9 +35,9 @@ sign=(--aws-sigv4 "aws:amz:auto:s3" --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_AC
 
 # What the pointer is now: its ETag, or nothing when this is the first
 # release. A signed GET rather than HEAD, with the empty payload's hash
-# given outright: curl before 8.0 (Debian bookworm ships 7.88) signs a
-# bodiless S3 request inconsistently, and a HEAD hides the store's answer
-# when it refuses (v0.45.1 met a bare 400 that way).
+# given outright: curl before 8.0 (Debian bookworm ships 7.88) sends no
+# x-amz-content-sha256 at all and the store refuses the request without
+# it, and a HEAD hides that answer (v0.45.1 met a bare 400 that way).
 head_out=$(mktemp)
 body=$(mktemp)
 trap 'rm -f "$head_out" "$body"' EXIT
@@ -70,10 +70,15 @@ case "$status" in
 esac
 
 # The pointer is the channel's one mutable object, so it must not be cached
-# the way the immutable objects under a tag are.
+# the way the immutable objects under a tag are. The payload's hash is given
+# outright for the same reason as the read's: curl 7.88 sends none on an
+# upload and the store refuses the request without it (v0.45.2).
+pointer_sha256=$(sha256sum "$pointer" | cut -d' ' -f1)
+
 status=$(curl --silent --show-error --retry 3 --retry-delay 5 "${sign[@]}" \
   --request PUT \
   --header "$condition" \
+  --header "x-amz-content-sha256: ${pointer_sha256}" \
   --header "Content-Type: application/json" \
   --header "Cache-Control: no-cache, max-age=0" \
   --upload-file "$pointer" \
