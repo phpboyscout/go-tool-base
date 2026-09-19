@@ -33,11 +33,20 @@ done
 
 sign=(--aws-sigv4 "aws:amz:auto:s3" --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}")
 
-# What the pointer is now: its ETag, or nothing when this is the first release.
+# What the pointer is now: its ETag, or nothing when this is the first
+# release. A signed GET rather than HEAD, with the empty payload's hash
+# given outright: curl before 8.0 (Debian bookworm ships 7.88) signs a
+# bodiless S3 request inconsistently, and a HEAD hides the store's answer
+# when it refuses (v0.45.1 met a bare 400 that way).
 head_out=$(mktemp)
-trap 'rm -f "$head_out"' EXIT
+body=$(mktemp)
+trap 'rm -f "$head_out" "$body"' EXIT
 
-status=$(curl --silent --show-error --head "${sign[@]}" --output "$head_out" --write-out '%{http_code}' "$url")
+empty_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+status=$(curl --silent --show-error --request GET "${sign[@]}" \
+  --header "x-amz-content-sha256: ${empty_sha256}" \
+  --dump-header "$head_out" --output "$body" --write-out '%{http_code}' "$url")
 
 case "$status" in
   200)
@@ -52,7 +61,10 @@ case "$status" in
     condition="If-None-Match: *"
     ;;
   *)
-    echo "move-pointer: HEAD $url returned HTTP $status" >&2
+    echo "move-pointer: GET $url returned HTTP $status ($(curl --version | head -1))" >&2
+    tr -d '\r' < "$head_out" >&2
+    cat "$body" >&2
+    echo >&2
     exit 1
     ;;
 esac
@@ -65,7 +77,7 @@ status=$(curl --silent --show-error --retry 3 --retry-delay 5 "${sign[@]}" \
   --header "Content-Type: application/json" \
   --header "Cache-Control: no-cache, max-age=0" \
   --upload-file "$pointer" \
-  --output /dev/null --write-out '%{http_code}' "$url")
+  --output "$body" --write-out '%{http_code}' "$url")
 
 case "$status" in
   200)
@@ -76,7 +88,9 @@ case "$status" in
     exit 1
     ;;
   *)
-    echo "move-pointer: PUT $url returned HTTP $status" >&2
+    echo "move-pointer: PUT $url returned HTTP $status ($(curl --version | head -1))" >&2
+    cat "$body" >&2
+    echo >&2
     exit 1
     ;;
 esac
