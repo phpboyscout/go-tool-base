@@ -19,11 +19,15 @@ import (
 // reads. A reader refuses a value it does not know rather than guessing.
 const SchemaVersion = 1
 
-// PointerFile and ManifestFile are the fixed names under the base URL and
-// under a tag's directory.
+// The fixed file names: PointerFile under the base URL, the rest under a
+// tag's directory. ChecksumsFile and SignatureFile are goreleaser's defaults
+// and the layout reference's names; the manifest carries their URLs, so a
+// reader never assumes them.
 const (
-	PointerFile  = "latest.json"
-	ManifestFile = "release.json"
+	PointerFile   = "latest.json"
+	ManifestFile  = "release.json"
+	ChecksumsFile = "checksums.txt"
+	SignatureFile = "checksums.txt.sig"
 )
 
 // Sentinels, namespaced gtb.release.static.
