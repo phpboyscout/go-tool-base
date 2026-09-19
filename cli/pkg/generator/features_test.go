@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
 // newFeatureProject scaffolds a plain in-memory project and returns a generator
@@ -27,11 +28,12 @@ func newFeatureProject(t *testing.T) (*Generator, afero.Fs) {
 	}
 
 	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
-		Name:        "feat-tool",
-		Repo:        "acme/feat-tool",
-		Host:        "github.com",
-		Description: "feature toggle fixture",
-		Path:        "/work",
+		Name:         "feat-tool",
+		Repo:         "acme/feat-tool",
+		Host:         "github.com",
+		ForgeBackend: forge.GithubFeature,
+		Description:  "feature toggle fixture",
+		Path:         "/work",
 	}))
 
 	// A generator bound to the scaffolded project, as the CLI would build it.
@@ -69,7 +71,7 @@ func TestApplyFeatures_EnableDefaultOff(t *testing.T) {
 	assert.Equal(t, []string{"ai"}, changed)
 
 	// Manifest records the non-default enable; root wires props.Enable(props.AiCmd).
-	assert.Equal(t, []ManifestFeature{{Name: "ai", Enabled: true}}, readManifestFeatures(t, fs))
+	assert.Equal(t, []ManifestFeature{{Name: "github", Enabled: true}, {Name: "ai", Enabled: true}}, readManifestFeatures(t, fs))
 	assert.Contains(t, readRootCmd(t, fs), "props.Enable(props.AiCmd)")
 }
 
@@ -82,7 +84,7 @@ func TestApplyFeatures_DisableDefaultOn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"doctor"}, changed)
 
-	assert.Equal(t, []ManifestFeature{{Name: "doctor", Enabled: false}}, readManifestFeatures(t, fs))
+	assert.Equal(t, []ManifestFeature{{Name: "github", Enabled: true}, {Name: "doctor", Enabled: false}}, readManifestFeatures(t, fs))
 	assert.Contains(t, readRootCmd(t, fs), "props.Disable(props.DoctorCmd)")
 }
 
@@ -99,13 +101,12 @@ func TestApplyFeatures_ReturnToDefaultRemovesEntryAndToggle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ai"}, changed)
 
-	// Entry removed; root drops the redundant SetFeatures call entirely.
-	assert.Empty(t, readManifestFeatures(t, fs))
+	// Entry removed; only the backend's forge (enabled from generation) remains.
+	assert.Equal(t, []ManifestFeature{{Name: "github", Enabled: true}}, readManifestFeatures(t, fs))
 
 	root := readRootCmd(t, fs)
 	assert.NotContains(t, root, "props.AiCmd")
-	assert.NotContains(t, root, "SetFeatures",
-		"with no non-default features the root must omit SetFeatures")
+	assert.Contains(t, root, "props.Enable(forge.GithubFeature)")
 }
 
 func TestApplyFeatures_Idempotent(t *testing.T) {

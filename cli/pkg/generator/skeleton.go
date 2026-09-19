@@ -581,6 +581,8 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		config.Host = "github.com"
 	}
 
+	config = withImpliedForge(config)
+
 	if config.Description == "" {
 		config.Description = fmt.Sprintf("%s utility", config.Name)
 	}
@@ -1332,6 +1334,28 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 		},
 		Hashes: fileHashes,
 	}
+}
+
+// withImpliedForge applies spec 0195 D1 at the library seam, the way the CLI
+// does before calling it: a hosted project with no backend takes the one its
+// host names, and the backend's forge feature is enabled unless the caller
+// already chose a forge. Without this a library caller that set only a host
+// produced the pre-0195 shape (backend, no forge feature) that the first
+// regenerate then had to repair.
+func withImpliedForge(c SkeletonConfig) SkeletonConfig {
+	if !c.hosted() || c.ReleaseChannel == ReleaseChannelDirect {
+		return c
+	}
+
+	if c.ForgeBackend == "" {
+		c.ForgeBackend = forgeBackendNamed(releaseProviderForHost(c.Host))
+	}
+
+	if c.ForgeBackend != "" && len(enabledForgeFeatures(c.Features)) == 0 {
+		c.Features = append(slices.Clone(c.Features), ManifestFeature{Name: string(c.ForgeBackend), Enabled: true})
+	}
+
+	return c
 }
 
 // hosted reports whether the project lives on a forge (spec 0195 D3): a

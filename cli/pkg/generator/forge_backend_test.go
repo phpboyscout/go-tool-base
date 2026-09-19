@@ -138,6 +138,89 @@ func TestSyncDerivedManifestFields_RecordsBackendAndModulePath(t *testing.T) {
 	assert.Equal(t, forge.GitlabFeature, m.ReleaseSource.Backend)
 }
 
+// A manifest from before spec 0195 names its forge only as the release type.
+// Deriving the backend and stopping there left forge.go empty and the tool
+// unable to update (keryx's v0.40.0 -> v0.43.0 regenerate): the backend
+// implies the forge (D1), so the derivation enables its feature too.
+func TestSyncDerivedManifestFields_ADerivedBackendEnablesItsForgeFeature(t *testing.T) {
+	t.Parallel()
+
+	manifest := "properties:\n  name: mytool\n  features:\n    - name: update\n      enabled: true\n" +
+		"release_source:\n  type: gitlab\n  host: gitlab.com\n  owner: org\n  repo: mytool\n" +
+		"version:\n  gtb: v0.40.0\ncommands: []\n"
+
+	g, fs, _ := newPerimeterTestProject(t, manifest)
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	require.NoError(t, g.syncDerivedManifestFields(m))
+
+	assert.Equal(t, forge.GitlabFeature, m.ReleaseSource.Backend)
+	assert.True(t, featureEnabledIn(m.Properties.Features, string(forge.GitlabFeature)), "the derived backend's forge is enabled")
+	assert.Equal(t, []string{string(forge.GitlabFeature)}, enabledForges(m.Properties.Features))
+
+	raw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), "- name: gitlab\n      enabled: true", "and recorded, so the project states its choice from then on")
+}
+
+// A manifest already naming a forge feature is read, not migrated (D11): a
+// second forge is never added on its behalf.
+func TestSyncDerivedManifestFields_AnEnabledForgeIsLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	manifest := "properties:\n  name: mytool\n  features:\n    - name: github\n      enabled: true\n" +
+		"release_source:\n  type: github\n  host: github.com\n  owner: org\n  repo: mytool\n" +
+		"version:\n  gtb: v0.42.0\ncommands: []\n"
+
+	g, _, _ := newPerimeterTestProject(t, manifest)
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	require.NoError(t, g.syncDerivedManifestFields(m))
+
+	assert.Equal(t, []string{string(forge.GithubFeature)}, enabledForges(m.Properties.Features))
+}
+
+// A scaffold from before the manifest recorded keychain carries the file and
+// no entry. Spec 0197 D8 removes a file the manifest does not call for, which
+// would silently drop a tool's keychain on its first regenerate, so the
+// derivation reads the file as the record once and writes the entry.
+func TestSyncDerivedManifestFields_AKeychainFileWithNoEntryIsRecorded(t *testing.T) {
+	t.Parallel()
+
+	manifest := "properties:\n  name: mytool\n  features:\n    - name: update\n      enabled: true\n" +
+		"release_source:\n  type: gitlab\n  host: gitlab.com\n  owner: org\n  repo: mytool\n" +
+		"version:\n  gtb: v0.40.0\ncommands: []\n"
+
+	g, fs, _ := newPerimeterTestProject(t, manifest)
+	require.NoError(t, afero.WriteFile(fs, "/work/cmd/mytool/keychain.go",
+		[]byte("package main\n\nimport _ \"gitlab.com/phpboyscout/go/credentials/keychain\"\n"), 0o644))
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	require.NoError(t, g.syncDerivedManifestFields(m))
+
+	assert.True(t, featureEnabledIn(m.Properties.Features, KeychainFeature))
+
+	raw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), "- name: keychain\n      enabled: true")
+
+	// An explicit entry, either way, is the record and the file does not override it.
+	off := &Manifest{Properties: ManifestProperties{Name: "mytool",
+		Features: []ManifestFeature{{Name: KeychainFeature, Enabled: false}}}}
+	assert.False(t, g.recordKeychainFromFile(off))
+	assert.False(t, featureEnabledIn(off.Properties.Features, KeychainFeature))
+
+	// A file the current generator wrote is the sync's own: `disable keychain`
+	// removes the entry as the default state, and the file must not vote.
+	require.NoError(t, afero.WriteFile(fs, "/work/cmd/mytool/keychain.go",
+		[]byte("package main\n\nimport _ \"gitlab.com/phpboyscout/go-tool-base/pkg/setup/keychain\"\n"), 0o644))
+	current := &Manifest{Properties: ManifestProperties{Name: "mytool"}}
+	assert.False(t, g.recordKeychainFromFile(current))
+}
+
 func TestValidateManifest_RefusesUnknownBackend(t *testing.T) {
 	t.Parallel()
 
