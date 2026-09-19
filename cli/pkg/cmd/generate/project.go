@@ -74,11 +74,11 @@ type SkeletonOptions struct {
 	// ForgeCredentials are further forges enabled for their credential
 	// wizard and adapter only (spec 0195 D6).
 	ForgeCredentials []string
-	// ReleaseChannel is forge or direct when update is enabled (spec 0195
-	// D7); empty resolves to forge for a hosted project.
+	// ReleaseChannel is forge or static when update is enabled (spec 0195
+	// D7, spec 0203 D1); empty resolves to forge for a hosted project.
 	ReleaseChannel string
-	// Direct carries the direct source's settings for ReleaseChannel direct.
-	Direct generator.ManifestDirectSource
+	// ReleaseBaseURL is the static channel's location (spec 0203 D1).
+	ReleaseBaseURL string
 
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline (GitLab backend only). Empty uses the
@@ -196,22 +196,10 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.Module, "module", "", "Go module path (required with --no-forge; overrides <host>/<org>/<repo> otherwise)")
 	cmd.Flags().StringSliceVar(&opts.ForgeCredentials, "forge-credentials", nil,
 		"Further forges to enable for credential capture (their init wizard and adapter), not the release source")
-	cmd.Flags().StringVar(&opts.ReleaseChannel, "release-channel", "", "Release channel for self-update: forge (the default when hosted, and the only channel in this release)")
-	cmd.Flags().StringVar(&opts.Direct.URLTemplate, "release-url-template", "", "direct channel: asset URL template")
-	cmd.Flags().StringVar(&opts.Direct.ChecksumURLTemplate, "release-checksum-url-template", "", "direct channel: checksum URL template")
-	cmd.Flags().StringVar(&opts.Direct.SignatureURLTemplate, "release-signature-url-template", "", "direct channel: signature URL template")
-	cmd.Flags().StringVar(&opts.Direct.VersionURL, "release-version-url", "", "direct channel: URL that reports the latest version")
-	cmd.Flags().StringVar(&opts.Direct.VersionFormat, "release-version-format", "", "direct channel: version endpoint format (text, json, yaml, xml)")
-	cmd.Flags().StringVar(&opts.Direct.VersionKey, "release-version-key", "", "direct channel: key holding the version in a structured endpoint")
-	cmd.Flags().StringVar(&opts.Direct.PinnedVersion, "release-pinned-version", "", "direct channel: pin to one version")
-
-	// The direct channel is withdrawn until its design lands (#90): the flags
-	// stay bound so the author-settings table keeps naming real flags and an
-	// existing manifest keeps loading, but nothing offers them.
-	for _, name := range []string{"release-url-template", "release-checksum-url-template", "release-signature-url-template",
-		"release-version-url", "release-version-format", "release-version-key", "release-pinned-version"} {
-		_ = cmd.Flags().MarkHidden(name)
-	}
+	cmd.Flags().StringVar(&opts.ReleaseChannel, "release-channel", "",
+		"Release channel for self-update: forge (this project's forge releases, the default when hosted) or static (a pointer and per-tag manifests at --release-base-url, no forge involved)")
+	cmd.Flags().StringVar(&opts.ReleaseBaseURL, "release-base-url", "",
+		"Static release channel: the https location the release publishes under (see docs/reference/static-release-channel.md for the layout)")
 
 	cmd.Flags().StringVar(&opts.Host, "host", "", "Git host (defaults to backend's canonical host)")
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
@@ -397,10 +385,10 @@ func (o *SkeletonOptions) validateForgeSelection() error {
 	return generator.ValidateModulePath(o.Module)
 }
 
-// validateReleaseChannel enforces spec 0195 D7: a self-updating tool has a
-// release channel. The direct channel is withdrawn until #90 settles its
-// shape, so the forge is the only channel and a project that is not hosted
-// cannot self-update.
+// validateReleaseChannel enforces spec 0195 D7 and spec 0203 D1: a
+// self-updating tool has a release channel. The forge channel needs a forge;
+// the static channel needs its base URL and is the one a project that is not
+// hosted can take.
 func (o *SkeletonOptions) validateReleaseChannel() error {
 	if err := generator.ValidateReleaseChannel(o.ReleaseChannel); err != nil {
 		return err
@@ -411,9 +399,22 @@ func (o *SkeletonOptions) validateReleaseChannel() error {
 	}
 
 	switch o.resolvedReleaseChannel() {
-	case generator.ReleaseChannelDirect:
-		return errors.WithStack(ErrDirectChannelWithdrawn)
+	case generator.ReleaseChannelStatic:
+		if o.ReleaseBaseURL == "" {
+			return errors.WithStack(ErrReleaseBaseURLRequired)
+		}
+
+		return generator.ValidateReleaseBaseURL(o.ReleaseBaseURL)
 	case generator.ReleaseChannelForge:
+		if o.ReleaseBaseURL != "" {
+			return errors.WithStack(ErrReleaseBaseURLNotStatic)
+		}
+
+		if o.NoForge {
+			return errors.WithHint(errors.WithStack(ErrReleaseChannelRequired),
+				"A project that is not hosted on a forge has no forge releases to read; the static channel is the one it can take.")
+		}
+
 		return nil
 	default:
 		return errors.WithStack(ErrReleaseChannelRequired)
@@ -926,13 +927,15 @@ func (o *SkeletonOptions) afterWizard() error {
 
 	if !o.updateSelected() {
 		o.ReleaseChannel = ""
-		o.Direct = generator.ManifestDirectSource{}
 		o.UpdatePolicy, o.UpdateCheckInterval = "", ""
 		o.Signing = false
 	}
 
-	// Nothing direct is recorded while the channel is withdrawn (#90).
-	o.Direct = generator.ManifestDirectSource{}
+	// A base URL means nothing off the static channel; the wizard leaves the
+	// field's last value behind when the channel changes.
+	if o.ReleaseChannel != generator.ReleaseChannelStatic {
+		o.ReleaseBaseURL = ""
+	}
 
 	if !o.Signing {
 		o.SigningEmail = ""
@@ -1074,6 +1077,7 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.envPrefixGroup(),
 		o.envPrefixCustomGroup(),
 		o.selfUpdateGroup(),
+		o.releaseLocationGroup(),
 		o.chatProvidersGroup(),
 		o.chatDefaultGroup(),
 		o.chatEndpointGroup(),
@@ -1158,48 +1162,66 @@ func (o *SkeletonOptions) moduleGroup() *huh.Group {
 		WithHideFunc(func() bool { return o.hosted })
 }
 
+// staticChannelLabel is the static channel's row on the channel select.
+const staticChannelLabel = "A static location (a pointer and per-tag manifests under one https URL, no forge)"
+
 // releaseChannelOptions names the forge channel by the forge chosen on the
 // forge page and its host, so the row reads "GitLab releases (gitlab.com)"
-// rather than "This forge". The direct channel returns here with #90.
-func releaseChannelOptions(backend, host string) []huh.Option[string] {
+// rather than "This forge", and offers the static location beside it (spec
+// 0203 D1). A project that is not hosted is offered the static location
+// alone.
+func releaseChannelOptions(backend, host string, hosted bool) []huh.Option[string] {
+	static := huh.NewOption(staticChannelLabel, generator.ReleaseChannelStatic)
+	if !hosted {
+		return []huh.Option[string]{static}
+	}
+
 	label := backendDisplay(backend).Label + " releases"
 	if host != "" {
 		label += " (" + host + ")"
 	}
 
-	return []huh.Option[string]{huh.NewOption(label, generator.ReleaseChannelForge)}
+	return []huh.Option[string]{huh.NewOption(label, generator.ReleaseChannelForge), static}
 }
 
 // selfUpdateGroup is the one page for the update feature (spec 0195 D7): the
 // release channel, the policy and the check interval. Shown only when the
-// feature is selected; the channel cannot be left empty. The forge is the
-// only channel offered while the direct channel is withdrawn (#90), so a
-// project that is not hosted is refused here and sent back to deselect
-// Self-Update.
+// feature is selected; the channel cannot be left empty. The forge channel
+// needs a forge, so a project that is not hosted takes the static location or
+// goes back and deselects Self-Update; the static location's base URL is asked
+// on the page that follows (huh hides pages, not fields).
 func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewSelect[string]().
 			Key("channel").
 			Title("Release channel").
 			DescriptionFunc(func() string {
-				return fmt.Sprintf("Where the tool looks for new versions of itself and downloads them from. "+
-					"The %s channel reads the releases of the repository chosen on the forge page, "+
-					"and needs no configuration beyond a token for a private repository.", backendDisplay(o.ForgeBackend).Label)
-			}, &o.ForgeBackend).
+				forgeRow := ""
+				if o.hosted {
+					forgeRow = fmt.Sprintf("The %s channel reads the releases of the repository chosen on the forge page, "+
+						"and needs no configuration beyond a token for a private repository. ", backendDisplay(o.ForgeBackend).Label)
+				}
+
+				return "Where the tool looks for new versions of itself and downloads them from. " + forgeRow +
+					"A static location is any https URL you publish releases under, in the layout the release " +
+					"configuration produces (go-tool-base's static-release-channel reference); the tool reads it with no forge involved."
+			}, []*string{&o.ForgeBackend, &o.Host}). // the label follows the forge page; hosted is settled before this page
 			// Static options are what a driver that runs no commands sees;
-			// OptionsFunc renames the row as the forge and host change.
-			Options(releaseChannelOptions(o.ForgeBackend, o.resolvedHost())...).
+			// OptionsFunc renames the row as the forge and host change and
+			// drops it when the project turns out not to be hosted. The
+			// validation below covers a driver that never refreshed.
+			Options(releaseChannelOptions(o.ForgeBackend, o.resolvedHost(), o.hosted)...).
 			OptionsFunc(func() []huh.Option[string] {
-				return releaseChannelOptions(o.ForgeBackend, o.resolvedHost())
-			}, []*string{&o.ForgeBackend, &o.Host}). // hashstructure follows both pointers
+				return releaseChannelOptions(o.ForgeBackend, o.resolvedHost(), o.hosted)
+			}, []any{&o.ForgeBackend, &o.Host, &o.hosted}). // hashstructure follows every pointer
 			Value(&o.ReleaseChannel).
 			Validate(func(s string) error {
 				switch {
 				case s == "":
 					return ErrReleaseChannelRequired
-				case !o.hosted:
+				case s == generator.ReleaseChannelForge && !o.hosted:
 					return errors.WithHint(ErrReleaseChannelRequired,
-						"This project is not hosted on a forge, and the forge is the only release channel in this release. Go back and deselect Self-Update.")
+						"This project is not hosted on a forge, so it has no forge releases to read. Choose the static location, or go back and deselect Self-Update.")
 				default:
 					return nil
 				}
@@ -1781,9 +1803,34 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 
 	if slices.Contains(o.Features, string(props.UpdateCmd)) {
 		cfg.ReleaseChannel = o.resolvedReleaseChannel()
+		if cfg.ReleaseChannel == generator.ReleaseChannelStatic {
+			cfg.ReleaseBaseURL = o.ReleaseBaseURL
+		}
 	}
 
 	return cfg
+}
+
+// releaseLocationGroup asks for the static channel's base URL (spec 0203
+// D1, D7), on the page after the channel select because huh hides pages, not
+// fields. Never pre-filled: the estate's store is an estate convention, not a
+// GTB one. Validated as a provider endpoint is: https, no userinfo, no
+// placeholder host.
+func (o *SkeletonOptions) releaseLocationGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Key("release-base-url").
+			Title("Release location").
+			Description("The https URL the release publishes under. The tool reads <url>/latest.json to find the current " +
+				"release and <url>/<tag>/release.json for each one; the release configuration writes both. " +
+				"For the estate's store that is https://pkg.phpboyscout.uk/<project path>.").
+			Placeholder("https://pkg.example.org/acme/mytool").
+			Value(&o.ReleaseBaseURL).
+			Validate(func(s string) error { return hintedValidation(generator.ValidateReleaseBaseURL(s)) }),
+	).
+		Title("Release location").
+		Description("Where the static release channel lives.\n").
+		WithHideFunc(func() bool { return !o.updateSelected() || o.ReleaseChannel != generator.ReleaseChannelStatic })
 }
 
 // isCIEnv reports whether the tool is running under CI, honouring the `ci`

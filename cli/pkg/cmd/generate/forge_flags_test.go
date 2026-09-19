@@ -3,6 +3,8 @@ package generate
 import (
 	"testing"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"github.com/spf13/afero"
 
 	"github.com/stretchr/testify/assert"
@@ -38,35 +40,65 @@ func TestSkeletonOptions_ForgeFlags(t *testing.T) {
 		assert.Empty(t, o.skeletonConfig(nil).ForgeBackend)
 	})
 
-	t.Run("update is refused when not hosted, and the direct channel is withdrawn", func(t *testing.T) {
+	t.Run("not hosted: self-update needs the static channel and its location", func(t *testing.T) {
 		t.Parallel()
 
 		o := &SkeletonOptions{Name: "tool", NoForge: true, Module: "myapp", Features: []string{"update"}}
-		require.ErrorIs(t, o.validateFields(), ErrReleaseChannelRequired, "not hosted: self-update has no channel in this release")
+		require.ErrorIs(t, o.validateFields(), ErrReleaseChannelRequired, "not hosted and no channel named")
 
-		o.ReleaseChannel = generator.ReleaseChannelDirect
-		o.Direct.URLTemplate = "https://dl.example.com/{{.Version}}/{{.Asset}}"
-		o.Direct.VersionURL = "https://dl.example.com/latest"
-		require.ErrorIs(t, o.validateFields(), ErrDirectChannelWithdrawn,
-			"the direct channel is withdrawn pending its design (#90), however complete its settings")
+		o.ReleaseChannel = generator.ReleaseChannelStatic
+		require.ErrorIs(t, o.validateFields(), ErrReleaseBaseURLRequired)
 
-		hosted := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: []string{"update"},
-			ReleaseChannel: generator.ReleaseChannelDirect}
-		require.ErrorIs(t, hosted.validateFields(), ErrDirectChannelWithdrawn, "hosted or not")
+		o.ReleaseBaseURL = "http://pkg.acme.dev/tool"
+		require.Error(t, o.validateFields(), "plain http is refused, not warned")
+
+		o.ReleaseBaseURL = "https://pkg.acme.dev/tool"
+		require.NoError(t, o.validateFields())
+
+		cfg := o.skeletonConfig(nil)
+		assert.Equal(t, generator.ReleaseChannelStatic, cfg.ReleaseChannel)
+		assert.Equal(t, "https://pkg.acme.dev/tool", cfg.ReleaseBaseURL)
+		assert.Empty(t, cfg.ForgeBackend)
 	})
 
-	t.Run("the direct channel's flags are hidden from help but still bound", func(t *testing.T) {
+	t.Run("not hosted: the forge channel named outright is refused", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", NoForge: true, Module: "myapp", Features: []string{"update"}, ReleaseChannel: generator.ReleaseChannelForge}
+		err := o.validateFields()
+		require.ErrorIs(t, err, ErrReleaseChannelRequired)
+		assert.Contains(t, errors.FlattenHints(err), "static channel")
+	})
+
+	t.Run("the withdrawn direct channel is refused by name", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: []string{"update"}, ReleaseChannel: "direct"}
+		err := o.validateFields()
+		require.ErrorIs(t, err, generator.ErrInvalidReleaseChannel)
+		assert.Contains(t, err.Error(), "static")
+	})
+
+	t.Run("a base URL on the forge channel is refused", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Name: "tool", Repo: "org/tool", ForgeBackend: "github", Features: []string{"update"}, ReleaseBaseURL: "https://pkg.acme.dev/tool"}
+		require.ErrorIs(t, o.validateFields(), ErrReleaseBaseURLNotStatic)
+	})
+
+	t.Run("the channel flags are visible and the direct ones are gone", func(t *testing.T) {
 		t.Parallel()
 
 		cmd := NewCmdSkeleton(&props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop()}, &SharedFlags{})
-		for _, name := range []string{"release-url-template", "release-checksum-url-template", "release-signature-url-template",
-			"release-version-url", "release-version-format", "release-version-key", "release-pinned-version"} {
+		for _, name := range []string{"release-channel", "release-base-url"} {
 			f := cmd.Flags().Lookup(name)
-			require.NotNilf(t, f, "--%s stays bound so the author-settings table keeps naming a real flag", name)
-			assert.Truef(t, f.Hidden, "--%s is withdrawn from help", name)
+			require.NotNilf(t, f, "--%s is bound", name)
+			assert.Falsef(t, f.Hidden, "--%s is offered", name)
 		}
 
-		assert.False(t, cmd.Flags().Lookup("release-channel").Hidden, "the channel flag stays, forge is its only value")
+		for _, name := range []string{"release-url-template", "release-version-url", "release-pinned-version"} {
+			assert.Nilf(t, cmd.Flags().Lookup(name), "--%s belonged to the withdrawn channel", name)
+		}
 	})
 
 	t.Run("hosted defaults to the forge channel and records the backend", func(t *testing.T) {

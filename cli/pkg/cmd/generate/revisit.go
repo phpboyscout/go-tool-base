@@ -22,7 +22,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		ForgeBackend:          string(cfg.ForgeBackend),
 		Module:                cfg.ModulePath,
 		ReleaseChannel:        cfg.ReleaseChannel,
-		Direct:                cfg.Direct,
+		ReleaseBaseURL:        cfg.ReleaseBaseURL,
 		HelpType:              cfg.HelpType,
 		SlackChannel:          cfg.SlackChannel,
 		SlackTeam:             cfg.SlackTeam,

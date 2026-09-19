@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"gitlab.com/phpboyscout/go/errors"
+
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -72,32 +74,75 @@ func TestWizard_HostedDefaultPath(t *testing.T) {
 	assert.Contains(t, seen, "backend")
 	assert.Contains(t, seen, "channel")
 	assert.NotContains(t, seen, "module", "a hosted project derives its module path")
-	assert.NotContains(t, seen, "release-url", "the direct channel is withdrawn: no settings page exists")
+	assert.NotContains(t, seen, "release-base-url", "the forge channel has no location page")
 
 	cfg := o.skeletonConfig(nil)
 	assert.Equal(t, forge.GithubFeature, cfg.ForgeBackend)
 	assert.Equal(t, generator.ReleaseChannelForge, cfg.ReleaseChannel)
+	assert.Empty(t, cfg.ReleaseBaseURL)
 	assert.Contains(t, enabledNames(cfg.Features), "github")
 }
 
-// TestWizard_NotHostedCannotSelfUpdate: no on the start page shows the module
-// page instead of the forge page. With the direct channel withdrawn (#90) the
-// self-update page offers only this forge, which a project that is not hosted
-// cannot take, so the page refuses and the form does not complete; the way
-// through is to go back and deselect Self-Update.
-func TestWizard_NotHostedCannotSelfUpdate(t *testing.T) {
+// TestWizard_HostedChoosesTheStaticLocation: a hosted project can opt into
+// the static channel (spec 0203 D1); the location page follows and its URL
+// is recorded, while the backend stays for init and credentials.
+func TestWizard_HostedChoosesTheStaticLocation(t *testing.T) {
 	t.Parallel()
 
 	o := &SkeletonOptions{Features: generator.DefaultSelectedFeatures}
-	f, seen := keysSeen(t, o, map[string]string{"hosted": "n", "module": "myapp"})
+	f, seen := keysSeen(t, o, map[string]string{"repo": "org/my-app", "channel": "↓", "release-base-url": "https://pkg.acme.dev/my-app"})
+
+	require.Equal(t, huh.StateCompleted, f.State, "seen %v", seen)
+	require.NoError(t, o.afterWizard())
+	require.NoError(t, o.validateFields())
+
+	assert.Contains(t, seen, "release-base-url", "the location page follows the channel select")
+
+	cfg := o.skeletonConfig(nil)
+	assert.Equal(t, generator.ReleaseChannelStatic, cfg.ReleaseChannel)
+	assert.Equal(t, "https://pkg.acme.dev/my-app", cfg.ReleaseBaseURL)
+	assert.Equal(t, forge.GithubFeature, cfg.ForgeBackend, "hosted and static: the backend stays")
+}
+
+// TestWizard_StaticLocationRefusesABadURL: the location page holds the base
+// URL to the provider-endpoint rule at the field, so a plain-http location
+// never reaches the manifest.
+func TestWizard_StaticLocationRefusesABadURL(t *testing.T) {
+	t.Parallel()
+
+	o := &SkeletonOptions{Features: generator.DefaultSelectedFeatures}
+	f, seen := keysSeen(t, o, map[string]string{"repo": "org/my-app", "channel": "↓", "release-base-url": "http://pkg.acme.dev/my-app"})
+
+	assert.NotEqual(t, huh.StateCompleted, f.State, "seen %v", seen)
+	require.NotNil(t, f.GetFocusedField())
+	assert.Equal(t, "release-base-url", f.GetFocusedField().GetKey())
+	require.Error(t, f.GetFocusedField().Error())
+}
+
+// TestWizard_NotHostedTakesTheStaticLocation: no on the start page shows the
+// module page instead of the forge page, and the self-update page offers the
+// static location alone (spec 0203 D1); its URL is asked on the page after.
+func TestWizard_NotHostedTakesTheStaticLocation(t *testing.T) {
+	t.Parallel()
+
+	// The driver runs no commands, so the channel select keeps its static
+	// rows (forge first) and the cursor moves down to the static location.
+	o := &SkeletonOptions{Features: generator.DefaultSelectedFeatures}
+	f, seen := keysSeen(t, o, map[string]string{"hosted": "n", "module": "myapp", "channel": "↓", "release-base-url": "https://pkg.acme.dev/myapp"})
 
 	assert.Contains(t, seen, "module")
 	assert.NotContains(t, seen, "backend", "a project that is not hosted has no forge page")
 	assert.Contains(t, seen, "channel", "the self-update page is reached")
-	assert.NotContains(t, seen, "release-url", "the direct settings page is gone")
-	assert.NotEqual(t, huh.StateCompleted, f.State, "the channel select refuses: not hosted and no other channel")
+	assert.Contains(t, seen, "release-base-url")
+	require.Equal(t, huh.StateCompleted, f.State, "seen %v", seen)
 	require.NoError(t, o.afterWizard())
-	assert.Empty(t, o.Direct, "nothing direct is ever recorded")
+	require.NoError(t, o.validateFields())
+
+	cfg := o.skeletonConfig(nil)
+	assert.Equal(t, generator.ReleaseChannelStatic, cfg.ReleaseChannel)
+	assert.Equal(t, "https://pkg.acme.dev/myapp", cfg.ReleaseBaseURL)
+	assert.Empty(t, cfg.ForgeBackend)
+	assert.Equal(t, "myapp", cfg.ModulePath)
 }
 
 // TestWizard_NoSelfUpdateShowsNoUpdatePages: with the update feature unticked
@@ -161,9 +206,10 @@ func enabledNames(fs []generator.ManifestFeature) []string {
 	return names
 }
 
-// TestWizard_NotHostedRefusesTheForgeChannel: the channel select offers both
-// entries statically, so a not-hosted project that leaves the cursor on
-// "This forge" is refused at the field rather than after the wizard.
+// TestWizard_NotHostedRefusesTheForgeChannel: in a terminal the channel
+// select drops the forge row once the project is not hosted; a driver that
+// runs no commands still sees it, and leaving the cursor there is refused at
+// the field with a hint naming the static location.
 func TestWizard_NotHostedRefusesTheForgeChannel(t *testing.T) {
 	t.Parallel()
 
@@ -174,4 +220,5 @@ func TestWizard_NotHostedRefusesTheForgeChannel(t *testing.T) {
 	require.NotNil(t, f.GetFocusedField())
 	assert.Equal(t, "channel", f.GetFocusedField().GetKey())
 	require.Error(t, f.GetFocusedField().Error())
+	assert.Contains(t, errors.FlattenHints(f.GetFocusedField().Error()), "static location")
 }

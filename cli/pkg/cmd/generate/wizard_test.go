@@ -134,17 +134,25 @@ func TestOptionsFromManifest_EnvPrefixChoice(t *testing.T) {
 }
 
 // TestReleaseChannelOptions_NameTheChosenForge: the channel row says which
-// forge's releases the tool reads and where, never "this forge".
+// forge's releases the tool reads and where, never "this forge", with the
+// static location beside it (spec 0203 D1); a project that is not hosted is
+// offered the static location alone.
 func TestReleaseChannelOptions_NameTheChosenForge(t *testing.T) {
 	t.Parallel()
 
-	opts := releaseChannelOptions("gitlab", "code.example.com")
-	require.Len(t, opts, 1, "the forge is the only channel while the direct channel is withdrawn (#90)")
+	opts := releaseChannelOptions("gitlab", "code.example.com", true)
+	require.Len(t, opts, 2)
 	assert.Equal(t, "GitLab releases (code.example.com)", opts[0].Key)
 	assert.Equal(t, generator.ReleaseChannelForge, opts[0].Value)
+	assert.Equal(t, generator.ReleaseChannelStatic, opts[1].Value)
+	assert.Contains(t, opts[1].Key, "static location")
 
-	assert.Equal(t, "GitHub releases (github.com)", releaseChannelOptions("", "github.com")[0].Key, "the default backend is GitHub")
-	assert.Equal(t, "Gitea releases", releaseChannelOptions("gitea", "")[0].Key, "a forge with no default host names none")
+	assert.Equal(t, "GitHub releases (github.com)", releaseChannelOptions("", "github.com", true)[0].Key, "the default backend is GitHub")
+	assert.Equal(t, "Gitea releases", releaseChannelOptions("gitea", "", true)[0].Key, "a forge with no default host names none")
+
+	alone := releaseChannelOptions("", "", false)
+	require.Len(t, alone, 1, "not hosted: no forge releases to read")
+	assert.Equal(t, generator.ReleaseChannelStatic, alone[0].Value)
 }
 
 // TestWizard_ModulePageAcceptsEmptyAndUsesTheName: the module page must not
