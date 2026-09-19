@@ -117,19 +117,33 @@ A pointer that is behind (a publish that died before step 4) offers nobody a rel
 
 Nothing under `<tag>/` is ever modified or removed once published. The pointer is the one object that changes.
 
-## Producing the manifest with GoReleaser
+## Producing the documents with GoReleaser
 
-The scaffolded `.goreleaser.yaml` produces the manifest with the framework's tool, from what GoReleaser already knows:
+The framework ships a tool that writes both documents from a GoReleaser `dist/`, and gtb's own `.goreleaser.yaml` shows the three pieces in pipeline order. They need GoReleaser **Pro**: the manifest has to be written after `checksums.txt` and its signature exist and before anything is uploaded, and only Pro's `before_publish` hooks run in that slot (GoReleaser's `artifacts.json` is written after publishing, in both editions, so the tool does not read it).
 
 ```yaml
-after:
-  hooks:
-    - go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/mytool
+before_publish:
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/mytool
+    artifacts: [checksum]   # the checksum artifact is one object, so the hook runs once
+
+blobs:
+  - provider: s3
+    # ... the bucket, endpoint and per-tag directory ...
+    extra_files:
+      - glob: dist/release.json
+
+publishers:
+  - name: latest-pointer
+    checksum: true
+    ids: [latest-pointer]   # no archive carries this id; the checksum artifact belongs to every id, so this runs once
+    cmd: scripts/move-pointer.sh dist/latest.json <bucket> acme/mytool/latest.json
 ```
 
-`releasemanifest` reads `dist/artifacts.json` (archives and their checksums) and `dist/metadata.json` (tag and date), reads the current pointer at the base URL to fill `previous` (empty when there is none yet), and writes `dist/release.json`, which the `blobs:` pipe then uploads with everything else. It refuses a `dist` whose archives carry no checksum. `--previous <tag>` overrides the pointer lookup; `--notes <file>` supplies the notes.
+1. **`releasemanifest`** (`go tool releasemanifest`, declared in the framework's `go.mod` `tool` block) reads `dist/metadata.json` for the tool name, tag and date, `dist/checksums.txt` for the archives and their digests, and each archive itself: its size from the file and its `os` and `arch` from the build info of the Go binary inside, so the archive's name never matters. It reads the current pointer at the base URL to fill `previous` (empty when there is none yet) and writes `dist/release.json` and `dist/latest.json`. It refuses a `dist/` with an archive that `checksums.txt` does not list, two archives for one platform, or an archive holding no Go binary. `--previous <tag>` overrides the pointer lookup; `--notes <file>` supplies the notes.
+2. **`blobs:`** uploads `release.json` with the archives, checksums and signature, immutable like them.
+3. **`publishers:`** runs last in the publish pipe (and not at all when publishing is skipped) and moves the pointer. `scripts/move-pointer.sh` in the framework repository is the conditional write of the publish order above: it reads the pointer's ETag with a signed `HEAD`, then `PUT`s `dist/latest.json` with `If-Match` on it (`If-None-Match: *` for a first release) and `Cache-Control: no-cache`, using `curl`'s own SigV4 signing and the same credentials as `blobs:`. A 412 fails the job and names the condition that failed.
 
-Moving the pointer is a separate publish step after `blobs:`, because GoReleaser's `blobs:` pipe cannot send a conditional write. The scaffolded configuration carries it. A publisher without GoReleaser writes both documents from this page and follows the order above.
+A publisher without GoReleaser writes both documents from this page and follows the order above.
 
 ## Related
 

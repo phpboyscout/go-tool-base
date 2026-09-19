@@ -26,9 +26,15 @@ build: tidy generate
 man: build
     ./bin/gtb generate man --dir man
 
-# Build a snapshot release with goreleaser
+# Build a snapshot release with goreleaser. Pro, because .goreleaser.yaml
+# carries the static release channel's before_publish hook (spec 0203 D5),
+# which OSS goreleaser refuses to parse; the tag pipeline runs Pro too.
 snapshot:
-    goreleaser build --snapshot --clean
+    goreleaser-pro build --snapshot --clean
+
+# Validate .goreleaser.yaml with the edition the tag pipeline runs
+goreleaser-check:
+    goreleaser-pro check
 
 # Run golangci-lint
 lint:

@@ -71,10 +71,15 @@ include:
   # an image passed as a component INPUT is not a job-level `image:`, so
   # Renovate's gitlabci manager never saw it. The mirrored customManager in
   # renovate.json5 now tracks it (0065 D3/D4).
+  #
+  # pro: the static release channel's manifest is written by a before_publish
+  # hook (spec 0203 D5), a Pro-only slot; the licence is the GORELEASER_KEY
+  # group variable.
   - component: gitlab.com/phpboyscout/cicd/goreleaser@main
     inputs:
       args: "release --clean --parallelism=1"
       image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4"
+      pro: true
   - component: gitlab.com/phpboyscout/cicd/zensical-pages@main
 
   # Release MR machinery — colophon, the estate's own orchestrator. It

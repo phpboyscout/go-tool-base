@@ -124,6 +124,30 @@ signs:
     args: ["${artifact}", "${signature}"]
     output: true
 
+# The static release channel (spec 0203 D5). gtb's updater discovers and
+# retrieves releases from the store alone, with no forge: a per-tag
+# release.json beside the binaries and one pointer, latest.json, at the
+# project's base. Three pieces, in pipeline order:
+#
+#   1. before_publish (Pro): once checksums.txt and its signature exist and
+#      before anything is uploaded, `releasemanifest` writes dist/release.json
+#      and dist/latest.json from metadata.json, checksums.txt and the
+#      archives themselves. Filtered to the checksum artifact so it runs
+#      once. artifacts.json does not exist yet at this point in either
+#      edition, which is why the tool reads the archives.
+#   2. blobs uploads dist/release.json with everything else (extra_files),
+#      write-once and immutable like the rest of the tag.
+#   3. publishers, last in the publish pipe and skipped with it, moves the
+#      pointer by a conditional write (scripts/move-pointer.sh). `checksum:
+#      true` with an `ids` no archive carries is how a publisher runs once:
+#      the checksum artifact belongs to every id.
+#
+# The layout a reader expects is docs/reference/static-release-channel.md.
+before_publish:
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base
+    artifacts: [checksum]
+    output: true
+
 # goreleaser BUILDS and UPLOADS; it does not own the release.
 #
 # It can only run after a tag, so a release created at tagging time is created
@@ -153,6 +177,15 @@ blobs:
     content_disposition: inline
     cache_control:
       - "public, max-age=31536000, immutable"
+    extra_files:
+      - glob: dist/release.json
+
+publishers:
+  - name: latest-pointer
+    checksum: true
+    ids: [latest-pointer]
+    cmd: scripts/move-pointer.sh dist/latest.json pbs-release-binaries go-tool-base/latest.json
+    output: true
 
 changelog:
   # colophon owns the changelog (CHANGELOG.md and the Release notes), so

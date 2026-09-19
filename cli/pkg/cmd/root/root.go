@@ -67,10 +67,13 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props, error) {
 		Name:        "gtb",
 		Summary:     "The gtb CLI",
 		Description: "A CLI tool for managing and generating gtb projects.",
+		// gtb self-updates from the static release channel (spec 0203 D11):
+		// the pointer and per-tag manifests its own release publishes to the
+		// store. No forge is consulted, so a gtb whose forge adapters or
+		// configuration are broken can still pull its own fix.
 		ReleaseSource: props.ReleaseSource{
-			Type:  "gitlab",
-			Owner: "phpboyscout",
-			Repo:  "go-tool-base",
+			Type:    props.ReleaseSourceStatic,
+			BaseURL: "https://pkg.phpboyscout.uk/go-tool-base",
 		},
 		Features: props.SetFeatures(
 			props.Disable(props.InitCmd),
