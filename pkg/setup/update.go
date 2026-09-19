@@ -422,11 +422,27 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 	return s, nil
 }
 
-// resolveChannel fills s.channel: an injected channel stands as it is;
-// otherwise the forge branch is built over the provider resolveReleaseClient
-// finds, closed over the tool's owner and repository.
+// resolveChannel fills s.channel: an injected channel stands as it is; a
+// static release source (spec 0203 D1) gets the static branch over its base
+// URL, which reads no forge, no credential and no config; otherwise the
+// forge branch is built over the provider resolveReleaseClient finds, closed
+// over the tool's owner and repository. An injected provider still wins over
+// the static type, so a test's double is what runs.
 func (s *SelfUpdater) resolveChannel(ctx context.Context, p *props.Props) error {
 	if s.channel != nil {
+		return nil
+	}
+
+	if p.Tool.ReleaseSource.Type == props.ReleaseSourceStatic && s.releaseClient == nil && p.Tool.ReleaseProvider == nil {
+		ch, err := newStaticChannel(p.Tool.ReleaseSource.BaseURL, httpclient.NewClient())
+		if err != nil {
+			return errors.WithHintf(err,
+				"The tool's release source is the static channel, whose one setting is the base URL its "+
+					"releases are published under (release_source.static.base_url). It must be an absolute https URL.")
+		}
+
+		s.channel = ch
+
 		return nil
 	}
 
@@ -1087,6 +1103,14 @@ func (s *SelfUpdater) refuseImplicitDowngrade(ctx context.Context) error {
 }
 
 func (s *SelfUpdater) findReleaseAsset(rel forge.Release) (forge.ReleaseAsset, error) {
+	if pr, ok := rel.(platformRelease); ok {
+		if asset, found := pr.AssetFor(runtime.GOOS, runtime.GOARCH); found {
+			return asset, nil
+		}
+
+		return nil, errors.Newf("release %s does not ship for %s/%s", rel.GetTagName(), runtime.GOOS, runtime.GOARCH)
+	}
+
 	c := cases.Title(language.Und)
 	targetOS := c.String(runtime.GOOS)
 

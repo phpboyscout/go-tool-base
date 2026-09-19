@@ -7,6 +7,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
@@ -23,6 +24,10 @@ import (
 func (s *SelfUpdater) explainRefusal(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
+	}
+
+	if explained, ok := s.explainStaticRefusal(err); ok {
+		return explained
 	}
 
 	_, owner, repo := s.Tool.GetReleaseSource()
@@ -74,6 +79,33 @@ func (s *SelfUpdater) explainRefusal(ctx context.Context, err error) error {
 	}
 
 	return err
+}
+
+// explainStaticRefusal is the static channel's side of explainRefusal (spec
+// 0203). A missing pointer is the channel's "no release yet"; a broken chain
+// is the publisher's to fix, and the URLs in the error are what they need.
+func (s *SelfUpdater) explainStaticRefusal(err error) (error, bool) {
+	base := s.Tool.ReleaseSource.BaseURL
+
+	switch {
+	case errors.Is(err, static.ErrNoReleasesPublished):
+		return errors.WithHintf(err,
+			"Nothing has been published on the release channel at %s yet. This is the expected "+
+				"answer for a tool whose first release has not been cut; it is not a configuration problem.",
+			base), true
+
+	case errors.Is(err, static.ErrReleaseNotFound):
+		return errors.WithHintf(err,
+			"The release channel at %s has no manifest for that tag. Check the tag against the "+
+				"channel's pointer, %s, which names the current one.", base, static.PointerURL(base)), true
+
+	case errors.Is(err, static.ErrBrokenChain), errors.Is(err, static.ErrEscapesBase), errors.Is(err, static.ErrUnsupportedSchema):
+		return errors.WithHint(err,
+			"The release channel's documents do not resolve or are not trusted. This is the publisher's "+
+				"side to fix; the URLs above are the objects to check."), true
+	}
+
+	return nil, false
 }
 
 // endpointLabel names the forge in a message: its host where one is configured,

@@ -9,15 +9,19 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
+	"gitlab.com/phpboyscout/go/httpclient"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
@@ -74,7 +78,7 @@ func checkConfig(_ context.Context, props *p.Props) CheckResult {
 // tool whose release source names github while no github adapter is linked
 // cannot build its updater, and the forge-adapters check skips it because it
 // asks only about enabled features.
-func checkReleaseSource(_ context.Context, props *p.Props) CheckResult {
+func checkReleaseSource(ctx context.Context, props *p.Props) CheckResult {
 	const name = "Release source"
 
 	if props == nil || props.Tool.ReleaseSource.Type == "" {
@@ -86,6 +90,10 @@ func checkReleaseSource(_ context.Context, props *p.Props) CheckResult {
 	}
 
 	sourceType := props.Tool.ReleaseSource.Type
+	if sourceType == p.ReleaseSourceStatic {
+		return checkStaticReleaseSource(ctx, props.Tool.ReleaseSource.BaseURL)
+	}
+
 	if forgeapi.Registered(sourceType) {
 		return CheckResult{Name: name, Status: CheckPass, Message: sourceType + " provider linked"}
 	}
@@ -96,6 +104,54 @@ func checkReleaseSource(_ context.Context, props *p.Props) CheckResult {
 	}
 
 	return CheckResult{Name: name, Status: CheckFail, Message: msg}
+}
+
+// staticPointerTimeout bounds doctor's read of the channel's pointer: one
+// small object on a CDN, and doctor must not hang on a black-holing network.
+const staticPointerTimeout = 5 * time.Second
+
+// checkStaticReleaseSource is the Release source check on the static channel
+// (spec 0203): it reports the base URL, reads the pointer and the manifest it
+// names, and says which tag is current. Nothing published yet is a warning
+// with the URL a person would look at; a pointer whose manifest does not
+// resolve is a failure naming both.
+func checkStaticReleaseSource(ctx context.Context, baseURL string) CheckResult {
+	const name = "Release source"
+
+	ch, err := static.New(baseURL, httpclient.NewClient())
+	if err != nil {
+		return CheckResult{Name: name, Status: CheckFail, Message: "static channel: " + err.Error()}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, staticPointerTimeout)
+	defer cancel()
+
+	latest, err := ch.Latest(ctx)
+
+	switch {
+	case err == nil:
+		return CheckResult{
+			Name: name, Status: CheckPass,
+			Message: fmt.Sprintf("static channel at %s, latest %s", baseURL, latest.Tag),
+			Details: fmt.Sprintf("%d downloads, %s", len(latest.Downloads), signedLabel(latest.Signature != "")),
+		}
+	case errors.Is(err, static.ErrNoReleasesPublished):
+		return CheckResult{
+			Name: name, Status: CheckWarn,
+			Message: "static channel at " + baseURL + ": nothing published yet",
+			Details: "Expected before the first release; the pointer is " + static.PointerURL(baseURL) + ".",
+		}
+	default:
+		return CheckResult{Name: name, Status: CheckFail, Message: "static channel at " + baseURL + ": " + err.Error()}
+	}
+}
+
+func signedLabel(signed bool) string {
+	if signed {
+		return "signed"
+	}
+
+	return "unsigned"
 }
 
 func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {

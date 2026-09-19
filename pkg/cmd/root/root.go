@@ -937,8 +937,10 @@ func newRootPreRunE(props *p.Props, configPaths []string, state *rootState, boun
 
 		// A forge feature enabled without its adapter linked is a build
 		// mistake, not a configuration one, so it is reported before any
-		// configuration is read (spec 0194 D9).
-		if err := forge.UnlinkedError(forge.Unlinked(props.GetFeatures())); err != nil {
+		// configuration is read (spec 0194 D9). Except for `update` on the
+		// static channel, which reads no forge and exists so a broken install
+		// can pull its own fix (spec 0203 D10).
+		if err := unlinkedForgeGate(props, cmd); err != nil {
 			return err
 		}
 
@@ -1100,6 +1102,23 @@ const (
 	cobraCompletionCommandName = "completion"
 )
 
+// unlinkedForgeGate is the pre-run's unlinked-forge check, waived for update
+// on the static channel.
+func unlinkedForgeGate(props *p.Props, cmd *cobra.Command) error {
+	if isStaticUpdate(props, cmd) {
+		return nil
+	}
+
+	return forge.UnlinkedError(forge.Unlinked(props.GetFeatures()))
+}
+
+// isStaticUpdate reports whether cmd is the update command of a tool on the
+// static release channel (spec 0203 D10): the one command whose gates are
+// relaxed because its updater needs nothing those gates protect.
+func isStaticUpdate(props *p.Props, cmd *cobra.Command) bool {
+	return props.Tool.ReleaseSource.Type == p.ReleaseSourceStatic && setup.FeatureOf(cmd) == p.UpdateCmd
+}
+
 // isAuxiliaryCommand reports whether cmd takes the pre-run's auxiliary fast
 // path: cobra's own generated help/completion/__complete commands, plus any
 // command the tool author listed in Tool.Bootstrap.AuxiliaryCommands.
@@ -1259,7 +1278,9 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props) {
 		build    func() *setup.Command
 		skipGate bool
 	}{
-		{p.UpdateCmd, func() *setup.Command { return update.NewCmdUpdate(props) }, false},
+		// update reads nothing from config that a fresh install lacks when
+		// its channel is static (spec 0203 D10), so it must run there too.
+		{p.UpdateCmd, func() *setup.Command { return update.NewCmdUpdate(props) }, props.Tool.ReleaseSource.Type == p.ReleaseSourceStatic},
 		{p.InitCmd, func() *setup.Command { return initialise.NewCmdInit(props) }, false},
 		{p.DoctorCmd, func() *setup.Command { return doctor.NewCmdDoctor(props) }, false},
 		{p.ConfigCmd, func() *setup.Command { return cmdconfig.NewCmdConfig(props) }, false},
