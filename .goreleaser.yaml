@@ -140,7 +140,10 @@ signs:
 #   3. publishers, last in the publish pipe and skipped with it, moves the
 #      pointer by a conditional write (scripts/move-pointer.sh). `checksum:
 #      true` with an `ids` no archive carries is how a publisher runs once:
-#      the checksum artifact belongs to every id.
+#      the checksum artifact belongs to every id. goreleaser runs a publisher
+#      with a scrubbed environment (PATH, HOME and little else), so the store
+#      credentials are passed through `env` explicitly; without that the
+#      first v0.45.0 publish uploaded everything and left the pointer behind.
 #
 # The layout a reader expects is docs/reference/static-release-channel.md.
 before_publish:
@@ -184,6 +187,9 @@ publishers:
   - name: latest-pointer
     checksum: true
     ids: [latest-pointer]
+    env:
+      - AWS_ACCESS_KEY_ID={{ .Env.AWS_ACCESS_KEY_ID }}
+      - AWS_SECRET_ACCESS_KEY={{ .Env.AWS_SECRET_ACCESS_KEY }}
     cmd: scripts/move-pointer.sh dist/latest.json {{ .Env.R2_RELEASE_ENDPOINT }}/pbs-release-binaries/go-tool-base/latest.json
     output: true
 

@@ -138,6 +138,9 @@ publishers:
   - name: latest-pointer
     checksum: true
     ids: [latest-pointer]   # no archive carries this id; the checksum artifact belongs to every id, so this runs once
+    env:                    # a publisher runs with a scrubbed environment; the store credentials are passed through
+      - AWS_ACCESS_KEY_ID={{ .Env.AWS_ACCESS_KEY_ID }}
+      - AWS_SECRET_ACCESS_KEY={{ .Env.AWS_SECRET_ACCESS_KEY }}
     cmd: bash scripts/move-pointer.sh dist/latest.json {{ .Env.RELEASE_STORE_ENDPOINT }}/{{ .Env.RELEASE_STORE_BUCKET }}/acme/mytool/latest.json
 ```
 

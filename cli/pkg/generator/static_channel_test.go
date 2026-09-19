@@ -56,6 +56,7 @@ func TestGenerateSkeleton_StaticChannelRendersTheChannel(t *testing.T) {
 	assert.Contains(t, gr, `directory: "acme/sttool/{{ .Tag }}"`, "the store prefix is the base URL's path")
 	assert.Contains(t, gr, "glob: dist/release.json")
 	assert.Contains(t, gr, "bash scripts/move-pointer.sh dist/latest.json {{ .Env.RELEASE_STORE_ENDPOINT }}/{{ .Env.RELEASE_STORE_BUCKET }}/acme/sttool/latest.json")
+	assert.Contains(t, gr, "- AWS_ACCESS_KEY_ID={{ .Env.AWS_ACCESS_KEY_ID }}", "goreleaser scrubs a publisher's environment; the credentials are passed through")
 	assert.Contains(t, gr, "gitlab_urls:", "hosted: the forge release object is still created")
 
 	script := readGenerated(t, fs, "/work/scripts/move-pointer.sh")
