@@ -1,5 +1,53 @@
 # Changelog
 
+## [v0.45.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.44.0...v0.45.0)
+
+### Notes
+
+- A generated project can now self-update from a static location instead
+  of its forge: `gtb generate project --release-channel static
+  --release-base-url <https URL>`, or "A static location" on the wizard's
+  self-update page. The release configuration publishes the pointer and
+  per-tag manifests the tool reads (GoReleaser Pro). A project generated
+  with `--no-forge` can enable `update` this way. The direct channel's
+  flags and manifest keys are withdrawn; an existing `release_source.direct`
+  block is dropped on the next regenerate. See the migration note
+  docs/reference/migration/v0.x-static-release-channel.md.
+
+- gtb now checks for and downloads updates from
+  https://pkg.phpboyscout.uk/go-tool-base directly, reading a small pointer
+  and a per-release manifest there, so `gtb update` no longer consults
+  GitLab at all. An installed gtb from before this release still updates
+  through the GitLab release's asset links, which point at the same store.
+  The layout is documented in docs/reference/static-release-channel.md.
+
+- A generated project's release now runs the binary it built, `<tool> version --ci`, before publishing anything, so a release whose binary cannot start fails instead of shipping. Existing projects pick this up on their next `gtb regenerate project`; a project that lists `.goreleaser.yaml` in `.gtb/ignore` adds the `hooks.post` block to its build by hand.
+
+- `update` no longer prints "Update complete" when the running binary is already the latest release; it says nothing was replaced, exits 0, and `--output json` reports `"updated": false`. The post-update config refresh now works on GitLab-hosted tools: it ran `init` with the GitHub profile's `--skip-login` flag, which a GitLab tool's `init` refused, so the refresh had never run for them.
+
+### Features
+
+- **cli**: the wizard and flags offer the static release channel ([4ed5d1a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ed5d1a80183ba9f56f5f78a29229edceac3bee1))
+- **generator**: a project can release on the static channel ([92355ec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/92355ec5260b1087bc897cf71088c951a75bf30d))
+- **cli**: gtb publishes and self-updates from the static release channel ([86c75af](https://gitlab.com/phpboyscout/go-tool-base/-/commit/86c75af9ff8277a249c1063cdbe1e1c3df8031c5))
+- **setup**: the updater takes the static channel from the tool's release source ([451e924](https://gitlab.com/phpboyscout/go-tool-base/-/commit/451e9240e39c042541a046aac522b5f253cccdab))
+- **release**: static.Channel reads the pointer, the chain and the files they name ([49aafd5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/49aafd51f21fbda7396aadfada17e00f1f88084c))
+- **release**: releasemanifest reads the dist goreleaser has before publishing ([dbbfe20](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dbbfe202ebab0282f2b2161ca6cf93def41eb23f))
+- **props**: ReleaseSource.BaseURL and the static channel layout reference ([fb2bbc0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fb2bbc0fe61d0c8091f97f94f86b1ff3227bfe14))
+- **release**: go tool releasemanifest writes a tag's manifest from goreleaser's dist ([8716168](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8716168466cd0f378220cceff924acef32b6d6cc))
+- **release**: the static channel's two documents, shared by writer and reader ([18fb54b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/18fb54b38a233805c4987f6c514d6838eac5b8d8))
+
+### Bug Fixes
+
+- **release**: the build runs the binary it made before anything is published ([c0a0742](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c0a0742883676f2f1b9fbba24873250e19424143))
+- **update**: say when nothing was replaced, and refresh config with no profile's flag ([ea04f5f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ea04f5fe3d5f850f3a398b2d29eacf3e18333b81))
+
+### Other
+
+- **setup**: the updater reads releases through a ReleaseChannel seam ([0359d41](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0359d417097175b54d60d4205087d17bcc11130a))
+
 ## [v0.44.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.44.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.43.0...v0.44.0)
