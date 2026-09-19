@@ -36,3 +36,16 @@ func TestSkeletonGenerateFile_EmbedsDocsAndChangelog(t *testing.T) {
 	neither := renderGenerateFile(t, []string{"docs", "changelog"})
 	assert.NotContains(t, neither, "go:generate")
 }
+
+// The site go generate builds beside the raw docs is ignored too (#93): the
+// file is generator-managed and hash-tracked, so a line added by hand is a
+// conflict on every later regenerate.
+func TestSkeletonGitignore_IgnoresBothEmbeddedDocsTrees(t *testing.T) {
+	t.Parallel()
+
+	raw, err := skeletonAssets.ReadFile("assets/skeleton/.gitignore")
+	require.NoError(t, err)
+
+	assert.Contains(t, string(raw), "pkg/cmd/root/assets/docs\n")
+	assert.Contains(t, string(raw), "pkg/cmd/root/assets/site\n")
+}

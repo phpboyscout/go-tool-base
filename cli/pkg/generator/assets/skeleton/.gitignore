@@ -31,5 +31,7 @@ config/local.yaml
 site/*
 CHANGELOG.md
 
-# Embedded documentation, filled by go generate (see pkg/cmd/root/generate.go)
+# Embedded documentation, filled by go generate (see pkg/cmd/root/generate.go):
+# the raw docs the TUI reads and the site `docs serve` serves.
 pkg/cmd/root/assets/docs
+pkg/cmd/root/assets/site
