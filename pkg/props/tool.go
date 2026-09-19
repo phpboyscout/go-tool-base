@@ -128,7 +128,15 @@ type ReleaseSource struct {
 	Owner   string `json:"owner"   yaml:"owner"`
 	Repo    string `json:"repo"    yaml:"repo"`
 	Private bool   `json:"private" yaml:"private"`
+	// BaseURL is the static release channel's one setting (spec 0203 D1): the
+	// HTTPS location the pointer and the per-tag manifests are published under.
+	// Read only when Type is ReleaseSourceStatic; the forge fields are unused then.
+	BaseURL string `json:"base_url,omitempty" yaml:"base_url,omitempty"`
 }
+
+// ReleaseSourceStatic is the ReleaseSource.Type of the static release channel:
+// releases discovered and retrieved from BaseURL with no forge involved.
+const ReleaseSourceStatic = "static"
 
 // SigningConfig holds tool-author configuration for self-update
 // signature verification (Phase 2 of the remote-update-checksum spec).
