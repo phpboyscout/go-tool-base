@@ -77,6 +77,18 @@ props.Tool.ReleaseSource = props.ReleaseSource{Type: "direct"}
 
 The same placeholders (`{version}`, `{version_bare}`, `{os}`, `{arch}`, `{tool}`, `{ext}`) are available.
 
+### Publishing on the static channel
+
+A tool on the static release channel ([spec 0203](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0203-the-static-release-channel)) reads no forge, so the release has to publish what the reader needs: a per-tag `release.json` beside the archives and a `latest.json` pointer at the base URL, moved last. The scaffolded `.goreleaser.yaml` of a project generated with `--release-channel static` carries the three pieces, in pipeline order:
+
+1. A **`before_publish`** hook (GoReleaser **Pro**, the one slot that runs after checksums and signatures exist and before anything is uploaded) runs `go tool releasemanifest`, which writes `dist/release.json` and `dist/latest.json` from `metadata.json`, `checksums.txt` and the archives themselves. The `go.mod` `tool` directive for it is scaffolded with the channel.
+2. **`blobs:`** uploads the tag's objects to an S3-compatible store, `release.json` among them, under `<base URL path>/<tag>/`.
+3. A **`publishers:`** entry, last in the publish pipe and skipped with it, runs `scripts/move-pointer.sh`: a conditional SigV4 `curl` that reads the pointer's ETag and `PUT`s the new one with `If-Match` (`If-None-Match: *` for a first release) and `Cache-Control: no-cache`, so two publishes cannot silently clobber each other.
+
+The pipeline needs, as CI/CD variables: `GORELEASER_KEY` (the Pro licence; the scaffolded GitLab pipeline sets the goreleaser component's `pro: true` input), `RELEASE_STORE_ENDPOINT` and `RELEASE_STORE_BUCKET` (the store's S3 endpoint and bucket; the scaffolded pipeline maps the estate's onto them), and `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` for the store, which the estate's goreleaser component supplies. The public base URL must serve the bucket's path prefix. The signature over `checksums.txt` is produced exactly as above; the manifest names it and the reader verifies it the same way.
+
+The layout, field by field, is [the static release channel reference](../reference/static-release-channel.md); a publisher without GoReleaser follows it directly.
+
 ## Consuming (tool author)
 
 ### Pick a failure mode

@@ -31,6 +31,7 @@ graph TD
 - **Markers**: Status files (e.g., `last_checked`) are stored in the tool's config directory.
 - **Throttling**: By default, checks occur at most once every 24 hours.
 - **Command exemptions**: some commands never trigger the check, decided by typed command metadata rather than command names: anything wrapped with the `UpdateCmd`/`InitCmd` feature, and anything stamped with `setup.MarkSkipUpdateCheck` (`version`, `doctor`, `mcp` stamp themselves; a stamped group covers its whole subtree). Cobra's generated `help`/`completion`/`__complete` commands never reach the check at all: they take the root pre-run's [auxiliary fast path](setup/root-command.md#the-auxiliary-fast-path).
+- **Two channels, one seam**: the updater reads releases through a `ReleaseChannel` (spec 0203 D4) with two branches. The **forge** branch is the tool's forge provider (GitHub, GitLab, Gitea, Bitbucket, or go/forge's direct source). The **static** branch reads a plain https location and imports no forge: `<base>/latest.json`, the pointer, names the current tag and its manifest; `<base>/<tag>/release.json` lists that release's archives with platform, size and SHA-256, its `checksums.txt`, its signature and the tag before it, so the manifests form a chain a reader can walk with no listing. The pointer is the one object on the channel that ever changes, moved last and by a conditional write, so a reader never sees a release the location does not fully hold; everything under a tag is immutable. Verification is the same code on both branches. On the static channel `update` is also exempt from the root pre-run's unlinked-forge check and missing-config gate, because its updater needs neither and exists to let a broken install pull its own fix (D10). gtb itself is on this channel. The layout is [the static release channel reference](../../reference/static-release-channel.md).
 - **Consent default**: the update prompt defaults to **No**. If it cannot be answered (no TTY (cron, CI, piped stdin), or the user aborts) the update is declined rather than run. The tool continues with the current version; use the explicit `update` command (or `--ci`/`CI=true` to skip the check) for non-interactive environments.
 
 ### 2. Execution (Atomic Installation)
@@ -79,7 +80,7 @@ it never applies a downgrade automatically. See
 ## Testability via Abstraction
 
 The update system is designed to be fully testable despite its heavy reliance on the network and filesystem:
-- **`vcs.GitHubClient`**: Injected to mock API responses.
+- **`ReleaseChannel`**: the seam both branches sit behind; a test injects a forge double (`go/forge/test`) or serves a static channel from an `httptest.Server`.
 - **`afero.Fs`**: Used for all filesystem operations, allowing the entire download/extract/swap flow to be verified in-memory.
 
 ## Offline Update Path

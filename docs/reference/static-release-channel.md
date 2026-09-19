@@ -119,7 +119,7 @@ Nothing under `<tag>/` is ever modified or removed once published. The pointer i
 
 ## Producing the documents with GoReleaser
 
-The framework ships a tool that writes both documents from a GoReleaser `dist/`, and gtb's own `.goreleaser.yaml` shows the three pieces in pipeline order. They need GoReleaser **Pro**: the manifest has to be written after `checksums.txt` and its signature exist and before anything is uploaded, and only Pro's `before_publish` hooks run in that slot (GoReleaser's `artifacts.json` is written after publishing, in both editions, so the tool does not read it).
+The framework ships a tool that writes both documents from a GoReleaser `dist/`, and a project generated with `--release-channel static` gets the three pieces below in its `.goreleaser.yaml` (gtb's own carries the same). They need GoReleaser **Pro**: the manifest has to be written after `checksums.txt` and its signature exist and before anything is uploaded, and only Pro's `before_publish` hooks run in that slot (GoReleaser's `artifacts.json` is written after publishing, in both editions, so the tool does not read it).
 
 ```yaml
 before_publish:
@@ -128,7 +128,9 @@ before_publish:
 
 blobs:
   - provider: s3
-    # ... the bucket, endpoint and per-tag directory ...
+    bucket: "{{ .Env.RELEASE_STORE_BUCKET }}"
+    endpoint: "{{ .Env.RELEASE_STORE_ENDPOINT }}"
+    directory: "acme/mytool/{{ .Tag }}"   # the base URL's path, then the tag
     extra_files:
       - glob: dist/release.json
 
@@ -136,12 +138,14 @@ publishers:
   - name: latest-pointer
     checksum: true
     ids: [latest-pointer]   # no archive carries this id; the checksum artifact belongs to every id, so this runs once
-    cmd: scripts/move-pointer.sh dist/latest.json <bucket> acme/mytool/latest.json
+    cmd: bash scripts/move-pointer.sh dist/latest.json {{ .Env.RELEASE_STORE_ENDPOINT }}/{{ .Env.RELEASE_STORE_BUCKET }}/acme/mytool/latest.json
 ```
 
 1. **`releasemanifest`** (`go tool releasemanifest`, declared in the framework's `go.mod` `tool` block) reads `dist/metadata.json` for the tool name, tag and date, `dist/checksums.txt` for the archives and their digests, and each archive itself: its size from the file and its `os` and `arch` from the build info of the Go binary inside, so the archive's name never matters. It reads the current pointer at the base URL to fill `previous` (empty when there is none yet) and writes `dist/release.json` and `dist/latest.json`. It refuses a `dist/` with an archive that `checksums.txt` does not list, two archives for one platform, or an archive holding no Go binary. `--previous <tag>` overrides the pointer lookup; `--notes <file>` supplies the notes.
 2. **`blobs:`** uploads `release.json` with the archives, checksums and signature, immutable like them.
-3. **`publishers:`** runs last in the publish pipe (and not at all when publishing is skipped) and moves the pointer. `scripts/move-pointer.sh` in the framework repository is the conditional write of the publish order above: it reads the pointer's ETag with a signed `HEAD`, then `PUT`s `dist/latest.json` with `If-Match` on it (`If-None-Match: *` for a first release) and `Cache-Control: no-cache`, using `curl`'s own SigV4 signing and the same credentials as `blobs:`. A 412 fails the job and names the condition that failed.
+3. **`publishers:`** runs last in the publish pipe (and not at all when publishing is skipped) and moves the pointer. `scripts/move-pointer.sh` (scaffolded with the channel; the framework repository carries the same file) is the conditional write of the publish order above: given the pointer file and the object's URL on the store's S3 endpoint, it reads the pointer's ETag with a signed `HEAD`, then `PUT`s `dist/latest.json` with `If-Match` on it (`If-None-Match: *` for a first release) and `Cache-Control: no-cache`, using `curl`'s own SigV4 signing (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, the same credentials as `blobs:`). A 412 fails the job and names the condition that failed.
+
+The pipeline supplies `GORELEASER_KEY`, `RELEASE_STORE_ENDPOINT`, `RELEASE_STORE_BUCKET` and the store credentials; the public base URL must serve the bucket's path prefix. [Secure releases](../how-to/secure-releases.md#publishing-on-the-static-channel) is the how-to.
 
 A publisher without GoReleaser writes both documents from this page and follows the order above.
 

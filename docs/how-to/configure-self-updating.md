@@ -56,7 +56,8 @@ ReleaseSource: props.ReleaseSource{
 | `"bitbucket"` | Bitbucket Cloud Downloads | Version inferred from asset filenames |
 | `"gitea"` | Gitea / Forgejo | `Host` is required |
 | `"codeberg"` | Codeberg (Forgejo) | `Host` defaults to `https://codeberg.org` |
-| `"direct"` | Arbitrary HTTP / S3 / CDN | URL template required in configuration |
+| `"static"` | The static release channel: any https location the release publishes a pointer and per-tag manifests under, no forge involved | `BaseURL` is the one setting; see [below](#the-static-release-channel) |
+| `"direct"` | Arbitrary HTTP / S3 / CDN through go/forge's direct provider | URL template required in configuration |
 
 For a self-managed GitLab instance, also set `Host`:
 
@@ -103,6 +104,32 @@ one type can coexist, each reading its own subtree. These were previously a
 [migration note](../reference/migration/v0.x-release-source-params-removed.md).
 
 See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/) for the configuration keys each provider reads.
+
+### The static release channel
+
+A tool need not read a forge at all. On the static channel ([spec 0203](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0203-the-static-release-channel)) the release publishes two small JSON documents beside the binaries: `<base>/latest.json`, a pointer naming the current tag and its manifest, and `<base>/<tag>/release.json`, a manifest listing that release's archives with their platform, size and SHA-256, its `checksums.txt` and signature, and the tag before it. The tool reads the pointer, follows the manifest, picks its platform and verifies as it does on a forge. Nothing else is configured, and no credential is read: a public location is the design.
+
+```go
+ReleaseSource: props.ReleaseSource{
+    Type:    props.ReleaseSourceStatic,
+    BaseURL: "https://pkg.example.org/acme/mytool",
+},
+```
+
+The base URL must be `https`, carry no userinfo and no query, and not be a placeholder host such as `example.com`. gtb itself updates this way from `https://pkg.phpboyscout.uk/go-tool-base`.
+
+A generated project chooses the channel on the wizard's self-update page ("A static location", then the location on the page after) or with `--release-channel static --release-base-url <url>`; a project that is not hosted on a forge (`--no-forge`) can self-update this way and no other. The release configuration then publishes the two documents for you; [Secure releases](secure-releases.md#publishing-on-the-static-channel) says what that needs in CI, and the [layout reference](../reference/static-release-channel.md) is the contract any other publisher can meet.
+
+On this channel `update` is also exempt from two gates that would stop a broken install helping itself: the unlinked-forge check and the missing-config gate. A tool whose forge adapters or configuration are broken can still pull its own fix.
+
+To check a location by hand:
+
+```bash
+curl -fsS https://pkg.example.org/acme/mytool/latest.json          # the pointer: tag and manifest URL
+curl -fsS https://pkg.example.org/acme/mytool/v1.2.0/release.json  # the manifest it names
+curl -fsS https://pkg.example.org/acme/mytool/v1.2.0/checksums.txt # the digests the manifest repeats
+mytool doctor                                                     # the Release source check reads the pointer and names the current tag
+```
 
 ---
 

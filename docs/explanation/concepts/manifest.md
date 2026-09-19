@@ -59,7 +59,7 @@ commands:
 ### Key Fields
 
 - **properties**: Global project settings (name, repo, host, description, features, help channel).
-- **release_source**: Where the tool's releases are hosted. `type` is `github` or `gitlab`; `owner` is the organisation or user; `repo` is the repository name.
+- **release_source**: Where the tool's releases come from. `type` is a forge (`github`, `gitlab`, `gitea`, `codeberg`, `bitbucket`) with `backend`, `host`, `owner` and `repo`, or `static` with `static.base_url`, the https location the release publishes a pointer and per-tag manifests under with no forge involved ([spec 0203](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0203-the-static-release-channel)). A hosted project on the static channel keeps its `backend` for `init <forge>` and credentials. A `direct` block from the withdrawn direct channel still loads and is dropped on the first regenerate.
 - **version**: Records the GTB version used to generate the project (`gtb: vX.Y.Z`).
 - **commands**: A recursive list of all commands in your tool.
     - **name**: The command name (e.g., `server`).
