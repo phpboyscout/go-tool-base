@@ -133,8 +133,9 @@ func newTestRoot() (*setup.Command, *props.Props, error) {
 		return nil, nil, err
 	}
 
-	// When GTB_E2E_RELEASE_SCENARIO is set, swap the configured GitLab release
-	// source for an in-memory stub so `gtb update` scenarios run hermetically.
+	// When GTB_E2E_RELEASE_SCENARIO or GTB_E2E_STATIC_CHANNEL is set, swap the
+	// configured GitLab release source for an in-memory stub or a local static
+	// channel so `gtb update` scenarios run hermetically.
 	applyReleaseStub(p)
 
 	// Register the internal scaffolding commands so BDD scenarios

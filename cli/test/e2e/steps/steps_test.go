@@ -35,6 +35,7 @@ func TestFeatures(t *testing.T) {
 func initializeScenario(ctx *godog.ScenarioContext) {
 	initControlsSteps(ctx)
 	initCLISteps(ctx)
+	initStaticChannelSteps(ctx)
 	initChatSteps(ctx)
 	initSignalSteps(ctx)
 	initGeneratorSteps(ctx)

@@ -30,11 +30,26 @@ const (
 	stubNewBinaryContent = "new-binary"
 )
 
-// applyReleaseStub wires an in-memory stub release source onto the tool when
-// releaseScenarioEnv is set, pinning a deterministic current version so update
-// scenarios run hermetically. It is a no-op when the env var is unset, leaving
-// the configured GitLab source in place.
+// staticChannelEnv names a static release channel's base URL (spec 0203).
+// When set, the tool's release source becomes that channel: the BDD steps
+// start a local server holding the scenario's pointer and manifests and pass
+// its URL here, so the static branch of the updater runs end to end with no
+// network and no forge.
+const staticChannelEnv = "GTB_E2E_STATIC_CHANNEL"
+
+// applyReleaseStub wires a hermetic release source onto the tool when one of
+// the scenario variables is set, pinning a deterministic current version so
+// update scenarios run without a network: an in-memory forge double for
+// releaseScenarioEnv, the static channel at staticChannelEnv otherwise. It is
+// a no-op when neither is set, leaving the configured GitLab source in place.
 func applyReleaseStub(p *props.Props) {
+	if base := os.Getenv(staticChannelEnv); base != "" {
+		p.Tool.ReleaseSource = props.ReleaseSource{Type: props.ReleaseSourceStatic, BaseURL: base}
+		p.Version = pkgversion.NewInfo(stubCurrentVersion, "", "")
+
+		return
+	}
+
 	scenario := os.Getenv(releaseScenarioEnv)
 	if scenario == "" {
 		return

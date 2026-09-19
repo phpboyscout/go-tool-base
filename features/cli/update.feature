@@ -66,3 +66,42 @@ Feature: CLI Update Command
     When I run gtb with "update"
     Then the exit code is not 0
     And stderr contains "signature"
+
+  # The static release channel (spec 0203): the binary discovers and retrieves
+  # releases from a pointer and per-tag manifests at a plain HTTPS location,
+  # with no forge involved. The step starts that location in the test process
+  # and hands its URL to the binary, so the whole static branch runs
+  # hermetically. The outcomes mirror the forge double's above.
+
+  Scenario: On the static channel, already on the latest version is a no-op
+    Given a static release channel serving "already-latest"
+    When I run gtb with "update"
+    Then the exit code is 0
+    And stderr contains "already running latest version"
+    And stderr contains "nothing to update"
+
+  Scenario: On the static channel, a pointer to an older release is refused without force
+    Given a static release channel serving "stale-latest"
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "refusing to downgrade"
+
+  Scenario: On the static channel, a tag with no manifest fails clearly
+    Given a static release channel serving "chain"
+    When I run gtb with "update --version v9.9.9"
+    Then the exit code is not 0
+    And stderr contains "no release with that tag"
+    And stderr contains "latest.json"
+
+  Scenario: On the static channel, a corrupt checksum aborts the update before replacing the binary
+    Given a static release channel serving "bad-checksum"
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "checksum mismatch"
+
+  Scenario: On the static channel, nothing published yet is named, not blamed on configuration
+    Given a static release channel serving "nothing-published"
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "no release has been published"
+    And stderr contains "not a configuration problem"
