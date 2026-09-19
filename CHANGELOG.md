@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.45.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.2)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.1...v0.45.2)
+
+### Notes
+
+- v0.45.1, like v0.45.0, published every object but did not move the
+  static channel's pointer; this release does, and starts the chain.
+
+### Bug Fixes
+
+- **release**: the pointer is read with a signed GET, and a refusal is shown ([bdba351](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bdba35176c65ea8068e2572c14320773cc548e10))
+
 ## [v0.45.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.0...v0.45.1)
