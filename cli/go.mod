@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.42.0
+	gitlab.com/phpboyscout/go-tool-base v0.43.0
 	gitlab.com/phpboyscout/go/chat v0.24.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.14.2
 	gitlab.com/phpboyscout/go/chat-bedrock v0.2.1
@@ -109,6 +109,7 @@ require (
 	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
 	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/dlclark/regexp2/v2 v2.8.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
@@ -121,6 +122,7 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -153,12 +155,12 @@ require (
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/njayp/ophis v1.1.4 // indirect
 	github.com/openai/openai-go/v3 v3.62.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
@@ -176,6 +178,7 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
+	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/gitlab-org/api/client-go/v2 v2.64.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
@@ -188,6 +191,7 @@ require (
 	gitlab.com/phpboyscout/go/credentials v0.3.2 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/mcp v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/observability v0.3.2 // indirect
 	gitlab.com/phpboyscout/go/output v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/regexutil v0.2.2 // indirect
