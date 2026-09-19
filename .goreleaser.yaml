@@ -98,6 +98,11 @@ checksum:
 signs:
   - id: checksums
     cmd: scripts/sign-release.sh
+    # The R2 keys the process carries for `blobs` outrank the OIDC identity in
+    # the SDK's chain, so they are blanked for the signer (0025 D15).
+    env:
+      - "AWS_ACCESS_KEY_ID="
+      - "AWS_SECRET_ACCESS_KEY="
     artifacts: checksum
     signature: "${artifact}.sig"
     args: ["${artifact}", "${signature}"]
@@ -116,31 +121,22 @@ signs:
 release:
   disable: true
 
-# The artefacts go to GitLab's generic package registry, which needs no release.
-#
-# This target must match the component's `asset_base`, and is written in both
-# places on purpose: colophon does not derive it, so a mismatch is a
-# configuration error somebody can see rather than a release full of 404s.
-#
-# No {{ .ArtifactName }} -- goreleaser appends the artefact's name itself, and
-# including it nests every file a path segment deeper than anything looks for
-# it. Measured on colophon v0.2.0, with a green build and nothing to show it.
-uploads:
-  - name: gitlab-generic
-    target: '{{ .Env.CI_API_V4_URL }}/projects/{{ .Env.CI_PROJECT_ID }}/packages/generic/{{ .ProjectName }}/{{ .Version }}/'
-    method: PUT
-    mode: archive
-    checksum: true
-    signature: true
-    # mode: archive carries archives, checksums and signatures but not SBOMs,
-    # which the old release-attached flow shipped (14 assets at v0.40.0, 8 in
-    # the registry at v0.41.1). colophon links every file in the artefact
-    # manifest and verifies each resolves, so an SBOM that is generated but
-    # not uploaded fails the release rather than being quietly absent.
-    extra_files:
-      - glob: dist/*.sbom.json
-    custom_headers:
-      JOB-TOKEN: '{{ .Env.CI_JOB_TOKEN }}'
+# The release store (colophon spec 0025). `directory` is the tag and must agree
+# with the cicd colophon component's `asset_base` and the cask URL below:
+# written three times on purpose, so a mismatch is a visible configuration
+# error rather than a release full of 404s (v0.41.1 was one). SBOMs, checksums
+# and signatures are release-uploadable types, so they travel without an
+# extra_files glob. Every object is write-once, hence immutable (0025 D18).
+blobs:
+  - provider: s3
+    bucket: pbs-release-binaries
+    endpoint: "{{ .Env.R2_RELEASE_ENDPOINT }}"
+    region: auto
+    directory: "go-tool-base/{{ .Tag }}"
+    s3_force_path_style: true
+    content_disposition: inline
+    cache_control:
+      - "public, max-age=31536000, immutable"
 
 changelog:
   # colophon owns the changelog (CHANGELOG.md and the Release notes), so
@@ -179,14 +175,12 @@ homebrew_casks:
     homepage: "https://gitlab.com/phpboyscout/go-tool-base"
     description: "A helper utility for interacting and managing gtb repos and resources"
     # With release.disable the cask cannot derive its download URL from a
-    # release GoReleaser did not create, so it names the generic package
-    # registry the uploads: block writes to. Same shape as that target, and
-    # as the colophon component's asset_base, on purpose: a mismatch is a
-    # cask full of 404s. The v0.41.0 tag was the first to run this config and
-    # failed on exactly this ("release is disabled, cannot use default
-    # url_template").
+    # release GoReleaser did not create, so it names the release store the
+    # blobs: block writes to. The v0.41.0 tag was the first to run with a
+    # disabled release and failed on exactly this ("release is disabled,
+    # cannot use default url_template").
     url:
-      template: "{{ .Env.CI_API_V4_URL }}/projects/{{ .Env.CI_PROJECT_ID }}/packages/generic/{{ .ProjectName }}/{{ .Version }}/{{ .ArtifactName }}"
+      template: "https://pkg.phpboyscout.uk/go-tool-base/{{ .Tag }}/{{ .ArtifactName }}"
     dependencies:
       - formula: go
       - formula: golangci-lint
