@@ -76,7 +76,12 @@ release build carries and a build from source does not.`,
 	cmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use ("+chat.ProviderNames()+")")
 
 	docsCmd := setup.AnnotateMCP(setup.Wrap(props.DocsCmd, cmd), setup.MCPReadOnly())
-	docsCmd.Register(setup.Wrap(props.DocsCmd, NewCmdDocsAsk(p)))
+
+	// ask is the AI-based feature the ai flag switches; the linked chat
+	// providers are the tool's wiring and do not decide this (#94).
+	if p.GetFeatures().Enabled(props.AiCmd) {
+		docsCmd.Register(setup.Wrap(props.AiCmd, NewCmdDocsAsk(p)))
+	}
 
 	// Only add serve command if the static site exists
 	if sfs, err := p.Assets.Exists("assets/site"); err == nil {

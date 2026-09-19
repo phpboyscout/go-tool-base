@@ -133,6 +133,16 @@ func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 	}
 }
 
+// chatLinksWithoutAi: without ai the links are the tool's own wiring (#94),
+// named and not judged on ai.provider, a key the tool does not read.
+func chatLinksWithoutAi(name string, linked []string) CheckResult {
+	if len(linked) == 0 {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "ai feature off and no provider linked"}
+	}
+
+	return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(linked, ", ") + " linked for the tool's own use (ai feature off)"}
+}
+
 // checkChatProviders is the chat side of checkForgeAdapters (spec 0196 D8,
 // D12): the provider ai.provider names, and every fallback member, must be
 // one this binary registers, and the fix is the module to import. It replaced
@@ -141,12 +151,8 @@ func checkForgeAdapters(_ context.Context, props *p.Props) CheckResult {
 func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 	const name = "Chat providers"
 
-	if props == nil || !props.GetFeatures().Enabled(p.AiCmd) {
-		return CheckResult{Name: name, Status: CheckSkip, Message: "ai feature not enabled"}
-	}
-
-	if props.Config == nil {
-		return CheckResult{Name: name, Status: CheckSkip, Message: "no configuration loaded"}
+	if props == nil {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no tool metadata"}
 	}
 
 	// The author's declared links when the tool has them (#81), else every
@@ -160,6 +166,14 @@ func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 
 	if len(unregistered) > 0 {
 		return CheckResult{Name: name, Status: CheckFail, Message: "declared but not linked: " + strings.Join(withImportHints(unregistered), "; ")}
+	}
+
+	if !props.GetFeatures().Enabled(p.AiCmd) {
+		return chatLinksWithoutAi(name, linked)
+	}
+
+	if props.Config == nil {
+		return CheckResult{Name: name, Status: CheckSkip, Message: "no configuration loaded"}
 	}
 
 	configured := chatProvidersInUse(props.Config.View())

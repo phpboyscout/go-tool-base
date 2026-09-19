@@ -131,7 +131,7 @@ func TestNewCmdDocs_StructureWithoutSite(t *testing.T) {
 	assets := props.NewAssets(props.AssetMap{
 		"docs": fstest.MapFS{"assets/docs/index.md": {Data: []byte("# Docs")}},
 	})
-	p := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb"}}
+	p := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb", Features: props.SetFeatures(props.Enable(props.AiCmd))}}
 
 	cmd := NewCmdDocs(p)
 
@@ -379,4 +379,20 @@ func TestLogToProps_UnknownLevelNoOp(t *testing.T) {
 	logToProps(p, "msg", logger.Level(999))
 
 	assert.Empty(t, capture.Records())
+}
+
+// #94: `docs ask` is the AI-based feature the ai flag switches; a tool
+// without ai has docs and no ask.
+func TestNewCmdDocs_AskFollowsTheAiFeature(t *testing.T) {
+	t.Parallel()
+
+	assets := props.NewAssets(props.AssetMap{
+		"docs": fstest.MapFS{"assets/docs/index.md": {Data: []byte("# Docs")}},
+	})
+
+	off := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb", Features: props.SetFeatures(props.Disable(props.AiCmd))}}
+	assert.Nil(t, findSub(NewCmdDocs(off).Command, "ask"), "no ai, no ask")
+
+	on := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb", Features: props.SetFeatures(props.Enable(props.AiCmd))}}
+	assert.NotNil(t, findSub(NewCmdDocs(on).Command, "ask"))
 }

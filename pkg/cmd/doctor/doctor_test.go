@@ -167,7 +167,7 @@ func TestDefaultChecks_FeatureAware(t *testing.T) {
 		FS:     afero.NewMemMapFs(),
 	}
 	def := results(base)
-	assert.Equal(t, CheckSkip, def["Chat providers"].Status, "AI-disabled tool has nothing to say about chat providers")
+	assert.Contains(t, []CheckStatus{CheckSkip, CheckPass}, def["Chat providers"].Status, "AI-disabled tool is told what it links, never warned about ai.provider (#94)")
 	_, hasGit := def["Git"]
 	assert.False(t, hasGit, "Git must never be a built-in check")
 	_, hasAPIKeys := def["API keys"]

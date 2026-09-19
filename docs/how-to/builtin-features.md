@@ -80,10 +80,10 @@ The following table provides a complete reference for all `FeatureID` constants,
 | `props.UpdateCmd` | **Enabled** | `update` | Disable if you manage updates externally (package managers, CI/CD) |
 | `props.InitCmd` | **Enabled** | `init`, `init github` | Disable if your tool has no configuration requirements |
 | `props.McpCmd` | **Linked** (on while `pkg/mcp` is imported) | `mcp`, `mcp start`, `mcp tools` | Omit the `pkg/mcp` import if AI agent integration is not needed; the binary then ships without the MCP SDK |
-| `props.DocsCmd` | **Enabled** | `docs`, `docs serve`, `docs ask` | Disable if you don't embed documentation |
+| `props.DocsCmd` | **Enabled** | `docs`, `docs serve` | Disable if you don't embed documentation |
 | `props.DoctorCmd` | **Enabled** | `doctor` | Disable if you don't ship environment/configuration health checks |
 | `props.ChangelogCmd` | **Enabled** | `changelog` | Disable if your tool has no embedded changelog |
-| `props.AiCmd` | **Opt-in** | `init ai` | Enable to allow users to configure AI providers |
+| `props.AiCmd` | **Opt-in** | `init ai`, `docs ask` | The switch for GTB's AI-based features: the `ai` config section and `ai.provider`, the `init ai` wizard, `docs ask`, the doctor check. Which chat provider modules the binary links is a separate choice, `chat.providers` in the manifest (see [generate](../reference/cli/generate.md#adapters)) |
 | `props.ConfigCmd` | **Opt-in** | `config get`, `config set`, `config list`, `config validate` | Enable to expose programmatic config access |
 | `props.TelemetryCmd` | **Opt-in** | `telemetry status`, `telemetry reset` | Enable to ship opt-in anonymous usage telemetry |
 | `props.ManCmd` | **Opt-in** | `man` | Enable to generate roff man pages for your CLI |

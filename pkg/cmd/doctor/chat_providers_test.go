@@ -27,9 +27,13 @@ func TestCheckChatProviders(t *testing.T) {
 
 	ai := p.Tool{Name: "t", Features: p.SetFeatures(p.Enable(p.AiCmd))}
 
-	t.Run("skips without ai", func(t *testing.T) {
+	t.Run("judges nothing without ai", func(t *testing.T) {
+		// The process registry carries whatever other tests registered, so
+		// the result is a skip (nothing linked) or an informational pass;
+		// never a warning about ai.provider (#94).
 		res := checkChatProviders(context.Background(), &p.Props{Tool: p.Tool{Name: "t"}, Config: testutil.StoreFromYAML(t, "")})
-		assert.Equal(t, CheckSkip, res.Status)
+		assert.Contains(t, []CheckStatus{CheckSkip, CheckPass}, res.Status, res.Message)
+		assert.Contains(t, res.Message, "ai feature off")
 	})
 
 	t.Run("passes when the configured provider is registered", func(t *testing.T) {
@@ -131,4 +135,28 @@ func TestCheckChatProviders_NamesTheDeclaredLinks(t *testing.T) {
 	res = checkChatProviders(context.Background(), &p.Props{Features: set, Config: testutil.StoreFromYAML(t, "ai:\n  provider: dl-chosen\n")})
 	assert.Equal(t, CheckFail, res.Status, res.Message)
 	assert.Contains(t, res.Message, "dl-ghost", "a declared link whose module is not linked is a build mistake")
+}
+
+// #94: a tool that links providers for its own code without the ai feature
+// is told what it links and not judged on ai.provider, a key it does not read.
+func TestCheckChatProviders_WithoutAiReportsTheLinksAndJudgesNothing(t *testing.T) {
+	factory := func(context.Context, gochat.Settings) (gochat.ChatClient, error) { return nil, nil }
+	gochat.RegisterProvider("own-use", factory)
+
+	reg := features.NewRegistry()
+	for _, d := range p.DescriptorsIn(features.Default().Snapshot()) {
+		require.NoError(t, reg.Declare(d))
+	}
+
+	require.NoError(t, p.DeclareLinksOn(reg, p.ChatLinkPrefix, "own-use"))
+
+	set, err := features.Resolve(reg.Snapshot(), []features.State{{ID: p.AiCmd, Enabled: false}})
+	require.NoError(t, err)
+
+	res := checkChatProviders(context.Background(), &p.Props{Features: set, Config: testutil.StoreFromYAML(t, "{}\n")})
+	assert.Equal(t, CheckPass, res.Status, res.Message)
+	assert.Contains(t, res.Message, "own-use")
+	assert.Contains(t, res.Message, "ai feature off")
+	assert.NotContains(t, res.Message, "ai.provider")
+
 }

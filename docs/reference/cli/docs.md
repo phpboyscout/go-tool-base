@@ -60,7 +60,7 @@ Start a local HTTP server and serve the documentation as a Material-styled stati
 
 ## Docs Ask Subcommand
 
-The `docs ask` subcommand allows you to query the documentation directly from the command line without launching the TUI.
+The `docs ask` subcommand allows you to query the documentation directly from the command line without launching the TUI. It is the AI-based feature the `ai` feature flag switches: a tool without `ai` has `docs` and no `ask`, whatever chat providers it links for its own use.
 
 **Usage:**
 ```bash

@@ -83,7 +83,7 @@ and the opt-in set must be turned on explicitly.
 | `props.DocsCmd` | `docs` | enabled |
 | `props.DoctorCmd` | `doctor` | enabled |
 | `props.ChangelogCmd` | `changelog` | enabled |
-| `props.AiCmd` | AI config in `init` | opt-in |
+| `props.AiCmd` | AI-based features: `init ai`, `docs ask`, the `ai` config section (linking chat providers is `chat.providers`, not this) | opt-in |
 | `props.ConfigCmd` | `config` | opt-in |
 | `props.TelemetryCmd` | `telemetry` | opt-in |
 | `props.ManCmd` | `man` | opt-in |
