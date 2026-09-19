@@ -48,7 +48,7 @@ const (
 	// zensical-pages, releaser-pleaser). Mirrors the framework's own pin; kept
 	// current automatically by the Renovate customManager in renovate.json5
 	// (do not hand-bump — let Renovate propose it).
-	CICDComponentVersion = "v0.48.0"
+	CICDComponentVersion = "v0.49.0"
 )
 
 type Config struct {
