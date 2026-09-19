@@ -84,11 +84,15 @@ const (
 
 // SelfUpdater manages checking for and applying tool updates.
 type SelfUpdater struct {
-	Tool           props.Tool
-	force          bool
-	version        string
-	logger         logger.Logger
-	releaseClient  forge.Provider
+	Tool          props.Tool
+	force         bool
+	version       string
+	logger        logger.Logger
+	releaseClient forge.Provider
+	// channel is what the updater reads releases through (spec 0203 D4):
+	// the forge branch over releaseClient, or another branch injected whole
+	// with withReleaseChannel. Every release call goes through it.
+	channel        ReleaseChannel
 	CurrentVersion string
 	NextRelease    forge.Release
 	Fs             afero.Fs
@@ -329,6 +333,13 @@ func withReleaseProvider(p forge.Provider) UpdaterOption {
 	return func(s *SelfUpdater) { s.releaseClient = p }
 }
 
+// withReleaseChannel injects a whole [ReleaseChannel], bypassing the forge
+// branch and its provider resolution: the route for a channel that is not a
+// forge, and for a test double of the seam itself.
+func withReleaseChannel(ch ReleaseChannel) UpdaterOption {
+	return func(s *SelfUpdater) { s.channel = ch }
+}
+
 // NewOfflineUpdater creates a SelfUpdater configured for file-based updates
 // that do not require a VCS client or network access.
 func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...UpdaterOption) *SelfUpdater {
@@ -400,7 +411,7 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		o(s)
 	}
 
-	if err := resolveReleaseClient(ctx, p, s); err != nil {
+	if err := s.resolveChannel(ctx, p); err != nil {
 		return nil, err
 	}
 
@@ -409,6 +420,36 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 	}
 
 	return s, nil
+}
+
+// resolveChannel fills s.channel: an injected channel stands as it is;
+// otherwise the forge branch is built over the provider resolveReleaseClient
+// finds, closed over the tool's owner and repository.
+func (s *SelfUpdater) resolveChannel(ctx context.Context, p *props.Props) error {
+	if s.channel != nil {
+		return nil
+	}
+
+	if err := resolveReleaseClient(ctx, p, s); err != nil {
+		return err
+	}
+
+	s.channel = s.releaseChannel()
+
+	return nil
+}
+
+// releaseChannel is the channel every release call goes through: the one
+// injected or resolved, else the forge branch over releaseClient, built on
+// first use so an updater assembled as a struct literal (the in-package tests)
+// needs no construction step.
+func (s *SelfUpdater) releaseChannel() ReleaseChannel {
+	if s.channel == nil {
+		_, owner, repo := s.Tool.GetReleaseSource()
+		s.channel = newForgeChannel(s.releaseClient, owner, repo)
+	}
+
+	return s.channel
 }
 
 // resolveReleaseClient fills s.releaseClient using the precedence: an injected
@@ -769,19 +810,16 @@ func (s *SelfUpdater) verifyAssetChecksum(
 // manifest is available by either route — the caller distinguishes
 // "not found" from "download failed".
 func (s *SelfUpdater) fetchChecksumsManifest(ctx context.Context, rel forge.Release) ([]byte, error) {
-	var cp forge.ChecksumProvider
-	if forge.As(s.releaseClient, &cp) {
-		manifest, err := cp.DownloadChecksumManifest(ctx, rel, s.checksumsBound())
-		if err == nil {
-			return manifest, nil
-		}
-
-		if !errors.Is(err, forge.ErrNotSupported) {
-			return nil, err
-		}
-		// ErrNotSupported: provider opted out for this release's
-		// configuration. Fall through to asset-list lookup.
+	manifest, err := s.releaseChannel().Checksums(ctx, rel, s.checksumsBound())
+	if err == nil {
+		return manifest, nil
 	}
+
+	if !errors.Is(err, forge.ErrNotSupported) {
+		return nil, err
+	}
+	// ErrNotSupported: the channel has no direct route for this release.
+	// Fall through to asset-list lookup.
 
 	manifestAsset, found := s.findChecksumsAsset(rel)
 	if !found {
@@ -837,9 +875,7 @@ func (s *SelfUpdater) downloadBoundedAsset(
 	timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	_, owner, repo := s.Tool.GetReleaseSource()
-
-	rc, redirectURL, err := s.releaseClient.DownloadReleaseAsset(timeoutCtx, owner, repo, asset)
+	rc, redirectURL, err := s.releaseChannel().Download(timeoutCtx, asset)
 	if err != nil {
 		return nil, errors.Wrapf(err, "downloading %s", kind)
 	}
@@ -1079,9 +1115,7 @@ func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset forge.ReleaseAsse
 	timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	_, owner, repo := s.Tool.GetReleaseSource()
-
-	rc, redirectURL, err := s.releaseClient.DownloadReleaseAsset(timeoutCtx, owner, repo, asset)
+	rc, redirectURL, err := s.releaseChannel().Download(timeoutCtx, asset)
 	if err != nil {
 		return file, errors.WithStack(err)
 	}
@@ -1166,9 +1200,7 @@ func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (forge.Release, erro
 		timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 		defer cancel()
 
-		_, owner, repo := s.Tool.GetReleaseSource()
-
-		s.NextRelease, err = s.releaseClient.GetReleaseByTag(timeoutCtx, owner, repo, s.version)
+		s.NextRelease, err = s.releaseChannel().ByTag(timeoutCtx, s.version)
 		if err != nil {
 			return nil, s.explainRefusal(ctx, errors.Wrap(err, "failed to get release by tag"))
 		}
@@ -1178,9 +1210,7 @@ func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (forge.Release, erro
 		timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 		defer cancel()
 
-		_, owner, repo := s.Tool.GetReleaseSource()
-
-		s.NextRelease, err = s.releaseClient.GetLatestRelease(timeoutCtx, owner, repo)
+		s.NextRelease, err = s.releaseChannel().Latest(timeoutCtx)
 		if err != nil {
 			return nil, s.explainRefusal(ctx, errors.Wrap(err, "failed to get latest release"))
 		}
@@ -1276,9 +1306,7 @@ func (s *SelfUpdater) GetReleaseNotes(ctx context.Context, from string, to strin
 	timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	_, owner, repo := s.Tool.GetReleaseSource()
-
-	releases, err := s.releaseClient.ListReleases(timeoutCtx, owner, repo, releasesPerPage)
+	releases, err := s.releaseChannel().List(timeoutCtx, releasesPerPage)
 	if err != nil {
 		return "", s.explainRefusal(ctx, errors.WithStack(err))
 	}

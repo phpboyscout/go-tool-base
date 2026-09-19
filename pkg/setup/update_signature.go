@@ -202,18 +202,15 @@ func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel forge.Relea
 // back to asset-list lookup otherwise. Returns (nil, nil) when no
 // signature is available by either route.
 func (s *SelfUpdater) fetchSignature(ctx context.Context, rel forge.Release) ([]byte, error) {
-	var sp forge.SignatureProvider
-	if forge.As(s.releaseClient, &sp) {
-		sig, err := sp.DownloadSignature(ctx, rel, verify.MaxSignatureSize)
-		if err == nil {
-			return sig, nil
-		}
-
-		if !errors.Is(err, forge.ErrNotSupported) {
-			return nil, err
-		}
-		// ErrNotSupported: provider opted out. Fall through to asset lookup.
+	sig, err := s.releaseChannel().Signature(ctx, rel, verify.MaxSignatureSize)
+	if err == nil {
+		return sig, nil
 	}
+
+	if !errors.Is(err, forge.ErrNotSupported) {
+		return nil, err
+	}
+	// ErrNotSupported: the channel has no direct route. Fall through to asset lookup.
 
 	sigAsset, found := s.findSignatureAsset(rel)
 	if !found {
