@@ -33,8 +33,8 @@ gtb enable signing --email release@example.com
 
 `enable` and `disable` re-render the root command, the adapter files and any
 derived field the feature needs in the same run. Enabling `ai` records the
-default provider list and writes `cmd/<name>/chat.go`; disabling `keychain`
-removes `cmd/<name>/keychain.go`.
+default provider list and writes `cmd/<name>/chat.go`; disabling `ai` removes
+it again, the way disabling `keychain` removes `cmd/<name>/keychain.go`.
 
 ## Choose how MCP publishes the tool
 

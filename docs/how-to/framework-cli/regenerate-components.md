@@ -43,7 +43,7 @@ gtb regenerate project
 ### What it does
 
 - **Rebuilds `cmd.go`**: Updates Cobra definitions, flags, and descriptions.
-- **Rewrites the adapter links**: `cmd/<name>/chat.go`, `forge.go` and `keychain.go` follow the manifest's chat providers and enabled features, so a provider or forge removed from the manifest leaves the binary.
+- **Rewrites the adapter links**: `cmd/<name>/chat.go`, `forge.go` and `keychain.go` follow the manifest's chat providers and enabled features, so a provider or forge removed from the manifest leaves the binary, and a feature the tool does not use leaves no file (no `chat.go` without `ai`, no `forge.go` without a forge).
 - **Injects Imports**: Ensures all subcommands are correctly imported and registered in parent commands.
 - **Manages Lifecycle Files**: Creates or removes `init.go` based on the `with_initializer` value in the manifest for each command. If `with_initializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
 - **Runs Linting**: Automatically executes `go mod tidy` and `golangci-lint run --fix` to ensure the generated code is squeaky clean.

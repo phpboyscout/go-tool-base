@@ -552,6 +552,9 @@ type skeletonTemplateData struct {
 	ChatModules   []string
 	ChatProviders []string
 	ForgeLinks    []string
+	// AiEnabled decides whether cmd/<name>/chat.go exists at all; under the
+	// feature an empty ChatProviders is still a file (spec 0197 D8, D9).
+	AiEnabled bool
 	// ChatDefault is the author's chat default, rendered as the ai defaults
 	// bundle beside chat.go when set (spec 0196 D4).
 	ChatDefault           ManifestChatDefault

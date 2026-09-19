@@ -603,6 +603,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		Links:                 enabledLinks(config.Features),
 		ChatModules:           chatModulesFor(config.Chat.Providers, config.Features),
 		ChatProviders:         chatProvidersFor(config.Chat.Providers, config.Features),
+		AiEnabled:             featureEnabledIn(config.Features, string(props.AiCmd)),
 		ForgeLinks:            enabledForges(config.Features),
 		ChatDefault:           chatDefaultsFor(ManifestProperties{Features: config.Features, Chat: config.Chat}),
 		ForgeModules:          forgeModules(config.Features),
@@ -913,12 +914,17 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 		goFiles[linkFile(data.Name, d)] = templates.SkeletonLink(d)
 	}
 
-	// The adapter files are always written, empty when nothing is selected, so
-	// their presence is a fact about the layout rather than about the choice.
-	// Every manifest writer re-emits them, so shipping none is a manifest
-	// field (chat.providers: []), never a deleted file (spec 0197 D7).
-	goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatProviders, data.ChatModules, !data.ChatDefault.IsZero())
-	goFiles[filepath.Join("cmd", data.Name, "forge.go")] = templates.SkeletonForgeAdapters(data.ForgeLinks, data.ForgeModules)
+	// An adapter file exists only for a feature the tool uses: chat.go under
+	// ai, forge.go while a forge feature is enabled (spec 0197 D8). Under the
+	// feature, an empty selection is still a file, so shipping no provider is
+	// a manifest field (chat.providers: []), never a deleted file (D9).
+	if data.AiEnabled {
+		goFiles[filepath.Join("cmd", data.Name, "chat.go")] = templates.SkeletonChatProviders(data.ChatProviders, data.ChatModules, !data.ChatDefault.IsZero())
+	}
+
+	if len(data.ForgeLinks) > 0 {
+		goFiles[filepath.Join("cmd", data.Name, "forge.go")] = templates.SkeletonForgeAdapters(data.ForgeLinks, data.ForgeModules)
+	}
 
 	if err := g.renderGoFiles(destPath, goFiles); err != nil {
 		return err

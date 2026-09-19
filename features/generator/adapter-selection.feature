@@ -13,8 +13,9 @@ Feature: A generated tool links only the adapters it selects
 
   Scenario: A default project links its backend's forge and no chat provider
     Given a freshly generated gtb project
-    Then the generated "cmd/feattool/chat.go" file exists
-    And the generated "cmd/feattool/chat.go" file does not contain "gitlab.com/phpboyscout/go/chat-"
+    # A feature the tool does not use leaves no file behind: chat.go exists
+    # only under the ai feature, the way keychain.go exists only under keychain.
+    Then the generated "cmd/feattool/chat.go" file does not exist
     And the generated "cmd/feattool/forge.go" file contains "gitlab.com/phpboyscout/go/forge-github"
     And the generated "cmd/feattool/forge.go" file does not contain "forge-gitlab"
     And the project manifest contains "backend: github"
@@ -158,6 +159,15 @@ Feature: A generated tool links only the adapters it selects
     And the generated "cmd/feattool/chat.go" file contains "chat-gemini"
     And the project output contains "names no default"
     And the generated "cmd/feattool/chat/assets/config.yaml" file does not exist
+    When I run gtb in the project with "disable ai"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/chat.go" file does not exist
+
+  Scenario: A project on no forge has no forge adapter file
+    Given I generate a gtb project with the flags "--no-forge --module example.internal/feattool --features init,docs"
+    Then the project exit code is 0
+    And the generated "cmd/feattool/forge.go" file does not exist
+    And the generated "cmd/feattool/chat.go" file does not exist
 
   Scenario: An explicit empty provider list stays empty across regenerates
     Given I generate a gtb project with features "update,init,docs,doctor,ai" and chat providers "claude"

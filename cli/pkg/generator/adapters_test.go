@@ -140,10 +140,12 @@ func TestSyncAdapterFiles(t *testing.T) {
 		assert.Contains(t, string(chatGo), "chat-gemini")
 	})
 
-	t.Run("no chat block with ai disabled stays empty", func(t *testing.T) {
+	t.Run("ai disabled leaves no chat.go, and removes one left over", func(t *testing.T) {
 		t.Parallel()
 
 		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		require.NoError(t, afero.WriteFile(fs, "/proj/cmd/tool/chat.go", []byte("package main\n"), 0o644))
+
 		m := &Manifest{Properties: ManifestProperties{
 			Name:     "tool",
 			Features: []ManifestFeature{{Name: string(props.AiCmd), Enabled: false}},
@@ -153,9 +155,24 @@ func TestSyncAdapterFiles(t *testing.T) {
 
 		assert.Nil(t, m.Properties.Chat.Providers)
 
-		chatGo, err := afero.ReadFile(fs, "/proj/cmd/tool/chat.go")
+		exists, err := afero.Exists(fs, "/proj/cmd/tool/chat.go")
 		require.NoError(t, err)
-		assert.NotContains(t, string(chatGo), "import")
+		assert.False(t, exists, "a feature the tool does not use leaves no file behind")
+	})
+
+	t.Run("no forge feature leaves no forge.go, and removes one left over", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		require.NoError(t, afero.WriteFile(fs, "/proj/cmd/tool/forge.go", []byte("package main\n"), 0o644))
+
+		m := &Manifest{Properties: ManifestProperties{Name: "tool"}}
+
+		require.NoError(t, g.syncAdapterFiles(m))
+
+		exists, err := afero.Exists(fs, "/proj/cmd/tool/forge.go")
+		require.NoError(t, err)
+		assert.False(t, exists)
 	})
 }
 

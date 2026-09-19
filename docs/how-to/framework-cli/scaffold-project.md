@@ -55,8 +55,8 @@ mytool/
 │   └── ignore                  # Files regenerate must leave alone
 ├── cmd/mytool/
 │   ├── main.go                 # Entry Point: builds the root and hands it to Execute
-│   ├── chat.go                 # Chat provider links (empty without the ai feature)
-│   └── forge.go                # Forge adapter links, from the enabled forge features
+│   ├── chat.go                 # Chat provider links; present only with the ai feature
+│   └── forge.go                # Forge adapter links; present only with a forge feature
 ├── internal/version/version.go # Build-time version, stamped by goreleaser
 ├── pkg/cmd/root/
 │   ├── cmd.go                  # The Root: Props construction and command registration

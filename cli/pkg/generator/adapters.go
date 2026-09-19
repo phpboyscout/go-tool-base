@@ -274,18 +274,25 @@ func forgeModules(features []ManifestFeature) []string {
 // syncAdapterFiles rewrites cmd/<name>/chat.go and forge.go from the manifest
 // on regenerate. The manifest is the source of truth and the files follow it,
 // so a provider removed from the manifest leaves the binary on the next
-// regenerate. A manifest with no chat block had the default recorded by
-// syncDerivedManifestFields before rendering (spec 0194 D7).
+// regenerate, and a feature the tool does not use leaves no file at all:
+// chat.go exists only under the ai feature, forge.go only while a forge
+// feature is enabled, the way keychain.go follows keychain (spec 0197 D8,
+// extended 2026-09-19). A manifest with no chat block had the default
+// recorded by syncDerivedManifestFields before rendering (spec 0194 D7).
 func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	name := m.Properties.Name
 	withDefaults := chatDefaultsFor(m.Properties)
 
 	chatFile := filepath.Join("cmd", name, "chat.go")
-	if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(
-		chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
-		chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
-		!withDefaults.IsZero(),
-	)); err != nil {
+	if featureEnabledIn(m.Properties.Features, string(props.AiCmd)) {
+		if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(
+			chatProvidersFor(m.Properties.Chat.Providers, m.Properties.Features),
+			chatModulesFor(m.Properties.Chat.Providers, m.Properties.Features),
+			!withDefaults.IsZero(),
+		)); err != nil {
+			return err
+		}
+	} else if err := g.removeGeneratedFile(chatFile); err != nil {
 		return err
 	}
 
@@ -294,11 +301,27 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	}
 
 	forgeFile := filepath.Join("cmd", name, "forge.go")
-	if err := g.writeGeneratedGoFile(forgeFile, templates.SkeletonForgeAdapters(enabledForges(m.Properties.Features), forgeModules(m.Properties.Features))); err != nil {
+	if forges := enabledForges(m.Properties.Features); len(forges) > 0 {
+		if err := g.writeGeneratedGoFile(forgeFile, templates.SkeletonForgeAdapters(forges, forgeModules(m.Properties.Features))); err != nil {
+			return err
+		}
+	} else if err := g.removeGeneratedFile(forgeFile); err != nil {
 		return err
 	}
 
 	return g.syncLinkFiles(name, m.Properties.Features)
+}
+
+// removeGeneratedFile deletes a generated file the manifest no longer calls
+// for; absence is not an error.
+func (g *Generator) removeGeneratedFile(relPath string) error {
+	fullPath := filepath.Join(g.config.Path, relPath)
+
+	if err := g.props.FS.Remove(fullPath); err != nil && !os.IsNotExist(err) {
+		return errors.Newf("failed to remove %s: %w", relPath, err)
+	}
+
+	return nil
 }
 
 // chatDefaultsFor is the author's default gated on the ai feature, the way

@@ -107,7 +107,9 @@ the same run, and no `regenerate` is needed afterwards.
 <a id="adapters"></a>
 **Adapters.** A chat provider or a forge is a module the tool blank-imports
 from its own `main` package, and the generator writes those imports from the
-manifest into two `DO NOT EDIT` files beside `keychain.go`:
+manifest into two `DO NOT EDIT` files beside `keychain.go`. Each exists only
+while the tool uses the feature: `chat.go` under `ai`, `forge.go` while a forge
+feature is enabled. A tool with neither has neither file.
 
 | File | Derived from | Modules |
 |------|--------------|---------|
@@ -127,8 +129,9 @@ refused, at generation and at regenerate.
 NOT EDIT` file under `cmd/<name>/` (`chat.go`, `forge.go`, `keychain.go`, the
 `chat/assets` bundle) and `pkg/cmd/root/signing.go` is re-emitted from the
 manifest by every command that writes the manifest, so its presence is a fact
-about the manifest and its absence is temporary. To ship no chat provider, set
-`chat.providers: []`; to drop the keychain, `gtb disable keychain`; to turn
+about the manifest and its absence is temporary. To ship no chat provider with
+`ai` on, set `chat.providers: []`; to drop chat altogether, `gtb disable ai`
+removes `chat.go`; to drop the keychain, `gtb disable keychain`; to turn
 signing off, `gtb disable signing`. A project generated before the `chat:`
 block existed has no block at all, and gets the full list written into its
 manifest the first time it is regenerated (or `enable ai` is run) with `ai`
