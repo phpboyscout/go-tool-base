@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "tool": "fixtool",
+  "tag": "v1.2.0",
+  "released_at": "2026-09-19T12:17:26Z",
+  "previous": "v1.1.0",
+  "checksums": "https://pkg.example.internal/acme/fixtool/v1.2.0/checksums.txt",
+  "signature": "https://pkg.example.internal/acme/fixtool/v1.2.0/checksums.txt.sig",
+  "downloads": [
+    {
+      "os": "darwin",
+      "arch": "amd64",
+      "name": "fixtool_Darwin_x86_64.tar.gz",
+      "url": "https://pkg.example.internal/acme/fixtool/v1.2.0/fixtool_Darwin_x86_64.tar.gz",
+      "size": 36,
+      "sha256": "a43fe5f7e97beb77461711caeb2911cf01ec49b2cf20f29927c48c416b1f5022"
+    },
+    {
+      "os": "darwin",
+      "arch": "arm64",
+      "name": "fixtool_Darwin_arm64.tar.gz",
+      "url": "https://pkg.example.internal/acme/fixtool/v1.2.0/fixtool_Darwin_arm64.tar.gz",
+      "size": 35,
+      "sha256": "9a4c2e66a1c96d2fc594efc083f24451b6543579367e98da6b83d4b7164ca0a7"
+    },
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "name": "fixtool_Linux_x86_64.tar.gz",
+      "url": "https://pkg.example.internal/acme/fixtool/v1.2.0/fixtool_Linux_x86_64.tar.gz",
+      "size": 35,
+      "sha256": "ec90dd6d7f33fcaa8179a6647e0ad6e2fe17e0551b8989760ff2ce33ed907d81"
+    },
+    {
+      "os": "linux",
+      "arch": "arm64",
+      "name": "fixtool_Linux_arm64.tar.gz",
+      "url": "https://pkg.example.internal/acme/fixtool/v1.2.0/fixtool_Linux_arm64.tar.gz",
+      "size": 34,
+      "sha256": "a31b2333148336231c936a1648ac982fdfb47379b878fb571aa36b1bb39e4a75"
+    },
+    {
+      "os": "windows",
+      "arch": "amd64",
+      "name": "fixtool_Windows_x86_64.tar.gz",
+      "url": "https://pkg.example.internal/acme/fixtool/v1.2.0/fixtool_Windows_x86_64.tar.gz",
+      "size": 37,
+      "sha256": "ebd42d597c049b3654e0e3508ad6b2a456487bde4a71bc8d7c564397d9f8a0cf"
+    },
+    {
+      "os": "windows",
+      "arch": "arm64",
+      "name": "fixtool_Windows_arm64.tar.gz",
+      "url": "https://pkg.example.internal/acme/fixtool/v1.2.0/fixtool_Windows_arm64.tar.gz",
+      "size": 36,
+      "sha256": "e130efc014d03c32b6bd68c256837bd6eddf39feab7e28e6073bba4b933183b6"
+    }
+  ]
+}
