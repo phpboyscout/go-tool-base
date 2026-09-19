@@ -1,5 +1,7 @@
 package generator
 
+import "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 // SettingKind says whether a SkeletonConfig field is an author setting the
 // manifest owns or an option of one generate run.
 type SettingKind string
@@ -76,13 +78,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "Host", Kind: KindSetting, Flag: "host", Wizard: "host", Manifest: "release_source.host"},
 	{Field: "Private", Kind: KindSetting, Flag: "private", Manifest: "release_source.private"},
 	{Field: "ReleaseChannel", Kind: KindSetting, Flag: "release-channel", Wizard: "channel", Manifest: "release_source.type"},
-	{Field: "Direct.URLTemplate", Kind: KindSetting, Flag: "release-url-template", Wizard: "release-url", Manifest: "release_source.direct.url_template"},
-	{Field: "Direct.ChecksumURLTemplate", Kind: KindSetting, Flag: "release-checksum-url-template", Manifest: "release_source.direct.checksum_url_template"},
-	{Field: "Direct.SignatureURLTemplate", Kind: KindSetting, Flag: "release-signature-url-template", Manifest: "release_source.direct.signature_url_template"},
-	{Field: "Direct.VersionURL", Kind: KindSetting, Flag: "release-version-url", Wizard: "release-version-url", Manifest: "release_source.direct.version_url"},
-	{Field: "Direct.VersionFormat", Kind: KindSetting, Flag: "release-version-format", Manifest: "release_source.direct.version_format"},
-	{Field: "Direct.VersionKey", Kind: KindSetting, Flag: "release-version-key", Manifest: "release_source.direct.version_key"},
-	{Field: "Direct.PinnedVersion", Kind: KindSetting, Flag: "release-pinned-version", Manifest: "release_source.direct.pinned_version"},
+	{Field: "ReleaseBaseURL", Kind: KindSetting, Flag: "release-base-url", Wizard: "release-base-url", Manifest: "release_source.static.base_url"},
 	{Field: "GoVersion", Kind: KindSetting, Flag: "go-version", Manifest: "version.go"},
 	{Field: "Path", Kind: KindRunOption, Flag: "path"},
 }
@@ -108,8 +104,8 @@ func skeletonConfigFromManifest(m Manifest) SkeletonConfig {
 	}
 
 	channel := ""
-	if m.ReleaseSource.Type == ReleaseChannelDirect {
-		channel = ReleaseChannelDirect
+	if m.ReleaseSource.Type == props.ReleaseSourceStatic {
+		channel = ReleaseChannelStatic
 	} else if m.ReleaseSource.Type != "" {
 		channel = ReleaseChannelForge
 	}
@@ -143,6 +139,6 @@ func skeletonConfigFromManifest(m Manifest) SkeletonConfig {
 		ForgeCredentials:      m.Properties.ForgeCredentials,
 		ModulePath:            m.Properties.ModulePath,
 		ReleaseChannel:        channel,
-		Direct:                m.ReleaseSource.Direct,
+		ReleaseBaseURL:        m.ReleaseSource.Static.BaseURL,
 	}
 }

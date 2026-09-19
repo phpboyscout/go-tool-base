@@ -637,13 +637,22 @@ type ManifestReleaseSource struct {
 	Owner   string          `yaml:"owner"`
 	Repo    string          `yaml:"repo"`
 	Private bool            `yaml:"private,omitempty"`
-	// Direct carries the go/forge direct source's settings when Type is
-	// direct (spec 0195 D7).
+	// Static is the static release channel's one setting when Type is static
+	// (spec 0203 D1).
+	Static ManifestStaticSource `yaml:"static,omitempty"`
+	// Direct is the withdrawn direct channel's block (spec 0195 D7). It is
+	// kept so an older manifest loads; nothing reads it and regenerate drops
+	// it (spec 0203 D9).
 	Direct ManifestDirectSource `yaml:"direct,omitempty"`
 }
 
-// ManifestDirectSource mirrors the keys the go/forge direct source reads from
-// its config section.
+// ManifestStaticSource is release_source.static: the base URL the pointer and
+// the per-tag manifests are published under.
+type ManifestStaticSource struct {
+	BaseURL string `yaml:"base_url,omitempty"`
+}
+
+// ManifestDirectSource mirrors the keys the withdrawn direct channel recorded.
 type ManifestDirectSource struct {
 	URLTemplate          string `yaml:"url_template,omitempty"`
 	ChecksumURLTemplate  string `yaml:"checksum_url_template,omitempty"`

@@ -1,6 +1,8 @@
 version: 2
 project_name: {{ .Name | escapeYAML }}
-force_token: {{ .ReleaseProvider }}
+{{ if .Hosted -}}
+force_token: {{ .ForgeTokenType }}
+{{ end -}}
 before:
   hooks:
     - go mod tidy
@@ -46,6 +48,7 @@ archives:
       {{ "{{" }}- else {{ "}}" }}{{ "{{" }} .Arch {{ "}}" }}{{ "{{" }} end {{ "}}" }}
       {{ "{{" }}- if .Arm {{ "}}" }}v{{ "{{" }} .Arm {{ "}}" }}{{ "{{" }} end {{ "}}" }}
 
+{{ if .Hosted -}}
 release:
   use_existing_draft: true
   replace_existing_artifacts: true
@@ -53,6 +56,12 @@ release:
   # releaser-pleaser creates the Release (with its changelog) when the
   # Release PR/MR is merged; this job only attaches the build artefacts.
   mode: keep-existing
+{{ else -}}
+release:
+  # Not hosted on a forge: there is no release object to create. The
+  # binaries are published by the blobs pipe below.
+  disable: true
+{{ end -}}
 
 checksum:
   name_template: 'checksums.txt'
@@ -93,7 +102,57 @@ changelog:
   # releaser-pleaser owns the changelog and Release notes.
   disable: true
 
-{{ if eq .ReleaseProvider "github" -}}
+{{ if .StaticChannel -}}
+# The static release channel (go-tool-base spec 0203 D5). The tool discovers
+# and retrieves its releases from {{ .ReleaseBaseURL }}: a per-tag
+# release.json beside the binaries and one pointer, latest.json, at the base.
+# Three pieces, in pipeline order. They need goreleaser Pro: before_publish is
+# the one slot that runs after checksums and signatures exist and before
+# anything is uploaded.
+#
+#   1. before_publish writes dist/release.json and dist/latest.json from
+#      metadata.json, checksums.txt and the archives themselves. Filtered to
+#      the checksum artifact so it runs once.
+#   2. blobs uploads the tag's objects, release.json among them
+#      (extra_files), to an S3-compatible store. RELEASE_STORE_ENDPOINT and
+#      RELEASE_STORE_BUCKET name the store; AWS_ACCESS_KEY_ID and
+#      AWS_SECRET_ACCESS_KEY are its credentials. The public base URL above
+#      must serve the bucket's "{{ .ReleaseBasePath }}/" prefix.
+#   3. publishers, last in the publish pipe and skipped with it, moves the
+#      pointer by a conditional write (scripts/move-pointer.sh). A publisher
+#      runs once by naming an id no archive carries: the checksum artifact
+#      belongs to every id.
+#
+# The layout a reader expects: docs/reference/static-release-channel.md in
+# go-tool-base.
+before_publish:
+  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }}
+    artifacts: [checksum]
+    output: true
+
+blobs:
+  - provider: s3
+    bucket: "{{ "{{" }} .Env.RELEASE_STORE_BUCKET {{ "}}" }}"
+    endpoint: "{{ "{{" }} .Env.RELEASE_STORE_ENDPOINT {{ "}}" }}"
+    region: auto
+    directory: "{{ .ReleaseBasePath }}/{{ "{{" }} .Tag {{ "}}" }}"
+    s3_force_path_style: true
+    content_disposition: inline
+    cache_control:
+      - "public, max-age=31536000, immutable"
+    extra_files:
+      - glob: dist/release.json
+
+publishers:
+  - name: latest-pointer
+    checksum: true
+    ids: [latest-pointer]
+    cmd: bash scripts/move-pointer.sh dist/latest.json {{ "{{" }} .Env.RELEASE_STORE_ENDPOINT {{ "}}" }}/{{ "{{" }} .Env.RELEASE_STORE_BUCKET {{ "}}" }}/{{ .ReleaseBasePath }}/latest.json
+    output: true
+
+{{ end -}}
+{{ if not .Hosted -}}
+{{ else if eq .ForgeTokenType "github" -}}
 github_urls:
   api: https://{{ .Host }}/api/v3/
   upload: https://{{ .Host }}/api/uploads/

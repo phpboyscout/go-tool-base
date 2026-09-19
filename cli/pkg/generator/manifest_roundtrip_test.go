@@ -47,8 +47,8 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 		ForgeBackend:          forge.GitlabFeature,
 		ForgeCredentials:      []props.FeatureID{forge.GithubFeature},
 		ModulePath:            "go.acme.dev/tool",
-		ReleaseChannel:        ReleaseChannelDirect,
-		Direct:                ManifestDirectSource{URLTemplate: "https://dl.example.com/{{.Version}}/{{.Asset}}", VersionURL: "https://dl.example.com/latest", PinnedVersion: "v1.2.3"},
+		ReleaseChannel:        ReleaseChannelStatic,
+		ReleaseBaseURL:        "https://pkg.acme.dev/org/tool",
 	}
 
 	m := manifestFromSkeletonConfig(config, map[string]string{"go.mod": "abc"}, "v9.9.9")
@@ -80,8 +80,9 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 	assert.Equal(t, config.ForgeBackend, m.ReleaseSource.Backend)
 	assert.Equal(t, config.ForgeCredentials, m.Properties.ForgeCredentials)
 	assert.Equal(t, config.ModulePath, m.Properties.ModulePath, "an explicit module path wins over the derivation")
-	assert.Equal(t, "direct", m.ReleaseSource.Type)
-	assert.Equal(t, config.Direct, m.ReleaseSource.Direct)
+	assert.Equal(t, "static", m.ReleaseSource.Type)
+	assert.Equal(t, "https://pkg.acme.dev/org/tool", m.ReleaseSource.Static.BaseURL)
+	assert.Equal(t, ManifestDirectSource{}, m.ReleaseSource.Direct, "the withdrawn channel's block is never written")
 
 	// Read back into the root template the way regenerate does.
 	data := buildSkeletonRootData(m, nil)

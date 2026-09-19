@@ -34,6 +34,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -126,11 +127,11 @@ var signingKeySources = map[string]bool{
 // asset sets actually support. "gitea" and "bitbucket" are reserved for
 // the forge adapters but rejected until skeleton assets exist for them.
 // releaseSourceTypes is every type a generated tool can release from: each
-// forge the generator can host a project on (spec 0195 D4) plus the go/forge
-// direct source (D7). Empty is a project that is not hosted and does not
-// self-update.
+// forge the generator can host a project on (spec 0195 D4) plus the static
+// channel (spec 0203 D1). Empty is a project that is not hosted and does not
+// self-update. The withdrawn direct type is refused with its own message.
 var releaseSourceTypes = func() map[string]bool {
-	types := map[string]bool{"": true, ReleaseChannelDirect: true}
+	types := map[string]bool{"": true, props.ReleaseSourceStatic: true}
 	for _, id := range ForgeBackends() {
 		types[string(id)] = true
 	}
@@ -579,10 +580,36 @@ func ValidateSigningKeySource(source string) error {
 // for the host-derived default. "gitea" and "bitbucket" are reserved for
 // the forge adapters and rejected until skeleton asset sets exist.
 func ValidateReleaseSourceType(sourceType string) error {
+	if norm.NFC.String(sourceType) == releaseChannelDirect {
+		return rejectf("ReleaseSourceType",
+			"the direct release channel was withdrawn (spec 0203 D9); set release_source.type to static with release_source.static.base_url, or to the forge",
+			sourceType)
+	}
+
 	if !releaseSourceTypes[norm.NFC.String(sourceType)] {
 		return rejectf("ReleaseSourceType",
-			"release source type must be a forge backend ("+joinFeatureIDs(ForgeBackends())+"), direct, or empty",
+			"release source type must be a forge backend ("+joinFeatureIDs(ForgeBackends())+"), static, or empty",
 			sourceType)
+	}
+
+	return nil
+}
+
+// ValidateReleaseBaseURL accepts the static channel's base URL the way a
+// chat provider endpoint is accepted (spec 0203 D1): absolute https, no
+// userinfo, no placeholder host. Plain http is refused, not warned; a tool
+// downloads executables from here.
+func ValidateReleaseBaseURL(baseURL string) error {
+	if baseURL == "" {
+		return rejectf("ReleaseBaseURL", "release base URL must not be empty", "")
+	}
+
+	if err := gochat.ValidateBaseURL(baseURL, false); err != nil {
+		return rejectf("ReleaseBaseURL", "release base URL: "+err.Error(), baseURL)
+	}
+
+	if u, err := url.Parse(baseURL); err != nil || u.RawQuery != "" || u.Fragment != "" {
+		return rejectf("ReleaseBaseURL", "release base URL must carry no query or fragment", baseURL)
 	}
 
 	return nil
@@ -1165,6 +1192,10 @@ func ManifestWarnings(m *Manifest) []string {
 		}
 	}
 
+	if rs := m.ReleaseSource; rs.Static.BaseURL != "" && rs.Type != props.ReleaseSourceStatic {
+		out = append(out, "release_source.static.base_url is set but release_source.type is "+strconv.Quote(rs.Type)+": the location is read only on the static channel")
+	}
+
 	sort.Strings(out)
 
 	return out
@@ -1446,6 +1477,22 @@ func validateManifestReleaseSource(rs *ManifestReleaseSource) error {
 		if err := ValidateRepoName(rs.Repo); err != nil {
 			return err
 		}
+	}
+
+	return validateManifestStaticSource(rs)
+}
+
+// validateManifestStaticSource: the static channel needs its base URL, and
+// a base URL that is present is a valid one whatever the channel (spec 0203
+// D1). A base URL beside another channel is ignored with a warning rather
+// than refused, so `set` can record the location before switching the type.
+func validateManifestStaticSource(rs *ManifestReleaseSource) error {
+	if rs.Type == props.ReleaseSourceStatic && rs.Static.BaseURL == "" {
+		return rejectf("ReleaseBaseURL", "release_source.type static needs release_source.static.base_url (set the URL first, then the type)", "")
+	}
+
+	if rs.Static.BaseURL != "" {
+		return ValidateReleaseBaseURL(rs.Static.BaseURL)
 	}
 
 	return nil

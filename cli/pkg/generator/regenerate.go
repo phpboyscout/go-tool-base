@@ -3,6 +3,7 @@ package generator
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -416,6 +417,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		Name:                  m.Properties.Name,
 		Description:           string(m.Properties.Description),
 		ReleaseProvider:       releaseProvider,
+		ReleaseBaseURL:        m.ReleaseSource.Static.BaseURL,
 		Host:                  m.ReleaseSource.Host,
 		Org:                   org,
 		RepoName:              repoName,
@@ -527,6 +529,9 @@ type skeletonTemplateData struct {
 	Org             string
 	RepoName        string
 	ReleaseProvider string
+	// ReleaseBaseURL is the static channel's location (spec 0203 D1), set
+	// only when ReleaseProvider is static.
+	ReleaseBaseURL string
 	// ForgeBackend chooses the CI skeleton (spec 0195 D8); empty on a
 	// manifest that predates the field, when the provider decides.
 	ForgeBackend      props.FeatureID
@@ -593,6 +598,39 @@ type skeletonTemplateData struct {
 // fallback now that every caller passes the named skeletonTemplateData.
 func (d skeletonTemplateData) GetReleaseProvider() string { return d.ReleaseProvider }
 
+// StaticChannel reports whether the tool releases on the static channel, the
+// condition the release configuration renders its additions under (spec 0203
+// D5, D7).
+func (d skeletonTemplateData) StaticChannel() bool {
+	return d.ReleaseProvider == props.ReleaseSourceStatic
+}
+
+// ForgeTokenType is the forge whose token goreleaser reads: the release
+// provider on the forge channel, the backend when the tool releases on the
+// static channel but is still hosted.
+func (d skeletonTemplateData) ForgeTokenType() string {
+	if d.StaticChannel() {
+		return string(d.ForgeBackend)
+	}
+
+	return d.ReleaseProvider
+}
+
+// Hosted reports whether the project lives on a forge; a project that is not
+// hosted has no forge release object to create or upload to.
+func (d skeletonTemplateData) Hosted() bool { return d.ForgeBackend != "" || d.Host != "" }
+
+// ReleaseBasePath is the base URL's path without its leading slash: the key
+// prefix a tag's objects are published under on an S3-style store.
+func (d skeletonTemplateData) ReleaseBasePath() string {
+	u, err := url.Parse(d.ReleaseBaseURL)
+	if err != nil {
+		return ""
+	}
+
+	return strings.Trim(u.Path, "/")
+}
+
 // GetForgeBackend satisfies forgeBackendAccessor for the CI skeleton choice.
 func (d skeletonTemplateData) GetForgeBackend() props.FeatureID { return d.ForgeBackend }
 
@@ -619,6 +657,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		Org:                   org,
 		RepoName:              repoName,
 		ReleaseProvider:       m.ReleaseSource.Type,
+		ReleaseBaseURL:        m.ReleaseSource.Static.BaseURL,
 		ForgeBackend:          m.ReleaseSource.Backend,
 		GoVersion:             resolveGoVersion(m.Version.Go),
 		FrameworkReplace:      frameworkReplace(),

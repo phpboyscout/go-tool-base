@@ -184,7 +184,7 @@ publishers:
   - name: latest-pointer
     checksum: true
     ids: [latest-pointer]
-    cmd: scripts/move-pointer.sh dist/latest.json pbs-release-binaries go-tool-base/latest.json
+    cmd: scripts/move-pointer.sh dist/latest.json {{ .Env.R2_RELEASE_ENDPOINT }}/pbs-release-binaries/go-tool-base/latest.json
     output: true
 
 changelog:

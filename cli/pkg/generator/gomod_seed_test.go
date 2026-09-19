@@ -149,7 +149,7 @@ func TestSeedGoMod_LeavesAFrameworkLineAboveTheGivenVersion(t *testing.T) {
 	t.Parallel()
 
 	g, fs := seededProject(t, githubOnly)
-	require.NoError(t, g.seedGoMod("/work", "example.com/mytool", "1.27.1", "v0.41.0"))
+	require.NoError(t, g.seedGoMod("/work", "example.com/mytool", "1.27.1", "v0.41.0", false))
 
 	out, err := afero.ReadFile(fs, "/work/go.mod")
 	require.NoError(t, err)
@@ -227,7 +227,7 @@ func TestSeedGoMod_StripsBuildMetadataFromTheFrameworkVersion(t *testing.T) {
 	t.Parallel()
 
 	g, fs := seededProject(t, githubOnly)
-	require.NoError(t, g.seedGoMod("/work", "example.com/mytool", "1.27.1", "v1.0.0+dirty"))
+	require.NoError(t, g.seedGoMod("/work", "example.com/mytool", "1.27.1", "v1.0.0+dirty", false))
 
 	out, err := afero.ReadFile(fs, "/work/go.mod")
 	require.NoError(t, err)

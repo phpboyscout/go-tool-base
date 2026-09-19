@@ -30,6 +30,11 @@ const toolkitPrefix = "gitlab.com/phpboyscout/go/"
 // D2): the framework's own commands, run through `go tool`.
 var scaffoldTools = []string{frameworkModule + "/cmd/changelog", frameworkModule + "/cmd/docs"}
 
+// releaseManifestTool writes the static release channel's documents from
+// goreleaser's dist (spec 0203 D5). A scaffold on that channel runs it
+// through go tool; every other channel drops the line.
+const releaseManifestTool = frameworkModule + "/cmd/releasemanifest"
+
 // legacyTools are the tool directives a scaffold carried before spec 0197
 // phase 4 for tools that are installed now (D12). A regenerate drops them
 // (#86): the gtb line pinned the CLI module out of step with the framework,
@@ -50,7 +55,7 @@ var legacyTools = []string{
 // version.gtb, an adapter line dropped when its import has gone, and the
 // development replace when GTB_FRAMEWORK_REPLACE asks. Everything else in
 // the file is left alone; go mod tidy owns the result where it can run.
-func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersion string) error {
+func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersion string, static bool) error {
 	path := filepath.Join(projectPath, "go.mod")
 
 	src, err := afero.ReadFile(g.props.FS, path)
@@ -86,11 +91,18 @@ func (g *Generator) seedGoMod(projectPath, modulePath, goVersion, frameworkVersi
 		replace = &gomod.Replace{Path: frameworkModule, Dir: dir}
 	}
 
+	tools, unwanted := scaffoldTools, legacyTools
+	if static {
+		tools = append(slices.Clone(scaffoldTools), releaseManifestTool)
+	} else {
+		unwanted = append(slices.Clone(legacyTools), releaseManifestTool)
+	}
+
 	out, report, err := gomod.Seed(src, want, replace,
 		gomod.Owned(adapterModules()...),
 		gomod.WithModule(modulePath, goVersion),
-		gomod.WithTools(scaffoldTools...),
-		gomod.WithoutTools(legacyTools...))
+		gomod.WithTools(tools...),
+		gomod.WithoutTools(unwanted...))
 	if err != nil {
 		return errors.Wrap(err, "seed go.mod")
 	}

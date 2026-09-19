@@ -138,14 +138,18 @@ func TestAuthorSettingPaths_MatchTheManifestSchema(t *testing.T) {
 }
 
 // TestSetSetting_RefusesTheWithdrawnDirectChannel (D10 of the v0.43.0 manual
-// round): set release_source.type direct was refused but the direct sub-keys
-// were still settable, half exposing a channel the wizard and flags withdrew.
+// round, spec 0203 D9): the direct sub-keys are not settable, and the
+// refusal names the static channel that replaced them; the static key is.
 func TestSetSetting_RefusesTheWithdrawnDirectChannel(t *testing.T) {
 	t.Parallel()
 
 	_, err := resolveSettingPath("release_source.direct.url_template")
 	require.ErrorIs(t, err, ErrSettingReadOnly)
-	assert.Contains(t, errors.FlattenHints(err), "#90")
+	assert.Contains(t, errors.FlattenHints(err), "release_source.static.base_url")
+
+	path, err := resolveSettingPath("release_source.static.base_url")
+	require.NoError(t, err)
+	assert.Equal(t, "release_source.static.base_url", path)
 }
 
 // TestSetSetting_RefusesARename (deferred item 1 of the v0.43.0 round): set

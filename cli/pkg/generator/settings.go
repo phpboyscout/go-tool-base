@@ -38,10 +38,9 @@ var readOnlyReasons = map[string]string{
 	// rest for the next regenerate. Until a rename command exists it is a
 	// hand job.
 	"properties.name": "renaming a project is not supported by set: move cmd/<old> to cmd/<new>, update the manifest and README by hand, then regenerate",
-	// The direct release channel is withdrawn until its design lands (#90);
-	// its keys stay in the table so an older manifest loads, but nothing
-	// offers them, set included.
-	"release_source.direct": "the direct release channel is withdrawn until its design lands (go-tool-base #90)",
+	// The direct release channel was withdrawn (spec 0203 D9); its block is
+	// dropped on regenerate and nothing offers it, set included.
+	"release_source.direct": "the direct release channel was withdrawn; the static channel replaces it: set release_source.static.base_url, then release_source.type to static",
 }
 
 // SetSetting writes one author setting into the manifest by its dotted path,

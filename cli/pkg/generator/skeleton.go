@@ -96,11 +96,13 @@ type SkeletonConfig struct {
 	// ModulePath is the Go module path; empty derives <host>/<repo> for a
 	// hosted project (spec 0195 D5).
 	ModulePath string
-	// ReleaseChannel is forge or direct when the update feature is enabled
-	// (spec 0195 D7); empty falls back to the backend's source type.
+	// ReleaseChannel is forge or static when the update feature is enabled
+	// (spec 0195 D7, spec 0203 D1); empty falls back to the backend's source
+	// type.
 	ReleaseChannel string
-	// Direct carries the direct source's settings when ReleaseChannel is direct.
-	Direct ManifestDirectSource
+	// ReleaseBaseURL is the static channel's location (spec 0203 D1), read
+	// only when ReleaseChannel is static.
+	ReleaseBaseURL string
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -596,6 +598,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		Org:                   org,
 		RepoName:              repoName,
 		ReleaseProvider:       releaseSourceTypeFor(config.ForgeBackend, config.ReleaseChannel, config.Host),
+		ReleaseBaseURL:        staticBaseURLFor(config),
 		ForgeBackend:          config.ForgeBackend,
 		GoToolBaseVersion:     g.currentVersion(),
 		GoVersion:             resolveGoVersion(config.GoVersion),
@@ -636,7 +639,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		return err
 	}
 
-	if err := g.seedGoMod(config.Path, data.ModulePath, data.GoVersion, data.GoToolBaseVersion); err != nil {
+	if err := g.seedGoMod(config.Path, data.ModulePath, data.GoVersion, data.GoToolBaseVersion, data.StaticChannel()); err != nil {
 		return err
 	}
 
@@ -867,6 +870,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			Name:                  data.Name,
 			Description:           data.Description,
 			ReleaseProvider:       data.ReleaseProvider,
+			ReleaseBaseURL:        data.ReleaseBaseURL,
 			Host:                  data.Host,
 			Org:                   data.Org,
 			RepoName:              data.RepoName,
@@ -1100,6 +1104,12 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 			return errors.Newf("failed to get relative path: %w", err)
 		}
 
+		// A file that belongs to a release channel the project is not on
+		// is not rendered, and removed if an earlier channel left it.
+		if omittedByChannel(relPath, data) {
+			return g.removeChannelAsset(destPath, relPath)
+		}
+
 		// A `replaces:` descriptor suppresses this embedded scaffold path
 		// before the overlay renders — skip it entirely.
 		if isSuppressed(relPath, suppressed) {
@@ -1132,6 +1142,29 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 
 		return nil
 	})
+}
+
+// staticChannelAssets are the scaffold files only the static release channel
+// needs (spec 0203 D5): the pointer move the release configuration calls.
+var staticChannelAssets = []string{"scripts/move-pointer.sh"}
+
+// omittedByChannel reports whether relPath is a static-channel file on a
+// project that is not on that channel. Data without a channel (a template
+// contract) omits nothing.
+func omittedByChannel(relPath string, data any) bool {
+	d, ok := data.(skeletonTemplateData)
+
+	return ok && !d.StaticChannel() && slices.Contains(staticChannelAssets, filepath.ToSlash(relPath))
+}
+
+// removeChannelAsset deletes a channel-only file an earlier channel left in
+// the project; a file that is not there is nothing to do.
+func (g *Generator) removeChannelAsset(destPath, relPath string) error {
+	if err := g.props.FS.Remove(filepath.Join(destPath, relPath)); err != nil && !os.IsNotExist(err) {
+		return errors.Newf("failed to remove %s: %w", relPath, err)
+	}
+
+	return nil
 }
 
 // hashIgnoredFile notes an ignored file in the run's conflict log. These
@@ -1327,7 +1360,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			Owner:   org,
 			Repo:    repoName,
 			Private: config.Private,
-			Direct:  config.Direct,
+			Static:  ManifestStaticSource{BaseURL: staticBaseURLFor(config)},
 		},
 		Version: ManifestVersion{
 			GoToolBase: gtbVersion,
@@ -1344,7 +1377,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 // produced the pre-0195 shape (backend, no forge feature) that the first
 // regenerate then had to repair.
 func withImpliedForge(c SkeletonConfig) SkeletonConfig {
-	if !c.hosted() || c.ReleaseChannel == ReleaseChannelDirect {
+	if !c.hosted() {
 		return c
 	}
 
@@ -1357,6 +1390,16 @@ func withImpliedForge(c SkeletonConfig) SkeletonConfig {
 	}
 
 	return c
+}
+
+// staticBaseURLFor is the base URL the manifest records: only on the static
+// channel, so a channel change never leaves a stale location behind.
+func staticBaseURLFor(c SkeletonConfig) string {
+	if c.ReleaseChannel != ReleaseChannelStatic {
+		return ""
+	}
+
+	return c.ReleaseBaseURL
 }
 
 // hosted reports whether the project lives on a forge (spec 0195 D3): a

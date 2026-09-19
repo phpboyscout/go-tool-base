@@ -36,6 +36,7 @@ type SkeletonRootData struct {
 	Name                  string
 	Description           string
 	ReleaseProvider       string
+	ReleaseBaseURL        string // the static channel's base URL (spec 0203 D1)
 	Host                  string
 	Org                   string
 	RepoName              string
@@ -422,7 +423,17 @@ func telemetryConfigValue(data SkeletonRootData) (jen.Code, bool) {
 	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict), true
 }
 
+// buildReleaseSourceDict is the tool's props.ReleaseSource. On the static
+// channel it is the type and the base URL and nothing else (spec 0203 D7):
+// the reader is part of the framework and consults no forge.
 func buildReleaseSourceDict(data SkeletonRootData) jen.Dict {
+	if data.ReleaseProvider == "static" {
+		return jen.Dict{
+			jen.Id("Type"):    jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ReleaseSourceStatic"),
+			jen.Id("BaseURL"): jen.Lit(data.ReleaseBaseURL),
+		}
+	}
+
 	d := jen.Dict{
 		jen.Id("Type"):  jen.Lit(data.ReleaseProvider),
 		jen.Id("Host"):  jen.Lit(data.Host),

@@ -33,19 +33,86 @@ func TestManifestFromSkeletonConfig_BackendDecidesTheReleaseSource(t *testing.T)
 
 // A direct channel records the direct block and type direct, whatever the
 // backend (spec 0195 D7).
-func TestManifestFromSkeletonConfig_DirectChannel(t *testing.T) {
+// The static channel (spec 0203 D1) is a release source type of its own with
+// one setting; a project that is not hosted can take it, and a hosted one
+// that opts in keeps its backend beside it.
+func TestManifestFromSkeletonConfig_StaticChannel(t *testing.T) {
 	t.Parallel()
 
 	m := manifestFromSkeletonConfig(SkeletonConfig{
 		Name: "tool", ModulePath: "myapp",
-		ReleaseChannel: ReleaseChannelDirect,
-		Direct:         ManifestDirectSource{URLTemplate: "https://dl.example.com/{{.Version}}/{{.Asset}}", VersionURL: "https://dl.example.com/latest"},
+		ReleaseChannel: ReleaseChannelStatic,
+		ReleaseBaseURL: "https://pkg.acme.dev/tool",
 	}, nil, "v1")
 
-	assert.Equal(t, "direct", m.ReleaseSource.Type)
+	assert.Equal(t, "static", m.ReleaseSource.Type)
 	assert.Empty(t, m.ReleaseSource.Backend)
-	assert.Equal(t, "https://dl.example.com/latest", m.ReleaseSource.Direct.VersionURL)
+	assert.Equal(t, "https://pkg.acme.dev/tool", m.ReleaseSource.Static.BaseURL)
 	assert.Equal(t, "myapp", m.Properties.ModulePath, "a project that is not hosted names its own module path")
+	require.NoError(t, ValidateManifest(&m))
+
+	hosted := manifestFromSkeletonConfig(SkeletonConfig{
+		Name: "tool", Repo: "acme/tool", Host: "gitlab.com", ForgeBackend: forge.GitlabFeature,
+		ReleaseChannel: ReleaseChannelStatic, ReleaseBaseURL: "https://pkg.acme.dev/tool",
+	}, nil, "v1")
+
+	assert.Equal(t, "static", hosted.ReleaseSource.Type)
+	assert.Equal(t, forge.GitlabFeature, hosted.ReleaseSource.Backend, "the backend stays for init and credentials")
+	assert.Equal(t, "acme", hosted.ReleaseSource.Owner)
+
+	onForge := manifestFromSkeletonConfig(SkeletonConfig{
+		Name: "tool", Repo: "acme/tool", Host: "gitlab.com", ForgeBackend: forge.GitlabFeature,
+		ReleaseChannel: ReleaseChannelForge, ReleaseBaseURL: "https://left.over.example.com",
+	}, nil, "v1")
+	assert.Empty(t, onForge.ReleaseSource.Static.BaseURL, "a base URL is recorded only on the static channel")
+}
+
+// The withdrawn direct channel (spec 0203 D9): its block is dropped by the
+// derivation pass so the write-back removes it, and its type is refused with
+// a message that names the replacement.
+func TestDirectChannelIsWithdrawn(t *testing.T) {
+	t.Parallel()
+
+	m := &Manifest{
+		Properties: ManifestProperties{Name: "tool", ModulePath: "myapp"},
+		ReleaseSource: ManifestReleaseSource{Type: "github", Backend: forge.GithubFeature, Host: "github.com", Owner: "o", Repo: "r",
+			Direct: ManifestDirectSource{URLTemplate: "https://dl.example.com/{{.Version}}/{{.Asset}}"}},
+	}
+	m.Properties.Features = []ManifestFeature{{Name: "github", Enabled: true}}
+
+	changed, err := deriveMissingManifestFields(m)
+	require.NoError(t, err)
+	assert.True(t, changed, "dropping the block is a change the manifest is written back for")
+	assert.Equal(t, ManifestDirectSource{}, m.ReleaseSource.Direct)
+
+	err = ValidateReleaseChannel("direct")
+	require.ErrorIs(t, err, ErrInvalidReleaseChannel)
+	assert.Contains(t, err.Error(), "static")
+
+	err = ValidateReleaseSourceType("direct")
+	require.Error(t, err)
+	assert.Contains(t, errors.FlattenHints(err), "release_source.static.base_url")
+}
+
+// The static channel's base URL is held to the provider-endpoint rule (spec
+// 0203 D1): https, no userinfo, no placeholder host, nothing after the path.
+func TestValidateReleaseBaseURL(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, ValidateReleaseBaseURL("https://pkg.acme.dev/tool"))
+
+	for _, bad := range []string{"", "http://pkg.acme.dev/tool", "https://user:pw@pkg.acme.dev/tool", "https://example.com/tool", "https://pkg.acme.dev/tool?x=1", "pkg.acme.dev/tool"} {
+		require.Error(t, ValidateReleaseBaseURL(bad), bad)
+	}
+
+	static := &ManifestReleaseSource{Type: "static"}
+	require.Error(t, validateManifestStaticSource(static), "static needs a base URL")
+
+	onForge := &Manifest{Properties: ManifestProperties{Name: "tool", ModulePath: "example.com/tool"},
+		ReleaseSource: ManifestReleaseSource{Type: "github", Backend: forge.GithubFeature, Static: ManifestStaticSource{BaseURL: "https://pkg.acme.dev/tool"}}}
+	require.NoError(t, ValidateManifest(onForge), "a base URL beside a forge is ignored, so set can record it before the type")
+	require.Len(t, ManifestWarnings(onForge), 1)
+	assert.Contains(t, ManifestWarnings(onForge)[0], "read only on the static channel")
 }
 
 // ForgeBackends is every forge the generator can host a project on, taken
@@ -247,9 +314,9 @@ func TestValidateManifest_RefusesABackendContradictingTheReleaseType(t *testing.
 		ReleaseSource: ManifestReleaseSource{Type: "gitlab", Backend: "gitlab", Host: "gitlab.com", Owner: "o", Repo: "r"}}
 	require.NoError(t, ValidateManifest(agree))
 
-	direct := &Manifest{Properties: ManifestProperties{Name: "tool", ModulePath: "example.com/tool"},
-		ReleaseSource: ManifestReleaseSource{Type: "direct", Backend: "gitlab"}}
-	require.NoError(t, ValidateManifest(direct), "a type that names no forge constrains nothing")
+	static := &Manifest{Properties: ManifestProperties{Name: "tool", ModulePath: "example.com/tool"},
+		ReleaseSource: ManifestReleaseSource{Type: "static", Backend: "gitlab", Static: ManifestStaticSource{BaseURL: "https://pkg.acme.dev/tool"}}}
+	require.NoError(t, ValidateManifest(static), "a type that names no forge constrains nothing")
 }
 
 func TestValidateModulePath(t *testing.T) {

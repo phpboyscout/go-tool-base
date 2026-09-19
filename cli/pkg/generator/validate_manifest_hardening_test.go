@@ -216,7 +216,8 @@ func TestValidateManifestReleaseSourceType(t *testing.T) {
 
 		// Reserved until skeleton assets exist for them.
 		{name: "gitea", typ: "gitea", wantErr: false},
-		{name: "direct", typ: "direct", wantErr: false},
+		// Withdrawn (spec 0203 D9): refused with a hint naming the static channel.
+		{name: "direct", typ: "direct", wantErr: true},
 		{name: "bitbucket", typ: "bitbucket", wantErr: false},
 		{name: "arbitrary value", typ: "evil\ninjection", wantErr: true},
 	}

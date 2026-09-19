@@ -41,7 +41,16 @@ include:
   - component: {{ .CIComponentSource }}/go-security@{{ .CICDComponentVersion }}
 
   # Release — tag-gated goreleaser + default-branch zensical-pages deploy.
+{{- if .StaticChannel }}
+  # pro: the static release channel's manifest is written by a before_publish
+  # hook (go-tool-base spec 0203 D5), a Pro-only slot; the licence is the
+  # GORELEASER_KEY CI/CD variable.
   - component: {{ .CIComponentSource }}/goreleaser@{{ .CICDComponentVersion }}
+    inputs:
+      pro: true
+{{- else }}
+  - component: {{ .CIComponentSource }}/goreleaser@{{ .CICDComponentVersion }}
+{{- end }}
   - component: {{ .CIComponentSource }}/zensical-pages@{{ .CICDComponentVersion }}
 
   # Release MR machinery. The cicd wrapper rather than apricote/releaser-pleaser
@@ -80,3 +89,16 @@ workflow:
 variables:
   # releaser-pleaser + goreleaser walk the full commit history.
   GIT_DEPTH: "0"
+{{- if .StaticChannel }}
+
+# The static release channel's store (go-tool-base spec 0203 D5). The
+# goreleaser component hands the job the estate store's credentials as
+# AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY; these two name the S3 endpoint
+# and bucket .goreleaser.yaml uploads to and moves the pointer on. Change
+# them for a store of your own, and make sure {{ .ReleaseBaseURL }}
+# serves the bucket's "{{ .ReleaseBasePath }}/" prefix.
+goreleaser:
+  variables:
+    RELEASE_STORE_ENDPOINT: $R2_RELEASE_ENDPOINT
+    RELEASE_STORE_BUCKET: pbs-release-binaries
+{{- end }}

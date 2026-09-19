@@ -60,17 +60,13 @@ var probes = map[string]func(c *SkeletonConfig){
 	"Templates": func(c *SkeletonConfig) {
 		c.Templates = []TemplateSource{{Name: "t", Type: TemplateSourceGit, Location: "org/tpl", Ref: "v1"}}
 	},
-	"ForgeBackend":                func(c *SkeletonConfig) { c.ForgeBackend = props.FeatureID("gitlab") },
-	"ForgeCredentials":            func(c *SkeletonConfig) { c.ForgeCredentials = []props.FeatureID{"github"} },
-	"ModulePath":                  func(c *SkeletonConfig) { c.ModulePath = "example.com/vanity/probe" },
-	"ReleaseChannel":              func(c *SkeletonConfig) { c.ReleaseChannel = ReleaseChannelDirect },
-	"Direct.URLTemplate":          func(c *SkeletonConfig) { c.Direct.URLTemplate = "https://dl/{{.Version}}/{{.Asset}}" },
-	"Direct.ChecksumURLTemplate":  func(c *SkeletonConfig) { c.Direct.ChecksumURLTemplate = "https://dl/{{.Version}}/sums" },
-	"Direct.SignatureURLTemplate": func(c *SkeletonConfig) { c.Direct.SignatureURLTemplate = "https://dl/{{.Version}}/sig" },
-	"Direct.VersionURL":           func(c *SkeletonConfig) { c.Direct.VersionURL = "https://dl/latest" },
-	"Direct.VersionFormat":        func(c *SkeletonConfig) { c.Direct.VersionFormat = "json" },
-	"Direct.VersionKey":           func(c *SkeletonConfig) { c.Direct.VersionKey = "tag" },
-	"Direct.PinnedVersion":        func(c *SkeletonConfig) { c.Direct.PinnedVersion = "v1.2.3" },
+	"ForgeBackend":     func(c *SkeletonConfig) { c.ForgeBackend = props.FeatureID("gitlab") },
+	"ForgeCredentials": func(c *SkeletonConfig) { c.ForgeCredentials = []props.FeatureID{"github"} },
+	"ModulePath":       func(c *SkeletonConfig) { c.ModulePath = "example.com/vanity/probe" },
+	"ReleaseChannel":   func(c *SkeletonConfig) { c.ReleaseChannel = ReleaseChannelStatic },
+	"ReleaseBaseURL": func(c *SkeletonConfig) {
+		c.ReleaseChannel, c.ReleaseBaseURL = ReleaseChannelStatic, "https://pkg.acme.dev/tool"
+	},
 }
 
 // TestEverySkeletonConfigFieldIsClassified pins spec 0197 D1: the manifest
@@ -121,9 +117,9 @@ func TestAuthorSettingsRoundTrip(t *testing.T) {
 			cfg := SkeletonConfig{Name: "tool", Repo: "org/tool", Host: "github.com", ForgeBackend: "github", ReleaseChannel: ReleaseChannelForge}
 			probes[s.Field](&cfg)
 
-			// A direct channel needs its two required fields to be valid.
+			// The static channel is its base URL; nothing else changes.
 			if s.Field == "ReleaseChannel" {
-				cfg.Direct.URLTemplate, cfg.Direct.VersionURL = "https://dl/{{.Version}}/{{.Asset}}", "https://dl/latest"
+				cfg.ReleaseBaseURL = "https://pkg.acme.dev/tool"
 			}
 
 			m := manifestFromSkeletonConfig(cfg, nil, "v1.0.0")

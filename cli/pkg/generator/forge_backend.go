@@ -13,12 +13,18 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// Release channels a self-updating tool can be generated with (spec 0195 D7).
+// Release channels a self-updating tool can be generated with (spec 0195 D7,
+// spec 0203 D1).
 const (
 	// ReleaseChannelForge releases from the project's forge backend.
 	ReleaseChannelForge = "forge"
-	// ReleaseChannelDirect releases from URLs the go/forge direct source reads.
-	ReleaseChannelDirect = "direct"
+	// ReleaseChannelStatic releases from a static location: a pointer and
+	// per-tag manifests under one base URL, no forge involved.
+	ReleaseChannelStatic = "static"
+	// releaseChannelDirect is the withdrawn channel of spec 0195 D7. A
+	// manifest that names it still loads; regenerate drops its block and
+	// refuses the type (spec 0203 D9).
+	releaseChannelDirect = "direct"
 )
 
 // Sentinels for the backend, channel and module-path fields.
@@ -78,13 +84,15 @@ func ValidateModulePath(path string) error {
 	return nil
 }
 
-// ValidateReleaseChannel accepts forge, direct or empty.
+// ValidateReleaseChannel accepts forge, static or empty.
 func ValidateReleaseChannel(channel string) error {
 	switch channel {
-	case "", ReleaseChannelForge, ReleaseChannelDirect:
+	case "", ReleaseChannelForge, ReleaseChannelStatic:
 		return nil
+	case releaseChannelDirect:
+		return errors.Wrapf(ErrInvalidReleaseChannel, "%q was withdrawn; the static channel replaces it (known: forge, static)", channel)
 	default:
-		return errors.Wrapf(ErrInvalidReleaseChannel, "%q (known: forge, direct)", channel)
+		return errors.Wrapf(ErrInvalidReleaseChannel, "%q (known: forge, static)", channel)
 	}
 }
 
@@ -97,14 +105,14 @@ func joinFeatureIDs(ids []props.FeatureID) string {
 	return strings.Join(names, ", ")
 }
 
-// releaseSourceTypeFor is the go/forge source type a project releases from:
-// the backend's for the forge channel, direct for the direct channel, the
+// releaseSourceTypeFor is the release source type a project releases from:
+// static for the static channel, the backend's for the forge channel, the
 // pre-0195 host substring when neither is recorded but a host is, and empty
 // for a project that is not hosted and has no channel.
 func releaseSourceTypeFor(backend props.FeatureID, channel, host string) string {
 	switch {
-	case channel == ReleaseChannelDirect:
-		return ReleaseChannelDirect
+	case channel == ReleaseChannelStatic:
+		return props.ReleaseSourceStatic
 	case backend != "":
 		return string(backend)
 	case host != "":
@@ -234,7 +242,14 @@ func (g *Generator) warnUndecidedChatDefault(m *Manifest) {
 func deriveMissingManifestFields(m *Manifest) (bool, error) {
 	changed := deriveMissingChatFields(&m.Properties)
 
-	if m.ReleaseSource.Backend == "" && m.ReleaseSource.Type != ReleaseChannelDirect {
+	// The withdrawn direct channel's block is read by nothing (spec 0203
+	// D9): it is dropped here and the write-back says so.
+	if m.ReleaseSource.Direct != (ManifestDirectSource{}) {
+		m.ReleaseSource.Direct = ManifestDirectSource{}
+		changed = true
+	}
+
+	if m.ReleaseSource.Backend == "" {
 		backend, err := deriveForgeBackend(m)
 		if err != nil {
 			return false, err
