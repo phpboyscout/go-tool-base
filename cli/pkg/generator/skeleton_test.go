@@ -628,7 +628,7 @@ func TestSkeletonReadme_EnabledBuiltins(t *testing.T) {
 		})
 
 		assert.Contains(t, readme, "No opt-in built-ins")
-		assert.NotContains(t, readme, "**AI chat**")
+		assert.NotContains(t, readme, "**AI features**")
 	})
 
 	t.Run("opt-in features enabled", func(t *testing.T) {
@@ -644,7 +644,7 @@ func TestSkeletonReadme_EnabledBuiltins(t *testing.T) {
 			},
 		})
 
-		assert.Contains(t, readme, "**AI chat**")
+		assert.Contains(t, readme, "**AI features**")
 		assert.Contains(t, readme, "**Config management**")
 		assert.Contains(t, readme, "**Telemetry**")
 	})

@@ -56,7 +56,7 @@ manifest.
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
 | `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. A forge name is refused here; the forge is chosen with `--forge-backend`. |
-| `--chat-providers` | *(every known provider)* | Chat providers the tool links when `ai` is among its features: see [adapters](#adapters). Ignored without `ai`; empty with `ai` is refused. |
+| `--chat-providers` | *(none)* | `go/chat` provider modules wired into the binary, for the tool's own code or for the `ai` feature, recorded as `chat.providers`: see [adapters](#adapters). Independent of `ai`; with `ai` and no list, every known provider; an explicit empty list with `ai` is refused. |
 | `--chat-default-provider` | *(the only provider, when one is linked)* | The tool's default chat provider. Required when `--chat-providers` links more than one: the generator does not choose for you. Must be one of the linked providers. Recorded as `chat.default.provider` and shipped as the tool's embedded default: see [chat defaults](#chat-defaults). |
 | `--chat-default-model` | *(the provider module's choice)* | Default model for the default provider. |
 | `--chat-base-url` | — | API endpoint for the default provider. Required by `openai-compatible` and `azure-openai`; HTTPS, no userinfo, no placeholder host. |
@@ -108,17 +108,26 @@ the same run, and no `regenerate` is needed afterwards.
 **Adapters.** A chat provider or a forge is a module the tool blank-imports
 from its own `main` package, and the generator writes those imports from the
 manifest into two `DO NOT EDIT` files beside `keychain.go`. Each exists only
-while the tool uses the feature: `chat.go` under `ai`, `forge.go` while a forge
-feature is enabled. A tool with neither has neither file.
+while the tool uses it: `chat.go` while a provider is linked or `ai` is on,
+`forge.go` while a forge feature is enabled. A tool with neither has neither file.
+
+Two things are easy to run together and are deliberately separate. **`chat.providers`**
+is the wiring: which provider modules the binary links, a shortcut for a tool that
+uses `go/chat` from its own code as much as for one that uses GTB's AI features, and
+the place new providers appear as they become available. **The `ai` feature** is the
+switch for GTB's AI-based features: the `ai` config section and `ai.provider`, the
+`init ai` wizard, `docs ask`, the chat defaults bundle and the doctor check. A tool
+can link providers without `ai` (keryx does), and `ai` needs at least one linked
+provider to do anything.
 
 | File | Derived from | Modules |
 |------|--------------|---------|
-| `cmd/<name>/chat.go` | `chat.providers` in the manifest, only when `ai` is enabled | `claude`, `claude-local` → `go/chat-anthropic`; `openai`, `openai-compatible`, `codex-local` → `go/chat-openai`; `gemini`, `gemini-vertex`, `agy-local` → `go/chat-gemini`; `bedrock` → `go/chat-bedrock`; `azure-openai` → `go/chat-openai-azure` |
+| `cmd/<name>/chat.go` | `chat.providers` in the manifest, whether or not `ai` is enabled | `claude`, `claude-local` → `go/chat-anthropic`; `openai`, `openai-compatible`, `codex-local` → `go/chat-openai`; `gemini`, `gemini-vertex`, `agy-local` → `go/chat-gemini`; `bedrock` → `go/chat-bedrock`; `azure-openai` → `go/chat-openai-azure` |
 | `cmd/<name>/forge.go` | the enabled forge features, implied by `--forge-backend` and `--forge-credentials` | `github` → `go/forge-github`; `gitlab` → `go/forge-gitlab`; `gitea`, `codeberg` → `go/forge-gitea`; `bitbucket` → `go/forge-bitbucket` |
 
-Every known provider is pre-selected: a generated tool is configured by its
-consumers the way `gtb` itself is, so it ships every provider and the operator
-narrows with `--chat-providers` or the wizard. Generation only emits the
+Nothing is linked unless asked: `--chat-providers` names the list, and the `ai`
+feature with no list takes every known provider, since a tool that offers GTB's
+AI features is configured by its consumers the way `gtb` itself is. Generation only emits the
 import; what the running tool's `init` wizard and `doctor` can set up for a
 provider is a separate, narrower question (today: the three API-key providers
 and the local CLIs, which need nothing; Vertex, Bedrock and Azure are
@@ -130,8 +139,9 @@ NOT EDIT` file under `cmd/<name>/` (`chat.go`, `forge.go`, `keychain.go`, the
 `chat/assets` bundle) and `pkg/cmd/root/signing.go` is re-emitted from the
 manifest by every command that writes the manifest, so its presence is a fact
 about the manifest and its absence is temporary. To ship no chat provider with
-`ai` on, set `chat.providers: []`; to drop chat altogether, `gtb disable ai`
-removes `chat.go`; to drop the keychain, `gtb disable keychain`; to turn
+`ai` on, set `chat.providers: []`; to drop the linked modules, `gtb unset
+chat.providers` (`gtb disable ai` turns the AI features off and leaves the
+wiring, saying so); to drop the keychain, `gtb disable keychain`; to turn
 signing off, `gtb disable signing`. A project generated before the `chat:`
 block existed has no block at all, and gets the full list written into its
 manifest the first time it is regenerated (or `enable ai` is run) with `ai`

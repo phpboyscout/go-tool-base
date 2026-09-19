@@ -152,7 +152,7 @@ doctor checks, and changelog.
 The following opt-in built-ins are also enabled:
 {{ range .EnabledFeatures }}
 {{- if eq . "ai" }}
-- **AI chat** — interactive AI assistance.
+- **AI features** — `docs ask` and the `ai.provider` setup in `init`; the chat providers it uses are the `chat.providers` wiring in the manifest.
 {{- else if eq . "config" }}
 - **Config management** — inspect and edit configuration.
 {{- else if eq . "telemetry" }}
@@ -162,7 +162,7 @@ The following opt-in built-ins are also enabled:
 {{- end }}
 {{- end }}
 {{ else -}}
-No opt-in built-ins (AI chat, config management, telemetry) are enabled.
+No opt-in built-ins (AI features, config management, telemetry) are enabled.
 {{ end }}
 Change the feature set with `gtb enable <feature>` / `gtb disable <feature>`
 (e.g. `gtb enable ai`) and any other author setting with `gtb set <path>
