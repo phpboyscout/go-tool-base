@@ -86,3 +86,39 @@ func TestGeneratedGoreleaserMainCompilesEveryMainFile(t *testing.T) {
 		assert.Equal(t, mainDir, filepath.Dir(f), "%s is package main but outside the directory main: names", filepath.Base(f))
 	}
 }
+
+// TestGeneratedGoreleaserRunsTheBinaryBeforePublishing (#95): keryx v0.19.0
+// shipped green with a binary that could not start, because nothing in the
+// release ran it. The scaffold's build carries a post hook that runs the
+// artefact goreleaser built (not a go run of the package, which is a
+// different build) on the target that matches the runner, so a release
+// whose binary fails at start fails before anything is published.
+func TestGeneratedGoreleaserRunsTheBinaryBeforePublishing(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir()
+	g := newSkeletonGeneratorForTest(t, afero.NewOsFs())
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), signingSkeletonConfig(path, ManifestSigning{})))
+
+	raw, err := os.ReadFile(filepath.Join(path, ".goreleaser.yaml"))
+	require.NoError(t, err)
+
+	var doc struct {
+		Builds []struct {
+			Hooks struct {
+				Post []struct {
+					Cmd string `yaml:"cmd"`
+				} `yaml:"post"`
+			} `yaml:"hooks"`
+		} `yaml:"builds"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &doc))
+	require.Len(t, doc.Builds, 1)
+	require.Len(t, doc.Builds[0].Hooks.Post, 1)
+
+	cmd := doc.Builds[0].Hooks.Post[0].Cmd
+	assert.Contains(t, cmd, `"{{ .Path }}" version --ci`, "the built artefact is what runs")
+	assert.Contains(t, cmd, `"{{ .Runtime.Goos }}/{{ .Runtime.Goarch }}"`, "only the target the runner can execute")
+	assert.NotContains(t, cmd, "go run", "a go run is a different build from the one that ships")
+}

@@ -23,6 +23,14 @@ builds:
       - -s -w
       - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.date={{.Date}}
       - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+    # Run the binary once before anything is published: a release whose
+    # binary cannot start (a link file left out of the build, a feature
+    # enabled with no adapter) shipped green from a pipeline that never ran
+    # it, and a broken install cannot self-update out of that (#95). Only
+    # the target that matches the runner is executable here; the rest pass.
+    hooks:
+      post:
+        - cmd: sh -c 'case "{{ .Os }}/{{ .Arch }}" in "{{ .Runtime.Goos }}/{{ .Runtime.Goarch }}") "{{ .Path }}" version --ci >/dev/null ;; esac'
   - id: gtb
     main: ./cli/cmd/gtb
     env:
@@ -40,6 +48,14 @@ builds:
       - -s -w
       - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/version.date={{.Date}}
       - -X gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+    # Run the binary once before anything is published: a release whose
+    # binary cannot start (a link file left out of the build, a feature
+    # enabled with no adapter) shipped green from a pipeline that never ran
+    # it, and a broken install cannot self-update out of that (#95). Only
+    # the target that matches the runner is executable here; the rest pass.
+    hooks:
+      post:
+        - cmd: sh -c 'case "{{ .Os }}/{{ .Arch }}" in "{{ .Runtime.Goos }}/{{ .Runtime.Goarch }}") "{{ .Path }}" version --ci >/dev/null ;; esac'
 
 notarize:
   macos:

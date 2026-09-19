@@ -33,6 +33,17 @@ just snapshot
 ls dist/checksums.txt
 ```
 
+**The release runs the binary it built before publishing.** The scaffolded
+`.goreleaser.yaml` (and gtb's own) carries a post-build hook that runs the
+freshly built artefact once, `<tool> version --ci`, on the target that matches
+the runner; the other targets pass through. A tool whose binary cannot start
+therefore fails the build, and nothing is published. This is deliberately the
+artefact GoReleaser built and not a `go run` of the package: the two are
+different builds (main path, tags, ldflags, CGO), and a release that built a
+single `main.go` instead of the package shipped green with a binary that died
+at start (go-tool-base #95). A tool that needs a build tag to start sets it in
+the build's `flags`, where the hook already sees it.
+
 ### Manual / CI pipelines
 
 If you don't use GoReleaser, produce the manifest with standard `sha256sum` output and upload it alongside the binaries. The file format is:

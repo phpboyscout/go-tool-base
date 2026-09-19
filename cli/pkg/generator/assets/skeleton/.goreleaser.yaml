@@ -27,6 +27,14 @@ builds:
       - -X {{ .ModulePath }}/internal/version.version={{ "{{" }}.Version{{ "}}" }}
       - -X {{ .ModulePath }}/internal/version.commit={{ "{{" }}.Commit{{ "}}" }}
       - -X {{ .ModulePath }}/internal/version.date={{ "{{" }}.Date{{ "}}" }}
+    # Run the binary once before anything is published: a release whose
+    # binary cannot start (a link file left out of the build, a feature
+    # enabled with no adapter) ships green from a pipeline that never ran it,
+    # and a broken install cannot self-update out of that. Only the target
+    # that matches the runner is executable here; the rest pass.
+    hooks:
+      post:
+        - cmd: sh -c 'case "{{ "{{" }} .Os {{ "}}" }}/{{ "{{" }} .Arch {{ "}}" }}" in "{{ "{{" }} .Runtime.Goos {{ "}}" }}/{{ "{{" }} .Runtime.Goarch {{ "}}" }}") "{{ "{{" }} .Path {{ "}}" }}" version --ci >/dev/null ;; esac'
 
 archives:
   - formats: [ "tar.gz" ]
