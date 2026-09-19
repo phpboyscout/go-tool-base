@@ -34,8 +34,12 @@ var scaffoldTools = []string{frameworkModule + "/cmd/changelog", frameworkModule
 // phase 4 for tools that are installed now (D12). A regenerate drops them
 // (#86): the gtb line pinned the CLI module out of step with the framework,
 // and the other two dragged their dependency graphs into every project.
+// A scaffold from before the CLI moved to cli/ carried the gtb line at
+// cmd/gtb, and the match ignores the major, so golangci-lint v2 and any
+// mockery major are covered (#92).
 var legacyTools = []string{
 	frameworkModule + "/cli/cmd/gtb",
+	frameworkModule + "/cmd/gtb",
 	"github.com/golangci/golangci-lint/cmd/golangci-lint",
 	"github.com/vektra/mockery/v3",
 }

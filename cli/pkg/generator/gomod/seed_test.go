@@ -127,6 +127,47 @@ func TestSeed_DropsTheToolDirectivesAsked(t *testing.T) {
 	}, report.DroppedTools)
 }
 
+// TestSeed_DropsTheToolDirectivesAtEveryMajorAndOlderPath (#92): a scaffold
+// from before the CLI moved to cli/ and before golangci-lint v2 carries the
+// same tools at other paths, and an exact match left them for go mod tidy to
+// fail on. A drop matches the module at any major version.
+func TestSeed_DropsTheToolDirectivesAtEveryMajorAndOlderPath(t *testing.T) {
+	t.Parallel()
+
+	const preCLI = `module example.com/tool
+
+go 1.27.1
+
+tool (
+	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+	github.com/vektra/mockery/v3
+	gitlab.com/phpboyscout/go-tool-base/cmd/changelog
+	gitlab.com/phpboyscout/go-tool-base/cmd/docs
+	gitlab.com/phpboyscout/go-tool-base/cmd/gtb
+)
+`
+
+	out, report, err := Seed([]byte(preCLI), nil, nil, WithoutTools(
+		"gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb",
+		"gitlab.com/phpboyscout/go-tool-base/cmd/gtb",
+		"github.com/golangci/golangci-lint/cmd/golangci-lint",
+		"github.com/vektra/mockery/v3",
+	))
+	require.NoError(t, err)
+
+	s := string(out)
+	assert.NotContains(t, s, "cmd/gtb")
+	assert.NotContains(t, s, "golangci-lint")
+	assert.NotContains(t, s, "mockery")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go-tool-base/cmd/changelog")
+	assert.Contains(t, s, "gitlab.com/phpboyscout/go-tool-base/cmd/docs")
+	assert.Equal(t, []string{
+		"gitlab.com/phpboyscout/go-tool-base/cmd/gtb",
+		"github.com/golangci/golangci-lint/v2/cmd/golangci-lint",
+		"github.com/vektra/mockery/v3",
+	}, report.DroppedTools, "reported as the directive read, not as the pattern asked for")
+}
+
 // TestLockstepFloors (#87, spec 0200 D9): an owned adapter at the version
 // this gtb knows is a floor, so a present line below it is raised; a module
 // the generator does not own, and one it knows no version for, are left as

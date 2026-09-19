@@ -195,17 +195,56 @@ func requireFor(f *modfile.File, path string) *modfile.Require {
 }
 
 // dropTools removes the tool directives asked for, reporting the ones that
-// were there. A directive that is absent is nothing to report.
+// were there as the file spelt them. A directive that is absent is nothing to
+// report. The match ignores a major-version path segment, so an ask for
+// golangci-lint/cmd/golangci-lint drops the v2 line an older scaffold carries
+// (#92) and mockery/v3 drops any major.
 func dropTools(f *modfile.File, paths []string, report *Report) {
 	for _, path := range paths {
-		if !slices.ContainsFunc(f.Tool, func(t *modfile.Tool) bool { return t.Path == path }) {
+		want := withoutMajor(path)
+
+		for _, t := range slices.Clone(f.Tool) {
+			if withoutMajor(t.Path) != want {
+				continue
+			}
+
+			// DropTool clears the entry it removes, so the path is kept first.
+			dropped := t.Path
+			_ = f.DropTool(dropped) // DropTool only errors on a malformed path, and this one parsed
+
+			report.DroppedTools = append(report.DroppedTools, dropped)
+		}
+	}
+}
+
+// withoutMajor is path with any /vN major-version segment removed.
+func withoutMajor(path string) string {
+	parts := strings.Split(path, "/")
+	kept := parts[:0]
+
+	for _, p := range parts {
+		if isMajorSegment(p) {
 			continue
 		}
 
-		_ = f.DropTool(path) // DropTool only errors on a malformed path, checked by the caller's tables
-
-		report.DroppedTools = append(report.DroppedTools, path)
+		kept = append(kept, p)
 	}
+
+	return strings.Join(kept, "/")
+}
+
+func isMajorSegment(s string) bool {
+	if len(s) < 2 || s[0] != 'v' {
+		return false
+	}
+
+	for _, r := range s[1:] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+
+	return true
 }
 
 // dropOrphans removes the lines of owned modules nothing wants any more.
