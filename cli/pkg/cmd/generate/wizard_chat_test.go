@@ -88,14 +88,18 @@ func TestWizard_AIPage(t *testing.T) {
 		assert.Empty(t, o.ChatDefault.Project, "cloud addressing does not apply to this provider")
 	})
 
-	t.Run("without ai the page is skipped and the default cleared", func(t *testing.T) {
+	t.Run("without ai the providers are still asked, the default page is skipped and the default cleared", func(t *testing.T) {
 		t.Parallel()
 
 		o := &SkeletonOptions{Features: []string{"update"}, ChatProviders: []string{"claude"}}
 		o.ChatDefault.Provider = "claude"
 		f, m := startWizard(o)
+		// #94: the providers page is a permanent fixture, the wiring is the
+		// tool's whether or not ai is on.
+		m = driveUntilKey(f, m, o, "chat-providers")
+		require.Equal(t, "chat-providers", f.GetFocusedField().GetKey(), "no ai, the providers page still shows")
 		m = driveUntilKey(f, m, o, "chat-default")
-		assert.NotEqual(t, "chat-default", f.GetFocusedField().GetKey(), "no ai, no AI page")
+		assert.NotEqual(t, "chat-default", f.GetFocusedField().GetKey(), "no ai, no AI defaults page")
 
 		for i := 0; i < 20 && f.State != huh.StateCompleted; i++ {
 			m, _ = advance(f, m)

@@ -1075,6 +1075,7 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.envPrefixCustomGroup(),
 		o.selfUpdateGroup(),
 		o.chatProvidersGroup(),
+		o.chatDefaultGroup(),
 		o.chatEndpointGroup(),
 		o.chatCloudGroup(),
 		o.telemetryGroup(),
@@ -1240,8 +1241,8 @@ func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 	return huh.NewGroup(
 		newMultiSelect("Chat providers",
-			"Each one is a module linked into the binary; untick what this tool will never use. Linking is per module: codex-local links chat-openai, which registers openai and openai-compatible too.",
-			chatProviderOptions(o.ChatProviders)).
+			"go/chat provider modules wired into the binary, for this tool's own use or for the ai feature. Each is a module linked into the binary; tick only what this tool will use. Linking is per module: codex-local links chat-openai, which registers openai and openai-compatible too.",
+			chatProviderOptions(o.chatPreselect())).
 			Key("chat-providers").
 			Value(&o.ChatProviders).
 			Validate(func(selected []string) error {
@@ -1249,6 +1250,35 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 				// with every answer gone (#48).
 				return hintedValidation(generator.ValidateChatProviders(selected, o.resolveFeatures()))
 			}),
+	).
+		Title("Chat providers").
+		Description("Recorded as chat.providers in the manifest; independent of the ai feature, which switches the AI-based features (docs ask, init ai).\n")
+}
+
+// chatPreselect is what the providers page shows ticked: the author's own
+// list when there is one, else the default set under ai (spec 0194 D7) and
+// nothing without it, so a tool that does not use chat links nothing by
+// accident. Read once when the form is built: the multi-select takes no
+// reactive options, so an author who ticks ai on the features page is asked
+// to tick a provider here, and the field refuses an empty list under ai.
+func (o *SkeletonOptions) chatPreselect() []string {
+	if len(o.ChatProviders) > 0 {
+		return o.ChatProviders
+	}
+
+	if o.aiSelected() {
+		return generator.DefaultChatProviders()
+	}
+
+	return nil
+}
+
+// chatDefaultGroup is the ai feature's page: the default provider and model
+// GTB's own AI-based features use. huh hides groups, not fields, so the
+// ai-only fields sit on their own page beside the permanent providers page
+// and follow the feature (#94).
+func (o *SkeletonOptions) chatDefaultGroup() *huh.Group {
+	return huh.NewGroup(
 		huh.NewSelect[string]().Key("chat-default").Title("Default provider").
 			Description("Shipped as the tool's default; an end user overrides it in their own config.").
 			Options(chatDefaultOptions(o.ChatProviders)...).
@@ -1261,9 +1291,9 @@ func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 			Description("Blank means the provider module's choice, which favours capability over cost.").
 			Value(&o.ChatDefault.Model),
 	).
-		Title("AI Chat").
-		Description("The ai feature needs at least one provider.\n").
-		WithHideFunc(func() bool { return !slices.Contains(o.Features, string(props.AiCmd)) })
+		Title("AI defaults").
+		Description("For the ai feature: the provider and model its features use. Needs at least one linked provider.\n").
+		WithHideFunc(func() bool { return !o.aiSelected() })
 }
 
 // chatDefaultOptions offers the linked providers as the default. Between

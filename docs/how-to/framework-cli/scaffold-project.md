@@ -266,12 +266,20 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   being designed under
   [#90](https://gitlab.com/phpboyscout/go-tool-base/-/issues/90).
 
-**AI Chat** *(the `ai` feature selected)*
-: Which providers the tool links (per module: `codex-local` links `chat-openai`,
-  which registers `openai` and `openai-compatible` too), which is the default,
-  and optionally a model. One linked provider is its own default; between
-  several you choose, the wizard never does. The default select narrows to
-  what is ticked. See [chat defaults](../../reference/cli/generate.md#chat-defaults).
+**Chat providers** *(always)*
+: Which `go/chat` provider modules the binary links, recorded as
+  `chat.providers`: a shortcut for wiring, for the tool's own code or for the
+  `ai` feature, and independent of it. Per module: `codex-local` links
+  `chat-openai`, which registers `openai` and `openai-compatible` too. Nothing
+  is ticked unless `ai` was selected on the flags, in which case the default set
+  is; the `ai` feature needs at least one.
+
+**AI defaults** *(the `ai` feature selected)*
+: The default provider and optionally a model, for the AI-based features the
+  `ai` flag switches (`docs ask`, `init ai`). One linked provider is its own
+  default; between several you choose, the wizard never does. The default
+  select narrows to what is ticked. See
+  [chat defaults](../../reference/cli/generate.md#chat-defaults).
 
 **AI endpoint** *(the default is `openai-compatible` or `azure-openai`)*
 : The API endpoint (HTTPS), and for Azure the dated API version.
