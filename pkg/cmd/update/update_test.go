@@ -329,3 +329,54 @@ func TestUpdateFromFile_ViaCommand(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 }
+
+// #95: an updater that finds the binary already current replaced nothing,
+// and the command used to say "Update complete" with Updated: true.
+func TestUpdate_AlreadyCurrentIsReportedAsNoUpdate(t *testing.T) {
+	t.Parallel()
+
+	buf := logger.NewBuffer()
+	props := &p.Props{
+		FS:      afero.NewMemMapFs(),
+		Tool:    p.Tool{Name: "test-tool"},
+		Logger:  buf,
+		Version: version.NewInfo("v1.0.0", "head", "now"),
+	}
+
+	mu := &mockUpdater{latestVersion: "v1.0.0", updateErr: setup.ErrAlreadyCurrent}
+
+	var executed []string
+
+	result, err := update.Update(context.Background(), props, "", false, io.Discard,
+		update.WithUpdater(func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) { return mu, nil }),
+		update.WithExecCommand(exectest.TrackingCommand(&executed)),
+	)
+	require.NoError(t, err, "already current is not a failure")
+	assert.False(t, result.Updated)
+	assert.Equal(t, "v1.0.0", result.PreviousVersion)
+	assert.Equal(t, "v1.0.0", result.NewVersion)
+	assert.False(t, buf.Contains("Update complete"), "nothing completed: %s", buf.String())
+	assert.True(t, buf.Contains("already"), buf.String())
+	assert.Empty(t, executed, "no config refresh when nothing was replaced")
+}
+
+// #96: the config refresh after an update ran `init --skip-login --skip-key`,
+// and --skip-login is the GitHub profile's flag alone; a GitLab tool's init
+// refused it and the refresh silently never ran. The refresh names no
+// profile's flag: init skips every credential wizard off a terminal.
+func TestUpdateConfig_NamesNoProfileFlag(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	props := &p.Props{FS: fs, Tool: p.Tool{Name: "test-tool"}, Logger: logger.NewNoop()}
+	_ = fs.MkdirAll(setup.GetDefaultConfigDir(fs, "test-tool"), 0o755)
+
+	var executed []string
+
+	update.UpdateConfig(context.Background(), props, "/bin/new-tool", update.WithExecCommand(exectest.TrackingCommand(&executed)))
+
+	require.Len(t, executed, 1)
+	assert.NotContains(t, executed[0], "--skip-login")
+	assert.Contains(t, executed[0], "--ci")
+	assert.Contains(t, executed[0], "--skip-key")
+}

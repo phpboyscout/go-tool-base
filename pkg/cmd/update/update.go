@@ -178,6 +178,14 @@ func Update(ctx context.Context, props *p.Props, version string, force bool, out
 	}
 
 	binPath, err := updater.Update(ctx)
+	if errors.Is(err, setup.ErrAlreadyCurrent) {
+		// Nothing was replaced, so nothing completed: no config refresh, no
+		// changelog, and the result says so (#95).
+		props.Logger.Info("already running the current version; nothing to update", "version", currentVersion)
+
+		return &UpdateResult{PreviousVersion: previousVersion, NewVersion: currentVersion, Updated: false}, nil
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +275,11 @@ func UpdateConfig(ctx context.Context, props *p.Props, binPath string, opts ...U
 
 		for _, path := range updatePaths {
 			if _, err := props.FS.Stat(path); err == nil {
-				cmd := o.execCommand(ctx, binPath, "init", "--dir", path, "--skip-login", "--skip-key")
+				// No profile's skip flag is named: --skip-login belongs to the
+				// GitHub profile alone and a GitLab tool's init refused it, so
+				// the refresh silently never ran (#96). Off a terminal and under
+				// --ci, init skips every credential wizard by itself.
+				cmd := o.execCommand(ctx, binPath, "init", "--dir", path, "--ci", "--skip-key")
 				cmd.Stdout = props.GetIO().Out()
 				cmd.Stderr = props.GetIO().Err()
 

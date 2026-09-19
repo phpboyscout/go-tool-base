@@ -126,8 +126,10 @@ func TestUpdate_AlreadyLatest_SkipsWithoutError(t *testing.T) {
 
 	s, currentBin := newE2EUpdater(t, provider) // current v1.0.0 == latest
 
+	// Already-latest replaces nothing and says so (#95): the sentinel is what
+	// lets the command report a no-op instead of "Update complete".
 	path, err := s.Update(t.Context())
-	require.NoError(t, err, "already-latest must remain a silent skip, not an error")
+	require.ErrorIs(t, err, ErrAlreadyCurrent)
 	assert.Equal(t, currentBin, path)
 
 	got, readErr := afero.ReadFile(s.Fs, currentBin)
@@ -177,9 +179,9 @@ func TestUpdate_DevelopmentVersion_StillRequiresForce(t *testing.T) {
 	s.CurrentVersion = "v0.0.0"
 	s.requireChecksum = true
 
-	// Without --force a development build never updates (silent skip).
+	// Without --force a development build never updates, and says so (#95).
 	_, err := s.Update(t.Context())
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrAlreadyCurrent)
 
 	got, readErr := afero.ReadFile(s.Fs, currentBin)
 	require.NoError(t, readErr)

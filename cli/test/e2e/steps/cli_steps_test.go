@@ -413,9 +413,17 @@ func theJSONFieldEquals(ctx context.Context, path, expected string) error {
 		return err
 	}
 
-	str, ok := val.(string)
-	if !ok {
-		return fmt.Errorf("JSON field %q is not a string: %v", path, val)
+	// A scalar compares by its textual form, so a bool or a number can be
+	// asserted the way a string is; a nested value cannot.
+	var str string
+
+	switch v := val.(type) {
+	case string:
+		str = v
+	case bool, float64, nil:
+		str = fmt.Sprint(v)
+	default:
+		return fmt.Errorf("JSON field %q is not a scalar: %v", path, val)
 	}
 
 	if str != expected {

@@ -18,7 +18,9 @@ mytool update [flags]
 
 ## Description
 
-Downloads and installs the latest version of the tool. After updating, it automatically runs `init` on existing configuration directories to ensure compatibility.
+Downloads and installs the latest version of the tool. After replacing the binary, it runs the new binary's `init --ci --skip-key` on each existing configuration directory to refresh the config; under `--ci` and off a terminal, `init` skips every credential wizard, so no profile's skip flag is needed.
+
+When the running binary is already the latest release (or is a development build and `--force` was not given), nothing is replaced and the command says so: `already running the current version; nothing to update`, exit 0, and `--output json` reports `"updated": false`. "Update complete" is printed only when the file on disk was replaced.
 
 ## Flags
 

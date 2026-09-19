@@ -662,7 +662,7 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 	}
 
 	if skip {
-		return targetPath, nil
+		return targetPath, errors.WithStack(ErrAlreadyCurrent)
 	}
 
 	latestVersion, err := s.GetLatestRelease(ctx)
@@ -1006,6 +1006,12 @@ func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) (bool, error) {
 
 	return false, nil
 }
+
+// ErrAlreadyCurrent is what Update returns when there is nothing to install:
+// the running binary is already the latest release (or a development build
+// without --force). Nothing was replaced, and the caller must not say it was
+// (#95). It is not a failure; the command maps it to a no-op result.
+var ErrAlreadyCurrent = errors.NewSentinel("gtb.setup.already_current", "already running the current version; nothing replaced")
 
 // ErrDowngradeRefused is returned when the implicit (no --version) update
 // path would install a release older than the running binary. Signature and

@@ -36,6 +36,12 @@ Feature: CLI Update Command
     When I run gtb with "update"
     Then the exit code is 0
     And stderr contains "already running latest version"
+    And stderr contains "nothing to update"
+    And stderr does not contain "Update complete"
+    When I run gtb with "update --output json"
+    Then the exit code is 0
+    And stdout is valid JSON
+    And the JSON field "data.updated" equals "false"
 
   Scenario: A release source reporting an older latest is refused without force
     Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "stale-latest"

@@ -112,3 +112,34 @@ func TestGetDefaultConfigDir_EmptyHomeReturnsEmpty(t *testing.T) {
 	assert.Empty(t, got,
 		"empty HOME must yield an empty config dir, not a relative path")
 }
+
+// TestUpdate_AlreadyCurrentIsSaidSo (#95): a binary that is already at the
+// latest release used to get a nil error from Update with nothing replaced,
+// and the command then reported "Update complete". The updater now says so
+// with a sentinel the command can tell from success.
+func TestUpdate_AlreadyCurrentIsSaidSo(t *testing.T) {
+	t.Parallel()
+
+	rel := mockRelease.NewMockRelease(t)
+	rel.EXPECT().GetTagName().Return("v1.0.0").Maybe()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/opt/test-tool", []byte("old"), 0o755))
+
+	updater := &SelfUpdater{
+		Tool:           props.Tool{Name: "test-tool"},
+		logger:         logger.NewNoop(),
+		CurrentVersion: "v1.0.0",
+		NextRelease:    rel,
+		Fs:             fs,
+		osExecutable:   func() (string, error) { return "/opt/test-tool", nil },
+		execLookPath:   func(string) (string, error) { return "/opt/test-tool", nil },
+	}
+
+	_, err := updater.Update(context.Background())
+	require.ErrorIs(t, err, ErrAlreadyCurrent)
+
+	got, readErr := afero.ReadFile(fs, "/opt/test-tool")
+	require.NoError(t, readErr)
+	assert.Equal(t, "old", string(got), "nothing replaced")
+}
