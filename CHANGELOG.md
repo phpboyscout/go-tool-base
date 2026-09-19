@@ -1,5 +1,20 @@
 # Changelog
 
+## [v0.45.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.0...v0.45.1)
+
+### Notes
+
+- v0.45.0's binaries reached the store but its pointer did not move, so no
+  tool was offered it; this release moves the pointer and starts the
+  static channel's chain. A gtb installed before v0.45.0 updates through
+  the GitLab release as before.
+
+### Bug Fixes
+
+- **release**: the pointer publisher is handed the store's credentials ([0a5c15e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0a5c15eaf953b1a4a8632f3312870d48b5a7e013))
+
 ## [v0.45.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.44.0...v0.45.0)
