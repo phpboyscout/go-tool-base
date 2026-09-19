@@ -76,9 +76,10 @@ func TestGenerateSkeleton(t *testing.T) {
 	assert.Equal(t, "test-project", m.ReleaseSource.Repo)
 
 	// init and docs are on by default, so requesting them adds no manifest
-	// override — the delta-normalised feature list is empty, and both are
-	// effectively enabled (inferred from the framework defaults).
-	assert.Empty(t, m.Properties.Features, "default-state features carry no manifest entry")
+	// override; the only entry is the forge the GitHub host implies (spec
+	// 0195 D1), which the library applies the way the CLI does.
+	assert.Equal(t, []ManifestFeature{{Name: "github", Enabled: true}}, m.Properties.Features,
+		"default-state features carry no manifest entry; the implied forge does")
 	assert.True(t, featureEnabledIn(m.Properties.Features, "init"))
 	assert.True(t, featureEnabledIn(m.Properties.Features, "docs"))
 
@@ -618,10 +619,12 @@ func TestSkeletonReadme_EnabledBuiltins(t *testing.T) {
 	t.Run("no opt-in features", func(t *testing.T) {
 		t.Parallel()
 
+		// Not hosted: a hosted project has its backend's forge, which the
+		// README lists as an opt-in built-in.
 		readme, _ := generateReadmeFixture(t, SkeletonConfig{
-			Name: "plain", Repo: "acme/plain", Host: "github.com",
+			Name: "plain", ModulePath: "example.internal/plain",
 			Description: "Plain tool", Path: "/work", EnvPrefix: "PLAIN",
-			Features: []ManifestFeature{{Name: "docs", Enabled: true}},
+			Features: []ManifestFeature{{Name: "docs", Enabled: true}, {Name: "update", Enabled: false}},
 		})
 
 		assert.Contains(t, readme, "No opt-in built-ins")

@@ -1,9 +1,11 @@
 package generator
 
 import (
+	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/spf13/afero"
 	"gitlab.com/phpboyscout/go/errors"
 	"golang.org/x/mod/module"
 
@@ -191,6 +193,10 @@ func (g *Generator) syncDerivedManifestFields(m *Manifest) error {
 		return err
 	}
 
+	if g.recordKeychainFromFile(m) {
+		changed = true
+	}
+
 	// After derivation, so a manifest that has just gained the default
 	// provider set is told the one thing derivation cannot decide.
 	g.warnUndecidedChatDefault(m)
@@ -240,6 +246,16 @@ func deriveMissingManifestFields(m *Manifest) (bool, error) {
 		}
 	}
 
+	// The backend implies the forge (D1). A manifest from before forge
+	// features existed names it only as the release type, and deriving the
+	// backend without enabling its feature left forge.go empty and the tool
+	// unable to update. A manifest that already enables a forge is read, not
+	// migrated (D11).
+	if b := m.ReleaseSource.Backend; b != "" && len(enabledForgeFeatures(m.Properties.Features)) == 0 {
+		m.Properties.Features = append(m.Properties.Features, ManifestFeature{Name: string(b), Enabled: true})
+		changed = true
+	}
+
 	if m.Properties.ModulePath == "" {
 		if derived := manifestModulePath(*m); derived != "" {
 			m.Properties.ModulePath = derived
@@ -255,6 +271,34 @@ func deriveMissingManifestFields(m *Manifest) (bool, error) {
 	}
 
 	return changed, nil
+}
+
+// legacyKeychainImport is what a keychain.go from before the framework link
+// existed blank-imports; the synced file imports pkg/setup/keychain instead.
+const legacyKeychainImport = `"gitlab.com/phpboyscout/go/credentials/keychain"`
+
+// recordKeychainFromFile handles a scaffold from before the manifest recorded
+// keychain (spec 0197 D8): it carries the old-shape file and no entry, and
+// the sync would remove the file as one the manifest does not call for,
+// silently dropping the tool's keychain. The file was the record then, so it
+// is read once and written down. An entry either way is left alone, and so is
+// a file the current generator wrote: that one is the sync's to keep or
+// remove (a missing entry is then the default, as `disable keychain` leaves it).
+func (g *Generator) recordKeychainFromFile(m *Manifest) bool {
+	for _, f := range m.Properties.Features {
+		if f.Name == KeychainFeature {
+			return false
+		}
+	}
+
+	src, err := afero.ReadFile(g.props.FS, filepath.Join(g.config.Path, "cmd", m.Properties.Name, "keychain.go"))
+	if err != nil || !strings.Contains(string(src), legacyKeychainImport) {
+		return false
+	}
+
+	m.Properties.Features = append(m.Properties.Features, ManifestFeature{Name: KeychainFeature, Enabled: true})
+
+	return true
 }
 
 // deriveMissingChatFields fills the chat block an older manifest lacks: the
