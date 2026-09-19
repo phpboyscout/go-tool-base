@@ -1,0 +1,12 @@
+{
+  "project_name": "fixtool",
+  "tag": "v1.2.0",
+  "previous_tag": "v1.1.0",
+  "version": "1.2.0",
+  "commit": "none",
+  "date": "2026-09-19T12:17:26Z",
+  "runtime": {
+    "goos": "linux",
+    "goarch": "amd64"
+  }
+}
