@@ -1,5 +1,41 @@
 # Changelog
 
+## [v0.44.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.44.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.43.0...v0.44.0)
+
+### Notes
+
+- Release archives, SBOMs and signatures are now published to https://pkg.phpboyscout.uk/go-tool-base/<tag>/ and the release links and the Homebrew cask point there; GitLab's package registry no longer receives new releases.
+
+- The project wizard always offers the Chat providers page; the AI defaults page (default provider and model) appears only with the `ai` feature selected.
+
+- `docs ask` is now gated on the `ai` feature, as the feature's description always said; a tool with `docs` and without `ai` no longer offers `ask`. `doctor` on a tool without `ai` reports the chat providers it links as information rather than warning about `ai.provider`.
+
+- `chat.providers` in the manifest (and `--chat-providers` on `generate project`) now wires the named go/chat provider modules into the binary whether or not the `ai` feature is enabled, so a tool that uses chat from its own code declares its providers without enabling `ai`. `--chat-providers` defaults to none; the `ai` feature with no list still links every provider. `gtb disable ai` no longer removes `cmd/<name>/chat.go`; it keeps the list and tells you `gtb unset chat.providers` drops it.
+
+- `regenerate project` now drops the legacy `tool` lines whatever path or major an older scaffold recorded them at (`cmd/gtb` as well as `cli/cmd/gtb`, golangci-lint v2 as well as v1), so a project scaffolded before the CLI moved to `cli/` no longer fails `go mod tidy` on a package that no longer exists.
+
+- The generated `.gitignore` now ignores `pkg/cmd/root/assets/site` beside `assets/docs`; a project that added the line by hand can drop its edit on the next regenerate.
+
+- A project scaffolded before forge features existed (its manifest names the forge only under `release_source.type`) now has that forge enabled by its first `regenerate project`, so `cmd/<name>/forge.go` links the adapter and `update` works without `gtb enable <forge>`. A project that carried `cmd/<name>/keychain.go` with no `keychain` entry in its manifest keeps the file: the first regenerate records `keychain: true` instead of removing it.
+
+- A generated tool without the `ai` feature no longer carries an empty `cmd/<name>/chat.go`, and one hosted on no forge no longer carries an empty `forge.go`; the next `gtb regenerate project` removes them. Both are `DO NOT EDIT` files the generator owns, so nothing of yours is touched. `gtb enable ai` writes `chat.go` back, `gtb disable ai` removes it.
+
+### Features
+
+- **release**: publish archives to the release store, not the package registry ([d53ec32](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d53ec32e8b2a260214a0c0cbd04a1014e61ba804))
+- **wizard**: the chat providers page is permanent, the AI defaults follow the feature ([071f215](https://gitlab.com/phpboyscout/go-tool-base/-/commit/071f215e6a113cd9744627ee39e0687120b6a9fe))
+- **ai**: docs ask follows the ai feature, and doctor names links without judging them ([4b4cbd5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4b4cbd53da4d9925fb55ae5ae6b82dd55be36ee7))
+- **generator**: chat providers are linked from the manifest whether or not ai is on ([eec3dba](https://gitlab.com/phpboyscout/go-tool-base/-/commit/eec3dbacf9749e10d0e09fedd971a35a007b89d2))
+
+### Bug Fixes
+
+- **generator**: the legacy tool directives are dropped at any path or major ([6776687](https://gitlab.com/phpboyscout/go-tool-base/-/commit/67766877433f662d6ef516fb6e4301a9930cc743))
+- **generator**: the skeleton .gitignore covers the site go generate builds ([04518b7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/04518b70797d5a8d2cbe50ae273b5c020349f3b3))
+- **generator**: a pre-0195 manifest gains its backend's forge, and a keychain file is recorded ([da0d9f9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/da0d9f9323f2eed28b7aebc9be8af30d3efccc01))
+- **generator**: chat.go and forge.go exist only for a feature the tool uses ([294cb90](https://gitlab.com/phpboyscout/go-tool-base/-/commit/294cb90d7a20a1e64fd54cecaa2eb8b604971981))
+
 ## [v0.43.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.43.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.42.0...v0.43.0)
