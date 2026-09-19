@@ -40,6 +40,14 @@ the precedence order between flags, environment, project-local file, config
 files and embedded defaults, and the rule that decides whether an environment
 variable reaches the key you meant.
 
+## Static release channel
+
+**[Static release channel layout](static-release-channel.md)**. The exact
+layout a plain HTTPS location must have for a tool on the static channel to
+discover and retrieve its releases: the pointer, the per-tag manifest, every
+field, the publish order, and what a reader refuses. A publisher with no
+GoReleaser can produce a valid target from the page alone.
+
 ## API stability
 
 **[API stability policy](api-stability.md)**, what "pre-1.0" commits GTB to,
