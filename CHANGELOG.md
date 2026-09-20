@@ -1,5 +1,20 @@
 # Changelog
 
+## [v0.45.3](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.3)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.2...v0.45.3)
+
+### Notes
+
+- Releases are announced to the estate's release feed and to Discord.
+
+- v0.45.0, v0.45.1 and v0.45.2 published every object but did not move the
+  static channel's pointer; this release does, and starts the chain.
+
+### Bug Fixes
+
+- **release**: the pointer's PUT carries its payload hash ([1bc67b3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1bc67b3991d9283e588ef2d2d1667c4bdb7f00a0))
+
 ## [v0.45.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.2)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.1...v0.45.2)
