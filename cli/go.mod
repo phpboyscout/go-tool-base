@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.45.0
+	gitlab.com/phpboyscout/go-tool-base v0.45.3
 	gitlab.com/phpboyscout/go/chat v0.24.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.14.2
 	gitlab.com/phpboyscout/go/chat-bedrock v0.2.1
@@ -47,7 +47,7 @@ require (
 	golang.org/x/mod v0.41.0
 	golang.org/x/net v0.59.0
 	golang.org/x/text v0.42.0
-	google.golang.org/grpc v1.83.2
+	google.golang.org/grpc v1.84.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

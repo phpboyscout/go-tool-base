@@ -33,7 +33,7 @@ require (
 	gitlab.com/phpboyscout/go/features v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.31.0
 	gitlab.com/phpboyscout/go/httpclient v0.2.3
-	gitlab.com/phpboyscout/go/mcp v0.1.0
+	gitlab.com/phpboyscout/go/mcp v0.2.0
 	gitlab.com/phpboyscout/go/observability v0.3.2
 	gitlab.com/phpboyscout/go/output v0.2.2
 	gitlab.com/phpboyscout/go/redact v0.2.2
@@ -53,7 +53,7 @@ require (
 	golang.org/x/mod v0.41.0
 	golang.org/x/term v0.46.0
 	golang.org/x/text v0.42.0
-	google.golang.org/grpc v1.83.2
+	google.golang.org/grpc v1.84.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
