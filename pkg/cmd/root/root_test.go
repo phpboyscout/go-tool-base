@@ -1088,10 +1088,11 @@ func TestEmbeddedSources_NilAssets(t *testing.T) {
 		FS:     afero.NewMemMapFs(),
 		Assets: nil,
 	}
-	result := embeddedSources(ConfigLoadOptions{
+	result, err := embeddedSources(ConfigLoadOptions{
 		ConfigPaths: []string{"config.yaml"},
 		Props:       props,
-	})
+	}, nil)
+	require.NoError(t, err)
 	assert.Empty(t, result)
 }
 
@@ -1103,10 +1104,11 @@ func TestEmbeddedSources_EmptyPaths(t *testing.T) {
 		FS:     afero.NewMemMapFs(),
 		Assets: p.NewAssets(),
 	}
-	result := embeddedSources(ConfigLoadOptions{
+	result, err := embeddedSources(ConfigLoadOptions{
 		ConfigPaths: []string{},
 		Props:       props,
-	})
+	}, nil)
+	require.NoError(t, err)
 	assert.Empty(t, result)
 }
 
@@ -1122,10 +1124,11 @@ func TestEmbeddedSources_WithAssets(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Assets: assets,
 	}
-	result := embeddedSources(ConfigLoadOptions{
+	result, err := embeddedSources(ConfigLoadOptions{
 		ConfigPaths: []string{"config.yaml"},
 		Props:       props,
-	})
+	}, nil)
+	require.NoError(t, err)
 	require.Len(t, result, 1)
 	assert.Equal(t, "embedded:config.yaml", result[0].Name)
 	assert.Equal(t, "key: value\n", string(result[0].Content))

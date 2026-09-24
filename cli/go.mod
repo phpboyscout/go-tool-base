@@ -27,6 +27,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-openai v0.15.1
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.2
 	gitlab.com/phpboyscout/go/config v0.18.0
+	gitlab.com/phpboyscout/go/config-toml v0.3.10
 	gitlab.com/phpboyscout/go/controls v0.7.0
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0

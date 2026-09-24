@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errorhandling"
@@ -221,16 +223,22 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 // maps to none.
 func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOption, error) {
 	byLayer := map[p.ConfigLayer][]config.StoreOption{}
+	codecs := setup.ConfigCodecsIn(opts.Props.GetFeatures())
 
 	if defaults := setup.AssetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
 		byLayer[p.LayerDefaults] = append(byLayer[p.LayerDefaults], config.WithReaders(*defaults))
 	}
 
-	if embedded := embeddedSources(opts); len(embedded) > 0 {
+	embedded, err := embeddedSources(opts, codecs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(embedded) > 0 {
 		byLayer[p.LayerDefaults] = append(byLayer[p.LayerDefaults], config.WithReaders(embedded...))
 	}
 
-	if err := fileLayerOpts(opts.Props.GetConfigFS(), opts, byLayer); err != nil {
+	if err := fileLayerOpts(opts.Props.GetConfigFS(), opts, codecs, byLayer); err != nil {
 		return nil, err
 	}
 
@@ -250,7 +258,20 @@ func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOp
 // fileLayerOpts adds the file-backed layers to byLayer: the user's config
 // files and, when discovered, the project-local file. It also enforces the
 // missing-config gate.
-func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, byLayer map[p.ConfigLayer][]config.StoreOption) error {
+func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.ConfigCodec, byLayer map[p.ConfigLayer][]config.StoreOption) error {
+	// Every declared path is checked before anything is read, present or
+	// not: an absent one may become the write target.
+	fileCodecs := make(map[string]config.Codec, len(opts.CfgPaths))
+
+	for _, path := range opts.CfgPaths {
+		codec, err := setup.ConfigCodecFor(codecs, path)
+		if err != nil {
+			return err
+		}
+
+		fileCodecs[path] = codec
+	}
+
 	// Only files that actually exist are declared as layers. A non-existent
 	// file contributes nothing to resolution, and declaring it anyway makes it
 	// a candidate write target — which is how a write to the user's config
@@ -278,7 +299,9 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, byLayer map[p.ConfigL
 	// to land and can create the file. It never triggers the missing-file
 	// re-read that other absent layers would, because it is the written
 	// backend (staged, not reloaded).
-	byLayer[p.LayerFiles] = []config.StoreOption{config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...)}
+	for _, path := range declaredConfigPaths(existing, opts.CfgPaths) {
+		byLayer[p.LayerFiles] = append(byLayer[p.LayerFiles], config.WithBackend(config.NewCodecBackend(fsys, path, fileCodecs[path])))
+	}
 
 	// The project-local layer is subject to the trust filter: an untrusted
 	// file has its security-sensitive keys stripped and is read-only (writes
@@ -364,16 +387,48 @@ func declaredConfigPaths(existing, all []string) []string {
 
 // embeddedSources reads the tool's explicit embedded config assets into named
 // sources.
-func embeddedSources(opts ConfigLoadOptions) []config.NamedSource {
+func embeddedSources(opts ConfigLoadOptions, codecs []setup.ConfigCodec) ([]config.NamedSource, error) {
 	sources := make([]config.NamedSource, 0, len(opts.ConfigPaths))
 
 	for _, path := range opts.ConfigPaths {
-		if src := setup.AssetSource(opts.Props, path); src != nil {
-			sources = append(sources, *src)
+		codec, err := setup.ConfigCodecFor(codecs, path)
+		if err != nil {
+			return nil, err
 		}
+
+		src := setup.AssetSource(opts.Props, path)
+		if src == nil {
+			continue
+		}
+
+		if src.Content, err = asYAML(codec, path, src.Content); err != nil {
+			return nil, errors.Wrapf(err, "decoding embedded %s", path)
+		}
+
+		sources = append(sources, *src)
 	}
 
-	return sources
+	return sources, nil
+}
+
+// asYAML re-encodes an embedded document for the store's in-memory layer,
+// which reads only YAML.
+func asYAML(codec config.Codec, path string, content []byte) ([]byte, error) {
+	if _, ok := codec.(config.YAMLCodec); ok {
+		return content, nil
+	}
+
+	docs, err := codec.Decode(path, content)
+	if err != nil {
+		return nil, err
+	}
+
+	merged := map[string]any{}
+	for _, doc := range docs {
+		maps.Copy(merged, doc)
+	}
+
+	return yaml.Marshal(merged)
 }
 
 // resolveBootstrapConfig loads configuration for cmd, applying the tool's

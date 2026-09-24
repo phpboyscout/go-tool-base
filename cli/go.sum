@@ -470,6 +470,8 @@ gitlab.com/phpboyscout/go/config v0.18.0 h1:2/u0ONVIIiPSsiogORccqtDvGx+bJifZsNo7
 gitlab.com/phpboyscout/go/config v0.18.0/go.mod h1:g6bBGdn6vqVL/kVVDujMEbqFN05RP7DhQYD1pjQc0GU=
 gitlab.com/phpboyscout/go/config-afero v0.1.11 h1:OU/BVJNm0csZB44vtVlPBMcB7fpgnegwqmQnClu4tYc=
 gitlab.com/phpboyscout/go/config-afero v0.1.11/go.mod h1:8c6/89LFO1fzKVzLM/Ov3wPN5uvMbXvA3RuJEOC8FDU=
+gitlab.com/phpboyscout/go/config-toml v0.3.10 h1:u3rLehCpM4Opl7QnE27oj+3FtG/DbTipscf9X/rbwCg=
+gitlab.com/phpboyscout/go/config-toml v0.3.10/go.mod h1:nPr6zmeASloXi6UWVxW3Jyn4ROaX94dRtgaF6OgJHsw=
 gitlab.com/phpboyscout/go/controls v0.7.0 h1:sF3SPoUh0C8XHc9TiVxKGvTaeljeb8fNVgvpFI+RZyU=
 gitlab.com/phpboyscout/go/controls v0.7.0/go.mod h1:AVf3Gko5yNAuzL8QPpd4uD8AamgVi80Tuc+P6l4xjt0=
 gitlab.com/phpboyscout/go/credentials v0.3.2 h1:paG+1LXNiICEwL3heL9EGMl0oKckeHEFIxJiLsBh4Yk=

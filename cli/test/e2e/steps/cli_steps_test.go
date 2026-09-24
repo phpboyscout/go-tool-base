@@ -87,6 +87,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the init directory contains a config file:$`, theInitDirContainsConfigFile)
 	ctx.Step(`^an empty config directory$`, anEmptyConfigDirectory)
 	ctx.Step(`^a temporary directory with a config file:$`, aTemporaryDirectoryWithConfigFile)
+	ctx.Step(`^a config file named "([^"]*)" with:$`, aConfigFileNamed)
 	ctx.Step(`^the config file contains:$`, theConfigFileContains)
 	ctx.Step(`^a config file with no log\.level key$`, aConfigFileWithNoLogLevelKey)
 	ctx.Step(`^a config file exists with:$`, aTemporaryDirectoryWithConfigFile)
@@ -174,6 +175,18 @@ func aTemporaryDirectoryWithConfigFile(ctx context.Context, content *godog.DocSt
 	return ctx, nil
 }
 
+// aConfigFileNamed writes another file beside the scenario's config.yaml; a
+// run names it as {config_dir}/<name>.
+func aConfigFileNamed(ctx context.Context, name string, content *godog.DocString) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	if err := os.WriteFile(filepath.Join(w.configDir, name), []byte(content.Content), 0o600); err != nil {
+		return ctx, fmt.Errorf("failed to write %s: %w", name, err)
+	}
+
+	return ctx, nil
+}
+
 // theConfigFileContains rewrites the scenario's config.yaml with new content.
 func theConfigFileContains(ctx context.Context, content *godog.DocString) (context.Context, error) {
 	return aTemporaryDirectoryWithConfigFile(ctx, content)
@@ -251,6 +264,8 @@ func iRunGTBBareWith(ctx context.Context, args string) context.Context {
 
 func iRunGTBWith(ctx context.Context, args string) context.Context {
 	w := getCLIWorld(ctx)
+
+	args = strings.ReplaceAll(args, "{config_dir}", w.configDir)
 
 	// Substitute {init_dir} placeholder with the actual temp init directory
 	if w.initDir != "" {

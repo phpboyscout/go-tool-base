@@ -69,6 +69,36 @@ the environment. See
 [spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
 D1.
 
+### File formats are linked, and chosen by extension
+
+A config file's format comes from its extension, whether the file is named by
+`--config`, found on the default search paths or embedded as one of the tool's
+`ConfigPaths`. YAML needs nothing: `.yaml`, `.yml`, no extension, and any
+extension that belongs to no format are all read as YAML, as every file was
+before formats could be linked. The seven other formats of the `go/config`
+family are each a **link**: a tool reads them only when its `main`
+blank-imports the format's package, so a tool that never reads HCL carries
+none of HCL's dependencies.
+
+| Extension | Link package (`pkg/config/formats/…`) | Writable |
+|---|---|---|
+| `.toml` | `toml` | yes |
+| `.json` | `json` | yes |
+| `.hcl` | `hcl` | yes |
+| `.ini` | `ini` | no |
+| `.xml` | `xml` | no |
+| `.env` | `dotenv` | no |
+| `.properties` | `properties` | no |
+
+A file whose extension belongs to one of these formats, in a tool that does
+not link it, is refused before anything is read. The refusal names the
+extensions the tool does accept and the package that would read the file. A
+read-only format is read like any other layer, and a write goes to the
+highest-precedence writable one. Each link contributes its codec under
+`setup.SlotConfigCodec`, and `setup.ConfigCodecFor` makes the choice. See
+[spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
+D2.
+
 Only config files that **exist** are declared as layers, a non-existent file
 contributes nothing and must not become a phantom write target. The one
 exception is the write destination: the highest-precedence path is always
