@@ -111,15 +111,15 @@ func stripInto(m map[string]any, prefix string, removed *[]string) {
 	}
 }
 
-// trustFilterCodec is a read-only config codec that decodes YAML exactly like
-// the core YAMLCodec but strips the security-sensitive keys an untrusted
+// trustFilterCodec is a read-only config codec that decodes exactly like the
+// codec the file's extension chose (spec 0204 D17) but strips the security-sensitive keys an untrusted
 // project-local layer is not permitted to set, warning once per decode about
 // what it ignored. It deliberately does NOT implement EditingCodec, so the
 // backend built from it is not a write target: writes to a project-local file
 // that the user has not trusted route to the user's own config instead of the
 // repository file.
 type trustFilterCodec struct {
-	base config.YAMLCodec
+	base config.Codec
 	log  logger.Logger
 	tool string
 }
@@ -159,7 +159,7 @@ func (c trustFilterCodec) Decode(path string, src []byte) ([]map[string]any, err
 // based on the per-user trust store. A trusted file behaves exactly as a normal
 // highest-precedence writable YAML layer; an untrusted one is decoded through
 // trustFilterCodec so its security-sensitive keys are ignored.
-func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string) config.Backend {
+func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string, codec config.Codec) config.Backend {
 	trusted, err := setup.IsProjectConfigTrusted(props.FS, props.Tool.Name, projectPath)
 	if err != nil {
 		props.Logger.Debug("project config trust check failed; treating as untrusted", "error", err)
@@ -168,10 +168,11 @@ func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string) con
 	if trusted {
 		props.Logger.Debug("project config layer trusted", "file", projectPath)
 
-		return config.NewFileBackend(fsys, projectPath)
+		return config.NewCodecBackend(fsys, projectPath, codec)
 	}
 
 	return config.NewCodecBackend(fsys, projectPath, trustFilterCodec{
+		base: codec,
 		log:  props.Logger,
 		tool: props.Tool.Name,
 	})

@@ -189,16 +189,12 @@ func plannedWriteTarget(props *p.Props, change cfg.Change) string {
 	return plan.Operations[0].Target.Name
 }
 
-// isProjectLocalConfig reports whether path is a project-local ".<tool>.yaml"
-// config file — the repo-root layer discovered by walking up from the working
-// directory. The global config file is named config.yaml, so the base name
-// cleanly distinguishes the two regardless of directory.
+// isProjectLocalConfig reports whether path is a project-local config file,
+// ".<tool>" in any format — the repo-root layer discovered by walking up from
+// the working directory. The global config file is named config.<ext>, so the
+// base name cleanly distinguishes the two regardless of directory.
 func isProjectLocalConfig(path, toolName string) bool {
-	if path == "" || toolName == "" {
-		return false
-	}
-
-	return filepath.Base(path) == "."+toolName+".yaml"
+	return path != "" && setup.IsProjectConfigName(path, toolName)
 }
 
 // isSensitiveWrite reports whether writing value under key would place a

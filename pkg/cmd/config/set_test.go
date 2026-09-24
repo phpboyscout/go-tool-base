@@ -12,6 +12,7 @@ import (
 
 	cfg "gitlab.com/phpboyscout/go/config"
 	configafero "gitlab.com/phpboyscout/go/config-afero"
+	configtoml "gitlab.com/phpboyscout/go/config-toml"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -163,6 +164,32 @@ func TestCmdSet_SensitiveProjectLocalWrite_WarnsAndProceeds(t *testing.T) {
 	data, err := afero.ReadFile(fs, path)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "ghp_committed_secret")
+}
+
+// The credential warning used to recognise a project file only by a .yaml
+// name, so under spec 0204 D16 a .tool.toml project file would silently miss
+// it (D23). The warning fires for the project file in any format.
+func TestCmdSet_SensitiveProjectLocalWrite_WarnsInEveryFormat(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	path := "/repo/.tool.toml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("[log]\nlevel = \"info\"\n"), 0o600))
+
+	store, err := cfg.NewStore(t.Context(), cfg.WithBackend(cfg.NewCodecBackend(configafero.Wrap(fs), path, configtoml.Codec{})))
+	require.NoError(t, err)
+
+	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}, Logger: logger.NewNoop()}
+
+	cmd := config.NewCmdSet(p)
+	var errBuf bytes.Buffer
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&errBuf)
+	cmd.SetIn(&bytes.Buffer{})
+	cmd.SetArgs([]string{"github.auth.value", "ghp_committed_secret"})
+
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, errBuf.String(), "project-local")
 }
 
 // TestCmdSet_NonSensitiveProjectLocalWrite_NoWarning confirms the guard is

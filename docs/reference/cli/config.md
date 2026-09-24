@@ -195,7 +195,8 @@ tool key. A key matching neither still warns as a possible typo.
 
 ### `config trust`
 
-Trust a project-local `.<tool>.yaml` so its **security-sensitive keys** apply.
+Trust a project-local `.<tool>.yaml` (or `.<tool>` in any format the tool
+links) so its **security-sensitive keys** apply.
 Until a project-local file is trusted, the framework ignores its self-update
 verification, telemetry-consent, and credential keys, so a repository you clone
 cannot silently weaken security posture. Workflow-tuning keys (logging, output,
@@ -203,7 +204,7 @@ feature toggles) always apply, trusted or not. See
 [Project-local trust](../../explanation/components/config/index.md#project-local-trust-security-keys-are-ignored-until-you-trust-the-file).
 
 ```bash
-mytool config trust            # trust the .<tool>.yaml discovered from the cwd
+mytool config trust            # trust the project file discovered from the cwd
 mytool config trust ./path     # trust a specific file
 mytool config trust --list     # list trusted project files
 mytool config trust --forget   # revoke trust for the discovered/named file

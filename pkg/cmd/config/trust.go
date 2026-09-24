@@ -94,10 +94,14 @@ func resolveTrustTarget(props *p.Props, args []string) (string, error) {
 		return "", errors.Wrap(err, "resolving working directory")
 	}
 
-	target := setup.DiscoverProjectConfig(props.FS, props.Tool.Name, cwd)
+	target, err := setup.FindProjectConfig(props.FS, props.Tool.Name, cwd, setup.ConfigCodecsIn(props.GetFeatures()))
+	if err != nil {
+		return "", err
+	}
+
 	if target == "" {
 		return "", errors.WithHintf(
-			errors.Newf("no project-local .%s.yaml found from the current directory", props.Tool.Name),
+			errors.Newf("no project-local .%s config file found from the current directory", props.Tool.Name),
 			"Create .%s.yaml at your repository root, or pass an explicit path.", props.Tool.Name)
 	}
 

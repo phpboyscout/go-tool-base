@@ -15,6 +15,16 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
+// findProject is FindProjectConfig with only YAML linked.
+func findProject(t *testing.T, fs afero.Fs, tool, dir string) string {
+	t.Helper()
+
+	got, err := setup.FindProjectConfig(fs, tool, dir, nil)
+	require.NoError(t, err)
+
+	return got
+}
+
 func TestDiscoverProjectConfig(t *testing.T) {
 	t.Parallel()
 
@@ -24,28 +34,28 @@ func TestDiscoverProjectConfig(t *testing.T) {
 	_ = afero.WriteFile(fs, "/repo/.keryx.yaml", []byte("themes: {}\n"), 0o644)
 
 	// walks up from a nested dir to the repo-root config
-	if got := setup.DiscoverProjectConfig(fs, "keryx", "/repo/sub/deep"); got != "/repo/.keryx.yaml" {
+	if got := findProject(t, fs, "keryx", "/repo/sub/deep"); got != "/repo/.keryx.yaml" {
 		t.Errorf("nested cwd: got %q, want /repo/.keryx.yaml", got)
 	}
 
 	// found at the dir itself
-	if got := setup.DiscoverProjectConfig(fs, "keryx", "/repo"); got != "/repo/.keryx.yaml" {
+	if got := findProject(t, fs, "keryx", "/repo"); got != "/repo/.keryx.yaml" {
 		t.Errorf("repo root: got %q", got)
 	}
 
 	// a different tool name → not matched
-	if got := setup.DiscoverProjectConfig(fs, "othertool", "/repo/sub"); got != "" {
+	if got := findProject(t, fs, "othertool", "/repo/sub"); got != "" {
 		t.Errorf("wrong tool name should not match: %q", got)
 	}
 
 	// no config anywhere above → ""
 	_ = fs.MkdirAll("/elsewhere", 0o755)
-	if got := setup.DiscoverProjectConfig(fs, "keryx", "/elsewhere"); got != "" {
+	if got := findProject(t, fs, "keryx", "/elsewhere"); got != "" {
 		t.Errorf("absent: got %q, want \"\"", got)
 	}
 
 	// empty inputs
-	if setup.DiscoverProjectConfig(fs, "", "/repo") != "" || setup.DiscoverProjectConfig(fs, "keryx", "") != "" {
+	if findProject(t, fs, "", "/repo") != "" || findProject(t, fs, "keryx", "") != "" {
 		t.Error("empty tool/dir should return \"\"")
 	}
 
@@ -79,13 +89,15 @@ func TestProjectConfigLayer_ExplicitConfigSuppressesTheProjectLayer(t *testing.T
 	}
 
 	withFlag := newConfigFlagCmd(t, "/my/exact/file.yaml")
-	assert.Empty(t, projectConfigLayer(props, withFlag),
-		"an explicit --config must suppress the project-local layer entirely")
+	got, err := projectConfigLayer(props, withFlag)
+	require.NoError(t, err)
+	assert.Empty(t, got, "an explicit --config must suppress the project-local layer entirely")
 
 	// Without the flag the layer is discovered from the working directory.
 	withoutFlag := newConfigFlagCmd(t)
-	assert.Equal(t, filepath.Join(dir, ".keryx.yaml"), projectConfigLayer(props, withoutFlag),
-		"with no --config the project-local layer is discovered")
+	got, err = projectConfigLayer(props, withoutFlag)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir, ".keryx.yaml"), got, "with no --config the project-local layer is discovered")
 }
 
 // newConfigFlagCmd builds a command carrying the same --config flag the root

@@ -25,7 +25,7 @@ everything below it:
 |---|---|---|
 | 1 | **Changed CLI flags** | Only flags the user actually typed. A flag sitting at its default contributes nothing. |
 | 2 | **Environment variables** under the tool's `EnvPrefix` | Unprefixed variables cannot reach configuration at all. |
-| 3 | **Project-local `.<tool>.yaml`** | Found by walking up from the working directory. Security-sensitive keys are ignored until the file is trusted. |
+| 3 | **Project-local `.<tool>.yaml`** | Found by walking up from the working directory; `.<tool>` in any linked format counts too, and two in one directory are refused. Security-sensitive keys are ignored until the file is trusted. |
 | 4 | **Config files** | `--config` paths if given, otherwise `/etc/<tool>/config.yaml` then `~/.<tool>/config.yaml`. |
 | 5 | **The tool's `ConfigPaths` embedded assets** | Optional extra embedded documents a tool author registers. |
 | 6 | **Embedded defaults**: `assets/config.yaml`, merged across every registered bundle | Always applies, so a key omitted everywhere else still resolves. |

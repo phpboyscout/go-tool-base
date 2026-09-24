@@ -99,6 +99,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I run gtb with "([^"]*)"$`, iRunGTBWith)
 	ctx.Step(`^I run gtb bare with "([^"]*)"$`, iRunGTBBareWith)
 	ctx.Step(`^a project-local config file with:$`, aProjectLocalConfigFileWith)
+	ctx.Step(`^a project-local config file named "([^"]*)" with:$`, aProjectLocalConfigFileNamed)
 	ctx.Step(`^I run gtb in the project directory with "([^"]*)"$`, iRunGTBInProjectDirWith)
 
 	// --- Then ---
@@ -208,6 +209,28 @@ func aProjectLocalConfigFileWith(ctx context.Context, content *godog.DocString) 
 
 	if err := os.WriteFile(filepath.Join(dir, ".gtb.yaml"), []byte(content.Content), 0o600); err != nil {
 		return ctx, fmt.Errorf("failed to write project-local config: %w", err)
+	}
+
+	return ctx, nil
+}
+
+// aProjectLocalConfigFileNamed writes a project-local config file under a
+// given name into the scenario's project directory, creating the directory on
+// first use, so a scenario can ship a ".gtb.toml" or two candidates at once.
+func aProjectLocalConfigFileNamed(ctx context.Context, name string, content *godog.DocString) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	if w.projectDir == "" {
+		dir, err := os.MkdirTemp("", "gtb-e2e-project-*")
+		if err != nil {
+			return ctx, fmt.Errorf("failed to create project dir: %w", err)
+		}
+
+		w.projectDir = dir
+	}
+
+	if err := os.WriteFile(filepath.Join(w.projectDir, name), []byte(content.Content), 0o600); err != nil {
+		return ctx, fmt.Errorf("failed to write %s: %w", name, err)
 	}
 
 	return ctx, nil

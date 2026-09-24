@@ -136,9 +136,10 @@ func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
 	return &FlagValues{Debug: debug}, nil
 }
 
-// projectConfigLayer returns the discovered project-local ".<tool>.yaml" (a
-// repo-root config layer, found by walking up from the working directory), or ""
-// when none applies. It is layered as the highest-precedence file so it
+// projectConfigLayer returns the discovered project-local ".<tool>.yaml", or
+// ".<tool>" in any linked format (a repo-root config layer, found by walking
+// up from the working directory), or "" when none applies. Two candidates in
+// one directory are an error (spec 0204 D16). It is layered as the highest-precedence file so it
 // deep-merges over the default config paths (env + flags still override it). A
 // convention like .editorconfig — a tool opts out by not having the file.
 //
@@ -153,24 +154,24 @@ func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
 // directory is trusted, its security-sensitive keys are stripped so a hostile
 // clone cannot downgrade update verification or telemetry consent (see
 // projectLayerBackend and setup.IsProjectConfigTrusted).
-func projectConfigLayer(props *p.Props, cmd *cobra.Command) string {
+func projectConfigLayer(props *p.Props, cmd *cobra.Command) (string, error) {
 	if cmd.Flags().Changed("config") {
-		return ""
+		return "", nil
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return ""
+		return "", nil //nolint:nilerr // no working directory means no project file to find, as it always has
 	}
 
-	pc := setup.DiscoverProjectConfig(props.FS, props.Tool.Name, cwd)
-	if pc == "" {
-		return ""
+	pc, err := setup.FindProjectConfig(props.FS, props.Tool.Name, cwd, setup.ConfigCodecsIn(props.GetFeatures()))
+	if err != nil || pc == "" {
+		return "", err
 	}
 
 	props.Logger.Debug("project config layer found", "file", pc)
 
-	return pc
+	return pc, nil
 }
 
 // ErrNoConfigFile reports that none of the candidate config files exist.
@@ -259,17 +260,9 @@ func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOp
 // files and, when discovered, the project-local file. It also enforces the
 // missing-config gate.
 func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.ConfigCodec, byLayer map[p.ConfigLayer][]config.StoreOption) error {
-	// Every declared path is checked before anything is read, present or
-	// not: an absent one may become the write target.
-	fileCodecs := make(map[string]config.Codec, len(opts.CfgPaths))
-
-	for _, path := range opts.CfgPaths {
-		codec, err := setup.ConfigCodecFor(codecs, path)
-		if err != nil {
-			return err
-		}
-
-		fileCodecs[path] = codec
+	fileCodecs, err := codecsFor(codecs, opts.CfgPaths)
+	if err != nil {
+		return err
 	}
 
 	// Only files that actually exist are declared as layers. A non-existent
@@ -307,10 +300,32 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 	// file has its security-sensitive keys stripped and is read-only (writes
 	// route to the user's own config instead of the repository file).
 	if projectExists {
-		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath))}
+		codec, err := setup.ConfigCodecFor(codecs, opts.ProjectConfigPath)
+		if err != nil {
+			return err
+		}
+
+		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath, codec))}
 	}
 
 	return nil
+}
+
+// codecsFor picks every declared path's codec before anything is read,
+// present or not: an absent one may become the write target.
+func codecsFor(codecs []setup.ConfigCodec, paths []string) (map[string]config.Codec, error) {
+	out := make(map[string]config.Codec, len(paths))
+
+	for _, path := range paths {
+		codec, err := setup.ConfigCodecFor(codecs, path)
+		if err != nil {
+			return nil, err
+		}
+
+		out[path] = codec
+	}
+
+	return out, nil
 }
 
 // flagBindings maps author-declared bound flags (WithBoundFlags) onto flag
@@ -447,6 +462,11 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 
 	allowEmpty := !initEnabled || skipConfigCheck
 
+	projectPath, err := projectConfigLayer(props, cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	loadOpts := ConfigLoadOptions{
 		CfgPaths:          cfgPaths,
 		ConfigPaths:       configPaths,
@@ -454,7 +474,7 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 		AllowEmpty:        allowEmpty,
 		Flags:             cmd.Flags(),
 		BoundFlags:        boundFlags,
-		ProjectConfigPath: projectConfigLayer(props, cmd),
+		ProjectConfigPath: projectPath,
 	}
 
 	cfg, err := buildConfigStore(cmd.Context(), loadOpts)

@@ -25,8 +25,9 @@ Configuration keys resolve in the following priority order (highest to lowest):
 2. **Environment Variables**: e.g., `MYTOOL_SERVER_PORT=9090` under the tool's
    `EnvPrefix`.
 3. **Project-local `.<tool>.yaml`**: discovered by walking up from the working
-   directory (a repo-root convention like `.editorconfig`). Suppressed entirely
-   when `--config` names files explicitly.
+   directory (a repo-root convention like `.editorconfig`), in YAML or any
+   format the tool links; two in one directory are refused. Suppressed
+   entirely when `--config` names files explicitly.
 4. **Config Files**: the `--config` paths if given (repeatable; later files
    win), otherwise `~/.<tool>/config.yaml` then `/etc/<tool>/config.yaml`.
 5. **The tool's explicit embedded config assets** (`ConfigPaths`).

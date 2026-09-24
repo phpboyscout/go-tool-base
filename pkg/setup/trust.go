@@ -6,6 +6,7 @@ import (
 	iofs "io/fs"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
@@ -36,31 +37,67 @@ type trustStore struct {
 }
 
 // DiscoverProjectConfig walks up from startDir looking for a project-local
-// config file named ".<tool>.yaml" (e.g. .keryx.yaml), returning its path or ""
-// if none is found before the filesystem root. This is a repo-root project
-// config layer — a convention like .editorconfig — that the framework appends
-// as the highest-precedence file layer. Generic across tools; a tool opts out
-// simply by not having the file.
+// ".<tool>.yaml", returning its path or "".
+//
+// Deprecated: use FindProjectConfig, which also finds the project file in the
+// tool's linked formats (spec 0204 D16).
 func DiscoverProjectConfig(fs afero.Fs, toolName, startDir string) string {
+	path, _ := FindProjectConfig(fs, toolName, startDir, nil)
+
+	return path
+}
+
+// FindProjectConfig walks up from startDir looking for a project-local config
+// file, ".<tool>.yaml" or ".<tool>" plus a linked format's extension, and
+// returns the one in the nearest directory holding any, or "" when none is
+// found before the filesystem root. This is a repo-root config layer, a
+// convention like .editorconfig; a tool opts out simply by not having the
+// file. Two candidates in one directory are refused rather than one picked.
+func FindProjectConfig(fs afero.Fs, toolName, startDir string, codecs []ConfigCodec) (string, error) {
 	if toolName == "" || startDir == "" {
-		return ""
+		return "", nil
 	}
 
-	name := "." + toolName + ".yaml"
+	names := projectConfigNames(toolName, codecs)
 
 	for dir := startDir; ; {
-		candidate := filepath.Join(dir, name)
-		if _, serr := fs.Stat(candidate); serr == nil {
-			return candidate
+		var found []string
+
+		for _, name := range names {
+			candidate := filepath.Join(dir, name)
+			if _, serr := fs.Stat(candidate); serr == nil {
+				found = append(found, candidate)
+			}
+		}
+
+		switch len(found) {
+		case 0:
+		case 1:
+			return found[0], nil
+		default:
+			return "", errors.WithHint(errors.Wrapf(ErrAmbiguousProjectConfig, "%s", strings.Join(found, " and ")),
+				"remove all but one; the tool will not guess which of them you meant")
 		}
 
 		parent := filepath.Dir(dir)
 		if parent == dir { // reached the filesystem root
-			return ""
+			return "", nil
 		}
 
 		dir = parent
 	}
+}
+
+func projectConfigNames(toolName string, codecs []ConfigCodec) []string {
+	names := []string{"." + toolName + ".yaml"}
+
+	for _, c := range codecs {
+		for _, ext := range c.Extensions {
+			names = append(names, "."+toolName+ext)
+		}
+	}
+
+	return names
 }
 
 // trustStorePath returns the absolute path of the per-user trust store for the

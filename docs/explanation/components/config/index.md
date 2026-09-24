@@ -197,6 +197,17 @@ the file sources**, so it deep-merges over and overrides the per-user
 /path/to/repo/.myapp.yaml     # project — overrides the global, committed with the repo
 ```
 
+The file may be in any format the tool links: discovery looks for `.<tool>.yaml` and
+`.<tool>` plus each linked format's extension, so a tool linking TOML also finds
+`.myapp.toml`. The nearest directory holding a candidate wins. Two candidates in the
+same directory, such as `.myapp.yaml` beside `.myapp.toml`, stop the command with both
+paths named, because silently picking one is exactly how a repository could shadow
+the file you believe is being read. Whatever the format, the trust filter below
+strips the same keys: it decodes through the format's own codec first and filters
+what came out, and its tests run the hostile-clone case once per format. See
+[spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
+D16 and D17.
+
 This keeps a project's non-secret settings in the repo that owns them. A tool opts out
 simply by not having the file; it never errors when absent. Environment variables and
 flags still override it: it sits in the *file* tier of the module's precedence chain.

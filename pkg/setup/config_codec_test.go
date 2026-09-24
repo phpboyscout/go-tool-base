@@ -3,6 +3,7 @@ package setup_test
 import (
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -108,4 +109,86 @@ func TestConfigCodecFor_RefusesAnUnlinkedFormat(t *testing.T) {
 	assert.Contains(t, errors.FlattenHints(err), ".toml")
 	assert.Contains(t, errors.FlattenHints(err), ".yaml")
 	assert.Contains(t, errors.FlattenHints(err), "pkg/config/formats/json", "the refusal names the link that would read it")
+}
+
+// Spec 0204 D16: the project file may be any linked format. Discovery walks
+// up as before and stops at the nearest directory holding a candidate.
+func TestFindProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	codecs := setup.ConfigCodecsIn(codecRegistry(t,
+		map[string]config.Codec{"toml": configtoml.Codec{}},
+		map[string][]string{"toml": {".toml"}}))
+
+	tests := []struct {
+		name   string
+		files  []string
+		codecs []setup.ConfigCodec
+		want   string
+	}{
+		{name: "yaml needs no link", files: []string{"/repo/.mytool.yaml"}, want: "/repo/.mytool.yaml"},
+		{name: "a linked format", files: []string{"/repo/.mytool.toml"}, codecs: codecs, want: "/repo/.mytool.toml"},
+		{name: "an unlinked format is not a candidate", files: []string{"/repo/.mytool.toml"}, want: ""},
+		{name: "yml was never a candidate", files: []string{"/repo/.mytool.yml"}, want: ""},
+		{
+			name:   "the nearest directory wins",
+			files:  []string{"/repo/.mytool.yaml", "/repo/sub/.mytool.toml"},
+			codecs: codecs,
+			want:   "/repo/sub/.mytool.toml",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			require.NoError(t, fs.MkdirAll("/repo/sub/deep", 0o755))
+
+			for _, f := range tc.files {
+				require.NoError(t, afero.WriteFile(fs, f, []byte("a: 1\n"), 0o600))
+			}
+
+			got, err := setup.FindProjectConfig(fs, "mytool", "/repo/sub/deep", tc.codecs)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// Two candidates in one directory are refused, naming both: a silent pick is
+// how a repository could shadow the file the user believes is being read.
+func TestFindProjectConfig_RefusesTwoInOneDirectory(t *testing.T) {
+	t.Parallel()
+
+	codecs := setup.ConfigCodecsIn(codecRegistry(t,
+		map[string]config.Codec{"toml": configtoml.Codec{}},
+		map[string][]string{"toml": {".toml"}}))
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/repo/.mytool.yaml", []byte("a: 1\n"), 0o600))
+	require.NoError(t, afero.WriteFile(fs, "/repo/.mytool.toml", []byte("a = 1\n"), 0o600))
+
+	_, err := setup.FindProjectConfig(fs, "mytool", "/repo", codecs)
+	require.ErrorIs(t, err, setup.ErrAmbiguousProjectConfig)
+	assert.Contains(t, err.Error(), "/repo/.mytool.yaml")
+	assert.Contains(t, err.Error(), "/repo/.mytool.toml")
+}
+
+// config set's credential warning recognises a project file by name, in any
+// of the family's formats (spec 0204 D23).
+func TestIsProjectConfigName(t *testing.T) {
+	t.Parallel()
+
+	for path, want := range map[string]bool{
+		"/repo/.mytool.yaml":             true,
+		"/repo/.mytool.toml":             true,
+		"/repo/.mytool.properties":       true,
+		"/home/me/.config/mytool/config": false,
+		"/repo/.mytool.yaml.bak":         false,
+		"/repo/.other.toml":              false,
+		"/repo/mytool.toml":              false,
+	} {
+		assert.Equalf(t, want, setup.IsProjectConfigName(path, "mytool"), "%s", path)
+	}
 }

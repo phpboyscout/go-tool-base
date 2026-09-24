@@ -19,6 +19,10 @@ const ConfigFormatPrefix = "config-format-"
 // SlotConfigCodec is where a format's link package contributes its codec.
 const SlotConfigCodec features.Slot = "config-codec"
 
+// ErrAmbiguousProjectConfig is two project-local config files in one
+// directory (spec 0204 D16).
+var ErrAmbiguousProjectConfig = errors.NewSentinel("gtb.setup.ambiguous_project_config", "more than one project-local config file")
+
 // ErrUnlinkedConfigFormat is a config file whose extension names a format the
 // tool does not link (spec 0204 D2).
 var ErrUnlinkedConfigFormat = errors.NewSentinel("gtb.setup.unlinked_config_format", "config file format not linked")
@@ -114,4 +118,25 @@ func acceptedExtensions(codecs []ConfigCodec) []string {
 	}
 
 	return accepted
+}
+
+// IsProjectConfigName reports whether path is named like a project-local
+// config file, ".<tool>" plus a YAML or family format extension, whether or
+// not the format is linked.
+func IsProjectConfigName(path, toolName string) bool {
+	if toolName == "" {
+		return false
+	}
+
+	base := filepath.Base(path)
+	prefix := "." + toolName
+
+	if !strings.HasPrefix(base, prefix) {
+		return false
+	}
+
+	ext := strings.TrimPrefix(base, prefix)
+	_, known := formatExtensions[ext]
+
+	return known || ext == ".yaml" || ext == ".yml"
 }
