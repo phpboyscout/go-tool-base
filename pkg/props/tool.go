@@ -258,10 +258,15 @@ type Tool struct {
 	// safe and reproduces historical behaviour. See BootstrapPolicy.
 	Bootstrap BootstrapPolicy `json:"bootstrap,omitempty" yaml:"bootstrap,omitempty"`
 
+	// Config declares the tool's configuration stack and its order. See
+	// ConfigSpec and ResolveConfigLayers.
+	Config ConfigSpec `json:"config,omitempty" yaml:"config,omitempty"`
+
 	// ConfigLayers declares which layers of the configuration stack this tool
-	// wires. Empty means "unstated" and resolves to DefaultConfigLayers — the
-	// set the framework wired before this became declarable — so an existing
-	// tool keeps resolving exactly as it did. See ResolveConfigLayers.
+	// wires, resolved in the framework's order whatever order it lists.
+	//
+	// Deprecated: use Config.Layers, whose order is the precedence (spec 0204
+	// D13).
 	ConfigLayers []ConfigLayer `json:"config_layers,omitempty" yaml:"config_layers,omitempty"`
 	// MCP is the publication mode of the tool's MCP server; the zero value is
 	// compact. See MCPConfig.

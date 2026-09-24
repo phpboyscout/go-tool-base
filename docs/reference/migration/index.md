@@ -50,6 +50,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [MCP publishes progressively, on the estate's own module](v0.x-mcp-progressive-discovery.md) |
 | v0.x | v0.x | [The mcp feature is a link, and a tool without it ships without go/mcp](v0.x-mcp-link-kind.md) |
 | v0.x | v0.x | [The static release channel replaces the withdrawn direct channel](v0.x-static-release-channel.md) |
+| v0.x | v0.x | [The config stack a tool declares is its precedence](v0.x-config-stack.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

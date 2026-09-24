@@ -36,7 +36,7 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 		TelemetryEndpoint:     "https://telemetry.example.com/v1",
 		TelemetryOTelEndpoint: "https://otel.example.com:4318",
 		EnvPrefix:             "TOOL",
-		ConfigLayers:          []string{"flags", "env"},
+		ConfigLayers:          []string{"env", "flags"},
 		Signing:               ManifestSigning{Enabled: true, KeySource: "embedded"},
 		Chat:                  ManifestChat{Providers: []string{"claude"}},
 		Bootstrap:             ManifestBootstrap{AutoInitialise: true},
@@ -57,7 +57,7 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 	assert.Equal(t, config.Name, m.Properties.Name)
 	assert.Equal(t, MultilineString(config.Description), m.Properties.Description)
 	assert.Equal(t, config.EnvPrefix, m.Properties.EnvPrefix)
-	assert.Equal(t, config.ConfigLayers, m.Properties.ConfigLayers)
+	assert.Equal(t, config.ConfigLayers, m.Properties.Config.Layers)
 	assert.Equal(t, config.UpdatePolicy, m.Properties.UpdatePolicy)
 	assert.Equal(t, config.UpdateCheckInterval, m.Properties.UpdateCheckInterval)
 	assert.Equal(t, config.HelpType, m.Properties.Help.Type)

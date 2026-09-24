@@ -243,7 +243,8 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 	// framework default at runtime, so emitting it would add noise that says
 	// nothing — and would change existing generated output.
 	if len(data.ConfigLayers) > 0 {
-		toolDict[jen.Id("ConfigLayers")] = buildConfigLayers(data.ConfigLayers)
+		toolDict[jen.Id("Config")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigSpec").
+			Values(jen.Dict{jen.Id("Layers"): buildConfigLayers(data.ConfigLayers)})
 	}
 
 	// Wire a non-default update policy. "disabled" is the framework default, so

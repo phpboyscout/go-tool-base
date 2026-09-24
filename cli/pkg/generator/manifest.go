@@ -458,17 +458,15 @@ type ManifestProperties struct {
 	// ForgeCredentials are forges enabled for their credential wizard and
 	// adapter only, never the release source (spec 0195 D6).
 	ForgeCredentials []props.FeatureID `yaml:"forge_credentials,omitempty"`
-	// ConfigLayers records which layers of the configuration stack the project
-	// wires (see props.ConfigLayer). Empty means the project states nothing and
-	// inherits the framework default — the reading every project generated
-	// before this field existed depends on.
-	//
-	// It is declared here rather than hand-wired in the scaffolded main because
-	// the manifest reconstructs byte-exactly from scratch: a hand-wired layer
-	// set would be a hole reconstruction cannot fill, and `regenerate` would
-	// silently emit a project wiring different layers from the one it ran
-	// against. See spec 0183 D8.
-	ConfigLayers []string `yaml:"config_layers,omitempty"`
+	// Config declares the project's configuration stack (spec 0204). It is
+	// declared here rather than hand-wired in the scaffolded main because the
+	// manifest reconstructs byte-exactly from scratch: a hand-wired stack would
+	// be a hole reconstruction cannot fill (spec 0183 D8).
+	Config ManifestConfig `yaml:"config,omitempty"`
+	// LegacyConfigLayers is spec 0183's config_layers, read so the first
+	// regenerate can move it into Config.Layers (spec 0204 D13) and never
+	// written.
+	LegacyConfigLayers []string `yaml:"config_layers,omitempty"`
 	// MCP is the tool's MCP publication mode (spec 0201 D3): "direct" publishes
 	// one native tool per command; absent or "compact" publishes the three
 	// discovery tools. Rendered into props.Tool.MCP; the binary never reads it.
@@ -495,6 +493,14 @@ type ManifestProperties struct {
 	// generated root. The adapter file is scaffolded once and thereafter
 	// author-owned; this flag only records that the root must emit the call.
 	ExternalCommandsAdapter bool `yaml:"external_commands_adapter,omitempty"`
+}
+
+// ManifestConfig is the project's declared configuration stack.
+type ManifestConfig struct {
+	// Layers is the stack by name, lowest precedence first (see
+	// props.ConfigLayer). Empty means the project states nothing and inherits
+	// the framework default.
+	Layers []string `yaml:"layers,omitempty"`
 }
 
 // ManifestMCP is the properties.mcp block.

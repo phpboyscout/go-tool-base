@@ -85,6 +85,17 @@ func TestNew_ValidationErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "FS is required")
 }
 
+// A declared layer order that breaks a spec 0204 D1 constraint is a contract
+// violation, refused before the tool builds anything.
+func TestNew_RefusesABadConfigLayerOrder(t *testing.T) {
+	t.Parallel()
+
+	tool := Tool{Name: "demo", Config: ConfigSpec{Layers: []ConfigLayer{LayerDefaults, LayerFlags, LayerEnv}}}
+
+	_, err := New(tool, logger.NewNoop(), afero.NewMemMapFs())
+	require.ErrorIs(t, err, ErrConfigLayerOrder)
+}
+
 func TestValidate_NilProps(t *testing.T) {
 	t.Parallel()
 

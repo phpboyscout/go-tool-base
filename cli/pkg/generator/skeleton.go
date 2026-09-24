@@ -1325,7 +1325,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			Description:         MultilineString(config.Description),
 			Features:            normaliseManifestFeatures(config.Features),
 			EnvPrefix:           config.EnvPrefix,
-			ConfigLayers:        config.ConfigLayers,
+			Config:              ManifestConfig{Layers: config.ConfigLayers},
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
 			MCP:                 ManifestMCP{Mode: config.MCPMode},

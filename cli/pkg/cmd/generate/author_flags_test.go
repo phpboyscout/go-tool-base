@@ -42,7 +42,7 @@ func TestSkeletonOptions_AuthorSettingsReachTheConfig(t *testing.T) {
 	o.Bootstrap.AutoInitialise = true
 	o.Bootstrap.SkipConfigCheck = []string{"version"}
 	o.Bootstrap.AuxiliaryCommands = []string{"completion"}
-	o.ConfigLayers = []string{"flags", "env", "files", "defaults"}
+	o.ConfigLayers = []string{"defaults", "files", "env", "flags"}
 	o.Signing = true
 	o.SigningRequireSignature = true
 	o.SigningRequireChecksum = true
@@ -55,12 +55,15 @@ func TestSkeletonOptions_AuthorSettingsReachTheConfig(t *testing.T) {
 	assert.True(t, cfg.Bootstrap.AutoInitialise)
 	assert.Equal(t, []string{"version"}, cfg.Bootstrap.SkipConfigCheck)
 	assert.Equal(t, []string{"completion"}, cfg.Bootstrap.AuxiliaryCommands)
-	assert.Equal(t, []string{"flags", "env", "files", "defaults"}, cfg.ConfigLayers)
+	assert.Equal(t, []string{"defaults", "files", "env", "flags"}, cfg.ConfigLayers)
 	assert.True(t, cfg.Signing.RequireSignature)
 	assert.True(t, cfg.Signing.RequireChecksum)
 
 	o.ConfigLayers = []string{"flags", "bogus"}
 	require.Error(t, o.validateFields(), "an unknown config layer is refused at the flag")
+
+	o.ConfigLayers = []string{"defaults", "flags", "env"}
+	require.Error(t, o.validateFields(), "an order breaking spec 0204 D1 is refused at the flag")
 
 	o.ConfigLayers = nil
 	o.TelemetryEndpoint = "not a url"

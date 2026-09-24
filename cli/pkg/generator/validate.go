@@ -874,34 +874,38 @@ func validateFeatureNameIn(name string, valid []string) error {
 		name)
 }
 
-// ValidateConfigLayers rejects any layer name the framework does not know, and
-// any duplicate.
+// ValidateConfigLayers refuses what the tool would refuse at startup: an
+// unknown or repeated layer, or an order breaking spec 0204 D1.
 //
 // An unknown name would otherwise reach the emitter and render a props constant
 // that does not exist, failing the generated project's build with an error
 // pointing at generated source rather than at the manifest that caused it.
 func ValidateConfigLayers(layers []string) error {
-	seen := make(map[string]bool, len(layers))
-
-	valid := make([]string, 0, len(props.AllConfigLayers()))
-	for _, l := range props.AllConfigLayers() {
-		valid = append(valid, string(l))
+	declared := make([]props.ConfigLayer, len(layers))
+	for i, l := range layers {
+		declared[i] = props.ConfigLayer(l)
 	}
 
-	for _, l := range layers {
-		if seen[l] {
-			return rejectf("ConfigLayers", "duplicate config layer", l)
+	if err := props.ValidateConfigLayers(declared); err != nil {
+		rule := err.Error()
+		if why := errors.FlattenHints(err); why != "" {
+			rule += ": " + why
 		}
 
-		seen[l] = true
-
-		if !props.IsValidConfigLayer(props.ConfigLayer(l)) {
-			return rejectf("ConfigLayers",
-				"unknown config layer (valid: "+strings.Join(valid, ", ")+")", l)
-		}
+		return rejectf("ConfigLayers", rule, strings.Join(layers, ", "))
 	}
 
 	return nil
+}
+
+// validateManifestConfig checks the declared stack, and a legacy
+// config_layers list in the order the first regenerate will move it to.
+func validateManifestConfig(p *ManifestProperties) error {
+	if err := ValidateConfigLayers(p.Config.Layers); err != nil {
+		return err
+	}
+
+	return ValidateConfigLayers(canonicalConfigLayers(p.LegacyConfigLayers))
 }
 
 // ValidateUpdateCheckInterval accepts an empty string (meaning "use the
@@ -1366,7 +1370,7 @@ func validateManifestProperties(p *ManifestProperties) error {
 		return err
 	}
 
-	if err := ValidateConfigLayers(p.ConfigLayers); err != nil {
+	if err := validateManifestConfig(p); err != nil {
 		return err
 	}
 

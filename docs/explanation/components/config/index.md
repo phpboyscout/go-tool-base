@@ -55,6 +55,20 @@ config files (`--config` paths if given, otherwise `~/.<tool>/config.yaml` then
 merged `assets/config.yaml` embedded defaults, which always apply. The per-user
 config outranks the system `/etc` file, the Unix convention.
 
+That is the default. A tool can declare its own stack in
+`props.Tool.Config.Layers`, lowest precedence first, by the names `defaults`,
+`files`, `project`, `env` and `flags`, and the store appends the layers in
+exactly that order: the declaration is the precedence. Leaving a name out
+removes that layer. Three orders are refused, by `props.New` and again when the
+store is built, because each would make a tool quietly unsafe rather than
+merely unusual. `defaults` must be lowest, since nothing below the compiled-in
+defaults could ever be read. `flags` must be highest, since a layer above it
+would mean a flag the user passed did not take. And `project` must sit below
+`env`, since the trust filter below assumes a repository's file cannot outrank
+the environment. See
+[spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
+D1.
+
 Only config files that **exist** are declared as layers, a non-existent file
 contributes nothing and must not become a phantom write target. The one
 exception is the write destination: the highest-precedence path is always

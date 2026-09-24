@@ -181,61 +181,31 @@ var ErrNoConfigFile = errors.NewSentinel("gtb.root.no_config_file", "no config f
 
 // buildConfigStore constructs the configuration store for a command.
 //
-// Layer order, lowest precedence first, matching the documented precedence:
+// The layers are the tool's declared stack (props.Tool.ResolveConfigLayers),
+// appended lowest precedence first, so the declaration is the precedence
+// (spec 0204 D1). Undeclared, the order is:
 //
-//  1. assets/config.yaml merged across every registered bundle — the
-//     embedded-defaults layer (framework, enabled features, the tool's own).
-//     Always applies: a user file that omits a key resolves to the shipped
-//     default (segregated-default-config spec, D4).
-//  2. the tool's explicit ConfigPaths embedded assets
-//  3. the config files — --config paths if given, otherwise the defaults,
-//     with a project-local .<tool>.yaml appended last where one applies
-//  4. environment variables under the tool's prefix
-//  5. changed CLI flags
-//
-// The Store makes this a declaration rather than a sequence of merges. What it
-// replaces built the user config, built the embedded config separately, then
-// deep-merged one into the other by round-tripping through JSON — because Viper
-// merges eagerly and had no notion of a layer.
+//  1. defaults: assets/config.yaml merged across every registered bundle, then
+//     the tool's explicit ConfigPaths embedded assets. A user file that omits a
+//     key resolves to the shipped default (segregated-default-config spec, D4).
+//  2. files: --config paths if given, otherwise the defaults
+//  3. project: a discovered project-local .<tool>.yaml, trust-filtered
+//  4. env: environment variables under the tool's prefix
+//  5. flags: changed CLI flags
 func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Store, error) {
-	fsys := opts.Props.GetConfigFS()
-
-	storeOpts := []config.StoreOption{}
-
-	// A tool declares which layers it wires; an undeclared set resolves to the
-	// framework default, so this is a no-op for every existing tool. Declining
-	// a layer removes it without reordering the rest — precedence is fixed by
-	// the order these options are appended, not by the declaration.
-	tool := opts.Props.Tool
-
-	if tool.WiresConfigLayer(p.LayerDefaults) {
-		if defaults := setup.AssetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
-			storeOpts = append(storeOpts, config.WithReaders(*defaults))
-		}
-
-		if embedded := embeddedSources(opts); len(embedded) > 0 {
-			storeOpts = append(storeOpts, config.WithReaders(embedded...))
-		}
+	layers := opts.Props.Tool.ResolveConfigLayers()
+	if err := p.ValidateConfigLayers(layers); err != nil {
+		return nil, err
 	}
 
-	fileOpts, err := fileLayerOpts(fsys, opts)
+	byLayer, err := configLayerOpts(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	storeOpts = append(storeOpts, fileOpts...)
-
-	if tool.WiresConfigLayer(p.LayerEnv) {
-		if prefix := tool.EnvPrefix; prefix != "" {
-			storeOpts = append(storeOpts, config.WithEnv(prefix))
-		}
-	}
-
-	// Flags are the highest-precedence layer. Only flags the user actually
-	// changed contribute (the backend walks pflag's Visit), so a flag at its
-	// default never clobbers configuration.
-	if tool.WiresConfigLayer(p.LayerFlags) && opts.Flags != nil {
-		storeOpts = append(storeOpts, config.WithFlags(opts.Flags, flagBindings(opts.BoundFlags)...))
+	storeOpts := []config.StoreOption{}
+	for _, layer := range layers {
+		storeOpts = append(storeOpts, byLayer[layer]...)
 	}
 
 	store, err := config.NewStore(ctx, storeOpts...)
@@ -246,11 +216,41 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 	return store, nil
 }
 
-// fileLayerOpts assembles the file-backed store layers: the user's config files
-// and, when discovered, the project-local layer above them. It also enforces the
-// missing-config gate. Split out of buildConfigStore to keep that function's
-// branching within bounds.
-func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions) ([]config.StoreOption, error) {
+// configLayerOpts returns the store options each built-in layer contributes.
+// A layer with nothing to contribute (no prefix, no flags, no project file)
+// maps to none.
+func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOption, error) {
+	byLayer := map[p.ConfigLayer][]config.StoreOption{}
+
+	if defaults := setup.AssetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
+		byLayer[p.LayerDefaults] = append(byLayer[p.LayerDefaults], config.WithReaders(*defaults))
+	}
+
+	if embedded := embeddedSources(opts); len(embedded) > 0 {
+		byLayer[p.LayerDefaults] = append(byLayer[p.LayerDefaults], config.WithReaders(embedded...))
+	}
+
+	if err := fileLayerOpts(opts.Props.GetConfigFS(), opts, byLayer); err != nil {
+		return nil, err
+	}
+
+	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
+		byLayer[p.LayerEnv] = []config.StoreOption{config.WithEnv(prefix)}
+	}
+
+	// Only flags the user actually changed contribute (the backend walks
+	// pflag's Visit), so a flag at its default never clobbers configuration.
+	if opts.Flags != nil {
+		byLayer[p.LayerFlags] = []config.StoreOption{config.WithFlags(opts.Flags, flagBindings(opts.BoundFlags)...)}
+	}
+
+	return byLayer, nil
+}
+
+// fileLayerOpts adds the file-backed layers to byLayer: the user's config
+// files and, when discovered, the project-local file. It also enforces the
+// missing-config gate.
+func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, byLayer map[p.ConfigLayer][]config.StoreOption) error {
 	// Only files that actually exist are declared as layers. A non-existent
 	// file contributes nothing to resolution, and declaring it anyway makes it
 	// a candidate write target — which is how a write to the user's config
@@ -258,7 +258,7 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions) ([]config.StoreOption
 	// before the store is constructed is GTB's job, not the store's.
 	existing, err := existingConfigPaths(fsys, opts.CfgPaths)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// A discovered project-local ".<tool>.yaml" counts toward "a config file
@@ -270,29 +270,24 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions) ([]config.StoreOption
 	// The missing-config gate. auto-initialise depends on the distinction
 	// between "no config file exists" and "a file exists but is empty".
 	if len(existing) == 0 && !projectExists && !opts.AllowEmpty {
-		return nil, ErrNoConfigFile
+		return ErrNoConfigFile
 	}
-
-	layerOpts := []config.StoreOption{}
 
 	// The one deliberate exception to the existence rule: the write target —
 	// the highest-precedence path — is always declared so a write has somewhere
 	// to land and can create the file. It never triggers the missing-file
 	// re-read that other absent layers would, because it is the written
 	// backend (staged, not reloaded).
-	if opts.Props.Tool.WiresConfigLayer(p.LayerFiles) {
-		layerOpts = append(layerOpts, config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...))
+	byLayer[p.LayerFiles] = []config.StoreOption{config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...)}
+
+	// The project-local layer is subject to the trust filter: an untrusted
+	// file has its security-sensitive keys stripped and is read-only (writes
+	// route to the user's own config instead of the repository file).
+	if projectExists {
+		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath))}
 	}
 
-	// The project-local layer sits above the user's config files but below env
-	// and flags, and is subject to the trust filter: an untrusted file has its
-	// security-sensitive keys stripped and is read-only (writes route to the
-	// user's own config instead of the repository file).
-	if projectExists && opts.Props.Tool.WiresConfigLayer(p.LayerProject) {
-		layerOpts = append(layerOpts, config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath)))
-	}
-
-	return layerOpts, nil
+	return nil
 }
 
 // flagBindings maps author-declared bound flags (WithBoundFlags) onto flag

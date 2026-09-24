@@ -242,6 +242,35 @@ func (g *Generator) warnUndecidedChatDefault(m *Manifest) {
 func deriveMissingManifestFields(m *Manifest) (bool, error) {
 	changed := deriveMissingChatFields(&m.Properties)
 
+	released, err := deriveReleaseSourceFields(m)
+	if err != nil {
+		return false, err
+	}
+
+	changed = moveLegacyConfigLayers(&m.Properties) || released || changed
+
+	if m.Properties.ModulePath == "" {
+		if derived := manifestModulePath(*m); derived != "" {
+			m.Properties.ModulePath = derived
+			changed = true
+		}
+	}
+
+	// A manifest from before version.go existed keeps the go line it has
+	// today, which is the running toolchain's (spec 0197 D3).
+	if m.Version.Go == "" {
+		m.Version.Go = resolveGoVersion("")
+		changed = true
+	}
+
+	return changed, nil
+}
+
+// deriveReleaseSourceFields fills a manifest's missing release-source fields
+// and reports whether it changed anything.
+func deriveReleaseSourceFields(m *Manifest) (bool, error) {
+	changed := false
+
 	// The withdrawn direct channel's block is read by nothing (spec 0203
 	// D9): it is dropped here and the write-back says so.
 	if m.ReleaseSource.Direct != (ManifestDirectSource{}) {
@@ -268,20 +297,6 @@ func deriveMissingManifestFields(m *Manifest) (bool, error) {
 	// migrated (D11).
 	if b := m.ReleaseSource.Backend; b != "" && len(enabledForgeFeatures(m.Properties.Features)) == 0 {
 		m.Properties.Features = append(m.Properties.Features, ManifestFeature{Name: string(b), Enabled: true})
-		changed = true
-	}
-
-	if m.Properties.ModulePath == "" {
-		if derived := manifestModulePath(*m); derived != "" {
-			m.Properties.ModulePath = derived
-			changed = true
-		}
-	}
-
-	// A manifest from before version.go existed keeps the go line it has
-	// today, which is the running toolchain's (spec 0197 D3).
-	if m.Version.Go == "" {
-		m.Version.Go = resolveGoVersion("")
 		changed = true
 	}
 
@@ -362,4 +377,37 @@ func ciSkeletonFor(backend props.FeatureID, releaseProvider string) ciSkeleton {
 	default:
 		return ciSkeleton{}
 	}
+}
+
+// moveLegacyConfigLayers moves spec 0183's config_layers into config.layers
+// (spec 0204 D13). Its order never reached the store, so it moves in the
+// framework's order and what the tool resolves does not change.
+func moveLegacyConfigLayers(p *ManifestProperties) bool {
+	if len(p.LegacyConfigLayers) == 0 {
+		return false
+	}
+
+	if len(p.Config.Layers) == 0 {
+		p.Config.Layers = canonicalConfigLayers(p.LegacyConfigLayers)
+	}
+
+	p.LegacyConfigLayers = nil
+
+	return true
+}
+
+func canonicalConfigLayers(layers []string) []string {
+	declared := make([]props.ConfigLayer, len(layers))
+	for i, l := range layers {
+		declared[i] = props.ConfigLayer(l)
+	}
+
+	sorted := props.CanonicalConfigLayers(declared)
+
+	out := make([]string, len(sorted))
+	for i, l := range sorted {
+		out[i] = string(l)
+	}
+
+	return out
 }

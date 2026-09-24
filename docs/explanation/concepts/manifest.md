@@ -102,6 +102,10 @@ the generated Go source does not fully encode:
     providers need). `default` is rendered into `cmd/<name>/chat/assets` as
     the tool's lowest config layer; several providers require the author to
     name one, a single provider is its own. Credentials are never recorded.
+- **config**: The configuration stack. `layers` is the ordered list of layers
+    the tool wires, lowest precedence first, rendered into
+    `props.Tool.Config`; absent means the framework default. A manifest from
+    before it carried `config_layers`, which the first regenerate moves here.
 - **signing**: The self-update signing posture (backend, key id/region, public
     key path, enforcement flags).
 - **templates**: Custom template-overlay provenance and pins: `{name, type,

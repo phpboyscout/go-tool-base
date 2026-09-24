@@ -24,7 +24,7 @@ func TestOptionsFromManifest_RoundTrip(t *testing.T) {
 		ForgeCredentials: []string{"github"}, ReleaseChannel: generator.ReleaseChannelForge,
 		HelpType: "slack", SlackChannel: "#h", SlackTeam: "T", EnvPrefix: "TOOL",
 		UpdatePolicy: "prompt", UpdateCheckInterval: "168h", TelemetryEndpoint: "https://t.internal",
-		ConfigLayers: []string{"flags", "env", "files", "defaults"}, GoVersion: "1.26",
+		ConfigLayers: []string{"defaults", "env", "files", "flags"}, GoVersion: "1.26",
 		ChatProviders: []string{"claude", "openai"}, CIComponentSource: "gitlab.example.com/mirror/cicd",
 		Signing: true, SigningEmail: "rel@example.com", SigningKeySource: "external", SigningKeyID: "alias/k",
 		SigningRequireChecksum: true, MCPMode: "direct",

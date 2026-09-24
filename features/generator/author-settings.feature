@@ -8,7 +8,9 @@ Feature: The manifest owns every author setting
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface
   D3, D4, D6, D7, D8, D9, D10 and D13, and
   https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0199-features-as-a-value-and-a-root-that-owns-its-registries
-  D4 (the generated root goes through props.New).
+  D4 (the generated root goes through props.New), and
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders
+  D1 and D13 (the declared layer order is the precedence).
 
   Scenario: The generated root constructs its Props through props.New and reports a failure as an error
     Given a freshly generated gtb project
@@ -44,6 +46,22 @@ Feature: The manifest owns every author setting
     Given I generate a gtb project with the flags "--config-layers flags,bogus"
     Then the project exit code is not zero
     And the project output contains "config layer"
+
+  Scenario: The declared layer order is recorded and rendered as the stack
+    Given I generate a gtb project with the flags "--config-layers defaults,project,files,env,flags"
+    Then the project exit code is 0
+    And the project manifest contains "layers:"
+    And the project manifest does not contain "config_layers"
+    And the generated "pkg/cmd/root/cmd.go" file contains "props.ConfigSpec{Layers: []props.ConfigLayer{props.LayerDefaults, props.LayerProject, props.LayerFiles, props.LayerEnv, props.LayerFlags}}"
+
+    When I run gtb in the project with "set config.layers defaults,files,flags"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "props.ConfigSpec{Layers: []props.ConfigLayer{props.LayerDefaults, props.LayerFiles, props.LayerFlags}}"
+
+  Scenario: A layer order that lets a layer outrank the flags is refused
+    Given I generate a gtb project with the flags "--config-layers defaults,flags,env"
+    Then the project exit code is not zero
+    And the project output contains "flags must be the highest layer"
 
   Scenario: The keychain follows the manifest, and a deleted file comes back
     Given a freshly generated gtb project

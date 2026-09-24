@@ -70,7 +70,7 @@ manifest.
 | `--auto-initialise` | `false` | Run the first-run bootstrap automatically when the config is missing. Recorded as `bootstrap.auto_initialise`. |
 | `--skip-config-check` | — | Commands that run without a config file (repeatable). Recorded as `bootstrap.skip_config_check`. |
 | `--auxiliary-commands` | — | Commands that take the root pre-run's auxiliary fast path (repeatable). Recorded as `bootstrap.auxiliary_commands`. |
-| `--config-layers` | *(framework default)* | Config-stack layers the tool wires, in precedence order. Recorded as `config_layers`. |
+| `--config-layers` | *(framework default)* | Config-stack layers the tool wires, lowest precedence first; the order is the precedence. `defaults` must be lowest, `flags` highest, and `project` below `env`. Recorded as `config.layers`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
 | `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. |
