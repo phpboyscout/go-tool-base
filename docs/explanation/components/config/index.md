@@ -240,6 +240,24 @@ The built-in `--debug` and `--ci` flags fold through the same path, so
 `Config.View().GetBool("ci")` reflects `--ci`; `--debug` additionally retains its
 immediate effect on the log level.
 
+## The tool's own format
+
+A tool writes its own config file in one format, set by
+`props.Tool.Config.Format`: `yaml` (the default), `toml`, `json` or `hcl`, the
+four the family can edit, and the format must be linked. The file is named for
+it, `config.<ext>`, through `props.Tool.ConfigFilename()`, both on the default
+search paths and where `init` writes. `props.New` refuses a read-only format
+here, since `init` writes the file and `config set` edits it.
+
+Every init template fragment stays YAML, the tool's own included. `init` merges
+the fragments across bundles as it always has, then writes the result through
+the own format's codec (`setup.EncodeConfig`). The merge decodes and re-encodes,
+so template comments never reached a user's file in any format; see
+[spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
+revision R4. `config edit` and `config unset` decode the file they touch through
+its own codec too, and `config edit` seeds a new JSON file with `{}` rather
+than a comment JSON cannot hold.
+
 ## Initialiser integration
 
 [Tool initialisers](../setup/initialisers.md) work against two narrow surfaces:

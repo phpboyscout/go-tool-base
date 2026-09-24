@@ -120,7 +120,7 @@ func TestWriteConfigAtomic_MkdirError(t *testing.T) {
 func TestSeedOrRead_EmptyToolNameFallback(t *testing.T) {
 	t.Parallel()
 
-	out := seedOrRead(afero.NewMemMapFs(), "/absent/config.yaml", "")
+	out := seedOrRead(afero.NewMemMapFs(), "/absent/config.yaml", "", config.YAMLCodec{})
 	assert.Contains(t, string(out), "tool configuration")
 }
 

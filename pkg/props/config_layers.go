@@ -12,6 +12,43 @@ type ConfigSpec struct {
 	// Layers is the stack by name, lowest precedence first: the order is the
 	// precedence. Empty resolves to DefaultConfigLayers.
 	Layers []ConfigLayer `json:"layers,omitempty" yaml:"layers,omitempty"`
+
+	// Format is the format of the tool's own config file, the one init writes
+	// and config set edits: yaml, toml, json or hcl. Empty is yaml. A format
+	// other than yaml must be linked (spec 0204 D2).
+	Format string `json:"format,omitempty" yaml:"format,omitempty"`
+}
+
+// writableConfigFormats are the formats a tool's own file may be in, each
+// with the extension its file is named by.
+var writableConfigFormats = map[string]string{
+	"":     "yaml",
+	"yaml": "yaml",
+	"toml": "toml",
+	"json": "json",
+	"hcl":  "hcl",
+}
+
+// ConfigFilename is the base name of the tool's own config file: config
+// plus its format's extension.
+func (t Tool) ConfigFilename() string {
+	ext, ok := writableConfigFormats[t.Config.Format]
+	if !ok {
+		ext = "yaml"
+	}
+
+	return "config." + ext
+}
+
+// ValidateConfigFormat refuses an own format that is not one of the writable
+// four, since init writes the file and config set edits it.
+func ValidateConfigFormat(format string) error {
+	if _, ok := writableConfigFormats[format]; ok {
+		return nil
+	}
+
+	return errors.WithHint(errors.Wrapf(ErrConfigFormat, "%q", format),
+		"a tool's own config file is yaml, toml, json or hcl; a read-only format can still be read through --config")
 }
 
 var (
@@ -22,6 +59,8 @@ var (
 	// ErrConfigLayerOrder is a declared order that breaks one of spec 0204
 	// D1's constraints.
 	ErrConfigLayerOrder = errors.NewSentinel("gtb.props.config_layer_order", "config layer order")
+	// ErrConfigFormat is an own config format that is not writable.
+	ErrConfigFormat = errors.NewSentinel("gtb.props.config_format", "config format cannot be a tool's own")
 )
 
 // ConfigLayer names one layer of the configuration stack.

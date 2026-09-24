@@ -8,15 +8,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/google/shlex"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
+	cfg "gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // editTempSuffix is appended to the config path to form the sibling temp file
@@ -117,7 +119,12 @@ func runEdit(cmd *cobra.Command, props *p.Props, ec *editConfig, editorFlag stri
 		)
 	}
 
-	original := seedOrRead(fs, path, props.Tool.Name)
+	codec, err := fileCodec(props, path)
+	if err != nil {
+		return err
+	}
+
+	original := seedOrRead(fs, path, props.Tool.Name, codec)
 
 	tmpPath := path + editTempSuffix
 	if werr := afero.WriteFile(fs, tmpPath, original, editFilePerm); werr != nil {
@@ -140,13 +147,15 @@ func runEdit(cmd *cobra.Command, props *p.Props, ec *editConfig, editorFlag stri
 		return errors.Wrap(err, "reading edited file")
 	}
 
-	return persistEdit(cmd, props, fs, path, tmpPath, original, edited)
+	return persistEdit(cmd, props, fs, editTarget{path: path, tmpPath: tmpPath, codec: codec}, original, edited)
 }
 
 // persistEdit validates the edited bytes and, if valid and changed, writes them
 // to path and reloads. On any failure the temp file is retained and its path
 // reported so the user's edit is not lost.
-func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, path, tmpPath string, original, edited []byte) error {
+func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, target editTarget, original, edited []byte) error {
+	path, tmpPath := target.path, target.tmpPath
+
 	// A save that changed nothing is a no-op regardless of validity — short
 	// circuit before parsing or validating.
 	if bytes.Equal(original, edited) {
@@ -156,15 +165,15 @@ func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, path, tmpPath 
 		return nil
 	}
 
-	var probe map[string]any
-	if err := yaml.Unmarshal(edited, &probe); err != nil {
+	candidate, err := setup.DecodeConfig(target.codec, path, edited)
+	if err != nil {
 		return errors.WithHintf(
-			errors.Wrap(err, "edited config is not valid YAML; original left unchanged"),
+			errors.Wrapf(err, "edited config is not valid %s; original left unchanged", formatName(path)),
 			"your edit is preserved at %s", tmpPath,
 		)
 	}
 
-	if err := validateCandidate(cmd.Context(), props, edited); err != nil {
+	if err := validateCandidate(cmd.Context(), props, candidate); err != nil {
 		return errors.WithHintf(err, "your edit is preserved at %s; original left unchanged", tmpPath)
 	}
 
@@ -185,12 +194,25 @@ func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, path, tmpPath 
 	return nil
 }
 
+// editTarget is the file an edit lands in, the temp file it is made in, and
+// the codec that reads it.
+type editTarget struct {
+	path    string
+	tmpPath string
+	codec   cfg.Codec
+}
+
 // seedOrRead returns the current file contents, or — when the file does not yet
 // exist — an empty document with a header comment. It never seeds the full
 // effective config, so embedded defaults are not materialised into the file.
-func seedOrRead(fs afero.Fs, path, toolName string) []byte {
+// A format with no comments gets its codec's empty document instead.
+func seedOrRead(fs afero.Fs, path, toolName string, codec cfg.Codec) []byte {
 	if data, err := afero.ReadFile(fs, path); err == nil {
 		return data
+	}
+
+	if editing, ok := codec.(cfg.EditingCodec); ok && !hashCommentFormats[strings.ToLower(filepath.Ext(path))] {
+		return editing.Empty()
 	}
 
 	name := toolName
@@ -283,4 +305,23 @@ func writeConfigAtomic(fs afero.Fs, path string, data []byte) error {
 	_ = fs.Chmod(path, writtenConfigFilePerm)
 
 	return nil
+}
+
+// hashCommentFormats are the writable formats whose comments start with #.
+var hashCommentFormats = map[string]bool{"": true, ".yaml": true, ".yml": true, ".toml": true, ".hcl": true}
+
+// fileCodec is the codec that reads path in this tool.
+func fileCodec(props *p.Props, path string) (cfg.Codec, error) {
+	return setup.ConfigCodecFor(setup.ConfigCodecsIn(props.GetFeatures()), path)
+}
+
+// formatName names path's format for a message: its extension, upper-cased,
+// or YAML.
+func formatName(path string) string {
+	ext := strings.TrimPrefix(filepath.Ext(path), ".")
+	if ext == "" || ext == "yml" {
+		return "YAML"
+	}
+
+	return strings.ToUpper(ext)
 }

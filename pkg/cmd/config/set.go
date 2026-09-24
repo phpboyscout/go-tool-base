@@ -257,7 +257,7 @@ func resolveWritableConfigPath(props *p.Props, fs afero.Fs) string {
 		return ""
 	}
 
-	return filepath.Join(dir, setup.DefaultConfigFilename)
+	return filepath.Join(dir, props.Tool.ConfigFilename())
 }
 
 // writableFS returns props.FS, defaulting to the real OS filesystem.

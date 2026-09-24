@@ -48,7 +48,7 @@ func TestRunAIInit_ClaudeEnvVarMode(t *testing.T) {
 	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	content, err := afero.ReadFile(props.FS, configFile)
 	require.NoError(t, err)
 
@@ -82,7 +82,7 @@ func TestRunAIInit_Claude(t *testing.T) {
 	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	exists, _ := afero.Exists(props.FS, configFile)
 	assert.True(t, exists, "config file should exist")
 
@@ -106,7 +106,7 @@ func TestRunAIInit_OpenAI(t *testing.T) {
 	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	content, err := afero.ReadFile(props.FS, configFile)
 	require.NoError(t, err)
 
@@ -127,7 +127,7 @@ func TestRunAIInit_Gemini(t *testing.T) {
 	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	content, err := afero.ReadFile(props.FS, configFile)
 	require.NoError(t, err)
 
@@ -148,7 +148,7 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	content, err := afero.ReadFile(props.FS, configFile)
 	require.NoError(t, err)
 
@@ -174,7 +174,7 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 
 	// A config left behind by a prior literal-mode run.
 	require.NoError(t, props.FS.MkdirAll(dir, 0o755))
@@ -275,7 +275,7 @@ github:
   auth:
     value: existing-token
 `
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	require.NoError(t, afero.WriteFile(props.FS, configFile, []byte(existingConfig), 0o644))
 
 	props.IO = keyIO(t, "openai", credentials.ModeLiteral, "sk-test")

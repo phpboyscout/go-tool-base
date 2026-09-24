@@ -86,12 +86,7 @@ func persistUnset(ctx context.Context, props *p.Props, key string) error {
 
 	deleteNestedKey(settings, key)
 
-	data, err := yaml.Marshal(settings)
-	if err != nil {
-		return errors.Wrap(err, "marshalling config")
-	}
-
-	if err := validateCandidate(ctx, props, data); err != nil {
+	if err := validateCandidate(ctx, props, settings); err != nil {
 		return err
 	}
 
@@ -102,16 +97,22 @@ func persistUnset(ctx context.Context, props *p.Props, key string) error {
 	return nil
 }
 
-// validateCandidate checks a candidate YAML config document against the base
+// validateCandidate checks a candidate config document against the base
 // schema without mutating the live store. The candidate is layered over the
 // tool's merged embedded defaults — the same resolution "config validate"
 // checks — so removing a defaults-supplied key is not refused just because
 // the bare file no longer carries it. It loads the layers into a throwaway
 // store (which is never watched). Returns a descriptive error when invalid.
-func validateCandidate(ctx context.Context, props *p.Props, data []byte) error {
+func validateCandidate(ctx context.Context, props *p.Props, settings map[string]any) error {
 	schema, err := buildBaseSchema()
 	if err != nil {
 		return errors.Wrap(err, "failed to build validation schema")
+	}
+
+	// The in-memory layer reads YAML, whatever format the file is in.
+	data, err := yaml.Marshal(settings)
+	if err != nil {
+		return errors.Wrap(err, "marshalling config")
 	}
 
 	var sources []cfg.NamedSource
@@ -172,14 +173,15 @@ func loadWritableSettings(props *p.Props) (string, map[string]any, error) {
 		return "", nil, errors.New("could not resolve a writable config path")
 	}
 
-	settings := map[string]any{}
-	if data, err := afero.ReadFile(fs, path); err == nil {
-		if uerr := yaml.Unmarshal(data, &settings); uerr != nil {
-			return "", nil, errors.Wrapf(uerr, "parsing existing config %q", path)
-		}
+	codec, err := fileCodec(props, path)
+	if err != nil {
+		return "", nil, err
+	}
 
-		if settings == nil {
-			settings = map[string]any{}
+	settings := map[string]any{}
+	if data, rerr := afero.ReadFile(fs, path); rerr == nil {
+		if settings, err = setup.DecodeConfig(codec, path, data); err != nil {
+			return "", nil, errors.Wrapf(err, "parsing existing config %q", path)
 		}
 	}
 

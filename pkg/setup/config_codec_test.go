@@ -192,3 +192,11 @@ func TestIsProjectConfigName(t *testing.T) {
 		assert.Equalf(t, want, setup.IsProjectConfigName(path, "mytool"), "%s", path)
 	}
 }
+
+// A read-only format cannot be a document GTB writes.
+func TestEncodeConfig_RefusesAReadOnlyFormat(t *testing.T) {
+	t.Parallel()
+
+	_, err := setup.EncodeConfig(configini.Codec{}, "/etc/tool/config.ini", map[string]any{"a": 1})
+	require.ErrorIs(t, err, setup.ErrReadOnlyConfigFormat)
+}

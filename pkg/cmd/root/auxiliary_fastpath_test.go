@@ -119,7 +119,7 @@ func TestPreRun_Auxiliary_SkipsBootstrapWithConfigPresent(t *testing.T) {
 
 	props := noConfigProps(t, "cfg-completion-tool")
 
-	cfgPath := filepath.Join(setup.GetDefaultConfigDir(props.FS, "cfg-completion-tool"), setup.DefaultConfigFilename)
+	cfgPath := filepath.Join(setup.GetDefaultConfigDir(props.FS, "cfg-completion-tool"), "config.yaml")
 	require.NoError(t, props.FS.MkdirAll(filepath.Dir(cfgPath), 0o755))
 	require.NoError(t, afero.WriteFile(props.FS, cfgPath, []byte("log:\n  level: info\n"), 0o644))
 

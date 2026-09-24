@@ -30,6 +30,10 @@ const (
 )
 
 const (
+	// DefaultConfigFilename is a YAML tool's own config file name.
+	//
+	// Deprecated: use props.Tool.ConfigFilename, which names the file for the
+	// tool's own format (spec 0204 D23).
 	DefaultConfigFilename = "config.yaml"
 
 	// DefaultsAssetPath is the bare asset path the embedded-defaults layer is
@@ -250,13 +254,18 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 // the same effective values the running tool would; writes land only in the
 // file. Shared by Initialise and the per-feature init subcommands.
 func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean bool) (Editor, string, error) {
-	targetFile := filepath.Join(dir, DefaultConfigFilename)
+	targetFile := filepath.Join(dir, p.Tool.ConfigFilename())
+
+	codec, err := ConfigCodecFor(ConfigCodecsIn(p.GetFeatures()), targetFile)
+	if err != nil {
+		return nil, targetFile, err
+	}
 
 	if err := p.FS.MkdirAll(dir, dirPermStandard); err != nil {
 		return nil, targetFile, errors.Wrap(err, "Failed to create directory")
 	}
 
-	if err := writeInitialConfig(p, targetFile, clean); err != nil {
+	if err := writeInitialConfig(p, targetFile, codec, clean); err != nil {
 		return nil, targetFile, err
 	}
 
@@ -265,7 +274,7 @@ func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean boo
 		storeOpts = append(storeOpts, config.WithReaders(*defaults))
 	}
 
-	storeOpts = append(storeOpts, config.WithFiles(p.GetConfigFS(), targetFile))
+	storeOpts = append(storeOpts, config.WithBackend(config.NewCodecBackend(p.GetConfigFS(), targetFile, codec)))
 
 	store, err := config.NewStore(ctx, storeOpts...)
 	if err != nil {
@@ -315,7 +324,11 @@ func AssetSource(p *props.Props, path string) *config.NamedSource {
 // and re-emits, so template comments do not carry) — parity with the viper
 // round-trip this replaces. Comments the USER writes survive later edits,
 // because wizard writes go through Apply.
-func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
+//
+// The template is always YAML, merged across bundles; the file is written
+// through codec, the tool's own format (spec 0204 R4). A YAML file gets the
+// template's own bytes when fresh.
+func writeInitialConfig(p *props.Props, targetFile string, codec config.Codec, clean bool) error {
 	seed := AssetDocument(p, InitTemplateAssetPath)
 
 	exists, err := afero.Exists(p.FS, targetFile)
@@ -326,7 +339,7 @@ func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
 	if exists && !clean {
 		p.Logger.Info("Configuration file already exists, attempting to merge")
 
-		merged, mergeErr := mergeExistingOverTemplate(p.FS, targetFile, seed)
+		merged, mergeErr := mergeExistingOverTemplate(p.FS, targetFile, codec, seed)
 		if mergeErr != nil {
 			return mergeErr
 		}
@@ -337,6 +350,8 @@ func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
 		}
 
 		seed = merged
+	} else if seed, err = seedInFormat(codec, targetFile, seed); err != nil {
+		return err
 	}
 
 	if err := afero.WriteFile(p.FS, targetFile, seed, configFilePerm); err != nil {
@@ -357,7 +372,7 @@ func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
 // mergeExistingOverTemplate deep-merges the existing file's values over the
 // template document, returning the encoded result — or nil when there is no
 // template to merge.
-func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, seed []byte) ([]byte, error) {
+func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, codec config.Codec, seed []byte) ([]byte, error) {
 	if len(seed) == 0 {
 		return nil, nil
 	}
@@ -372,8 +387,8 @@ func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, seed []byte) ([
 		return nil, errors.Wrap(err, "parsing init template")
 	}
 
-	existingDoc := map[string]any{}
-	if err := yaml.Unmarshal(existing, &existingDoc); err != nil {
+	existingDoc, err := DecodeConfig(codec, targetFile, existing)
+	if err != nil {
 		return nil, errors.Wrap(err, "parsing existing config")
 	}
 
@@ -381,12 +396,21 @@ func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, seed []byte) ([
 		return nil, errors.Wrap(err, "merging existing config over template")
 	}
 
-	out, err := yaml.Marshal(seedDoc)
-	if err != nil {
-		return nil, errors.Wrap(err, "encoding merged config")
+	return EncodeConfig(codec, targetFile, seedDoc)
+}
+
+// seedInFormat re-encodes the YAML template for a file in another format.
+func seedInFormat(codec config.Codec, targetFile string, seed []byte) ([]byte, error) {
+	if _, ok := codec.(config.YAMLCodec); ok || len(seed) == 0 {
+		return seed, nil
 	}
 
-	return out, nil
+	doc := map[string]any{}
+	if err := yaml.Unmarshal(seed, &doc); err != nil {
+		return nil, errors.Wrap(err, "parsing init template")
+	}
+
+	return EncodeConfig(codec, targetFile, doc)
 }
 
 const gitignoreContent = `# Ignore files that may contain secrets

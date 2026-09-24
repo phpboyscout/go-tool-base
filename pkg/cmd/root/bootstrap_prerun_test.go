@@ -54,7 +54,7 @@ func noConfigProps(t *testing.T, name string, features ...p.FeatureState) *p.Pro
 // autoInitConfigPath is where auto-init writes the default config for a tool —
 // the same default path the root command searches when --config is not given.
 func autoInitConfigPath(fs afero.Fs, name string) string {
-	return filepath.Join(setup.GetDefaultConfigDir(fs, name), setup.DefaultConfigFilename)
+	return filepath.Join(setup.GetDefaultConfigDir(fs, name), "config.yaml")
 }
 
 func execChild(t *testing.T, props *p.Props, child *cobra.Command) error {

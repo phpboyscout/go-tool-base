@@ -1,10 +1,12 @@
 package root
 
 import (
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -104,4 +106,28 @@ func TestBuildConfigStore_DecodesAnEmbeddedAssetByExtension(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "value", store.View().GetString("main.extra"))
+}
+
+// The default search paths name the tool's own file for its format (spec 0204
+// D23), so a TOML tool looks for config.toml in /etc and in the user's
+// config directory.
+func TestSetupRootFlags_DefaultPathsNameTheOwnFormat(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		Tool:   p.Tool{Name: "mytool", Config: p.ConfigSpec{Format: "toml"}},
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+	}
+
+	rootCmd := &cobra.Command{Use: "mytool"}
+	setupRootFlags(rootCmd, props, &rootState{})
+
+	defaults, err := rootCmd.PersistentFlags().GetStringArray("config")
+	require.NoError(t, err)
+	require.Len(t, defaults, 2)
+
+	for _, path := range defaults {
+		assert.Equal(t, "config.toml", filepath.Base(path))
+	}
 }

@@ -146,7 +146,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		out, err := mergeExistingOverTemplate(fs, "config.yaml", nil)
+		out, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{}, nil)
 		require.NoError(t, err)
 		assert.Nil(t, out)
 	})
@@ -157,7 +157,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte("log:\n  level: debug\n"), 0o600))
 
-		out, err := mergeExistingOverTemplate(fs, "config.yaml",
+		out, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{},
 			[]byte("log:\n  level: info\nupdate:\n  policy: \"\"\n"))
 		require.NoError(t, err)
 		assert.Contains(t, string(out), "level: debug")
@@ -168,7 +168,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		_, err := mergeExistingOverTemplate(fs, "missing.yaml", []byte("a: 1\n"))
+		_, err := mergeExistingOverTemplate(fs, "missing.yaml", config.YAMLCodec{}, []byte("a: 1\n"))
 		require.Error(t, err)
 	})
 
@@ -178,7 +178,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte("a: 1\n"), 0o600))
 
-		_, err := mergeExistingOverTemplate(fs, "config.yaml", []byte(":\tnot yaml"))
+		_, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{}, []byte(":\tnot yaml"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "init template")
 	})
@@ -189,7 +189,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte(":\tnot yaml"), 0o600))
 
-		_, err := mergeExistingOverTemplate(fs, "config.yaml", []byte("a: 1\n"))
+		_, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{}, []byte("a: 1\n"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "existing config")
 	})
@@ -235,7 +235,7 @@ func TestWriteInitialConfig_CleanOverwrites(t *testing.T) {
 	require.NoError(t, p.FS.MkdirAll("/cfg", 0o755))
 	require.NoError(t, afero.WriteFile(p.FS, "/cfg/config.yaml", []byte("custom: value\n"), 0o600))
 
-	require.NoError(t, writeInitialConfig(p, "/cfg/config.yaml", true))
+	require.NoError(t, writeInitialConfig(p, "/cfg/config.yaml", config.YAMLCodec{}, true))
 
 	data, err := afero.ReadFile(p.FS, "/cfg/config.yaml")
 	require.NoError(t, err)

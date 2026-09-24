@@ -210,5 +210,9 @@ func (p *Props) Validate() error {
 		return err
 	}
 
+	if err := ValidateConfigFormat(p.Tool.Config.Format); err != nil {
+		return err
+	}
+
 	return p.Tool.MCP.validate()
 }
