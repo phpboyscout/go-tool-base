@@ -353,7 +353,7 @@ func TestWriteBitbucketCredentials_ModeSwitchClearsStaleKeys(t *testing.T) {
 		p := newDualTestProps(t)
 		const dir = "/cfgdir"
 
-		path := filepath.Join(dir, setup.DefaultConfigFilename)
+		path := filepath.Join(dir, "config.yaml")
 		require.NoError(t, p.FS.MkdirAll(dir, 0o755))
 		require.NoError(t, afero.WriteFile(p.FS, path, []byte(yamlDoc), 0o600))
 
@@ -575,7 +575,7 @@ func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dir := t.TempDir()
 
-	target := filepath.Join(dir, setup.DefaultConfigFilename)
+	target := filepath.Join(dir, "config.yaml")
 	// A recorded SSH key so the stage Bitbucket now reaches (0186 D1) has
 	// nothing to do — this test is about the credential reaching disk.
 	require.NoError(t, afero.WriteFile(fs, target,

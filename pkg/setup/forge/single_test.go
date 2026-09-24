@@ -534,7 +534,7 @@ func TestRunInitCmd_ExistingConfigFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dir := "/cfgdir"
 	require.NoError(t, fs.MkdirAll(dir, 0o755))
-	target := dir + "/" + setup.DefaultConfigFilename
+	target := dir + "/" + "config.yaml"
 	require.NoError(t, afero.WriteFile(fs, target, []byte("github:\n  auth:\n    env: GITHUB_TOKEN\n"), 0o600))
 
 	p := &props.Props{

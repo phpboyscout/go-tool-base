@@ -101,7 +101,7 @@ func TestNewCmdInit(t *testing.T) {
 	exists, _ := afero.DirExists(fs, defaultDir)
 	assert.True(t, exists, "config dir should exist")
 
-	configFile := filepath.Join(defaultDir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(defaultDir, "config.yaml")
 	exists, _ = afero.Exists(fs, configFile)
 	assert.True(t, exists, "config file should exist")
 }
@@ -158,7 +158,7 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 			require.NoError(t, err)
 
 			defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
-			configFile := filepath.Join(defaultDir, setup.DefaultConfigFilename)
+			configFile := filepath.Join(defaultDir, "config.yaml")
 			exists, _ := afero.Exists(fs, configFile)
 			assert.True(t, exists, "config file should exist")
 		})
@@ -179,7 +179,7 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 	}
 
 	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
-	configFile := filepath.Join(defaultDir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(defaultDir, "config.yaml")
 
 	// Write an existing config with a custom value
 	existingConfig := "custom_key: custom_value\n"
@@ -212,7 +212,7 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 	}
 
 	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
-	configFile := filepath.Join(defaultDir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(defaultDir, "config.yaml")
 
 	// Write an existing config with a custom value
 	existingConfig := "custom_key: custom_value\n"
@@ -251,7 +251,7 @@ func TestNewCmdInit_CustomDir(t *testing.T) {
 	cmd.SetArgs([]string{"--dir", customDir, "--skip-login", "--skip-key", "--skip-ai"})
 	require.NoError(t, cmd.Execute())
 
-	configFile := filepath.Join(customDir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(customDir, "config.yaml")
 	exists, _ := afero.Exists(fs, configFile)
 	assert.True(t, exists, "config file should exist in custom dir")
 }

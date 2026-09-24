@@ -353,7 +353,7 @@ func TestNewCmdInitAI_Success(t *testing.T) {
 
 	require.NoError(t, cmd.RunE(cmd, nil))
 
-	content, err := afero.ReadFile(props.FS, filepath.Join(dir, setup.DefaultConfigFilename))
+	content, err := afero.ReadFile(props.FS, filepath.Join(dir, "config.yaml"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "env: ANTHROPIC_TOKEN")
 }

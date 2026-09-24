@@ -36,7 +36,7 @@ func TestRunAIInit_KeychainMode_WritesReferenceAndStoresSecret(t *testing.T) {
 	err := RunAIInit(t.Context(), props, dir)
 	require.NoError(t, err)
 
-	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	configFile := filepath.Join(dir, "config.yaml")
 	content, err := afero.ReadFile(props.FS, configFile)
 	require.NoError(t, err)
 

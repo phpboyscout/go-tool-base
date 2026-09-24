@@ -90,7 +90,7 @@ func TestCmdPath_NoFile(t *testing.T) {
 	}
 
 	out := runPath(t, p, "text")
-	want := filepath.Join(setup.GetDefaultConfigDir(fs, "tool"), setup.DefaultConfigFilename)
+	want := filepath.Join(setup.GetDefaultConfigDir(fs, "tool"), "config.yaml")
 	assert.Contains(t, out, want)
 	assert.Contains(t, out, "no config file is currently loaded")
 }

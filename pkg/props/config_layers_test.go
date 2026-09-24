@@ -198,3 +198,36 @@ func TestValidateConfigLayers(t *testing.T) {
 		})
 	}
 }
+
+// Spec 0204 D23: the tool's own config file is named for its format.
+func TestTool_ConfigFilename(t *testing.T) {
+	t.Parallel()
+
+	for format, want := range map[string]string{
+		"":     "config.yaml",
+		"yaml": "config.yaml",
+		"toml": "config.toml",
+		"json": "config.json",
+		"hcl":  "config.hcl",
+		"ini":  "config.yaml", // refused by props.New; never a name GTB cannot write
+	} {
+		tool := props.Tool{Config: props.ConfigSpec{Format: format}}
+		assert.Equalf(t, want, tool.ConfigFilename(), "format %q", format)
+	}
+}
+
+// The tool's own format is one init writes and config set edits, so it must
+// be one of the four writable formats (spec 0204 D2).
+func TestValidateConfigFormat(t *testing.T) {
+	t.Parallel()
+
+	for _, ok := range []string{"", "yaml", "toml", "json", "hcl"} {
+		require.NoErrorf(t, props.ValidateConfigFormat(ok), "%q", ok)
+	}
+
+	for _, bad := range []string{"ini", "xml", "dotenv", "properties", "yml", "bogus"} {
+		err := props.ValidateConfigFormat(bad)
+		require.ErrorIsf(t, err, props.ErrConfigFormat, "%q", bad)
+		assert.Contains(t, errors.FlattenHints(err), "toml")
+	}
+}

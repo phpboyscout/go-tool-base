@@ -96,6 +96,13 @@ func TestNew_RefusesABadConfigLayerOrder(t *testing.T) {
 	require.ErrorIs(t, err, ErrConfigLayerOrder)
 }
 
+func TestNew_RefusesAReadOnlyOwnFormat(t *testing.T) {
+	t.Parallel()
+
+	_, err := New(Tool{Name: "demo", Config: ConfigSpec{Format: "ini"}}, logger.NewNoop(), afero.NewMemMapFs())
+	require.ErrorIs(t, err, ErrConfigFormat)
+}
+
 func TestValidate_NilProps(t *testing.T) {
 	t.Parallel()
 

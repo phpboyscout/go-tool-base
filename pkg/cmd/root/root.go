@@ -1256,8 +1256,8 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	// path an unprivileged user cannot write. A project-local .<tool>.yaml,
 	// when present, is appended after both and wins over each.
 	defaultConfigPaths := []string{
-		fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", props.Tool.Name, setup.DefaultConfigFilename)),
-		filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), setup.DefaultConfigFilename),
+		fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", props.Tool.Name, props.Tool.ConfigFilename())),
+		filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), props.Tool.ConfigFilename()),
 	}
 
 	rootCmd.PersistentFlags().StringArrayVar(&state.cfgPaths, "config", defaultConfigPaths, "config files to use")

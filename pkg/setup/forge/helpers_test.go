@@ -38,7 +38,7 @@ func newTestEditor(t *testing.T, p *props.Props, yamlDoc string) setup.Editor {
 	if yamlDoc != "" {
 		require.NoError(t, p.FS.MkdirAll(dir, 0o755))
 		require.NoError(t, afero.WriteFile(p.FS,
-			filepath.Join(dir, setup.DefaultConfigFilename), []byte(yamlDoc), 0o600))
+			filepath.Join(dir, "config.yaml"), []byte(yamlDoc), 0o600))
 	}
 
 	editor, _, err := setup.OpenConfigEditor(t.Context(), p, dir, false)

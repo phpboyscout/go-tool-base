@@ -1,9 +1,12 @@
 package setup
 
 import (
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
@@ -139,4 +142,80 @@ func IsProjectConfigName(path, toolName string) bool {
 	_, known := formatExtensions[ext]
 
 	return known || ext == ".yaml" || ext == ".yml"
+}
+
+// ErrReadOnlyConfigFormat is a document that cannot be written because its
+// format's codec cannot edit.
+var ErrReadOnlyConfigFormat = errors.NewSentinel("gtb.setup.read_only_config_format", "config format is read-only")
+
+// EncodeConfig writes doc as a new document through codec: YAML as the core
+// marshals it, any other writable format by setting each leaf on an empty
+// document.
+func EncodeConfig(codec config.Codec, path string, doc map[string]any) ([]byte, error) {
+	if _, ok := codec.(config.YAMLCodec); ok {
+		out, err := yaml.Marshal(doc)
+
+		return out, errors.Wrap(err, "encoding config")
+	}
+
+	editing, ok := codec.(config.EditingCodec)
+	if !ok {
+		return nil, errors.Wrapf(ErrReadOnlyConfigFormat, "%s", path)
+	}
+
+	var edits []config.Edit
+
+	for _, leaf := range configLeaves(doc, "") {
+		edits = append(edits, config.Edit{Path: leaf.path, Value: leaf.value})
+	}
+
+	out, err := editing.Apply(path, editing.Empty(), edits)
+
+	return out, errors.Wrapf(err, "encoding %s", path)
+}
+
+// DecodeConfig reads src through codec into one document, later documents
+// overriding earlier ones.
+func DecodeConfig(codec config.Codec, path string, src []byte) (map[string]any, error) {
+	docs, err := codec.Decode(path, src)
+	if err != nil {
+		return nil, err
+	}
+
+	merged := map[string]any{}
+	for _, doc := range docs {
+		maps.Copy(merged, doc)
+	}
+
+	return merged, nil
+}
+
+type configLeaf struct {
+	path  string
+	value any
+}
+
+// configLeaves lists every non-map value in doc by dotted path, in a stable
+// order so an encoded document is reproducible.
+func configLeaves(doc map[string]any, prefix string) []configLeaf {
+	keys := slices.Sorted(maps.Keys(doc))
+
+	var out []configLeaf
+
+	for _, k := range keys {
+		path := k
+		if prefix != "" {
+			path = prefix + "." + k
+		}
+
+		if child, ok := doc[k].(map[string]any); ok {
+			out = append(out, configLeaves(child, path)...)
+
+			continue
+		}
+
+		out = append(out, configLeaf{path: path, value: doc[k]})
+	}
+
+	return out
 }

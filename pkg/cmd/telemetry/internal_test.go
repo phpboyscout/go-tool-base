@@ -60,7 +60,7 @@ func writableProps(t *testing.T, log logger.Logger) (*props.Props, afero.Fs) {
 	dir := setup.GetDefaultConfigDir(memfs, "tool")
 	require.NotEmpty(t, dir)
 
-	target := filepath.Join(dir, setup.DefaultConfigFilename)
+	target := filepath.Join(dir, "config.yaml")
 
 	store, err := config.NewStore(t.Context(), config.WithFiles(configafero.Wrap(memfs), target))
 	require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T) {
 	assert.Contains(t, out.String(), "Telemetry enabled")
 
 	dir := setup.GetDefaultConfigDir(memfs, "tool")
-	exists, _ := afero.Exists(memfs, filepath.Join(dir, setup.DefaultConfigFilename))
+	exists, _ := afero.Exists(memfs, filepath.Join(dir, "config.yaml"))
 	assert.True(t, exists)
 }
 

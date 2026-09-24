@@ -215,7 +215,7 @@ func TestCmdEdit_SeedsNewFile(t *testing.T) {
 	assert.Contains(t, seenSeed, "# seedtool configuration")
 	assert.NotContains(t, seenSeed, "info")
 
-	want := filepath.Join(setup.GetDefaultConfigDir(fs, "seedtool"), setup.DefaultConfigFilename)
+	want := filepath.Join(setup.GetDefaultConfigDir(fs, "seedtool"), "config.yaml")
 	data, err := afero.ReadFile(fs, want)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "warn")
