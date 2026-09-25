@@ -462,6 +462,15 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 
 	allowEmpty := !initEnabled || skipConfigCheck
 
+	// Before the store, and before auto-initialise could write a fresh file
+	// over the question: a tool whose own format changed must not start on
+	// nothing (spec 0204 D14). An explicit --config names its own files.
+	if !skipConfigCheck && !cmd.Flags().Changed("config") {
+		if old, want := setup.StrandedConfig(props.FS, props.Tool, cfgPaths); old != "" {
+			return nil, setup.ConfigFormatChangedError(props, old, want)
+		}
+	}
+
 	projectPath, err := projectConfigLayer(props, cmd)
 	if err != nil {
 		return nil, err
@@ -1255,10 +1264,7 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	// layer, so set/unset/edit land there rather than in the root-owned /etc
 	// path an unprivileged user cannot write. A project-local .<tool>.yaml,
 	// when present, is appended after both and wins over each.
-	defaultConfigPaths := []string{
-		fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", props.Tool.Name, props.Tool.ConfigFilename())),
-		filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), props.Tool.ConfigFilename()),
-	}
+	defaultConfigPaths := setup.DefaultConfigPaths(props)
 
 	rootCmd.PersistentFlags().StringArrayVar(&state.cfgPaths, "config", defaultConfigPaths, "config files to use")
 	rootCmd.PersistentFlags().Bool("debug", false, "forces debug log output")

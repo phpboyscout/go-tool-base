@@ -35,7 +35,7 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | Check | What it validates |
 |-------|-------------------|
 | **Go version** | Runtime Go version is 1.22+ |
-| **Configuration** | A config file was found and loaded, naming which. Before `init` has written one the tool runs on its embedded defaults and the check reports `skip` rather than refusing to run, because a missing file is one of the things `doctor` is for |
+| **Configuration** | A config file was found and loaded, naming which. Before `init` has written one the tool runs on its embedded defaults and the check reports `skip` rather than refusing to run, because a missing file is one of the things `doctor` is for. A config file left in the tool's previous format, with none in its current one, is a `fail` naming both files and the `config convert` that fixes it |
 | **Git** | `git` binary is available and the current directory is a repository |
 | **Chat providers** | With the `ai` feature enabled: `ai.provider` and every `ai.fallback.providers` member is a provider this binary registers. A failure names the module to blank-import, the way Forge adapters does; no `ai.provider` at all warns and lists what the binary links. Without `ai` the linked providers are the tool's own wiring: the check names them and judges nothing (a skip when none is linked). Replaced the old **API keys** count, which the credential resolution check had made redundant |
 | **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config: warns and lists the offending key *names* (never values), pointing to env-var migration |

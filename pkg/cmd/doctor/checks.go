@@ -57,6 +57,16 @@ func checkConfig(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: name, Status: CheckFail, Message: "no configuration loaded"}
 	}
 
+	// A file stranded in the tool's previous format loads nothing, so without
+	// this it would read as a first run (spec 0204 D14).
+	if props.FS != nil {
+		if old, want := setup.StrandedConfig(props.FS, props.Tool, setup.DefaultConfigPaths(props)); old != "" {
+			err := setup.ConfigFormatChangedError(props, old, want)
+
+			return CheckResult{Name: name, Status: CheckFail, Message: err.Error(), Details: errors.FlattenHints(err)}
+		}
+	}
+
 	files := p.ConfigFileSources(props.Config.Snapshot())
 	if len(files) == 0 {
 		details := "Running on embedded defaults."

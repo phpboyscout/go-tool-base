@@ -5,8 +5,11 @@ Feature: A tool reads config files in the formats it links
   the binary does not link is refused before anything is read, naming what
   the tool accepts. The e2e binary links TOML and nothing else.
 
+  A tool whose own format changed refuses to start on a file left in the old
+  one, and config convert rewrites it.
+
   Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders
-  D2.
+  D2 and D14.
 
   Background:
     Given the gtb binary is built
@@ -35,3 +38,27 @@ Feature: A tool reads config files in the formats it links
     Then the exit code is not 0
     And stderr contains "config file format not linked"
     And stderr contains ".toml"
+
+  Scenario: config convert rewrites a file in another format and keeps the original
+    Given a config file named "old.yaml" with:
+      """
+      probe:
+        value: converted
+      """
+    When I run gtb with "config convert --from {config_dir}/old.yaml --to {config_dir}/new.toml"
+    Then the exit code is 0
+    And stdout contains "is left in place"
+    When I run gtb with "config-probe --config {config_dir}/new.toml"
+    Then the exit code is 0
+    And stdout contains "config-probe: value=converted"
+
+  Scenario: A config file left in a previous format stops the tool and names the conversion
+    Given a config file named ".gtb/config.toml" with:
+      """
+      [log]
+      level = "debug"
+      """
+    When I run gtb bare with "config get log.level --ci"
+    Then the exit code is not 0
+    And stderr contains ".gtb/config.toml"
+    And stderr contains "config convert --from"

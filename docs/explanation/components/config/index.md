@@ -258,6 +258,17 @@ revision R4. `config edit` and `config unset` decode the file they touch through
 its own codec too, and `config edit` seeds a new JSON file with `{}` rather
 than a comment JSON cannot hold.
 
+Changing a tool's own format never converts anyone's file. A tool that finds
+its config in the old format and none in the new one refuses to start, naming
+both paths, rather than run on nothing or let auto-initialise write a fresh
+file beside the old one. The hint is `<tool> config convert --from <old> --to
+<new>` when the tool has the `config` command, and a manual conversion when it
+does not; `doctor` reports the same as a failure. Commands that opt out of the
+config check, `doctor` and `config convert` among them, still run, and an
+explicit `--config` is never refused, because it names the file to read.
+Automatic conversion was rejected: comments and formatting do not survive it,
+and it would run where nobody is watching (spec 0204 D14).
+
 ## Initialiser integration
 
 [Tool initialisers](../setup/initialisers.md) work against two narrow surfaces:

@@ -215,3 +215,17 @@ Trust binds to the file's exact content (a SHA-256 recorded in
 you run `config trust` again. An untrusted project-local file is read-only, so
 `config set` in an untrusted repository writes to your own config rather than the
 committed file. CI runs untrusted by default.
+
+### `config convert --from <file> --to <file>`
+
+Rewrite a config file in another format, each chosen by its extension. Use it
+when the tool's own config format has changed and it refuses to start on the
+file it finds; the refusal prints the exact command. The values are converted,
+comments and formatting are not, so `--from` is left in place for you to
+compare and remove. `--to` must not exist yet, and its format must be one the
+tool links and can write (yaml, toml, json or hcl). The new file is written
+`0600`. It runs even while the tool refuses to start.
+
+```bash
+mytool config convert --from ~/.mytool/config.yaml --to ~/.mytool/config.toml
+```

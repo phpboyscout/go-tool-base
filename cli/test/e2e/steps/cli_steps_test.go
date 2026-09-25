@@ -177,11 +177,17 @@ func aTemporaryDirectoryWithConfigFile(ctx context.Context, content *godog.DocSt
 }
 
 // aConfigFileNamed writes another file beside the scenario's config.yaml; a
-// run names it as {config_dir}/<name>.
+// run names it as {config_dir}/<name>. The directory is also HOME, so a name
+// like ".gtb/config.toml" lands in the tool's default config directory.
 func aConfigFileNamed(ctx context.Context, name string, content *godog.DocString) (context.Context, error) {
 	w := getCLIWorld(ctx)
+	path := filepath.Join(w.configDir, name)
 
-	if err := os.WriteFile(filepath.Join(w.configDir, name), []byte(content.Content), 0o600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return ctx, fmt.Errorf("failed to create the directory for %s: %w", name, err)
+	}
+
+	if err := os.WriteFile(path, []byte(content.Content), 0o600); err != nil {
 		return ctx, fmt.Errorf("failed to write %s: %w", name, err)
 	}
 

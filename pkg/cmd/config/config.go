@@ -56,6 +56,7 @@ authentication, etc.), use "init <subsystem>" instead.`,
 		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdValidate(props)), setup.MCPReadOnly()),
 		setup.AnnotateMCP(setup.Wrap(p.ConfigCmd, NewCmdMigrate(props)), setup.MCPDestructive()),
 		setup.Wrap(p.ConfigCmd, NewCmdTrust(props)),
+		setup.Wrap(p.ConfigCmd, NewCmdConvert(props)),
 	)
 
 	return configCmd
