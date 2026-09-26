@@ -1,5 +1,47 @@
 # Changelog
 
+## [v0.46.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.3...v0.46.0)
+
+### Notes
+
+- `<tool> init config <name>` configures each config source a tool declares.
+
+- `--config` no longer appears as a `config` key in `config list`, and no longer hides keys under `config.`.
+
+- Tools can declare config source slots in `props.Tool.Config.Sources` and place them in the layer list. No source kinds ship yet; they follow.
+
+- A project-local config file can no longer set `config.sources`, trusted or not; `config trust` does not re-admit it. Nothing reads it yet: it prepares for config sources.
+
+- Generated tools can read TOML, JSON, HCL, INI, XML, .env and .properties config files: declare them with `--config-formats` (or `gtb set config.formats`), and choose the tool's own file format with `--config-format`.
+
+- When a tool's own config format changes, a user whose file is still in the old format is stopped with both paths named and told to run `<tool> config convert --from <old> --to <new>`. Nothing is converted automatically; `doctor` reports the same condition.
+
+- A tool's own config file can be TOML, JSON or HCL: set `props.Tool.Config.Format` and link the format. `init` writes `config.<ext>` in that format, and `config edit` and `config unset` work on it. `setup.DefaultConfigFilename` is deprecated in favour of `props.Tool.ConfigFilename()`.
+
+- A project-local config file may be in any format the tool links (`.mytool.toml` beside nothing else), and is trust-filtered the same way. Two project files in one directory now stop the command. `setup.DiscoverProjectConfig` is deprecated in favour of `setup.FindProjectConfig`.
+
+- Config files can be TOML, JSON, HCL, INI, XML, .env or .properties when the tool blank-imports `pkg/config/formats/<format>`. A `--config` file with one of those extensions is now refused unless the format is linked; a `.json` file used to be read as YAML. See docs/reference/migration/v0.x-config-stack.md.
+
+- A tool can now order its configuration layers: `props.Tool.Config.Layers`, lowest precedence first, is the precedence. `props.Tool.ConfigLayers` is deprecated, and a generated project's `properties.config_layers` moves to `properties.config.layers` on the next regenerate. See docs/reference/migration/v0.x-config-stack.md.
+
+### Features
+
+- **config**: init config <name> configures a declared source ([dd92682](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dd92682b86f02dcc38b5ae463bdfdc067796bf85))
+- **config**: a tool can declare config source slots ([686025b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/686025b1be92513fe64bcb46229912db8d9daa9b))
+- **config**: a project file can never choose a config source ([74b2a95](https://gitlab.com/phpboyscout/go-tool-base/-/commit/74b2a9595505f3fbe4e98c03e11affedd809aa99))
+- **generator**: a generated tool links the config formats it declares ([737d8e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/737d8e69f208f07aa22c26ef2f605845d2be714d))
+- **config**: a tool refuses a config file left in its previous format ([43053a6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/43053a6130dc367b985dc167826febb5fcc1b0c5))
+- **config**: a tool's own config file may be TOML, JSON or HCL ([02baa43](https://gitlab.com/phpboyscout/go-tool-base/-/commit/02baa437ac0b84a91a2a21b433bd48ddbc27d121))
+- **config**: the project-local file may be any linked format ([22e6fbf](https://gitlab.com/phpboyscout/go-tool-base/-/commit/22e6fbfa98b6820034a997880799ef073172dfbc))
+- **config**: config files are read in any linked format, chosen by extension ([33fa7d2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33fa7d2dd95227020d6084867e2e529b68919a53))
+- **config**: the declared config layer order is the precedence ([4141f50](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4141f5034f14c2e98c6f93cd53f5800d9e5b08bd))
+
+### Bug Fixes
+
+- **config**: --config is not a configuration key ([6619efd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6619efd5c65db8d9497b82ee0bf5346ba62fcbd0))
+
 ## [v0.45.3](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.3)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.2...v0.45.3)
