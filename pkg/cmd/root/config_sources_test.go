@@ -468,3 +468,32 @@ func TestBuildConfigStore_TheConfigFlagIsNotAConfigKey(t *testing.T) {
 	assert.Equal(t, "/src/team.yaml", view.GetString("config.sources.team.path"))
 	assert.Equal(t, "debug", view.GetString("log.level"), "the source was built from its settings")
 }
+
+// A factory is given the tool's config filesystem and the codec for a path
+// by its extension, so a fixed-file source reads any linked format (spec
+// 0204 D2) the same way the tool's own files do.
+func TestSources_TheBootstrapCarriesTheFilesystemAndCodecs(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	writeFile(t, fs, "/cfg/config.yaml", teamConfigured)
+
+	var gotFS config.FS
+
+	var gotCodec config.Codec
+
+	st := sourcedTool{fs: fs, sources: []p.ConfigSource{{Name: "team", Kind: "memfile"}}, layers: stackWith("team", p.LayerEnv),
+		overrides: map[string]setup.SourceFactory{"team": func(_ context.Context, _ config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
+			gotFS = b.FS()
+
+			var err error
+			gotCodec, err = b.CodecFor("/etc/mytool/platform.yml")
+
+			return config.NewReaderBackend("team", nil), err
+		}}}
+
+	_, err := st.build(t)
+	require.NoError(t, err)
+	require.NotNil(t, gotFS)
+	assert.Equal(t, config.YAMLCodec{}, gotCodec)
+}

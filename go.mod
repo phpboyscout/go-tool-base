@@ -30,6 +30,7 @@ require (
 	gitlab.com/phpboyscout/go/config-hcl v0.2.10
 	gitlab.com/phpboyscout/go/config-ini v0.2.10
 	gitlab.com/phpboyscout/go/config-json v0.2.10
+	gitlab.com/phpboyscout/go/config-keychain v0.2.9
 	gitlab.com/phpboyscout/go/config-properties v0.2.10
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
 	gitlab.com/phpboyscout/go/config-xml v0.2.10
@@ -133,7 +134,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.7.8 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/klauspost/compress v1.18.7 // indirect
+	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.0 // indirect

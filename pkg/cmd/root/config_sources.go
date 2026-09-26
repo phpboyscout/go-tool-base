@@ -29,10 +29,12 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 		return err
 	}
 
-	bootstrap, err := bootstrapStore(ctx, opts, spec.Layers)
+	store, err := bootstrapStore(ctx, opts, spec.Layers)
 	if err != nil {
 		return err
 	}
+
+	bootstrap := sourceBootstrap{Store: store, fs: opts.Props.GetConfigFS(), codecs: setup.ConfigCodecsIn(set)}
 
 	for i, layer := range spec.Layers {
 		for _, src := range spec.Sources {
@@ -98,13 +100,27 @@ func bootstrapStore(ctx context.Context, opts ConfigLoadOptions, layers []p.Conf
 	return store, errors.Wrap(err, "loading the configuration a config source is read from")
 }
 
+// sourceBootstrap is what a factory is given: the bootstrap view, the tool's
+// config filesystem, and its linked codecs.
+type sourceBootstrap struct {
+	*config.Store
+	fs     config.FS
+	codecs []setup.ConfigCodec
+}
+
+func (b sourceBootstrap) FS() config.FS { return b.fs }
+
+func (b sourceBootstrap) CodecFor(path string) (config.Codec, error) {
+	return setup.ConfigCodecFor(b.codecs, path)
+}
+
 // sourcePlace is a slot's position in the stack, for messages.
 type sourcePlace struct{ index, of int }
 
 // sourceLayer builds one slot, or nothing when an optional slot is absent
 // (spec 0204 D6).
 func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sourcePlace,
-	kinds map[string]setup.ConfigSourceKind, overrides map[string]setup.SourceFactory, bootstrap *config.Store,
+	kinds map[string]setup.ConfigSourceKind, overrides map[string]setup.SourceFactory, bootstrap sourceBootstrap,
 ) (config.StoreOption, error) {
 	factory, overridden, err := sourceFactory(src, kinds, overrides)
 	if err != nil {

@@ -286,8 +286,25 @@ with every source in its declared place.
   etcd, sftp, billy, iofs and afero sources. An override for a slot the tool does
   not declare stops the tool, so a stale one cannot add a layer.
 
+The kinds that need no network, each a link package under
+`pkg/config/sources/<kind>`, and the settings each reads from
+`config.sources.<name>`:
+
+| Kind | Reads | Settings |
+|---|---|---|
+| `file` | a fixed file beside the tool's own, in any linked format by extension | `path` |
+| `keychain` | tokens in the OS keychain, under one service | `service`, `keys` (config path to keychain account), `timeout` |
+
+An absent file contributes nothing, as the tool's own files do. A Kubernetes
+ConfigMap or Secret mount is not a kind yet: it wants one layer per file, in an
+order the author chooses, which is under investigation with go/config.
+`keychain` is writable by default, the only kind that is, and needs the
+`keychain` feature linked (`pkg/setup/keychain`); without it the source cannot
+be built, so an optional keychain slot drops out and a required one stops the
+tool. It resolves when the store is built, which can prompt for an unlock.
+
 See [spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
-D3 to D7, D11 and D19.
+D3 to D7, D11, D12 and D19.
 
 ## The tool's own format
 

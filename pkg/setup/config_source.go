@@ -3,6 +3,9 @@ package setup
 import (
 	"context"
 	"slices"
+	"strings"
+
+	"charm.land/huh/v2"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
@@ -47,10 +50,16 @@ var (
 	ErrConfigSourceUnavailable = errors.NewSentinel("gtb.setup.config_source_unavailable", "config source unavailable")
 )
 
-// ConfigBootstrap is the view a factory may read: the layers a repository
-// cannot plant, embedded defaults, the tool's own files, the environment and
-// flags (spec 0204 D5).
-type ConfigBootstrap interface{ View() *config.View }
+// ConfigBootstrap is what a factory is given beside its settings: the view it
+// may read, which holds only the layers a repository cannot plant (embedded
+// defaults, the tool's own files, the environment and flags, spec 0204 D5),
+// the tool's config filesystem, and the codec a path's extension names among
+// the formats the tool links (D2).
+type ConfigBootstrap interface {
+	View() *config.View
+	FS() config.FS
+	CodecFor(path string) (config.Codec, error)
+}
 
 // SourceFactory builds one slot's backend from its settings, the
 // config.sources.<name> subtree of the bootstrap view. Settings are nil for
@@ -194,4 +203,85 @@ func RunConfigSourceInit(ctx context.Context, p *props.Props, slot props.ConfigS
 	}
 
 	return kind.Initialiser(p, slot).Configure(ctx, p, editor)
+}
+
+// SourceSetting is one setting a kind's initialiser asks for.
+type SourceSetting struct {
+	Key         string
+	Title       string
+	Description string
+	// Default fills the answer when nothing is configured yet.
+	Default  string
+	Required bool
+}
+
+// SettingsInitialiser asks for a slot's settings and writes each answer under
+// config.sources.<slot name>. An empty answer to an optional setting writes
+// nothing, leaving any default the tool ships in place.
+func SettingsInitialiser(slot props.ConfigSource, settings ...SourceSetting) Initialiser {
+	return settingsInitialiser{slot: slot, settings: settings}
+}
+
+type settingsInitialiser struct {
+	slot     props.ConfigSource
+	settings []SourceSetting
+}
+
+func (i settingsInitialiser) Name() string { return i.slot.Name }
+
+func (i settingsInitialiser) key(s SourceSetting) string {
+	return "config.sources." + i.slot.Name + "." + s.Key
+}
+
+// IsConfigured reports whether every required setting has a value.
+func (i settingsInitialiser) IsConfigured(cfg config.Reader) bool {
+	for _, s := range i.settings {
+		if s.Required && cfg.GetString(i.key(s)) == "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (i settingsInitialiser) Configure(ctx context.Context, p *props.Props, cfg Editor) error {
+	values := make([]string, len(i.settings))
+	fields := make([]huh.Field, len(i.settings))
+
+	for n, s := range i.settings {
+		if view := cfg.View(); view != nil {
+			values[n] = view.GetString(i.key(s))
+		}
+
+		if values[n] == "" {
+			values[n] = s.Default
+		}
+
+		input := huh.NewInput().Title(s.Title).Description(s.Description).Value(&values[n])
+		if s.Required {
+			input = input.Validate(func(v string) error {
+				if strings.TrimSpace(v) == "" {
+					return errors.Newf("%s is required", s.Title)
+				}
+
+				return nil
+			})
+		}
+
+		fields[n] = input
+	}
+
+	if err := RunForm(ctx, p, huh.NewForm(huh.NewGroup(fields...))); err != nil {
+		return errors.Wrapf(err, "configuring the %s config source", i.slot.Name)
+	}
+
+	for n, s := range i.settings {
+		if v := strings.TrimSpace(values[n]); v != "" {
+			if err := cfg.Set(i.key(s), v); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
