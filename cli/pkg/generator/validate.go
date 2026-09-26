@@ -905,6 +905,10 @@ func validateManifestConfig(p *ManifestProperties) error {
 		return err
 	}
 
+	if err := ValidateConfigFormats(p.Config.Formats, p.Config.Format); err != nil {
+		return err
+	}
+
 	return ValidateConfigLayers(canonicalConfigLayers(p.LegacyConfigLayers))
 }
 

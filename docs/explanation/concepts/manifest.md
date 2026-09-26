@@ -104,8 +104,11 @@ the generated Go source does not fully encode:
     name one, a single provider is its own. Credentials are never recorded.
 - **config**: The configuration stack. `layers` is the ordered list of layers
     the tool wires, lowest precedence first, rendered into
-    `props.Tool.Config`; absent means the framework default. A manifest from
-    before it carried `config_layers`, which the first regenerate moves here.
+    `props.Tool.Config`; absent means the framework default. `formats` are the
+    config formats the tool links beyond YAML, each a blank import in
+    `cmd/<name>/config.go`, which exists only while one is listed. `format` is
+    the tool's own config file format, empty for YAML. A manifest from before
+    `layers` carried `config_layers`, which the first regenerate moves here.
 - **signing**: The self-update signing posture (backend, key id/region, public
     key path, enforcement flags).
 - **templates**: Custom template-overlay provenance and pins: `{name, type,

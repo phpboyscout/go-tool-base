@@ -302,6 +302,10 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 		return err
 	}
 
+	if err := g.syncConfigFormatsFile(name, m.Properties.Config.Formats); err != nil {
+		return err
+	}
+
 	return g.syncLinkFiles(name, m.Properties.Features)
 }
 

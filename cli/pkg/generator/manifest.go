@@ -501,6 +501,12 @@ type ManifestConfig struct {
 	// props.ConfigLayer). Empty means the project states nothing and inherits
 	// the framework default.
 	Layers []string `yaml:"layers,omitempty"`
+	// Formats are the config formats the tool links beyond YAML, which is
+	// built in and never listed (spec 0204 D2). Each is a blank import in
+	// cmd/<name>/config.go.
+	Formats []string `yaml:"formats,omitempty"`
+	// Format is the tool's own config format; empty is YAML.
+	Format string `yaml:"format,omitempty"`
 }
 
 // ManifestMCP is the properties.mcp block.

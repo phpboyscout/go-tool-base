@@ -3,6 +3,7 @@ package generator
 import (
 	"go/token"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dave/dst"
@@ -31,6 +32,8 @@ func applyLiteralToolField(mp *ManifestProperties, fieldName string, value dst.E
 		}
 	case "MCP":
 		mp.MCP.Mode = mcpModeFromLiteral(value)
+	case "Config":
+		extractConfigSpecLiteral(value, &mp.Config)
 	default:
 		applyBlockToolField(mp, fieldName, value)
 	}
@@ -311,4 +314,57 @@ func stringSliceLitValue(expr dst.Expr) []string {
 	}
 
 	return out
+}
+
+// extractConfigSpecLiteral recovers the layer set and own format from a
+// props.ConfigSpec literal. The formats are the imports of config.go, read
+// separately.
+func extractConfigSpecLiteral(value dst.Expr, c *ManifestConfig) {
+	comp, ok := value.(*dst.CompositeLit)
+	if !ok {
+		return
+	}
+
+	for _, elt := range comp.Elts {
+		kv, ok := elt.(*dst.KeyValueExpr)
+		if !ok {
+			continue
+		}
+
+		key, ok := kv.Key.(*dst.Ident)
+		if !ok {
+			continue
+		}
+
+		switch key.Name {
+		case "Layers":
+			c.Layers = layersFromLiteral(kv.Value)
+		case "Format":
+			if v, ok := stringLitValue(kv.Value); ok {
+				c.Format = v
+			}
+		}
+	}
+}
+
+// layersFromLiteral reads []props.ConfigLayer{props.LayerDefaults, ...} back
+// into manifest names.
+func layersFromLiteral(value dst.Expr) []string {
+	comp, ok := value.(*dst.CompositeLit)
+	if !ok {
+		return nil
+	}
+
+	var layers []string
+
+	for _, elt := range comp.Elts {
+		sel, ok := elt.(*dst.SelectorExpr)
+		if !ok || !strings.HasPrefix(sel.Sel.Name, "Layer") {
+			continue
+		}
+
+		layers = append(layers, strings.ToLower(strings.TrimPrefix(sel.Sel.Name, "Layer")))
+	}
+
+	return layers
 }

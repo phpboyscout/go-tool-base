@@ -66,6 +66,20 @@ func TestSkeletonOptions_AuthorSettingsReachTheConfig(t *testing.T) {
 	require.Error(t, o.validateFields(), "an order breaking spec 0204 D1 is refused at the flag")
 
 	o.ConfigLayers = nil
+	o.ConfigFormats = []string{"toml", "dotenv"}
+	o.ConfigFormat = "toml"
+	require.NoError(t, o.validateFields())
+
+	cfg = o.skeletonConfig(nil)
+	assert.Equal(t, []string{"toml", "dotenv"}, cfg.ConfigFormats)
+	assert.Equal(t, "toml", cfg.ConfigFormat)
+
+	o.ConfigFormats = nil
+	require.Error(t, o.validateFields(), "an own format the tool does not link is refused at the flag")
+
+	o.ConfigFormat = ""
+
+	o.ConfigLayers = nil
 	o.TelemetryEndpoint = "not a url"
 	require.Error(t, o.validateFields(), "a malformed endpoint is refused at the flag")
 }

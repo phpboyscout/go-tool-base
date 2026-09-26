@@ -66,7 +66,7 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) {
 	m.Properties.Description = fresh.Properties.Description
 	m.Properties.Features = fresh.Properties.Features
 	m.Properties.EnvPrefix = fresh.Properties.EnvPrefix
-	m.Properties.Config.Layers = fresh.Properties.Config.Layers
+	m.Properties.Config = fresh.Properties.Config
 	m.Properties.UpdatePolicy = fresh.Properties.UpdatePolicy
 	m.Properties.MCP = fresh.Properties.MCP
 	m.Properties.UpdateCheckInterval = fresh.Properties.UpdateCheckInterval

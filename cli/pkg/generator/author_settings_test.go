@@ -33,6 +33,8 @@ var probes = map[string]func(c *SkeletonConfig){
 	"TelemetryOTelEndpoint":             func(c *SkeletonConfig) { c.TelemetryOTelEndpoint = "https://o.internal" },
 	"EnvPrefix":                         func(c *SkeletonConfig) { c.EnvPrefix = "PROBE" },
 	"ConfigLayers":                      func(c *SkeletonConfig) { c.ConfigLayers = []string{"env", "flags"} },
+	"ConfigFormats":                     func(c *SkeletonConfig) { c.ConfigFormats = []string{"toml", "ini"} },
+	"ConfigFormat":                      func(c *SkeletonConfig) { c.ConfigFormat = "toml"; c.ConfigFormats = []string{"toml"} },
 	"Signing.Enabled":                   func(c *SkeletonConfig) { c.Signing.Enabled = true },
 	"Signing.ExternalKeyEmail":          func(c *SkeletonConfig) { c.Signing.ExternalKeyEmail = "rel@example.com" },
 	"Signing.RequireSignature":          func(c *SkeletonConfig) { c.Signing.RequireSignature = true },

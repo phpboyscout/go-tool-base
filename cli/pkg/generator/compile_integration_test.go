@@ -72,6 +72,10 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 			{Name: "changelog", Enabled: false},
 			{Name: "docs", Enabled: false},
 		},
+		// Spec 0204 D2: cmd/<name>/config.go and the root's ConfigSpec
+		// build and lint clean as emitted.
+		ConfigFormats: []string{"toml", "dotenv", "properties"},
+		ConfigFormat:  "toml",
 	}
 
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg), "skeleton generation must succeed")

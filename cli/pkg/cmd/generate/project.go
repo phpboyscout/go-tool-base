@@ -128,6 +128,10 @@ type SkeletonOptions struct {
 	// ConfigLayers declares which config-stack layers the tool wires; empty
 	// inherits the framework default.
 	ConfigLayers []string
+	// ConfigFormats are the config formats the tool links beyond YAML, and
+	// ConfigFormat its own (spec 0204 D2).
+	ConfigFormats []string
+	ConfigFormat  string
 	// SigningRequireSignature and SigningRequireChecksum are the enforcement
 	// baselines. Only the checksum one is asked on a first run; the signature
 	// one is a footgun before a signed release has shipped (0071), so the
@@ -227,6 +231,8 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringSliceVar(&opts.Bootstrap.SkipConfigCheck, "skip-config-check", nil, "Commands that run without a config file (repeatable)")
 	cmd.Flags().StringSliceVar(&opts.Bootstrap.AuxiliaryCommands, "auxiliary-commands", nil, "Commands that take the root pre-run's auxiliary fast path (repeatable)")
 	cmd.Flags().StringSliceVar(&opts.ConfigLayers, "config-layers", nil, "Config-stack layers the tool wires, in precedence order (default: the framework's)")
+	cmd.Flags().StringSliceVar(&opts.ConfigFormats, "config-formats", nil, "Config formats the tool reads beyond YAML: toml, json, hcl, ini, xml, dotenv, properties")
+	cmd.Flags().StringVar(&opts.ConfigFormat, "config-format", "", "The tool's own config file format: yaml (default), toml, json or hcl; must be linked")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify", false, "Skip go mod tidy and golangci-lint after generation (the run exits 0 unverified; without it a failed step exits 3)")
@@ -320,6 +326,10 @@ func (o *SkeletonOptions) validateFields() error {
 // ValidateManifest applies.
 func (o *SkeletonOptions) validatePostureFields() error {
 	if err := generator.ValidateConfigLayers(o.ConfigLayers); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateConfigFormats(o.ConfigFormats, o.ConfigFormat); err != nil {
 		return err
 	}
 
@@ -1781,6 +1791,8 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		TelemetryOTelEndpoint: o.TelemetryOTelEndpoint,
 		Bootstrap:             o.Bootstrap,
 		ConfigLayers:          o.ConfigLayers,
+		ConfigFormats:         o.ConfigFormats,
+		ConfigFormat:          o.ConfigFormat,
 		UpdatePolicy:          o.UpdatePolicy,
 		MCPMode:               o.MCPMode,
 		UpdateCheckInterval:   o.UpdateCheckInterval,

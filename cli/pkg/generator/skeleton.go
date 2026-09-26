@@ -62,9 +62,13 @@ type SkeletonConfig struct {
 	// inherits the framework default, which is what every project generated
 	// before this field existed does.
 	ConfigLayers []string
-	Signing      ManifestSigning   // self-update signature-verification posture (disabled by default)
-	Chat         ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
-	Bootstrap    ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
+	// ConfigFormats are the config formats the tool links; ConfigFormat is its
+	// own (spec 0204 D2).
+	ConfigFormats []string
+	ConfigFormat  string
+	Signing       ManifestSigning   // self-update signature-verification posture (disabled by default)
+	Chat          ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
+	Bootstrap     ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
 	// MCPMode is the MCP publication mode: "" or "compact" for the discovery
 	// facade, "direct" for one native tool per command (spec 0201 D3).
 	MCPMode string
@@ -622,6 +626,8 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TelemetryOTelEndpoint: config.TelemetryOTelEndpoint,
 		EnvPrefix:             config.EnvPrefix,
 		ConfigLayers:          config.ConfigLayers,
+		ConfigFormat:          normaliseOwnFormat(config.ConfigFormat),
+		ConfigFormatModules:   configFormatModules(config.ConfigFormats),
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
 		UpdatePolicy:          config.UpdatePolicy,
@@ -886,6 +892,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
 			EnvPrefix:             data.EnvPrefix,
 			ConfigLayers:          data.ConfigLayers,
+			ConfigFormat:          data.ConfigFormat,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			MCPMode:               data.MCPMode,
@@ -931,6 +938,10 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 
 	if len(data.ForgeLinks) > 0 {
 		goFiles[filepath.Join("cmd", data.Name, "forge.go")] = templates.SkeletonForgeAdapters(data.ForgeLinks, data.ForgeModules)
+	}
+
+	if len(data.ConfigFormatModules) > 0 {
+		goFiles[configFormatsFile(data.Name)] = templates.SkeletonConfigFormats(data.ConfigFormatModules)
 	}
 
 	if err := g.renderGoFiles(destPath, goFiles); err != nil {
@@ -1321,11 +1332,15 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 
 	return Manifest{
 		Properties: ManifestProperties{
-			Name:                config.Name,
-			Description:         MultilineString(config.Description),
-			Features:            normaliseManifestFeatures(config.Features),
-			EnvPrefix:           config.EnvPrefix,
-			Config:              ManifestConfig{Layers: config.ConfigLayers},
+			Name:        config.Name,
+			Description: MultilineString(config.Description),
+			Features:    normaliseManifestFeatures(config.Features),
+			EnvPrefix:   config.EnvPrefix,
+			Config: ManifestConfig{
+				Layers:  config.ConfigLayers,
+				Formats: normaliseConfigFormats(config.ConfigFormats),
+				Format:  normaliseOwnFormat(config.ConfigFormat),
+			},
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
 			MCP:                 ManifestMCP{Mode: config.MCPMode},

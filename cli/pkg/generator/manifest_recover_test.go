@@ -57,6 +57,11 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 			// mcp defaults on, so its absence is the delta (spec 0202 D3).
 			{Name: "mcp", Enabled: false},
 		},
+		// The stack, recovered from the root's ConfigSpec, and the linked
+		// formats, recovered from cmd/<name>/config.go (spec 0204).
+		ConfigLayers:  []string{"defaults", "project", "files", "env", "flags"},
+		ConfigFormats: []string{"toml", "dotenv"},
+		ConfigFormat:  "toml",
 	}
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
 
@@ -75,6 +80,8 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	assert.Equal(t, DocsLayoutDiataxis, after.Properties.DocsLayout)
 	assert.Equal(t, before.ReleaseSource, after.ReleaseSource, "the release source round-trips, backend included (#85)")
 	assert.Equal(t, before.Properties.ModulePath, after.Properties.ModulePath, "the module path round-trips")
+	assert.Equal(t, before.Properties.Config, after.Properties.Config, "the config stack round-trips")
+	assert.Equal(t, []string{"toml", "dotenv"}, after.Properties.Config.Formats)
 
 	// The delta feature set round-trips exactly: doctor disabled, ai/config
 	// enabled, keychain recovered from its artefact; default-state features carry

@@ -56,6 +56,8 @@ type SkeletonRootData struct {
 	// no field is emitted — keeping generated output byte-identical for every
 	// project that does not care.
 	ConfigLayers []string
+	// ConfigFormat is the tool's own config format; empty is YAML.
+	ConfigFormat string
 	// UpdatePolicy wires props.Tool.UpdatePolicy in the generated root. Empty
 	// (or "disabled") leaves the field off so the framework default applies;
 	// "prompt"/"enabled" emit the matching props.UpdatePolicy* constant.
@@ -242,9 +244,8 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 	// Only a stated layer set emits a field. An unstated one resolves to the
 	// framework default at runtime, so emitting it would add noise that says
 	// nothing — and would change existing generated output.
-	if len(data.ConfigLayers) > 0 {
-		toolDict[jen.Id("Config")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigSpec").
-			Values(jen.Dict{jen.Id("Layers"): buildConfigLayers(data.ConfigLayers)})
+	if spec := buildConfigSpec(data); spec != nil {
+		toolDict[jen.Id("Config")] = spec
 	}
 
 	// Wire a non-default update policy. "disabled" is the framework default, so
@@ -447,6 +448,26 @@ func buildReleaseSourceDict(data SkeletonRootData) jen.Dict {
 	}
 
 	return d
+}
+
+// buildConfigSpec renders props.Tool.Config, or nil when the tool states
+// neither a layer set nor an own format.
+func buildConfigSpec(data SkeletonRootData) jen.Code {
+	spec := jen.Dict{}
+
+	if len(data.ConfigLayers) > 0 {
+		spec[jen.Id("Layers")] = buildConfigLayers(data.ConfigLayers)
+	}
+
+	if data.ConfigFormat != "" {
+		spec[jen.Id("Format")] = jen.Lit(data.ConfigFormat)
+	}
+
+	if len(spec) == 0 {
+		return nil
+	}
+
+	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigSpec").Values(spec)
 }
 
 // buildConfigLayers renders the declared layer set as props.ConfigLayer

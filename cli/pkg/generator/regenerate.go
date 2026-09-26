@@ -433,6 +433,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
 		ConfigLayers:          m.Properties.Config.Layers,
+		ConfigFormat:          m.Properties.Config.Format,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,
@@ -575,6 +576,8 @@ type skeletonTemplateData struct {
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
 	ConfigLayers          []string
+	ConfigFormat          string
+	ConfigFormatModules   []string
 	UpdatePolicy          string
 	UpdateCheckInterval   string
 	MCPMode               string
@@ -679,6 +682,8 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
 		ConfigLayers:          m.Properties.Config.Layers,
+		ConfigFormat:          m.Properties.Config.Format,
+		ConfigFormatModules:   configFormatModules(m.Properties.Config.Formats),
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,

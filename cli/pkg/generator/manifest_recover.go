@@ -83,6 +83,8 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 		props.Chat.Providers = providers
 	}
 
+	props.Config.Formats = g.recoverConfigFormats()
+
 	if src := g.recoverCIComponentSource(); src != "" {
 		props.CI.ComponentSource = src
 	}

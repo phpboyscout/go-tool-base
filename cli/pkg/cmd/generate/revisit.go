@@ -36,6 +36,8 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		TelemetryOTelEndpoint: cfg.TelemetryOTelEndpoint,
 		Bootstrap:             cfg.Bootstrap,
 		ConfigLayers:          cfg.ConfigLayers,
+		ConfigFormats:         cfg.ConfigFormats,
+		ConfigFormat:          cfg.ConfigFormat,
 		CIComponentSource:     cfg.CIComponentSource,
 		ChatProviders:         cfg.Chat.Providers,
 		ChatDefault:           cfg.Chat.Default,
