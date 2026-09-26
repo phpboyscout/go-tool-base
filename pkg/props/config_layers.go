@@ -1,6 +1,7 @@
 package props
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 
@@ -17,7 +18,45 @@ type ConfigSpec struct {
 	// and config set edits: yaml, toml, json or hcl. Empty is yaml. A format
 	// other than yaml must be linked (spec 0204 D2).
 	Format string `json:"format,omitempty" yaml:"format,omitempty"`
+
+	// Sources are the config source slots the tool declares, each placed by
+	// name in Layers (spec 0204 D15). Where each connects is runtime
+	// configuration under config.sources.<name>, never declared here.
+	Sources []ConfigSource `json:"sources,omitempty" yaml:"sources,omitempty"`
 }
+
+// ConfigSource is one declared config source slot.
+type ConfigSource struct {
+	// Name is unique in the stack, a config key segment and a command word:
+	// it names the slot's layer, its settings and `init config <name>`.
+	Name string `json:"name" yaml:"name"`
+	// Kind picks the adapter: vault, consul, aws-s3, file, ...
+	Kind string `json:"kind" yaml:"kind"`
+	// Required, when nil, is true: an unreachable or unconfigured slot stops
+	// the tool (spec 0204 D6).
+	Required *bool `json:"required,omitempty" yaml:"required,omitempty"`
+	// Writable, when nil, is the kind's default, which is read-only for every
+	// kind but keychain (spec 0204 D7, D12).
+	Writable *bool `json:"writable,omitempty" yaml:"writable,omitempty"`
+}
+
+// IsRequired reports whether the slot's absence stops the tool.
+func (s ConfigSource) IsRequired() bool {
+	return s.Required == nil || *s.Required
+}
+
+// IsWritable reports whether config writes may land in the slot, given its
+// kind's default.
+func (s ConfigSource) IsWritable(kindDefault bool) bool {
+	if s.Writable == nil {
+		return kindDefault
+	}
+
+	return *s.Writable
+}
+
+// sourceNamePattern is a config key segment that is also a command word.
+var sourceNamePattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
 // writableConfigFormats are the formats a tool's own file may be in, each
 // with the extension its file is named by.
@@ -59,6 +98,9 @@ var (
 	// ErrConfigLayerOrder is a declared order that breaks one of spec 0204
 	// D1's constraints.
 	ErrConfigLayerOrder = errors.NewSentinel("gtb.props.config_layer_order", "config layer order")
+	// ErrConfigSource is a source slot declared in a way spec 0204 D15
+	// refuses.
+	ErrConfigSource = errors.NewSentinel("gtb.props.config_source", "config source declaration")
 	// ErrConfigFormat is an own config format that is not writable.
 	ErrConfigFormat = errors.NewSentinel("gtb.props.config_format", "config format cannot be a tool's own")
 )
@@ -131,6 +173,15 @@ func (t Tool) ResolveConfigLayers() []ConfigLayer {
 	}
 }
 
+// ResolvedConfigSpec is Config with its layer list resolved, the declaration
+// the store builds from.
+func (t Tool) ResolvedConfigSpec() ConfigSpec {
+	spec := t.Config
+	spec.Layers = t.ResolveConfigLayers()
+
+	return spec
+}
+
 // CanonicalConfigLayers returns a copy of layers in the framework's order,
 // which is what a declaration made before spec 0204 resolved to.
 func CanonicalConfigLayers(layers []ConfigLayer) []ConfigLayer {
@@ -159,12 +210,66 @@ func IsValidConfigLayer(name ConfigLayer) bool {
 // constraint is a way to make a tool quietly unsafe, so each refusal says which
 // one and why it exists.
 func ValidateConfigLayers(layers []ConfigLayer) error {
+	return validateLayers(layers, nil)
+}
+
+// ValidateConfigSpec refuses a declaration spec 0204 D1 or D15 refuses: its
+// layers as ValidateConfigLayers does, with each source's name a layer too,
+// and every source a valid, unique, placed slot.
+func ValidateConfigSpec(spec ConfigSpec) error {
+	names := make([]ConfigLayer, 0, len(spec.Sources))
+
+	for _, s := range spec.Sources {
+		if err := validateSource(s, names); err != nil {
+			return err
+		}
+
+		names = append(names, ConfigLayer(s.Name))
+	}
+
+	if len(names) > 0 && len(spec.Layers) == 0 {
+		return errors.WithHint(errors.Wrap(ErrConfigSource, "sources declared with no layer list"),
+			"a source's place in the stack is its precedence, so the layer list must place every one")
+	}
+
+	if err := validateLayers(spec.Layers, names); err != nil {
+		return err
+	}
+
+	for _, n := range names {
+		if !slices.Contains(spec.Layers, n) {
+			return errors.WithHint(errors.Wrapf(ErrConfigSource, "%q is not in the layer list", string(n)),
+				"a source's place in the stack is its precedence, so the layer list must place every one")
+		}
+	}
+
+	return nil
+}
+
+func validateSource(s ConfigSource, earlier []ConfigLayer) error {
+	switch {
+	case !sourceNamePattern.MatchString(s.Name):
+		return errors.WithHint(errors.Wrapf(ErrConfigSource, "name %q", s.Name),
+			"a source name is lower-case letters, digits and hyphens, starting with a letter: it is a config key and a command word")
+	case IsValidConfigLayer(ConfigLayer(s.Name)):
+		return errors.WithHint(errors.Wrapf(ErrConfigSource, "name %q", s.Name),
+			"a source cannot take a built-in layer's name, since the layer list holds both")
+	case slices.Contains(earlier, ConfigLayer(s.Name)):
+		return errors.Wrapf(ErrConfigSource, "%q is declared twice", s.Name)
+	case s.Kind == "":
+		return errors.Wrapf(ErrConfigSource, "%q has no kind", s.Name)
+	}
+
+	return nil
+}
+
+func validateLayers(layers, sources []ConfigLayer) error {
 	seen := make(map[ConfigLayer]bool, len(layers))
 
 	for _, l := range layers {
-		if !IsValidConfigLayer(l) {
+		if !IsValidConfigLayer(l) && !slices.Contains(sources, l) {
 			return errors.WithHintf(errors.Wrapf(ErrUnknownConfigLayer, "%q", string(l)),
-				"known layers: %s", joinLayers(AllConfigLayers()))
+				"known layers: %s", joinLayers(append(AllConfigLayers(), sources...)))
 		}
 
 		if seen[l] {

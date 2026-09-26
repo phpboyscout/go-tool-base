@@ -231,3 +231,85 @@ func TestValidateConfigFormat(t *testing.T) {
 		assert.Contains(t, errors.FlattenHints(err), "toml")
 	}
 }
+
+// Spec 0204 D15: a source slot has a unique name that is a config key segment
+// and a command word and is not a built-in layer's, and when a tool declares
+// sources its layer list places every one of them.
+func TestValidateConfigSpec(t *testing.T) {
+	t.Parallel()
+
+	team := props.ConfigSource{Name: "team", Kind: "consul"}
+	secrets := props.ConfigSource{Name: "secrets", Kind: "vault"}
+	d, f, e, x := props.LayerDefaults, props.LayerFiles, props.LayerEnv, props.LayerFlags
+
+	tests := []struct {
+		name string
+		spec props.ConfigSpec
+		want error
+	}{
+		{name: "nothing declared"},
+		{name: "sources placed", spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team, secrets},
+			Layers:  []props.ConfigLayer{d, "team", f, "secrets", e, x},
+		}},
+		{name: "a kind twice under two names", spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team, {Name: "shared", Kind: "consul"}},
+			Layers:  []props.ConfigLayer{d, "shared", "team", f, e, x},
+		}},
+		{name: "a source not placed", want: props.ErrConfigSource, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team}, Layers: []props.ConfigLayer{d, f, e, x},
+		}},
+		{name: "sources with no layer list", want: props.ErrConfigSource, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team},
+		}},
+		{name: "a layer naming no source", want: props.ErrUnknownConfigLayer, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team}, Layers: []props.ConfigLayer{d, "team", "ghost", f},
+		}},
+		{name: "a duplicate name", want: props.ErrConfigSource, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team, {Name: "team", Kind: "vault"}}, Layers: []props.ConfigLayer{d, "team"},
+		}},
+		{name: "a built-in layer's name", want: props.ErrConfigSource, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{{Name: "env", Kind: "consul"}}, Layers: []props.ConfigLayer{d, e},
+		}},
+		{name: "not a command word", want: props.ErrConfigSource, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{{Name: "team.a", Kind: "consul"}}, Layers: []props.ConfigLayer{d, "team.a"},
+		}},
+		{name: "no kind", want: props.ErrConfigSource, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{{Name: "team"}}, Layers: []props.ConfigLayer{d, "team"},
+		}},
+		{name: "a source above flags", want: props.ErrConfigLayerOrder, spec: props.ConfigSpec{
+			Sources: []props.ConfigSource{team}, Layers: []props.ConfigLayer{d, f, e, x, "team"},
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := props.ValidateConfigSpec(tc.spec)
+			if tc.want == nil {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, tc.want)
+		})
+	}
+}
+
+// Spec 0204 D6 and D7: a slot is required unless it says otherwise, and read
+// only unless it says otherwise.
+func TestConfigSource_Defaults(t *testing.T) {
+	t.Parallel()
+
+	no := false
+	yes := true
+
+	assert.True(t, props.ConfigSource{}.IsRequired())
+	assert.False(t, props.ConfigSource{Required: &no}.IsRequired())
+	assert.False(t, props.ConfigSource{}.IsWritable(false))
+	assert.True(t, props.ConfigSource{}.IsWritable(true), "a kind may default writable (D12)")
+	assert.False(t, props.ConfigSource{Writable: &no}.IsWritable(true))
+	assert.True(t, props.ConfigSource{Writable: &yes}.IsWritable(false))
+}

@@ -206,7 +206,7 @@ func (p *Props) Validate() error {
 		return errors.New("props: FS is required")
 	}
 
-	if err := ValidateConfigLayers(p.Tool.ResolveConfigLayers()); err != nil {
+	if err := ValidateConfigSpec(p.Tool.ResolvedConfigSpec()); err != nil {
 		return err
 	}
 

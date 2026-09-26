@@ -249,6 +249,41 @@ The built-in `--debug` and `--ci` flags fold through the same path, so
 `Config.View().GetBool("ci")` reflects `--ci`; `--debug` additionally retains its
 immediate effect on the log level.
 
+## Config sources
+
+A tool can read configuration from somewhere other than files: a Consul prefix,
+a Vault path, a bucket. Each such **source** is a named slot the tool declares in
+`props.Tool.Config.Sources` and places in `props.Tool.Config.Layers` like any
+other layer, so its position is its precedence. Where the slot connects is not
+declared anywhere in the tool; it is runtime configuration under
+`config.sources.<name>`, in the user's own file, the environment or the tool's
+embedded defaults.
+
+A **kind** (vault, consul, aws-s3, file, ...) is a link package: blank-importing
+it registers a factory that builds the backend from a slot's settings, through
+`setup.RegisterConfigSourceKind`. When a tool declares sources the store is built
+in two passes. The first is a store of embedded defaults, the tool's own files,
+the environment and flags, never the project-local file; each factory reads its
+slot's settings from that view, so a repository cannot choose where
+configuration comes from even in principle. The second pass is the full stack
+with every source in its declared place.
+
+- **A slot is required unless it says `required: false`.** A required slot that
+  nobody configured, or whose backend cannot be built, stops the tool with the
+  slot named; an optional one is left out with a warning.
+- **A slot is read-only unless it says `writable: true`**, so `config set` never
+  lands in a secret store by accident. The core's sensitive-leak guard still
+  applies to anything a secret source holds.
+- **An optional slot that cannot be watched drops out of watching alone**; a
+  watch failure with sources in the stack is logged at warn, not debug.
+- **An author override** (`setup.OverrideConfigSource(name, factory)` in the
+  tool's `main`) replaces the factory for one slot, and is the only way to build
+  etcd, sftp, billy, iofs and afero sources. An override for a slot the tool does
+  not declare stops the tool, so a stale one cannot add a layer.
+
+See [spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
+D3 to D7, D11 and D19.
+
 ## The tool's own format
 
 A tool writes its own config file in one format, set by

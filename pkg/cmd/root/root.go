@@ -196,8 +196,8 @@ var ErrNoConfigFile = errors.NewSentinel("gtb.root.no_config_file", "no config f
 //  4. env: environment variables under the tool's prefix
 //  5. flags: changed CLI flags
 func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Store, error) {
-	layers := opts.Props.Tool.ResolveConfigLayers()
-	if err := p.ValidateConfigLayers(layers); err != nil {
+	spec := opts.Props.Tool.ResolvedConfigSpec()
+	if err := p.ValidateConfigSpec(spec); err != nil {
 		return nil, err
 	}
 
@@ -206,8 +206,14 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		return nil, err
 	}
 
+	if len(spec.Sources) > 0 {
+		if err := addSourceLayers(ctx, opts, spec, byLayer); err != nil {
+			return nil, err
+		}
+	}
+
 	storeOpts := []config.StoreOption{}
-	for _, layer := range layers {
+	for _, layer := range spec.Layers {
 		storeOpts = append(storeOpts, byLayer[layer]...)
 	}
 
@@ -1133,7 +1139,14 @@ func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, sta
 
 	stop, err := cfg.Watch(cmd.Context(), state.watchOpts...)
 	if err != nil {
-		props.Logger.Debug("config watching unavailable", "error", err)
+		// With a config source in the stack a failure is a remote refusing,
+		// and hot-reload is lost for every layer, so it is not a Debug matter
+		// (spec 0204 D11).
+		if len(props.Tool.Config.Sources) > 0 {
+			props.Logger.Warn("config watching unavailable; changes need a restart", "error", err)
+		} else {
+			props.Logger.Debug("config watching unavailable", "error", err)
+		}
 
 		return
 	}
