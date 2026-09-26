@@ -337,7 +337,12 @@ func codecsFor(codecs []setup.ConfigCodec, paths []string) (map[string]config.Co
 // flagBindings maps author-declared bound flags (WithBoundFlags) onto flag
 // backend options; every other flag maps by the hyphen-to-dot convention.
 func flagBindings(boundFlags map[string]*pflag.Flag) []config.FlagOption {
-	flagOpts := make([]config.FlagOption, 0, len(boundFlags))
+	// --config names the files to read and is never itself configuration.
+	// Bound as the key "config" it would sit above every file and hide the
+	// config.* subtree, config.sources included (spec 0204). An empty key is
+	// how the flag backend is told to skip a flag.
+	flagOpts := make([]config.FlagOption, 0, len(boundFlags)+1)
+	flagOpts = append(flagOpts, config.BindFlag("config", ""))
 
 	for key, flag := range boundFlags {
 		if flag != nil {

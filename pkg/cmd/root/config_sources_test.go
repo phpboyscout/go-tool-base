@@ -404,3 +404,27 @@ func TestWrapSource_Capabilities(t *testing.T) {
 		})
 	}
 }
+
+// --config names files; it is never configuration. Bound by the hyphen-to-dot
+// rule it became the key "config", a list of paths at the highest precedence,
+// and hid the whole config.* subtree, config.sources with it.
+func TestBuildConfigStore_TheConfigFlagIsNotAConfigKey(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	writeFile(t, fs, "/cfg/config.yaml", teamConfigured)
+	writeFile(t, fs, "/src/team.yaml", "log:\n  level: debug\n")
+
+	cmd := newConfigFlagCmd(t, "/cfg/config.yaml")
+
+	store, err := buildConfigStore(t.Context(), ConfigLoadOptions{
+		Props:    sourcedTool{fs: fs, sources: []p.ConfigSource{{Name: "team", Kind: "memfile"}}, layers: stackWith("team", p.LayerEnv)}.props(t),
+		CfgPaths: []string{"/cfg/config.yaml"},
+		Flags:    cmd.Flags(),
+	})
+	require.NoError(t, err)
+
+	view := store.View()
+	assert.Equal(t, "/src/team.yaml", view.GetString("config.sources.team.path"))
+	assert.Equal(t, "debug", view.GetString("log.level"), "the source was built from its settings")
+}
