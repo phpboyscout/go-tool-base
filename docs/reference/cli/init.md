@@ -133,6 +133,26 @@ Configures the AI provider and its credential. The provider select offers the pr
 
 If `AI_PROVIDER` is exported, a note says it is read only when `ai.provider` is unset, so the provider chosen here takes effect once written. An end user's choice here overrides the author's default the tool ships with.
 
+### Init config
+
+```bash
+mytool init config <name> [--dir <dir>]
+```
+
+Configures one of the config sources the tool declares: where it connects and
+how it authenticates. The source's kind asks what it needs and writes it under
+`config.sources.<name>` in your own config file, never a project file. There is
+one subcommand per declared source, and a tool that declares none has no
+`init config`. A source the tool's own code builds (etcd, sftp, billy, iofs,
+afero) has nothing to configure here and says so.
+
+A required source nobody has configured stops every command but `init`,
+`doctor` and `config convert`, naming the `init config` command that fixes it.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dir` | `~/.<tool>` | Directory containing the config file |
+
 ## Implementation
 
 The init command is implemented in `cmd/initialise/init.go` and uses the `pkg/setup` package to perform the actual initialization work.

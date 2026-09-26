@@ -40,6 +40,10 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 				continue
 			}
 
+			if opts.SourcesOptional {
+				src.Required = new(false)
+			}
+
 			opt, err := sourceLayer(ctx, opts.Props, src, sourcePlace{index: i + 1, of: len(spec.Layers)}, kinds, overrides, bootstrap)
 			if err != nil {
 				return err

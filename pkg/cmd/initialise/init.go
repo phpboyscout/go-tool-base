@@ -79,6 +79,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 
 	// Dynamic Discovery of Subcommands
 	registerSubcommands(props, wrapped)
+	registerConfigSources(props, wrapped)
 
 	return wrapped
 }

@@ -171,3 +171,27 @@ func ConfigSourceUnconfiguredError(p *props.Props, slot props.ConfigSource) erro
 		"run `%s init config %s`, or set config.sources.%s in your config file or the tool's defaults",
 		p.Tool.Name, slot.Name, slot.Name)
 }
+
+// RunConfigSourceInit configures one declared slot: its kind's initialiser
+// asks for the settings and writes them under config.sources.<name> in the
+// tool's config file in dir (spec 0204 D3). An override-only slot has nothing
+// to ask, since the tool's own code builds it.
+func RunConfigSourceInit(ctx context.Context, p *props.Props, slot props.ConfigSource, dir string) error {
+	if IsOverrideOnlyKind(slot.Kind) {
+		return errors.WithHintf(errors.Wrapf(ErrConfigSourceNeedsOverride, "%q (%s)", slot.Name, slot.Kind),
+			"the %s source is built by the tool's own code, so there is nothing to configure here", slot.Name)
+	}
+
+	kind, ok := ConfigSourceKindsIn(p.GetFeatures())[slot.Kind]
+	if !ok || kind.Initialiser == nil {
+		return errors.WithHintf(errors.Wrapf(ErrConfigSourceKindNotLinked, "%q (%s)", slot.Name, slot.Kind),
+			"blank-import gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/%s, or regenerate", slot.Kind)
+	}
+
+	editor, _, err := OpenConfigEditor(ctx, p, dir, false)
+	if err != nil {
+		return err
+	}
+
+	return kind.Initialiser(p, slot).Configure(ctx, p, editor)
+}

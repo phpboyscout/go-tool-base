@@ -105,6 +105,12 @@ type ConfigLoadOptions struct {
 	Props       *p.Props
 	AllowEmpty  bool
 
+	// SourcesOptional treats every config source as optional, for a command
+	// that opts out of the config check: doctor and config convert must run
+	// on a tool whose required source is missing, since they are how the
+	// user finds out and puts it right.
+	SourcesOptional bool
+
 	// ProjectConfigPath is the discovered project-local ".<tool>.yaml" (a
 	// repo-root config layer), or "" when none applies (no file, or an
 	// explicit --config suppressed it). When set it is layered as the
@@ -492,6 +498,7 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 		ConfigPaths:       configPaths,
 		Props:             props,
 		AllowEmpty:        allowEmpty,
+		SourcesOptional:   skipConfigCheck,
 		Flags:             cmd.Flags(),
 		BoundFlags:        boundFlags,
 		ProjectConfigPath: projectPath,

@@ -273,7 +273,7 @@ func iSetEnvironmentVariable(ctx context.Context, key, value string) (context.Co
 		w.envVars = make(map[string]string)
 	}
 
-	w.envVars[key] = value
+	w.envVars[key] = strings.ReplaceAll(value, "{config_dir}", w.configDir)
 
 	return ctx, nil
 }

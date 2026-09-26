@@ -125,6 +125,8 @@ func newTestRoot() (*setup.Command, *props.Props, error) {
 		},
 	}
 
+	declareConfigSource(&tool)
+
 	p, err := props.New(tool, l, afero.NewOsFs(),
 		props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})),
 		props.WithVersion(version.Get()),

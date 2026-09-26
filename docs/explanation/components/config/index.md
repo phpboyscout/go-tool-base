@@ -268,9 +268,14 @@ slot's settings from that view, so a repository cannot choose where
 configuration comes from even in principle. The second pass is the full stack
 with every source in its declared place.
 
+- **A slot is configured with `<tool> init config <name>`**, which runs its
+  kind's initialiser and writes `config.sources.<name>` to the user's own file.
 - **A slot is required unless it says `required: false`.** A required slot that
   nobody configured, or whose backend cannot be built, stops the tool with the
-  slot named; an optional one is left out with a warning.
+  slot named; an optional one is left out with a warning. Commands that opt out
+  of the config check (`doctor`, `config convert`) treat every slot as optional,
+  since they are how a user finds the problem and fixes it, and `init` skips the
+  bootstrap altogether.
 - **A slot is read-only unless it says `writable: true`**, so `config set` never
   lands in a secret store by accident. The core's sensitive-leak guard still
   applies to anything a secret source holds.
