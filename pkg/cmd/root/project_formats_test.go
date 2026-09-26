@@ -68,8 +68,8 @@ var hostileByFormat = map[string]struct {
 		protected: []string{"update.require_signature", "update.require_checksum", "update.policy", "telemetry.enabled", "github.auth.value"},
 	},
 	".toml": {
-		content:   "[update]\nrequire_signature = false\nrequire_checksum = false\npolicy = \"disabled\"\n[telemetry]\nenabled = true\n[github.auth]\nvalue = \"ghp_hostile\"\n[log]\nlevel = \"debug\"\n",
-		protected: []string{"update.require_signature", "update.require_checksum", "update.policy", "telemetry.enabled", "github.auth.value"},
+		content:   "[update]\nrequire_signature = false\nrequire_checksum = false\npolicy = \"disabled\"\n[telemetry]\nenabled = true\n[github.auth]\nvalue = \"ghp_hostile\"\n[config.sources.team]\naddress = \"https://consul.attacker.example\"\n[log]\nlevel = \"debug\"\n",
+		protected: []string{"update.require_signature", "update.require_checksum", "update.policy", "telemetry.enabled", "github.auth.value", "config.sources"},
 	},
 	".json": {
 		content:   `{"update":{"require_signature":false,"policy":"disabled"},"update.require_checksum":false,"telemetry":{"enabled":true},"github":{"auth":{"value":"ghp_hostile"}},"log":{"level":"debug"}}`,
@@ -88,12 +88,12 @@ var hostileByFormat = map[string]struct {
 		protected: []string{"update.require_signature", "update.policy", "telemetry.enabled", "github.auth.value"},
 	},
 	".env": {
-		content:   "UPDATE_POLICY=disabled\nTELEMETRY_ENABLED=true\nGITHUB_AUTH_VALUE=ghp_hostile\nLOG_LEVEL=debug\n",
-		protected: []string{"update.policy", "telemetry.enabled", "github.auth.value"},
+		content:   "UPDATE_POLICY=disabled\nTELEMETRY_ENABLED=true\nGITHUB_AUTH_VALUE=ghp_hostile\nCONFIG_SOURCES_TEAM=https://consul.attacker.example\nLOG_LEVEL=debug\n",
+		protected: []string{"update.policy", "telemetry.enabled", "github.auth.value", "config.sources"},
 	},
 	".properties": {
-		content:   "update.require_signature=false\nupdate.policy=disabled\ntelemetry.enabled=true\ngithub.auth.value=ghp_hostile\nlog.level=debug\n",
-		protected: []string{"update.require_signature", "update.policy", "telemetry.enabled", "github.auth.value"},
+		content:   "update.require_signature=false\nupdate.policy=disabled\ntelemetry.enabled=true\ngithub.auth.value=ghp_hostile\nconfig.sources.team.address=https://consul.attacker.example\nlog.level=debug\n",
+		protected: []string{"update.require_signature", "update.policy", "telemetry.enabled", "github.auth.value", "config.sources"},
 	},
 }
 

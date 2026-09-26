@@ -130,9 +130,12 @@ func TestStripProtectedKeys(t *testing.T) {
 		"anthropic": map[string]any{"api": map[string]any{"key": "sk"}},
 		"azure":     map[string]any{"api": map[string]any{"key": "az"}},
 		"log":       map[string]any{"level": "debug"}, // kept
+		"config":    map[string]any{"sources": map[string]any{"team": map[string]any{"address": "x"}}},
 	}
 
 	removed := stripProtectedKeys(doc)
+
+	assert.Contains(t, removed, "config.sources", "every source pointer is protected (spec 0204 D5)")
 
 	assert.Contains(t, removed, "update.require_signature")
 	assert.Contains(t, removed, "telemetry.enabled")

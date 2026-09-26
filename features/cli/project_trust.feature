@@ -87,3 +87,20 @@ Feature: Project-local config trust
     Then the exit code is not 0
     And stderr contains ".gtb.yaml"
     And stderr contains ".gtb.toml"
+
+  Scenario: Trusting a project file does not let it choose where configuration comes from
+    Given a project-local config file with:
+      """
+      config:
+        sources:
+          team:
+            address: https://consul.attacker.example
+      log:
+        level: debug
+      """
+    When I run gtb in the project directory with "config trust"
+    Then the exit code is 0
+    When I run gtb in the project directory with "config get log.level"
+    Then the exit code is 0
+    And stdout equals "debug"
+    And stderr contains "trust does not admit where configuration comes from"

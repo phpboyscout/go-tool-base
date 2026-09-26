@@ -211,7 +211,9 @@ The project-local `.<tool>.yaml` layer (a repo-root config file, discovered by w
 
 **Tool author / user guidance.** Run `<tool> config trust` at a repository you author and control to enable its `.<tool>.yaml` security keys; `<tool> config trust --list` shows what is trusted and `--forget` revokes it. CI runs untrusted by default (safe), so a pipeline that legitimately relies on project-local security keys must either trust the file in a provisioning step or set the values through the user config / environment instead.
 
-Spec: [`0162-gtb-framework-followups`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0162-gtb-framework-followups) §2.1.1.
+**Extended 2026-09-26: source pointers are never admitted.** Once a tool can read configuration from a remote source (spec 0204), the keys that say where that source is (`config.sources.*`) decide where every other key comes from. They are stripped from a project-local file whether or not it is trusted, and `config trust` does not re-admit them: trusting a repository with its own settings is a smaller act than trusting it to choose your secret store. A trusted file carrying them keeps every other key, stays writable, and logs a WARN naming the file.
+
+Spec: [`0162-gtb-framework-followups`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0162-gtb-framework-followups) §2.1.1; [`0204-the-config-stack-a-project-declares-and-orders`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders) D5 for source pointers.
 
 ---
 

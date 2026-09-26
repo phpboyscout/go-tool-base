@@ -138,6 +138,15 @@ credential subtree (`*.auth.*`, `*.api.*`, `bitbucket.app_password`). When any o
 these is stripped from an untrusted file, the framework logs a WARN naming the
 file and the ignored keys. Never a silent drop.
 
+One subtree is stripped even from a **trusted** file: `config.sources`, which says
+where configuration comes from (a Consul address, a Vault mount, a bucket).
+Trusting a repository to set its own log level is a smaller act than trusting it
+to choose your secret store, so `config trust` does not re-admit it, and the
+framework logs a WARN when a trusted file carries it. A source's settings belong
+in your own config file, the environment, or the tool's embedded defaults. See
+[spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
+D5.
+
 Trust is **direnv-style**. `<tool> config trust` records the file's absolute path
 and the SHA-256 of its exact current content in a per-user store
 (`~/.<tool>/trusted-projects.yaml`, owner-only, never inside a repository).

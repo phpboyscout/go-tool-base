@@ -216,6 +216,9 @@ you run `config trust` again. An untrusted project-local file is read-only, so
 `config set` in an untrusted repository writes to your own config rather than the
 committed file. CI runs untrusted by default.
 
+`config trust` never admits `config.sources`, the keys that say where
+configuration comes from: a project file cannot set them, trusted or not.
+
 ### `config convert --from <file> --to <file>`
 
 Rewrite a config file in another format, each chosen by its extension. Use it

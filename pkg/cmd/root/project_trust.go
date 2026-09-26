@@ -53,7 +53,7 @@ func protectedProjectKeys() []string {
 // credential subtree (github.auth.value, gitlab.auth.env, …) without enrolling
 // each provider by name.
 func isProtectedProjectKey(full, segment string) bool {
-	if segment == "auth" {
+	if segment == "auth" || full == configSourcesKey {
 		return true
 	}
 
@@ -168,7 +168,7 @@ func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string, cod
 	if trusted {
 		props.Logger.Debug("project config layer trusted", "file", projectPath)
 
-		return config.NewCodecBackend(fsys, projectPath, codec)
+		return config.NewCodecBackend(fsys, projectPath, withoutSourcePointers(codec, props.Logger, projectPath))
 	}
 
 	return config.NewCodecBackend(fsys, projectPath, trustFilterCodec{
@@ -176,4 +176,73 @@ func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string, cod
 		log:  props.Logger,
 		tool: props.Tool.Name,
 	})
+}
+
+// configSourcesKey is the subtree that says where configuration comes from
+// (spec 0204 D5). A project file may never set it, trusted or not.
+const configSourcesKey = "config.sources"
+
+// stripSourcePointers removes config.sources from a decoded document and
+// reports it when it was there.
+func stripSourcePointers(doc map[string]any) []string {
+	cfg, ok := doc["config"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	if _, present := cfg["sources"]; !present {
+		return nil
+	}
+
+	delete(cfg, "sources")
+
+	return []string{configSourcesKey}
+}
+
+// withoutSourcePointers wraps a trusted project file's codec so it drops
+// config.sources and nothing else: config trust admits every other key, but
+// trusting a repository to choose where configuration comes from is a larger
+// act than trusting its settings. An editing codec stays one, so the trusted
+// file is still a write target.
+func withoutSourcePointers(codec config.Codec, log logger.Logger, path string) config.Codec {
+	filter := sourcePointerFilter{base: codec, log: log, path: path}
+
+	if editing, ok := codec.(config.EditingCodec); ok {
+		return editingSourcePointerFilter{EditingCodec: editing, filter: filter}
+	}
+
+	return filter
+}
+
+type sourcePointerFilter struct {
+	base config.Codec
+	log  logger.Logger
+	path string
+}
+
+// Decode implements config.Codec.
+func (f sourcePointerFilter) Decode(path string, src []byte) ([]map[string]any, error) {
+	docs, err := f.base.Decode(path, src)
+	if err != nil {
+		return docs, err
+	}
+
+	for _, doc := range docs {
+		if doc != nil && len(stripSourcePointers(doc)) > 0 && f.log != nil {
+			f.log.Warn("ignoring config.sources from a project-local config file; trust does not admit where configuration comes from",
+				"file", f.path)
+		}
+	}
+
+	return docs, nil
+}
+
+type editingSourcePointerFilter struct {
+	config.EditingCodec
+	filter sourcePointerFilter
+}
+
+// Decode implements config.Codec.
+func (f editingSourcePointerFilter) Decode(path string, src []byte) ([]map[string]any, error) {
+	return f.filter.Decode(path, src)
 }
