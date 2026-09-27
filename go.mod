@@ -15,6 +15,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
+	github.com/hashicorp/consul/api/v2 v2.0.0
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
@@ -26,6 +27,7 @@ require (
 	gitlab.com/phpboyscout/go/chat v0.24.0
 	gitlab.com/phpboyscout/go/config v0.18.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.11
+	gitlab.com/phpboyscout/go/config-consul v0.3.1
 	gitlab.com/phpboyscout/go/config-dotenv v0.2.10
 	gitlab.com/phpboyscout/go/config-hcl v0.2.10
 	gitlab.com/phpboyscout/go/config-ini v0.2.10
@@ -33,6 +35,7 @@ require (
 	gitlab.com/phpboyscout/go/config-keychain v0.2.9
 	gitlab.com/phpboyscout/go/config-properties v0.2.10
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
+	gitlab.com/phpboyscout/go/config-vault v0.4.2
 	gitlab.com/phpboyscout/go/config-xml v0.2.10
 	gitlab.com/phpboyscout/go/controls v0.7.0
 	gitlab.com/phpboyscout/go/credentials v0.3.2
@@ -51,6 +54,7 @@ require (
 	gitlab.com/phpboyscout/go/tls v0.2.2
 	gitlab.com/phpboyscout/go/transit v0.2.3
 	gitlab.com/phpboyscout/go/transport v0.6.2
+	gitlab.com/phpboyscout/go/vaultclient v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.20.1
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.22.0
@@ -72,6 +76,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
+	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -109,12 +114,14 @@ require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/fatih/color v1.19.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.1 // indirect
 	github.com/go-git/go-git/v5 v5.19.2 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -127,7 +134,23 @@ require (
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-hclog v1.6.3 // indirect
+	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
+	github.com/hashicorp/go-metrics v0.6.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
+	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+	github.com/hashicorp/go-secure-stdlib/parseutil v0.2.0 // indirect
+	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
+	github.com/hashicorp/go-version v1.9.0 // indirect
+	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
+	github.com/hashicorp/serf v0.10.4 // indirect
+	github.com/hashicorp/vault/api v1.23.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
@@ -147,13 +170,15 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.3.0 // indirect
@@ -174,6 +199,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
@@ -203,6 +229,7 @@ require (
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/yamldoc v0.6.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

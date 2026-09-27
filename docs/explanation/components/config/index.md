@@ -294,6 +294,19 @@ The kinds that need no network, each a link package under
 |---|---|---|
 | `file` | a fixed file beside the tool's own, in any linked format by extension | `path` |
 | `keychain` | tokens in the OS keychain, under one service | `service`, `keys` (config path to keychain account), `timeout` |
+| `vault` | a HashiCorp Vault KV v2 secret, or every secret under a prefix | `address`, `namespace`, `mount` (default `secret`), `path` or `prefix`, `poll_interval`, `auth.*` |
+| `consul` | the keys under a Consul KV prefix | `address`, `datacenter`, `prefix`, `value_format`, `auth.*` |
+
+Vault and Consul start from their providers' own conventions: vaultclient's
+ambient chain (`VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`) and Consul's
+documented defaults (`CONSUL_HTTP_ADDR`, `CONSUL_HTTP_TOKEN`), with the slot's
+settings overriding them. Their token may instead come through GTB's rungs,
+the chain forges use: `auth.env` names a variable, `auth.keychain` a
+`service/account` entry, and `auth.value` holds the token itself, which is
+refused under CI. A Vault source is sensitive, so the core refuses to let a
+value it holds be written into a plain file beneath it. `value_format` makes a
+Consul value that holds a document (`json`, `yaml`, ...) a subtree, in a format
+the tool links.
 
 An absent file contributes nothing, as the tool's own files do. A Kubernetes
 ConfigMap or Secret mount is not a kind yet: it wants one layer per file, in an

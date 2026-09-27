@@ -35,6 +35,11 @@ func TestConfigFormatsAreNotLinkedByTheFrameworkCore(t *testing.T) {
 		"github.com/zclconf/go-cty",
 		"github.com/tidwall/gjson",
 		"gitlab.com/phpboyscout/go/config-keychain",
+		"gitlab.com/phpboyscout/go/config-vault",
+		"gitlab.com/phpboyscout/go/config-consul",
+		"gitlab.com/phpboyscout/go/vaultclient",
+		"github.com/hashicorp/vault/api",
+		"github.com/hashicorp/consul/api",
 	}
 
 	var core []string
