@@ -12,6 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/awssource"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourcesettings"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -48,7 +49,7 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 		opts = append(opts, configawsssm.WithValueCodec(codec))
 	}
 
-	interval, err := awssource.PollInterval(settings)
+	interval, err := sourcesettings.PollInterval(settings)
 	if err != nil {
 		return nil, err
 	}

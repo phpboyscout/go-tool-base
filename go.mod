@@ -10,6 +10,9 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	charm.land/log/v2 v2.0.1
 	dario.cat/mergo v1.0.2
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
+	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2 v2.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.0
 	github.com/ProtonMail/go-crypto v1.4.1
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
@@ -26,6 +29,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	gitlab.com/phpboyscout/go/awsclient v0.1.1
+	gitlab.com/phpboyscout/go/azureclient v0.1.1
 	gitlab.com/phpboyscout/go/browser v0.2.2
 	gitlab.com/phpboyscout/go/changelog v0.4.0
 	gitlab.com/phpboyscout/go/chat v0.24.0
@@ -34,6 +38,9 @@ require (
 	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.3
 	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.2
 	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.1
+	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.2
+	gitlab.com/phpboyscout/go/config-azure-blob v0.3.2
+	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.2
 	gitlab.com/phpboyscout/go/config-consul v0.3.1
 	gitlab.com/phpboyscout/go/config-dotenv v0.2.10
 	gitlab.com/phpboyscout/go/config-hcl v0.2.10
@@ -77,7 +84,12 @@ require (
 )
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.7.2 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
@@ -190,6 +202,7 @@ require (
 	github.com/knadh/koanf/providers/posflag v1.0.1 // indirect
 	github.com/knadh/koanf/providers/structs v1.0.0 // indirect
 	github.com/knadh/koanf/v2 v2.3.2 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-conventionalcommits v0.13.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
@@ -219,6 +232,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect

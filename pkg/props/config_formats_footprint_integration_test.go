@@ -45,6 +45,11 @@ func TestConfigFormatsAreNotLinkedByTheFrameworkCore(t *testing.T) {
 		"gitlab.com/phpboyscout/go/config-aws-ssm",
 		"gitlab.com/phpboyscout/go/config-aws-secrets",
 		"github.com/aws/aws-sdk-go-v2",
+		"gitlab.com/phpboyscout/go/azureclient",
+		"gitlab.com/phpboyscout/go/config-azure-blob",
+		"gitlab.com/phpboyscout/go/config-azure-keyvault",
+		"gitlab.com/phpboyscout/go/config-azure-appconfig",
+		"github.com/Azure/azure-sdk-for-go",
 	}
 
 	var core []string

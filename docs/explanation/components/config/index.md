@@ -299,12 +299,17 @@ The kinds that need no network, each a link package under
 | `aws-s3` | one config file held as an S3 object, in the format its key names | `bucket`, `key`, `key_prefix`, `path_style`, plus the AWS settings |
 | `aws-ssm` | every Systems Manager parameter under a path prefix | `prefix`, `value_format`, `poll_interval`, plus the AWS settings |
 | `aws-secrets` | one Secrets Manager secret whose value is a document, or every secret under a prefix | `name` or `prefix`, `value_format` (default `json` for one secret), `version_stage`, `poll_interval`, plus the AWS settings |
+| `azure-blob` | one config file held as a blob, in the format its name says | `service_url`, `container`, `blob`, `tenant_id` |
+| `azure-keyvault` | one Key Vault secret whose value is a document, or every secret in the vault | `vault_url`, `name`, `name_prefix`, `value_format` (default `json` for one secret), `poll_interval`, `tenant_id` |
+| `azure-appconfig` | the settings under a key prefix in an App Configuration store | `endpoint`, `prefix`, `label`, `sentinel_key`, `value_format`, `tenant_id` |
 
 The AWS kinds share `region`, `profile` and `endpoint` (for LocalStack or
 MinIO), applied over awsclient's ambient chain: SSO, shared profiles, instance
 and pod identity, and the standard `AWS_*` variables. A single Secrets Manager
 secret is decoded in its value format, so a JSON secret needs the `json` format
-linked.
+linked. The Azure kinds take their credential from azureclient's ambient
+chain: environment, workload and managed identity, and the Azure CLI's login,
+with an optional `tenant_id`.
 
 Vault and Consul start from their providers' own conventions: vaultclient's
 ambient chain (`VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`) and Consul's
