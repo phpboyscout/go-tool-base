@@ -15,7 +15,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/azuresource"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourcesettings"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -33,7 +32,7 @@ var ErrNoVault = errors.NewSentinel("gtb.config.sources.azure_keyvault.no_vault"
 type opener func(ctx context.Context, settings config.Reader) (configazurekeyvault.SecretsAPI, error)
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryWith(openVault), initialiser)
+	setup.RegisterConfigSourceKind(Kind, factoryWith(openVault), setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factoryWith(open opener) setup.SourceFactory {
@@ -111,11 +110,4 @@ func openVault(ctx context.Context, settings config.Reader) (configazurekeyvault
 	}
 
 	return configazurekeyvault.Wrap(client), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append([]setup.SourceSetting{
-		{Key: "vault_url", Title: "Vault URL", Description: "Such as https://acme.vault.azure.net", Required: true},
-		{Key: "name", Title: "Secret name", Description: "One secret whose JSON value is read; leave empty to read every secret"},
-	}, azuresource.Settings()...)...)
 }

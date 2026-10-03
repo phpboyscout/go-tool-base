@@ -16,7 +16,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/gcpsource"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourcesettings"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -35,7 +34,7 @@ var ErrNoParameter = errors.NewSentinel("gtb.config.sources.gcp_parameter.no_par
 type opener func(ctx context.Context, settings config.Reader) (configgcpparameter.PM, error)
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryWith(openParameters), initialiser)
+	setup.RegisterConfigSourceKind(Kind, factoryWith(openParameters), setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factoryWith(open opener) setup.SourceFactory {
@@ -116,10 +115,4 @@ func openParameters(ctx context.Context, settings config.Reader) (configgcpparam
 	}
 
 	return configgcpparameter.Wrap(client, settings.GetString("project"), location), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append(gcpsource.Settings(),
-		setup.SourceSetting{Key: "parameter", Title: "Parameter ID", Description: "The parameter whose payload is read as configuration", Required: true},
-	)...)
 }

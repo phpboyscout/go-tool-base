@@ -15,7 +15,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourceauth"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -26,7 +25,7 @@ const Kind = "consul"
 var ErrNoPrefix = errors.NewSentinel("gtb.config.sources.consul.no_prefix", "consul config source has no prefix")
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factory, initialiser)
+	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
@@ -68,12 +67,4 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 	}
 
 	return configconsul.FromConfig(cfg, prefix, opts...)
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot,
-		setup.SourceSetting{Key: "address", Title: "Consul address", Description: "Leave empty to use CONSUL_HTTP_ADDR"},
-		setup.SourceSetting{Key: "prefix", Title: "KV prefix", Description: "The keys under it are read as configuration", Required: true},
-		setup.SourceSetting{Key: "auth.env", Title: "Token variable", Description: "A variable holding the ACL token; leave empty to use CONSUL_HTTP_TOKEN"},
-	)
 }

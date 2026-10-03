@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func settings(t *testing.T, yaml string) config.Reader {
@@ -74,4 +76,19 @@ func TestFactory_NeedsAPathOrAPrefix(t *testing.T) {
 
 	_, err = factory(t.Context(), settings(t, "address: https://vault.internal\npath: a\nprefix: b\n"), nil)
 	require.ErrorIs(t, err, ErrNoPath, "one or the other, not both")
+}
+
+// init config offers the mount the factory falls back to.
+func TestTheCatalogueMountIsTheFactorysDefault(t *testing.T) {
+	t.Parallel()
+
+	for _, s := range setup.ConfigSourceSettings(Kind, "mytool", "v") {
+		if s.Key == "mount" {
+			assert.Equal(t, defaultMount, s.Default)
+
+			return
+		}
+	}
+
+	t.Fatal("the catalogue declares no mount")
 }

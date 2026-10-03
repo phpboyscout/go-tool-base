@@ -11,7 +11,6 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -22,7 +21,7 @@ const Kind = "file"
 var ErrNoPath = errors.NewSentinel("gtb.config.sources.file.no_path", "file config source has no path")
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factory, initialiser)
+	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factory(_ context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
@@ -37,13 +36,4 @@ func factory(_ context.Context, settings config.Reader, b setup.ConfigBootstrap)
 	}
 
 	return config.NewCodecBackend(b.FS(), path, codec), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, setup.SourceSetting{
-		Key:         "path",
-		Title:       "File",
-		Description: "The config file this source reads; its extension says its format",
-		Required:    true,
-	})
 }

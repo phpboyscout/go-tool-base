@@ -17,7 +17,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/gcpsource"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourcesettings"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -32,7 +31,7 @@ const defaultValueFormat = "json"
 type opener func(ctx context.Context, settings config.Reader) (configgcpsecret.API, error)
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryWith(openSecrets), initialiser)
+	setup.RegisterConfigSourceKind(Kind, factoryWith(openSecrets), setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factoryWith(open opener) setup.SourceFactory {
@@ -114,10 +113,4 @@ func openSecrets(ctx context.Context, settings config.Reader) (configgcpsecret.A
 	}
 
 	return configgcpsecret.Wrap(client, settings.GetString("project"), settings.GetString("location")), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append(gcpsource.Settings(),
-		setup.SourceSetting{Key: "secret", Title: "Secret ID", Description: "One secret whose JSON payload is read; leave empty to read the project's secrets"},
-	)...)
 }

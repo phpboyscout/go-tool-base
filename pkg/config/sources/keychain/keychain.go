@@ -17,7 +17,6 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -32,7 +31,7 @@ var (
 )
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryFor(configkeychain.Registered()), initialiser, setup.WritableByDefault())
+	setup.RegisterConfigSourceKind(Kind, factoryFor(configkeychain.Registered()), setup.ConfigSourceInitialiserFor(Kind), setup.WritableByDefault())
 }
 
 // factoryFor builds keychain sources over a credentials backend: the
@@ -77,15 +76,4 @@ func accounts(raw any) map[string]string {
 	}
 
 	return out
-}
-
-func initialiser(p *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, setup.SourceSetting{
-		Key:   "service",
-		Title: "Keychain service",
-		Description: "The service name the tool's entries are stored under. Which keys it holds is " +
-			"config.sources." + slot.Name + ".keys, usually shipped in the tool's defaults",
-		Default:  p.Tool.Name,
-		Required: true,
-	})
 }

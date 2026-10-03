@@ -12,8 +12,6 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/gcpclient"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // ErrNoProject is a GCP slot with no project. Application Default
@@ -54,12 +52,4 @@ func Project(settings config.Reader) (string, error) {
 	}
 
 	return project, nil
-}
-
-// Settings are the initialiser questions the project-scoped GCP kinds share.
-func Settings() []setup.SourceSetting {
-	return []setup.SourceSetting{
-		{Key: "project", Title: "GCP project", Required: true},
-		{Key: "location", Title: "Location", Description: "Leave empty for the global service"},
-	}
 }

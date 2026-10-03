@@ -11,8 +11,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/azureclient"
 	"gitlab.com/phpboyscout/go/config"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // Credential resolves the credential for a slot. Nothing is requested from
@@ -25,12 +23,4 @@ func Credential(ctx context.Context, settings config.Reader) (azcore.TokenCreden
 	}
 
 	return azureclient.Ambient(opts...).AzureCredential(ctx)
-}
-
-// Settings are the initialiser questions every Azure kind shares, after its
-// own.
-func Settings() []setup.SourceSetting {
-	return []setup.SourceSetting{
-		{Key: "tenant_id", Title: "Azure tenant", Description: "Leave empty to use the tenant the Azure chain resolves"},
-	}
 }
