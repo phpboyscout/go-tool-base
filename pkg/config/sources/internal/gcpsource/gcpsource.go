@@ -53,3 +53,7 @@ func Project(settings config.Reader) (string, error) {
 
 	return project, nil
 }
+
+// ChainName names where the slot's GCP credential comes from, for
+// doctor (spec 0204 D10).
+const ChainName = "Application Default Credentials"

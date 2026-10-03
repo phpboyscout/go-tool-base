@@ -34,6 +34,8 @@ func init() {
 
 func factoryWith(open opener) setup.SourceFactory {
 	return func(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
+		setup.ReportSourceCredential(b, gcpsource.ChainName)
+
 		object := settings.GetString("object")
 		if settings.GetString("bucket") == "" || object == "" {
 			return nil, errors.WithHint(ErrNoObject, "set config.sources.<name>.bucket and .object")

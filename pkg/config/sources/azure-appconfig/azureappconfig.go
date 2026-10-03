@@ -33,6 +33,8 @@ func init() {
 
 func factoryWith(open opener) setup.SourceFactory {
 	return func(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
+		setup.ReportSourceCredential(b, azuresource.ChainName)
+
 		if settings.GetString("endpoint") == "" {
 			return nil, errors.WithHint(ErrNoEndpoint, "set config.sources.<name>.endpoint, such as https://acme.azconfig.io")
 		}

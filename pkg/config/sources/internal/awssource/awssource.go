@@ -38,3 +38,13 @@ func Config(ctx context.Context, settings config.Reader) (aws.Config, error) {
 
 	return cfg, nil
 }
+
+// ChainName names where the slot's AWS credential comes from, for
+// doctor (spec 0204 D10): a named profile, or the SDK's default chain.
+func ChainName(settings config.Reader) string {
+	if profile := settings.GetString("profile"); profile != "" {
+		return "AWS profile " + profile
+	}
+
+	return "the AWS credential chain"
+}

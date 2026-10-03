@@ -46,6 +46,8 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 		return nil, err
 	}
 
+	setup.ReportSourceCredential(b, awssource.ChainName(settings))
+
 	pathStyle := settings.GetBool("path_style")
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) { o.UsePathStyle = pathStyle })
 

@@ -63,6 +63,8 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 		return nil, err
 	}
 
+	setup.ReportSourceCredential(b, awssource.ChainName(settings))
+
 	if name != "" {
 		return configawssecrets.FromConfigSecret(cfg, name, codec, opts...)
 	}

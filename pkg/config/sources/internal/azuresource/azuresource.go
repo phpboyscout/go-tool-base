@@ -24,3 +24,7 @@ func Credential(ctx context.Context, settings config.Reader) (azcore.TokenCreden
 
 	return azureclient.Ambient(opts...).AzureCredential(ctx)
 }
+
+// ChainName names where the slot's Azure credential comes from, for
+// doctor (spec 0204 D10).
+const ChainName = "the Azure credential chain"

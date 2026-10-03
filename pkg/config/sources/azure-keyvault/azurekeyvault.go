@@ -37,6 +37,8 @@ func init() {
 
 func factoryWith(open opener) setup.SourceFactory {
 	return func(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
+		setup.ReportSourceCredential(b, azuresource.ChainName)
+
 		if settings.GetString("vault_url") == "" {
 			return nil, errors.WithHint(ErrNoVault, "set config.sources.<name>.vault_url, such as https://acme.vault.azure.net")
 		}

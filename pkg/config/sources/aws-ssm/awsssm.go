@@ -37,6 +37,8 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 		return nil, err
 	}
 
+	setup.ReportSourceCredential(b, awssource.ChainName(settings))
+
 	var opts []configawsssm.Option
 
 	if format := settings.GetString("value_format"); format != "" {

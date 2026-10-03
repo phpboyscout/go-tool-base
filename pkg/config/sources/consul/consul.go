@@ -44,7 +44,7 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 		cfg.Datacenter = dc
 	}
 
-	token, err := sourceauth.Token(ctx, settings, Kind)
+	token, err := sourceauth.Token(ctx, settings, b, Kind, "CONSUL_HTTP_TOKEN")
 	if err != nil {
 		return nil, err
 	}

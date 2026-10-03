@@ -58,6 +58,9 @@ type Props struct {
 	// handler). Per root, like everything else here (spec 0202 D4). Read
 	// through GetLogLevel.
 	LogLevel *slog.LevelVar
+	// SourceStatuses is how each declared config source slot fared when the
+	// root built the store, in declared order (spec 0204 D10).
+	SourceStatuses []ConfigSourceStatus
 
 	// Construction-only: the snapshot and resolver New resolves Features from.
 	featureSnapshot features.Snapshot

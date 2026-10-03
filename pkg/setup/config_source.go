@@ -61,6 +61,21 @@ type ConfigBootstrap interface {
 	CodecFor(path string) (config.Codec, error)
 }
 
+// SourceCredentialReporter is what the root's bootstrap implements so a
+// factory can say which link of its credential chain answered (spec 0204
+// D10). It is separate from ConfigBootstrap so a test's fake needs nothing.
+type SourceCredentialReporter interface {
+	ReportCredential(origin string)
+}
+
+// ReportSourceCredential tells b which link of a slot's credential chain
+// answered, when b listens.
+func ReportSourceCredential(b ConfigBootstrap, origin string) {
+	if r, ok := b.(SourceCredentialReporter); ok {
+		r.ReportCredential(origin)
+	}
+}
+
 // SourceFactory builds one slot's backend from its settings, the
 // config.sources.<name> subtree of the bootstrap view. Settings are nil for
 // an override of a slot nobody configured.

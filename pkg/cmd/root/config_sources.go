@@ -35,6 +35,7 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 	}
 
 	bootstrap := sourceBootstrap{Store: store, fs: opts.Props.GetConfigFS(), codecs: setup.ConfigCodecsIn(set)}
+	opts.Props.SourceStatuses = nil
 
 	for i, layer := range spec.Layers {
 		for _, src := range spec.Sources {
@@ -46,10 +47,12 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 				src.Required = new(false)
 			}
 
-			opt, err := sourceLayer(ctx, opts.Props, src, sourcePlace{index: i + 1, of: len(spec.Layers)}, kinds, overrides, bootstrap)
+			opt, status, err := sourceLayer(ctx, opts.Props, src, sourcePlace{index: i + 1, of: len(spec.Layers)}, kinds, overrides, bootstrap)
 			if err != nil {
 				return err
 			}
+
+			opts.Props.SourceStatuses = append(opts.Props.SourceStatuses, status)
 
 			if opt != nil {
 				byLayer[layer] = []config.StoreOption{opt}
@@ -114,17 +117,28 @@ func (b sourceBootstrap) CodecFor(path string) (config.Codec, error) {
 	return setup.ConfigCodecFor(b.codecs, path)
 }
 
+// slotBootstrap is one slot's bootstrap: it keeps the credential rung the
+// slot's factory reports (spec 0204 D10).
+type slotBootstrap struct {
+	sourceBootstrap
+	credential string
+}
+
+func (b *slotBootstrap) ReportCredential(origin string) { b.credential = origin }
+
 // sourcePlace is a slot's position in the stack, for messages.
 type sourcePlace struct{ index, of int }
 
 // sourceLayer builds one slot, or nothing when an optional slot is absent
-// (spec 0204 D6).
+// (spec 0204 D6), and records how it fared.
 func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sourcePlace,
 	kinds map[string]setup.ConfigSourceKind, overrides map[string]setup.SourceFactory, bootstrap sourceBootstrap,
-) (config.StoreOption, error) {
+) (config.StoreOption, p.ConfigSourceStatus, error) {
+	status := p.ConfigSourceStatus{Slot: src}
+
 	factory, overridden, err := sourceFactory(src, kinds, overrides)
 	if err != nil {
-		return nil, err
+		return nil, status, err
 	}
 
 	var settings config.Reader
@@ -134,19 +148,25 @@ func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sou
 
 	if settings == nil && !overridden {
 		if src.IsRequired() {
-			return nil, setup.ConfigSourceUnconfiguredError(props, src)
+			return nil, status, setup.ConfigSourceUnconfiguredError(props, src)
 		}
 
 		props.Logger.Warn("optional config source is not configured; continuing without it",
 			"source", src.Name, "kind", src.Kind, "hint", "run `"+props.Tool.Name+" init config "+src.Name+"`")
 
-		return nil, nil
+		status.State = p.ConfigSourceUnconfigured
+
+		return nil, status, nil
 	}
 
-	backend, err := factory(ctx, settings, bootstrap)
+	slot := &slotBootstrap{sourceBootstrap: bootstrap}
+
+	backend, err := factory(ctx, settings, slot)
+	status.Credential = slot.credential
+
 	if err != nil {
 		if src.IsRequired() {
-			return nil, errors.WithHint(
+			return nil, status, errors.WithHint(
 				errors.Wrapf(setup.ErrConfigSourceUnavailable, "%q (%s, layer %d of %d): %v", src.Name, src.Kind, at.index, at.of, err),
 				"mark the source required: false if the tool may run without it")
 		}
@@ -154,12 +174,16 @@ func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sou
 		props.Logger.Warn("optional config source is unavailable; continuing without it",
 			"source", src.Name, "kind", src.Kind, "layer", at.index, "error", err)
 
-		return nil, nil
+		status.State, status.Err = p.ConfigSourceUnavailable, err.Error()
+
+		return nil, status, nil
 	}
 
-	writable := src.IsWritable(kinds[src.Kind].WritableByDefault)
+	status.State = p.ConfigSourceBuilt
+	status.Writable = src.IsWritable(kinds[src.Kind].WritableByDefault)
+	status.Sensitive = backend.Capabilities().Sensitive
 
-	return config.WithBackend(wrapSource(backend, writable, !src.IsRequired(), props.Logger, src.Name)), nil
+	return config.WithBackend(wrapSource(backend, status.Writable, !src.IsRequired(), props.Logger, src.Name)), status, nil
 }
 
 // sourceFactory picks the slot's factory: its override, else its kind's.

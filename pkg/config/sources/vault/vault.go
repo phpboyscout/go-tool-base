@@ -33,7 +33,7 @@ func init() {
 	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
-func factory(ctx context.Context, settings config.Reader, _ setup.ConfigBootstrap) (config.Backend, error) {
+func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
 	path, prefix := settings.GetString("path"), settings.GetString("prefix")
 	if (path == "") == (prefix == "") {
 		return nil, errors.WithHint(ErrNoPath, "set config.sources.<name>.path for one secret, or .prefix for every secret beneath it")
@@ -47,7 +47,7 @@ func factory(ctx context.Context, settings config.Reader, _ setup.ConfigBootstra
 		return nil, err
 	}
 
-	token, err := sourceauth.Token(ctx, settings, Kind)
+	token, err := sourceauth.Token(ctx, settings, b, Kind, "VAULT_TOKEN")
 	if err != nil {
 		return nil, err
 	}

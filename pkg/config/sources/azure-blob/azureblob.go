@@ -30,6 +30,8 @@ func init() {
 
 func factoryWith(open opener) setup.SourceFactory {
 	return func(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
+		setup.ReportSourceCredential(b, azuresource.ChainName)
+
 		blob := settings.GetString("blob")
 		if settings.GetString("service_url") == "" || settings.GetString("container") == "" || blob == "" {
 			return nil, errors.WithHint(ErrNoBlob, "set config.sources.<name>.service_url, .container and .blob")

@@ -56,3 +56,22 @@ func TestConfigSourceInitialiserFor_NamesTheSlot(t *testing.T) {
 	init := ConfigSourceInitialiserFor("file")(nil, props.ConfigSource{Name: "extra", Kind: "file"})
 	assert.Equal(t, "extra", init.Name())
 }
+
+type reportingBootstrap struct {
+	ConfigBootstrap
+	got string
+}
+
+func (r *reportingBootstrap) ReportCredential(origin string) { r.got = origin }
+
+// A factory says which rung answered; a bootstrap that does not listen is
+// left alone, so a test's fake bootstrap needs nothing new.
+func TestReportSourceCredential(t *testing.T) {
+	t.Parallel()
+
+	r := &reportingBootstrap{}
+	ReportSourceCredential(r, "auth.keychain")
+	assert.Equal(t, "auth.keychain", r.got)
+
+	assert.NotPanics(t, func() { ReportSourceCredential(struct{ ConfigBootstrap }{}, "auth.env") })
+}

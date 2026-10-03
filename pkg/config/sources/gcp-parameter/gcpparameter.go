@@ -39,6 +39,8 @@ func init() {
 
 func factoryWith(open opener) setup.SourceFactory {
 	return func(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
+		setup.ReportSourceCredential(b, gcpsource.ChainName)
+
 		if _, err := gcpsource.Project(settings); err != nil {
 			return nil, err
 		}
