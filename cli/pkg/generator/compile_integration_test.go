@@ -111,17 +111,65 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	// tidied scaffold regenerated and tidied again is byte-identical.
 	assertGoModFixedPoint(t, g, path)
 
-	assertMCPExportCarriesHints(t, path)
+	bin := filepath.Join(t.TempDir(), "compile-tool")
+	runGo(t, path, "build", "-buildvcs=false", "-o", bin, "./cmd/compile-tool")
+
+	assertMCPExportCarriesHints(t, bin)
+	assertLinksOnlyWhatItDeclares(t, bin)
+	assertDoctorReportsTheStack(t, bin)
+}
+
+// assertLinksOnlyWhatItDeclares reads the built binary's module list (spec
+// 0204 D8): the formats and kinds the scaffold declares are linked, and no
+// other adapter or provider SDK is.
+func assertLinksOnlyWhatItDeclares(t *testing.T, bin string) {
+	t.Helper()
+
+	out, err := exec.Command("go", "version", "-m", bin).CombinedOutput()
+	require.NoErrorf(t, err, "go version -m:\n%s", out)
+
+	modules := string(out)
+
+	for _, linked := range []string{
+		"gitlab.com/phpboyscout/go/config-toml", "gitlab.com/phpboyscout/go/config-dotenv",
+		"gitlab.com/phpboyscout/go/config-properties", "gitlab.com/phpboyscout/go/config-consul",
+		"gitlab.com/phpboyscout/go/config-vault", "github.com/hashicorp/consul/api/v2", "github.com/hashicorp/vault/api",
+	} {
+		assert.Containsf(t, modules, "\t"+linked+"\t", "the scaffold declares it, so the binary links %s", linked)
+	}
+
+	for _, absent := range []string{
+		"gitlab.com/phpboyscout/go/config-hcl", "gitlab.com/phpboyscout/go/config-json",
+		"gitlab.com/phpboyscout/go/config-ini", "gitlab.com/phpboyscout/go/config-xml",
+		"gitlab.com/phpboyscout/go/config-etcd", "gitlab.com/phpboyscout/go/config-aws-s3",
+		"github.com/aws/aws-sdk-go-v2", "github.com/Azure/azure-sdk-for-go", "cloud.google.com/go/storage",
+	} {
+		assert.NotContainsf(t, modules, absent, "nothing declares it, so the binary must not link %s", absent)
+	}
+}
+
+// assertDoctorReportsTheStack runs the scaffold's doctor (spec 0204 D10):
+// both sources are optional and unconfigured, so the stack is reported with
+// them left out and how to configure each.
+func assertDoctorReportsTheStack(t *testing.T, bin string) {
+	t.Helper()
+
+	env := []string{"HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")}
+
+	cmd := exec.Command(bin, "doctor", "--ci")
+	cmd.Env = env
+	out, _ := cmd.CombinedOutput()
+
+	assert.Contains(t, string(out), "Config stack")
+	assert.Contains(t, string(out), "team (consul): not configured, optional; run `compile-tool init config team`")
+	assert.Contains(t, string(out), "secrets (vault): not configured, optional")
 }
 
 // assertMCPExportCarriesHints builds the scaffold binary and reads its
 // `mcp tools` export: the annotated command carries what the manifest said,
 // and a built-in carries the framework's default.
-func assertMCPExportCarriesHints(t *testing.T, path string) {
+func assertMCPExportCarriesHints(t *testing.T, bin string) {
 	t.Helper()
-
-	bin := filepath.Join(t.TempDir(), "compile-tool")
-	runGo(t, path, "build", "-buildvcs=false", "-o", bin, "./cmd/compile-tool")
 
 	work := t.TempDir()
 	env := []string{"HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")}
