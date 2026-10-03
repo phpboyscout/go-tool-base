@@ -36,7 +36,7 @@ require (
 	gitlab.com/phpboyscout/go/browser v0.2.2
 	gitlab.com/phpboyscout/go/changelog v0.4.0
 	gitlab.com/phpboyscout/go/chat v0.24.0
-	gitlab.com/phpboyscout/go/config v0.18.0
+	gitlab.com/phpboyscout/go/config v0.20.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.11
 	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.3
 	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.2

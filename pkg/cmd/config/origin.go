@@ -10,7 +10,7 @@ func fileBacked(view *cfg.View, key string) bool {
 		return true
 	}
 
-	for _, source := range view.Shadowed(key) {
+	for _, source := range view.DefinedIn(key) {
 		if source.Kind == cfg.SourceFile {
 			return true
 		}
@@ -31,7 +31,7 @@ func userAuthoredKey(view *cfg.View, key string) bool {
 		return true
 	}
 
-	for _, source := range view.Shadowed(key) {
+	for _, source := range view.DefinedIn(key) {
 		if isUser(source) {
 			return true
 		}
