@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -163,6 +164,7 @@ func DefaultChecks(_ *p.Props) []CheckFunc {
 	checks := []CheckFunc{
 		checkGoVersion,
 		checkConfig,
+		checkConfigStack,
 		checkNoLiteralCredentials,
 		checkCredentialResolution,
 		checkPermissions,
@@ -195,7 +197,7 @@ func PrintReport(w io.Writer, report *DoctorReport) {
 		_, _ = fmt.Fprintf(w, "  %s %s: %s\n", icon, check.Name, check.Message)
 
 		if check.Details != "" {
-			_, _ = fmt.Fprintf(w, "       %s\n", check.Details)
+			_, _ = fmt.Fprintf(w, "       %s\n", strings.ReplaceAll(check.Details, "\n", "\n       "))
 		}
 	}
 }

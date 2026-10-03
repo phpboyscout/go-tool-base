@@ -27,3 +27,12 @@ Feature: CLI Doctor Command
     And stdout contains "[SKIP] Configuration: no config file yet"
     And stdout contains "init` creates one"
     And stdout contains "[SKIP] Permissions: config directory not created yet"
+
+  # Spec 0204 D10. A stack with a declared source is covered by the unit
+  # tests: the e2e binary links no source kind.
+  Scenario: The config stack is reported in the order it resolves
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "Config stack"
+    And stdout contains "1. defaults: embedded defaults"
+    And stdout contains "flags: changed flags"
