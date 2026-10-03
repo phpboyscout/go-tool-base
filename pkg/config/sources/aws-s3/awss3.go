@@ -15,7 +15,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/awssource"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -26,7 +25,7 @@ const Kind = "aws-s3"
 var ErrNoObject = errors.NewSentinel("gtb.config.sources.aws_s3.no_object", "aws-s3 config source needs a bucket and a key")
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factory, initialiser)
+	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
 // factory builds the S3 client itself rather than through the adapter's
@@ -56,11 +55,4 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 	}
 
 	return config.NewCodecBackend(configawss3.Wrap(client, bucket, opts...), key, codec), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append([]setup.SourceSetting{
-		{Key: "bucket", Title: "Bucket", Required: true},
-		{Key: "key", Title: "Object key", Description: "The config file's key; its extension says its format", Required: true},
-	}, awssource.Settings()...)...)
 }

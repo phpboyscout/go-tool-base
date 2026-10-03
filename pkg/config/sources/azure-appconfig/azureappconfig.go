@@ -14,7 +14,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/azuresource"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -29,7 +28,7 @@ var ErrNoEndpoint = errors.NewSentinel("gtb.config.sources.azure_appconfig.no_en
 type opener func(ctx context.Context, settings config.Reader) (configazureappconfig.Store, error)
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryWith(openStore), initialiser)
+	setup.RegisterConfigSourceKind(Kind, factoryWith(openStore), setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factoryWith(open opener) setup.SourceFactory {
@@ -78,12 +77,4 @@ func openStore(ctx context.Context, settings config.Reader) (configazureappconfi
 	}
 
 	return configazureappconfig.Wrap(client), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append([]setup.SourceSetting{
-		{Key: "endpoint", Title: "App Configuration endpoint", Description: "Such as https://acme.azconfig.io", Required: true},
-		{Key: "prefix", Title: "Key prefix", Description: "The keys under it are read; leave empty for every key"},
-		{Key: "label", Title: "Label", Description: "Leave empty for settings with no label"},
-	}, azuresource.Settings()...)...)
 }

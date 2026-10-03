@@ -16,7 +16,6 @@ import (
 	"gitlab.com/phpboyscout/go/vaultclient"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourceauth"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -31,7 +30,7 @@ const defaultMount = "secret"
 var ErrNoPath = errors.NewSentinel("gtb.config.sources.vault.no_path", "vault config source needs one of path or prefix")
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factory, initialiser)
+	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factory(ctx context.Context, settings config.Reader, _ setup.ConfigBootstrap) (config.Backend, error) {
@@ -86,13 +85,4 @@ func options(settings config.Reader) ([]configvault.Option, error) {
 	}
 
 	return []configvault.Option{configvault.WithPollInterval(d)}, nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot,
-		setup.SourceSetting{Key: "address", Title: "Vault address", Description: "Leave empty to use VAULT_ADDR"},
-		setup.SourceSetting{Key: "mount", Title: "KV v2 mount", Default: defaultMount},
-		setup.SourceSetting{Key: "path", Title: "Secret path", Description: "The secret read as configuration", Required: true},
-		setup.SourceSetting{Key: "auth.env", Title: "Token variable", Description: "A variable holding the token; leave empty to use VAULT_TOKEN"},
-	)
 }

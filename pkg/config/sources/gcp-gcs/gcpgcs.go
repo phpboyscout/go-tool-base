@@ -15,7 +15,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/gcpsource"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -30,7 +29,7 @@ var ErrNoObject = errors.NewSentinel("gtb.config.sources.gcp_gcs.no_object", "gc
 type opener func(ctx context.Context, settings config.Reader) (config.FS, error)
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryWith(openBucket), initialiser)
+	setup.RegisterConfigSourceKind(Kind, factoryWith(openBucket), setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factoryWith(open opener) setup.SourceFactory {
@@ -66,11 +65,4 @@ func openBucket(ctx context.Context, settings config.Reader) (config.FS, error) 
 	}
 
 	return configgcpgcs.Wrap(client, settings.GetString("bucket")), nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot,
-		setup.SourceSetting{Key: "bucket", Title: "Bucket", Required: true},
-		setup.SourceSetting{Key: "object", Title: "Object name", Description: "The config file's name; its extension says its format", Required: true},
-	)
 }

@@ -11,7 +11,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/azuresource"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -26,7 +25,7 @@ var ErrNoBlob = errors.NewSentinel("gtb.config.sources.azure_blob.no_blob", "azu
 type opener func(ctx context.Context, settings config.Reader) (config.FS, error)
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factoryWith(openContainer), initialiser)
+	setup.RegisterConfigSourceKind(Kind, factoryWith(openContainer), setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factoryWith(open opener) setup.SourceFactory {
@@ -57,12 +56,4 @@ func openContainer(ctx context.Context, settings config.Reader) (config.FS, erro
 	}
 
 	return configazureblob.FSFromCredential(cred, settings.GetString("service_url"), settings.GetString("container"))
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append([]setup.SourceSetting{
-		{Key: "service_url", Title: "Storage service URL", Description: "Such as https://acme.blob.core.windows.net", Required: true},
-		{Key: "container", Title: "Container", Required: true},
-		{Key: "blob", Title: "Blob name", Description: "The config file's name; its extension says its format", Required: true},
-	}, azuresource.Settings()...)...)
 }

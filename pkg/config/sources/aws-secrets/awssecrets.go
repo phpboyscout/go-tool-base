@@ -14,7 +14,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/awssource"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourcesettings"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -29,7 +28,7 @@ const defaultValueFormat = "json"
 var ErrNoName = errors.NewSentinel("gtb.config.sources.aws_secrets.no_name", "aws-secrets config source needs one of name or prefix")
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factory, initialiser)
+	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
@@ -92,10 +91,4 @@ func options(settings config.Reader) ([]configawssecrets.Option, error) {
 	}
 
 	return opts, nil
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append([]setup.SourceSetting{
-		{Key: "name", Title: "Secret name", Description: "The secret whose JSON value is read as configuration", Required: true},
-	}, awssource.Settings()...)...)
 }

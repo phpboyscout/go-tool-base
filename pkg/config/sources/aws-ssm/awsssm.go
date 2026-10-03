@@ -13,7 +13,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/awssource"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourcesettings"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -24,7 +23,7 @@ const Kind = "aws-ssm"
 var ErrNoPrefix = errors.NewSentinel("gtb.config.sources.aws_ssm.no_prefix", "aws-ssm config source has no prefix")
 
 func init() {
-	setup.RegisterConfigSourceKind(Kind, factory, initialiser)
+	setup.RegisterConfigSourceKind(Kind, factory, setup.ConfigSourceInitialiserFor(Kind))
 }
 
 func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
@@ -59,10 +58,4 @@ func factory(ctx context.Context, settings config.Reader, b setup.ConfigBootstra
 	}
 
 	return configawsssm.FromConfig(cfg, prefix, opts...)
-}
-
-func initialiser(_ *props.Props, slot props.ConfigSource) setup.Initialiser {
-	return setup.SettingsInitialiser(slot, append([]setup.SourceSetting{
-		{Key: "prefix", Title: "Parameter path prefix", Description: "Every parameter under it is read, such as /team/mytool", Required: true},
-	}, awssource.Settings()...)...)
 }
