@@ -57,7 +57,7 @@ func PrepareForm(io props.IO, f *huh.Form) *huh.Form {
 	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible()).WithTheme(FormTheme())
 
 	if !io.Accessible() {
-		f = f.WithProgramOptions(programOptions(in, out)...)
+		f = f.WithProgramOptions(append(programOptions(in, out), tea.WithFilter(refocusRefusedField(f)))...)
 	}
 
 	return f
