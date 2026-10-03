@@ -302,6 +302,9 @@ The kinds that need no network, each a link package under
 | `azure-blob` | one config file held as a blob, in the format its name says | `service_url`, `container`, `blob`, `tenant_id` |
 | `azure-keyvault` | one Key Vault secret whose value is a document, or every secret in the vault | `vault_url`, `name`, `name_prefix`, `value_format` (default `json` for one secret), `poll_interval`, `tenant_id` |
 | `azure-appconfig` | the settings under a key prefix in an App Configuration store | `endpoint`, `prefix`, `label`, `sentinel_key`, `value_format`, `tenant_id` |
+| `gcp-gcs` | one config file held as a Cloud Storage object, in the format its name says | `bucket`, `object`, `endpoint` |
+| `gcp-secret` | one Secret Manager secret whose payload is a document, or a project's secrets | `project`, `location`, `secret`, `name_prefix`, `version`, `value_format` (default `json` for one secret), `poll_interval`, `endpoint` |
+| `gcp-parameter` | one Parameter Manager parameter whose payload is a document, or every parameter under an ID prefix | `project`, `location` (default `global`), `parameter` or `prefix`, `value_format` (default `yaml` for one parameter), `poll_interval`, `endpoint` |
 
 The AWS kinds share `region`, `profile` and `endpoint` (for LocalStack or
 MinIO), applied over awsclient's ambient chain: SSO, shared profiles, instance
@@ -309,7 +312,10 @@ and pod identity, and the standard `AWS_*` variables. A single Secrets Manager
 secret is decoded in its value format, so a JSON secret needs the `json` format
 linked. The Azure kinds take their credential from azureclient's ambient
 chain: environment, workload and managed identity, and the Azure CLI's login,
-with an optional `tenant_id`.
+with an optional `tenant_id`. The GCP kinds take theirs from gcpclient's
+Application Default Credentials (the metadata server, workload identity,
+`GOOGLE_APPLICATION_CREDENTIALS`, gcloud's login); a project is always named,
+because the credential says who you are, not whose data to read.
 
 Vault and Consul start from their providers' own conventions: vaultclient's
 ambient chain (`VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`) and Consul's
