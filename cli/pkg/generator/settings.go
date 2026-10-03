@@ -31,6 +31,7 @@ var readOnlyReasons = map[string]string{
 	"properties.features":         "use gtb enable <feature> and gtb disable <feature>",
 	"properties.templates":        "use gtb template add, update and remove",
 	"properties.docs_layout":      "recorded by the generator",
+	"properties.config.sources":   "a list of slots: declare them with gtb generate --config-source, or edit .gtb/manifest.yaml and regenerate",
 	"properties.module_published": "recorded by the generator",
 	"version.gtb":                 "recorded by the gtb that generates",
 	// A rename touches cmd/<name>/, the README, the release configuration

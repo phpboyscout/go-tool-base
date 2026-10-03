@@ -59,9 +59,10 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 		},
 		// The stack, recovered from the root's ConfigSpec, and the linked
 		// formats, recovered from cmd/<name>/config.go (spec 0204).
-		ConfigLayers:  []string{"defaults", "project", "files", "env", "flags"},
+		ConfigLayers:  []string{"defaults", "team", "project", "files", "tokens", "env", "flags"},
 		ConfigFormats: []string{"toml", "dotenv"},
 		ConfigFormat:  "toml",
+		ConfigSources: []ManifestConfigSource{{Name: "team", Kind: "consul", Required: new(false)}, {Name: "tokens", Kind: "keychain", Writable: new(false)}},
 	}
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
 

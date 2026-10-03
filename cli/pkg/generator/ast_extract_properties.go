@@ -343,6 +343,8 @@ func extractConfigSpecLiteral(value dst.Expr, c *ManifestConfig) {
 			if v, ok := stringLitValue(kv.Value); ok {
 				c.Format = v
 			}
+		case "Sources":
+			c.Sources = sourcesFromLiteral(kv.Value)
 		}
 	}
 }
@@ -358,13 +360,88 @@ func layersFromLiteral(value dst.Expr) []string {
 	var layers []string
 
 	for _, elt := range comp.Elts {
-		sel, ok := elt.(*dst.SelectorExpr)
-		if !ok || !strings.HasPrefix(sel.Sel.Name, "Layer") {
-			continue
+		switch e := elt.(type) {
+		case *dst.SelectorExpr:
+			if strings.HasPrefix(e.Sel.Name, "Layer") {
+				layers = append(layers, strings.ToLower(strings.TrimPrefix(e.Sel.Name, "Layer")))
+			}
+		case *dst.CallExpr:
+			// props.ConfigLayer("team"): a source slot's layer.
+			if len(e.Args) == 1 {
+				if name, ok := stringLitValue(e.Args[0]); ok {
+					layers = append(layers, name)
+				}
+			}
 		}
-
-		layers = append(layers, strings.ToLower(strings.TrimPrefix(sel.Sel.Name, "Layer")))
 	}
 
 	return layers
+}
+
+// sourcesFromLiteral reads []props.ConfigSource{{Name: ..., Kind: ...,
+// Required: props.BoolPtr(false)}} back into manifest slots.
+func sourcesFromLiteral(value dst.Expr) []ManifestConfigSource {
+	comp, ok := value.(*dst.CompositeLit)
+	if !ok {
+		return nil
+	}
+
+	var sources []ManifestConfigSource
+
+	for _, elt := range comp.Elts {
+		inner, ok := elt.(*dst.CompositeLit)
+		if !ok {
+			continue
+		}
+
+		var s ManifestConfigSource
+
+		for _, field := range inner.Elts {
+			kv, ok := field.(*dst.KeyValueExpr)
+			if !ok {
+				continue
+			}
+
+			key, ok := kv.Key.(*dst.Ident)
+			if !ok {
+				continue
+			}
+
+			applySourceField(&s, key.Name, kv.Value)
+		}
+
+		sources = append(sources, s)
+	}
+
+	return sources
+}
+
+func applySourceField(s *ManifestConfigSource, field string, value dst.Expr) {
+	switch field {
+	case "Name":
+		s.Name, _ = stringLitValue(value)
+	case "Kind":
+		s.Kind, _ = stringLitValue(value)
+	case "Required":
+		s.Required = boolPtrFromCall(value)
+	case "Writable":
+		s.Writable = boolPtrFromCall(value)
+	}
+}
+
+// boolPtrFromCall reads props.BoolPtr(true|false).
+func boolPtrFromCall(value dst.Expr) *bool {
+	call, ok := value.(*dst.CallExpr)
+	if !ok || len(call.Args) != 1 {
+		return nil
+	}
+
+	ident, ok := call.Args[0].(*dst.Ident)
+	if !ok || (ident.Name != "true" && ident.Name != "false") {
+		return nil
+	}
+
+	b := ident.Name == "true"
+
+	return &b
 }

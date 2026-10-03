@@ -66,6 +66,8 @@ type SkeletonConfig struct {
 	// own (spec 0204 D2).
 	ConfigFormats []string
 	ConfigFormat  string
+	// ConfigSources are the declared config source slots (spec 0204 D15).
+	ConfigSources []ManifestConfigSource
 	Signing       ManifestSigning   // self-update signature-verification posture (disabled by default)
 	Chat          ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
 	Bootstrap     ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
@@ -588,6 +590,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 	}
 
 	config = withImpliedForge(config)
+	config = withSourceImplications(config)
 
 	if config.Description == "" {
 		config.Description = fmt.Sprintf("%s utility", config.Name)
@@ -627,7 +630,8 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		EnvPrefix:             config.EnvPrefix,
 		ConfigLayers:          config.ConfigLayers,
 		ConfigFormat:          normaliseOwnFormat(config.ConfigFormat),
-		ConfigFormatModules:   configFormatModules(config.ConfigFormats),
+		ConfigFormatModules:   configLinkModules(config.ConfigFormats, config.ConfigSources),
+		ConfigSources:         sourceTemplateData(config.ConfigSources),
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
 		UpdatePolicy:          config.UpdatePolicy,
@@ -893,6 +897,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			EnvPrefix:             data.EnvPrefix,
 			ConfigLayers:          data.ConfigLayers,
 			ConfigFormat:          data.ConfigFormat,
+			ConfigSources:         data.ConfigSources,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			MCPMode:               data.MCPMode,
@@ -1340,6 +1345,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 				Layers:  config.ConfigLayers,
 				Formats: normaliseConfigFormats(config.ConfigFormats),
 				Format:  normaliseOwnFormat(config.ConfigFormat),
+				Sources: config.ConfigSources,
 			},
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,

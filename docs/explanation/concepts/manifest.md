@@ -107,8 +107,17 @@ the generated Go source does not fully encode:
     `props.Tool.Config`; absent means the framework default. `formats` are the
     config formats the tool links beyond YAML, each a blank import in
     `cmd/<name>/config.go`, which exists only while one is listed. `format` is
-    the tool's own config file format, empty for YAML. A manifest from before
-    `layers` carried `config_layers`, which the first regenerate moves here.
+    the tool's own config file format, empty for YAML. `sources` are the
+    tool's config source slots, each `{name, kind, required, writable}`: a
+    named place in the stack that each operator configures with
+    `<tool> init config <name>`. A slot's layer is its name, and with no
+    `layers` the slots sit above the defaults and below the user's own files.
+    A shipped kind is a blank import in `cmd/<name>/config.go`; an
+    override-only kind (`etcd`, `sftp`, `billy`, `iofs`, `afero`) is built by
+    the author's own code. A `keychain` slot enables the keychain, and
+    declaring any slot fills an empty `env_prefix` from the name. A manifest
+    from before `layers` carried `config_layers`, which the first regenerate
+    moves here.
 - **signing**: The self-update signing posture (backend, key id/region, public
     key path, enforcement flags).
 - **templates**: Custom template-overlay provenance and pins: `{name, type,

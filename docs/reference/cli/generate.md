@@ -73,6 +73,9 @@ manifest.
 | `--config-layers` | *(framework default)* | Config-stack layers the tool wires, lowest precedence first; the order is the precedence. `defaults` must be lowest, `flags` highest, and `project` below `env`. Recorded as `config.layers`. |
 | `--config-formats` | *(none)* | Config formats the tool reads beyond YAML, which is built in: `toml`, `json`, `hcl`, `ini`, `xml`, `dotenv`, `properties`. Each is a blank import in `cmd/<name>/config.go`. Recorded as `config.formats`. |
 | `--config-format` | `yaml` | The format of the tool's own config file, the one `init` writes: `yaml`, `toml`, `json` or `hcl`, and it must be in `--config-formats` unless it is YAML. Recorded as `config.format`. |
+| `--config-source` | — | A config source slot as `name=kind`, repeatable, in precedence order. Kinds: `file`, `keychain`, `vault`, `consul`, `aws-s3`, `aws-ssm`, `aws-secrets`, `azure-blob`, `azure-keyvault`, `azure-appconfig`, `gcp-gcs`, `gcp-secret`, `gcp-parameter`, and the override-only `etcd`, `sftp`, `billy`, `iofs`, `afero`. Without `--config-layers` the slots sit above the defaults and below the user's own files; with it, the list must place every slot by name. A `keychain` slot enables the keychain feature, and any slot fills an empty `--env-prefix` from the project name. Recorded as `config.sources`; `gtb set` does not take it. |
+| `--config-source-optional` | — | Slots the tool may run without; a slot is required otherwise. |
+| `--config-source-writable` | — | Slots the tool may write to; a slot is read-only otherwise, except a `keychain` one. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
 | `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. |

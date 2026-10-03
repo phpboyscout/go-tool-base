@@ -79,6 +79,36 @@ func TestSkeletonOptions_AuthorSettingsReachTheConfig(t *testing.T) {
 
 	o.ConfigFormat = ""
 
+	// Spec 0204 D15: name=kind, with optional and writable naming declared
+	// slots.
+	o.ConfigSources = []string{"team=consul", "legacy=etcd"}
+	o.ConfigSourcesOptional = []string{"team"}
+	o.ConfigSourcesWritable = []string{"legacy"}
+	require.NoError(t, o.validateFields())
+
+	cfg = o.skeletonConfig(nil)
+	require.Len(t, cfg.ConfigSources, 2)
+	assert.Equal(t, "team", cfg.ConfigSources[0].Name)
+	assert.Equal(t, "consul", cfg.ConfigSources[0].Kind)
+	require.NotNil(t, cfg.ConfigSources[0].Required)
+	assert.False(t, *cfg.ConfigSources[0].Required)
+	assert.Nil(t, cfg.ConfigSources[0].Writable)
+	require.NotNil(t, cfg.ConfigSources[1].Writable)
+	assert.True(t, *cfg.ConfigSources[1].Writable)
+
+	o.ConfigSourcesWritable = []string{"ghost"}
+	require.Error(t, o.validateFields(), "writable names a slot that is not declared")
+
+	o.ConfigSourcesWritable = nil
+	o.ConfigSources = []string{"team"}
+	require.Error(t, o.validateFields(), "a slot is name=kind")
+
+	o.ConfigSources = []string{"team=zookeeper"}
+	o.ConfigSourcesOptional = nil
+	require.Error(t, o.validateFields(), "an unknown kind")
+
+	o.ConfigSources = nil
+
 	o.ConfigLayers = nil
 	o.TelemetryEndpoint = "not a url"
 	require.Error(t, o.validateFields(), "a malformed endpoint is refused at the flag")

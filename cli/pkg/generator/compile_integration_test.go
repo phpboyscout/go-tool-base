@@ -76,6 +76,12 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 		// build and lint clean as emitted.
 		ConfigFormats: []string{"toml", "dotenv", "properties"},
 		ConfigFormat:  "toml",
+		// D3: the slots, their layers and the kinds' blank imports build as
+		// emitted. Optional, so the built binary runs unconfigured.
+		ConfigSources: []ManifestConfigSource{
+			{Name: "team", Kind: "consul", Required: new(false)},
+			{Name: "secrets", Kind: "vault", Required: new(false), Writable: new(true)},
+		},
 	}
 
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg), "skeleton generation must succeed")

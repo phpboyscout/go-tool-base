@@ -901,7 +901,7 @@ func ValidateConfigLayers(layers []string) error {
 // validateManifestConfig checks the declared stack, and a legacy
 // config_layers list in the order the first regenerate will move it to.
 func validateManifestConfig(p *ManifestProperties) error {
-	if err := ValidateConfigLayers(p.Config.Layers); err != nil {
+	if err := ValidateConfigStack(p.Config.Layers, p.Config.Sources, p.Features); err != nil {
 		return err
 	}
 

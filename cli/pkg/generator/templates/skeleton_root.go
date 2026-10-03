@@ -58,6 +58,8 @@ type SkeletonRootData struct {
 	ConfigLayers []string
 	// ConfigFormat is the tool's own config format; empty is YAML.
 	ConfigFormat string
+	// ConfigSources are the declared config source slots (spec 0204 D15).
+	ConfigSources []ConfigSourceData
 	// UpdatePolicy wires props.Tool.UpdatePolicy in the generated root. Empty
 	// (or "disabled") leaves the field off so the framework default applies;
 	// "prompt"/"enabled" emit the matching props.UpdatePolicy* constant.
@@ -463,11 +465,46 @@ func buildConfigSpec(data SkeletonRootData) jen.Code {
 		spec[jen.Id("Format")] = jen.Lit(data.ConfigFormat)
 	}
 
+	if len(data.ConfigSources) > 0 {
+		spec[jen.Id("Sources")] = buildConfigSources(data.ConfigSources)
+	}
+
 	if len(spec) == 0 {
 		return nil
 	}
 
 	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigSpec").Values(spec)
+}
+
+// ConfigSourceData is one declared config source slot as the root renders
+// it.
+type ConfigSourceData struct {
+	Name     string
+	Kind     string
+	Required *bool
+	Writable *bool
+}
+
+// buildConfigSources renders the declared slots as props.ConfigSource
+// literals, stating required and writable only when the manifest does.
+func buildConfigSources(sources []ConfigSourceData) jen.Code {
+	items := make([]jen.Code, 0, len(sources))
+
+	for _, s := range sources {
+		fields := jen.Dict{jen.Id("Name"): jen.Lit(s.Name), jen.Id("Kind"): jen.Lit(s.Kind)}
+
+		if s.Required != nil {
+			fields[jen.Id("Required")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "BoolPtr").Call(jen.Lit(*s.Required))
+		}
+
+		if s.Writable != nil {
+			fields[jen.Id("Writable")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "BoolPtr").Call(jen.Lit(*s.Writable))
+		}
+
+		items = append(items, jen.Values(fields))
+	}
+
+	return jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigSource").Values(items...)
 }
 
 // buildConfigLayers renders the declared layer set as props.ConfigLayer
@@ -478,6 +515,14 @@ func buildConfigLayers(layers []string) jen.Code {
 	items := make([]jen.Code, 0, len(layers))
 
 	for _, l := range layers {
+		// A built-in layer is its constant, so a renamed one fails the
+		// build; a source's layer is its slot name (spec 0204 D15).
+		if !props.IsValidConfigLayer(props.ConfigLayer(l)) {
+			items = append(items, jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigLayer").Call(jen.Lit(l)))
+
+			continue
+		}
+
 		items = append(items,
 			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", ConfigLayerConstName(l)))
 	}

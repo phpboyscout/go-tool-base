@@ -69,9 +69,9 @@ func configFormatsFile(name string) string {
 }
 
 // syncConfigFormatsFile writes cmd/<name>/config.go while the manifest links
-// a format beyond YAML and removes it once it links none.
-func (g *Generator) syncConfigFormatsFile(name string, formats []string) error {
-	modules := configFormatModules(formats)
+// a format beyond YAML or a source kind, and removes it once it links none.
+func (g *Generator) syncConfigFormatsFile(name string, formats []string, sources []ManifestConfigSource) error {
+	modules := configLinkModules(formats, sources)
 	if len(modules) == 0 {
 		return g.removeGeneratedFile(configFormatsFile(name))
 	}

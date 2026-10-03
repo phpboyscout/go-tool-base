@@ -434,6 +434,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		EnvPrefix:             m.Properties.EnvPrefix,
 		ConfigLayers:          m.Properties.Config.Layers,
 		ConfigFormat:          m.Properties.Config.Format,
+		ConfigSources:         sourceTemplateData(m.Properties.Config.Sources),
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,
@@ -578,6 +579,7 @@ type skeletonTemplateData struct {
 	ConfigLayers          []string
 	ConfigFormat          string
 	ConfigFormatModules   []string
+	ConfigSources         []templates.ConfigSourceData
 	UpdatePolicy          string
 	UpdateCheckInterval   string
 	MCPMode               string
@@ -683,7 +685,8 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		EnvPrefix:             m.Properties.EnvPrefix,
 		ConfigLayers:          m.Properties.Config.Layers,
 		ConfigFormat:          m.Properties.Config.Format,
-		ConfigFormatModules:   configFormatModules(m.Properties.Config.Formats),
+		ConfigFormatModules:   configLinkModules(m.Properties.Config.Formats, m.Properties.Config.Sources),
+		ConfigSources:         sourceTemplateData(m.Properties.Config.Sources),
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,

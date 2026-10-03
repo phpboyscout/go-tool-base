@@ -132,6 +132,15 @@ type SkeletonOptions struct {
 	// ConfigFormat its own (spec 0204 D2).
 	ConfigFormats []string
 	ConfigFormat  string
+	// ConfigSources are the declared source slots as name=kind, and the two
+	// lists name the optional and the writable ones (spec 0204 D15).
+	ConfigSources         []string
+	ConfigSourcesOptional []string
+	ConfigSourcesWritable []string
+	// readOnlySources are slots a manifest marks writable: false. No flag
+	// sets it, since only the keychain is writable by default (D12); it is
+	// carried so a revisit keeps a hand-edited manifest's choice.
+	readOnlySources []string
 	// SigningRequireSignature and SigningRequireChecksum are the enforcement
 	// baselines. Only the checksum one is asked on a first run; the signature
 	// one is a footgun before a signed release has shipped (0071), so the
@@ -233,6 +242,9 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringSliceVar(&opts.ConfigLayers, "config-layers", nil, "Config-stack layers the tool wires, in precedence order (default: the framework's)")
 	cmd.Flags().StringSliceVar(&opts.ConfigFormats, "config-formats", nil, "Config formats the tool reads beyond YAML: toml, json, hcl, ini, xml, dotenv, properties")
 	cmd.Flags().StringVar(&opts.ConfigFormat, "config-format", "", "The tool's own config file format: yaml (default), toml, json or hcl; must be linked")
+	cmd.Flags().StringArrayVar(&opts.ConfigSources, "config-source", nil, "A config source slot as name=kind, e.g. team=consul; repeatable")
+	cmd.Flags().StringSliceVar(&opts.ConfigSourcesOptional, "config-source-optional", nil, "Config source slots the tool may run without")
+	cmd.Flags().StringSliceVar(&opts.ConfigSourcesWritable, "config-source-writable", nil, "Config source slots the tool may write to")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify", false, "Skip go mod tidy and golangci-lint after generation (the run exits 0 unverified; without it a failed step exits 3)")
@@ -325,7 +337,12 @@ func (o *SkeletonOptions) validateFields() error {
 // a manifest home but no wizard page (spec 0197 D4), with the validators
 // ValidateManifest applies.
 func (o *SkeletonOptions) validatePostureFields() error {
-	if err := generator.ValidateConfigLayers(o.ConfigLayers); err != nil {
+	sources, err := o.configSources()
+	if err != nil {
+		return err
+	}
+
+	if err := generator.ValidateConfigStack(o.ConfigLayers, sources, o.resolveFeatures()); err != nil {
 		return err
 	}
 
@@ -871,7 +888,7 @@ func forgeBackendNames() []string {
 // deriveEnvPrefix is the default env-var prefix for a project name: upper-case
 // with hyphens turned into underscores (my-app → MY_APP).
 func deriveEnvPrefix(name string) string {
-	return strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+	return generator.DeriveEnvPrefix(name)
 }
 
 // The env-prefix page's choices. The prefix itself is resolved after the
@@ -1793,6 +1810,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		ConfigLayers:          o.ConfigLayers,
 		ConfigFormats:         o.ConfigFormats,
 		ConfigFormat:          o.ConfigFormat,
+		ConfigSources:         o.mustConfigSources(),
 		UpdatePolicy:          o.UpdatePolicy,
 		MCPMode:               o.MCPMode,
 		UpdateCheckInterval:   o.UpdateCheckInterval,
@@ -1914,4 +1932,74 @@ func (o *SkeletonOptions) resolveSigning() generator.ManifestSigning {
 		RequireSignature: o.SigningRequireSignature,
 		RequireChecksum:  o.SigningRequireChecksum,
 	})
+}
+
+// ErrConfigSourceFlag is a --config-source value that is not name=kind, or a
+// slot list naming a slot no --config-source declares.
+var ErrConfigSourceFlag = errors.NewSentinel("gtb.generate.config_source_flag", "invalid config source flag")
+
+// configSources parses the source flags into the manifest's slots.
+func (o *SkeletonOptions) configSources() ([]generator.ManifestConfigSource, error) {
+	var sources []generator.ManifestConfigSource
+
+	for _, raw := range o.ConfigSources {
+		name, kind, ok := strings.Cut(raw, "=")
+		if !ok || name == "" || kind == "" {
+			return nil, errors.WithHint(errors.Wrapf(ErrConfigSourceFlag, "%q", raw), "declare a slot as --config-source name=kind")
+		}
+
+		sources = append(sources, generator.ManifestConfigSource{Name: name, Kind: kind})
+	}
+
+	marks := []struct {
+		flag  string
+		names []string
+		set   func(*generator.ManifestConfigSource)
+	}{
+		{"--config-source-optional", o.ConfigSourcesOptional, func(s *generator.ManifestConfigSource) { s.Required = new(false) }},
+		{"--config-source-writable", o.ConfigSourcesWritable, func(s *generator.ManifestConfigSource) { s.Writable = new(true) }},
+		{"writable: false", o.readOnlySources, func(s *generator.ManifestConfigSource) { s.Writable = new(false) }},
+	}
+
+	for _, mark := range marks {
+		for _, name := range mark.names {
+			i := slices.IndexFunc(sources, func(s generator.ManifestConfigSource) bool { return s.Name == name })
+			if i < 0 {
+				return nil, errors.WithHintf(errors.Wrapf(ErrConfigSourceFlag, "%s names %q", mark.flag, name),
+					"declare it with --config-source %s=<kind>", name)
+			}
+
+			mark.set(&sources[i])
+		}
+	}
+
+	return sources, nil
+}
+
+// mustConfigSources is configSources after validateFields has accepted it.
+func (o *SkeletonOptions) mustConfigSources() []generator.ManifestConfigSource {
+	sources, _ := o.configSources()
+
+	return sources
+}
+
+// sourceFlags turns a manifest's slots back into the flags' shape.
+func sourceFlags(sources []generator.ManifestConfigSource) (declared, optional, writable, readOnly []string) {
+	for _, s := range sources {
+		declared = append(declared, s.Name+"="+s.Kind)
+
+		if s.Required != nil && !*s.Required {
+			optional = append(optional, s.Name)
+		}
+
+		if s.Writable != nil {
+			if *s.Writable {
+				writable = append(writable, s.Name)
+			} else {
+				readOnly = append(readOnly, s.Name)
+			}
+		}
+	}
+
+	return declared, optional, writable, readOnly
 }

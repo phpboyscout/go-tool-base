@@ -44,6 +44,8 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		revisit:               true,
 	}
 
+	o.ConfigSources, o.ConfigSourcesOptional, o.ConfigSourcesWritable, o.readOnlySources = sourceFlags(cfg.ConfigSources)
+
 	o.mcpCommands = mcpCommandChoices(m.Commands)
 	for _, c := range o.mcpCommands {
 		if c.Exposed {

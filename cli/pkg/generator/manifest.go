@@ -507,6 +507,9 @@ type ManifestConfig struct {
 	Formats []string `yaml:"formats,omitempty"`
 	// Format is the tool's own config format; empty is YAML.
 	Format string `yaml:"format,omitempty"`
+	// Sources are the declared config source slots, each placed in Layers
+	// (spec 0204 D15).
+	Sources []ManifestConfigSource `yaml:"sources,omitempty"`
 }
 
 // ManifestMCP is the properties.mcp block.
