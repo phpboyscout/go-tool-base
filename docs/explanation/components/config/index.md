@@ -286,7 +286,7 @@ with every source in its declared place.
   etcd, sftp, billy, iofs and afero sources. An override for a slot the tool does
   not declare stops the tool, so a stale one cannot add a layer.
 
-The kinds that need no network, each a link package under
+The kinds the framework ships, each a link package under
 `pkg/config/sources/<kind>`, and the settings each reads from
 `config.sources.<name>`:
 
@@ -296,9 +296,9 @@ The kinds that need no network, each a link package under
 | `keychain` | tokens in the OS keychain, under one service | `service`, `keys` (config path to keychain account), `timeout` |
 | `vault` | a HashiCorp Vault KV v2 secret, or every secret under a prefix | `address`, `namespace`, `mount` (default `secret`), `path` or `prefix`, `poll_interval`, `auth.*` |
 | `consul` | the keys under a Consul KV prefix | `address`, `datacenter`, `prefix`, `value_format`, `auth.*` |
-| `aws-s3` | one config file held as an S3 object, in the format its key names | `bucket`, `key`, `key_prefix`, `path_style`, plus the AWS settings |
-| `aws-ssm` | every Systems Manager parameter under a path prefix | `prefix`, `value_format`, `poll_interval`, plus the AWS settings |
-| `aws-secrets` | one Secrets Manager secret whose value is a document, or every secret under a prefix | `name` or `prefix`, `value_format` (default `json` for one secret), `version_stage`, `poll_interval`, plus the AWS settings |
+| `aws-s3` | one config file held as an S3 object, in the format its key names | `bucket`, `key`, `key_prefix`, `path_style`, `region`, `profile`, `endpoint` |
+| `aws-ssm` | every Systems Manager parameter under a path prefix | `prefix`, `value_format`, `poll_interval`, `region`, `profile`, `endpoint` |
+| `aws-secrets` | one Secrets Manager secret whose value is a document, or every secret under a prefix | `name` or `prefix`, `value_format` (default `json` for one secret), `version_stage`, `poll_interval`, `region`, `profile`, `endpoint` |
 | `azure-blob` | one config file held as a blob, in the format its name says | `service_url`, `container`, `blob`, `tenant_id` |
 | `azure-keyvault` | one Key Vault secret whose value is a document, or every secret in the vault | `vault_url`, `name`, `name_prefix`, `value_format` (default `json` for one secret), `poll_interval`, `tenant_id` |
 | `azure-appconfig` | the settings under a key prefix in an App Configuration store | `endpoint`, `prefix`, `label`, `sentinel_key`, `value_format`, `tenant_id` |
