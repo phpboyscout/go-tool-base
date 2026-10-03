@@ -73,7 +73,7 @@ import (
 )
 
 func init() {
-	setup.OverrideConfigSource("legacy", func(_ context.Context, settings config.Reader, _ setup.ConfigBootstrap) (config.Backend, error) {
+	setup.OverrideConfigSource("legacy", func(_ context.Context, settings config.Reader, b setup.ConfigBootstrap) (config.Backend, error) {
 		cfg := clientv3.Config{DialTimeout: 5 * time.Second}
 		prefix := "/mytool/"
 
@@ -85,14 +85,25 @@ func init() {
 			}
 		}
 
-		return configetcd.FromConfig(cfg, prefix)
+		client, err := clientv3.New(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		setup.CloseWithStore(b, client)
+
+		return configetcd.FromClient(client, prefix), nil
 	})
 }
 ```
 
+`setup.CloseWithStore` hands the client to the store, which closes it when it
+is closed, or straight away if a later source stops the tool starting. Hand over
+anything your factory builds that holds a connection.
+
 The user then sets `config.sources.legacy.endpoints` in their own config file.
-With none set, `FromConfig` refuses, and a required slot stops the tool naming
-it.
+With none set, `clientv3.New` refuses ("no available endpoints"), and a required
+slot stops the tool naming it.
 
 A slot that reads a file compiled into the binary, in whichever format its
 extension names:

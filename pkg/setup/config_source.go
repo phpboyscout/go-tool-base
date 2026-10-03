@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"io"
 	"slices"
 	"strings"
 
@@ -73,6 +74,21 @@ type SourceCredentialReporter interface {
 func ReportSourceCredential(b ConfigBootstrap, origin string) {
 	if r, ok := b.(SourceCredentialReporter); ok {
 		r.ReportCredential(origin)
+	}
+}
+
+// SourceCloserRegistrar is what the root's bootstrap implements so a factory
+// can hand the store a client it built, for the store to close with itself.
+type SourceCloserRegistrar interface {
+	CloseWithStore(c io.Closer)
+}
+
+// CloseWithStore hands c to the store b builds for, which closes it when it
+// is closed, or at once if the build fails. A bootstrap that does not listen
+// leaves c to its caller.
+func CloseWithStore(b ConfigBootstrap, c io.Closer) {
+	if r, ok := b.(SourceCloserRegistrar); ok {
+		r.CloseWithStore(c)
 	}
 }
 

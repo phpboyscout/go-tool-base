@@ -285,6 +285,9 @@ with every source in its declared place.
   tool's `main`) replaces the factory for one slot, and is the only way to build
   etcd, sftp, billy, iofs and afero sources. An override for a slot the tool does
   not declare stops the tool, so a stale one cannot add a layer.
+- **A client a factory builds is the store's to close.** A factory hands it over
+  with `setup.CloseWithStore`; the store closes it when it is closed, or at once
+  if a later source stops the build.
 
 The kinds the framework ships, each a link package under
 `pkg/config/sources/<kind>`, and the settings each reads from

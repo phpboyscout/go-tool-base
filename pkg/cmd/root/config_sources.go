@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -20,7 +21,7 @@ var bootstrapLayers = []p.ConfigLayer{p.LayerDefaults, p.LayerFiles, p.LayerEnv,
 // addSourceLayers builds each declared source slot into byLayer (spec 0204
 // D4). The bootstrap pass is a store from the layers of D5 alone; its view is
 // what every factory reads its slot's settings from.
-func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigSpec, byLayer map[p.ConfigLayer][]config.StoreOption) error {
+func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigSpec, byLayer map[p.ConfigLayer][]config.StoreOption) (err error) {
 	set := opts.Props.GetFeatures()
 	kinds := setup.ConfigSourceKindsIn(set)
 	overrides := setup.ConfigSourceOverridesIn(set)
@@ -37,6 +38,16 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 	bootstrap := sourceBootstrap{Store: store, fs: opts.Props.GetConfigFS(), codecs: setup.ConfigCodecsIn(set)}
 	opts.Props.SourceStatuses = nil
 
+	// Until the store exists to own them, what the factories built is closed
+	// here if a later slot stops the build.
+	var owned []io.Closer
+
+	defer func() {
+		if err != nil {
+			closeAll(owned)
+		}
+	}()
+
 	for i, layer := range spec.Layers {
 		for _, src := range spec.Sources {
 			if p.ConfigLayer(src.Name) != layer {
@@ -47,7 +58,9 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 				src.Required = new(false)
 			}
 
-			opt, status, err := sourceLayer(ctx, opts.Props, src, sourcePlace{index: i + 1, of: len(spec.Layers)}, kinds, overrides, bootstrap)
+			slot := &slotBootstrap{sourceBootstrap: bootstrap}
+
+			opt, status, err := sourceLayer(ctx, opts.Props, src, sourcePlace{index: i + 1, of: len(spec.Layers)}, kinds, overrides, slot)
 			if err != nil {
 				return err
 			}
@@ -55,7 +68,8 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 			opts.Props.SourceStatuses = append(opts.Props.SourceStatuses, status)
 
 			if opt != nil {
-				byLayer[layer] = []config.StoreOption{opt}
+				owned = append(owned, slot.closers...)
+				byLayer[layer] = append([]config.StoreOption{opt}, closerOptions(slot.closers)...)
 			}
 		}
 	}
@@ -118,13 +132,34 @@ func (b sourceBootstrap) CodecFor(path string) (config.Codec, error) {
 }
 
 // slotBootstrap is one slot's bootstrap: it keeps the credential rung the
-// slot's factory reports (spec 0204 D10).
+// slot's factory reports (spec 0204 D10), and what it hands the store to
+// close.
 type slotBootstrap struct {
 	sourceBootstrap
 	credential string
+	closers    []io.Closer
 }
 
 func (b *slotBootstrap) ReportCredential(origin string) { b.credential = origin }
+
+func (b *slotBootstrap) CloseWithStore(c io.Closer) { b.closers = append(b.closers, c) }
+
+func closerOptions(closers []io.Closer) []config.StoreOption {
+	opts := make([]config.StoreOption, 0, len(closers))
+	for _, c := range closers {
+		opts = append(opts, config.WithCloser(c))
+	}
+
+	return opts
+}
+
+// closeAll closes what no store will; the errors have nowhere useful to go
+// beside the one that stopped the build.
+func closeAll(closers []io.Closer) {
+	for _, c := range closers {
+		_ = c.Close()
+	}
+}
 
 // sourcePlace is a slot's position in the stack, for messages.
 type sourcePlace struct{ index, of int }
@@ -132,7 +167,7 @@ type sourcePlace struct{ index, of int }
 // sourceLayer builds one slot, or nothing when an optional slot is absent
 // (spec 0204 D6), and records how it fared.
 func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sourcePlace,
-	kinds map[string]setup.ConfigSourceKind, overrides map[string]setup.SourceFactory, bootstrap sourceBootstrap,
+	kinds map[string]setup.ConfigSourceKind, overrides map[string]setup.SourceFactory, slot *slotBootstrap,
 ) (config.StoreOption, p.ConfigSourceStatus, error) {
 	status := p.ConfigSourceStatus{Slot: src}
 
@@ -142,7 +177,7 @@ func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sou
 	}
 
 	var settings config.Reader
-	if sub := bootstrap.View().Sub("config.sources." + src.Name); sub != nil {
+	if sub := slot.View().Sub("config.sources." + src.Name); sub != nil {
 		settings = sub
 	}
 
@@ -159,12 +194,13 @@ func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sou
 		return nil, status, nil
 	}
 
-	slot := &slotBootstrap{sourceBootstrap: bootstrap}
-
 	backend, err := factory(ctx, settings, slot)
 	status.Credential = slot.credential
 
 	if err != nil {
+		closeAll(slot.closers)
+		slot.closers = nil
+
 		if src.IsRequired() {
 			return nil, status, errors.WithHint(
 				errors.Wrapf(setup.ErrConfigSourceUnavailable, "%q (%s, layer %d of %d): %v", src.Name, src.Kind, at.index, at.of, err),

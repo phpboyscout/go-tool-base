@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,4 +75,24 @@ func TestReportSourceCredential(t *testing.T) {
 	assert.Equal(t, "auth.keychain", r.got)
 
 	assert.NotPanics(t, func() { ReportSourceCredential(struct{ ConfigBootstrap }{}, "auth.env") })
+}
+
+type closingBootstrap struct {
+	ConfigBootstrap
+	got []io.Closer
+}
+
+func (c *closingBootstrap) CloseWithStore(closer io.Closer) { c.got = append(c.got, closer) }
+
+// A factory hands the store what it built and must be closed; a bootstrap
+// that does not listen is left alone.
+func TestCloseWithStore(t *testing.T) {
+	t.Parallel()
+
+	c := &closingBootstrap{}
+	closer := io.NopCloser(nil)
+	CloseWithStore(c, closer)
+	assert.Equal(t, []io.Closer{closer}, c.got)
+
+	assert.NotPanics(t, func() { CloseWithStore(struct{ ConfigBootstrap }{}, closer) })
 }
