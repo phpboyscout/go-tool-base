@@ -2,6 +2,7 @@ package gcpsecret
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,10 +46,10 @@ func TestFactory_ReadsOneSecret(t *testing.T) {
 
 	var project string
 
-	open := func(_ context.Context, s config.Reader) (configgcpsecret.API, error) {
+	open := func(_ context.Context, s config.Reader) (configgcpsecret.API, io.Closer, error) {
 		project = s.GetString("project")
 
-		return fakeSecrets{"app": `{"db":{"host":"db.internal"}}`}, nil
+		return fakeSecrets{"app": `{"db":{"host":"db.internal"}}`}, nil, nil
 	}
 
 	backend, err := factoryWith(open)(t.Context(), settings(t, "project: acme\nsecret: app\n"), withJSON)
@@ -58,13 +59,15 @@ func TestFactory_ReadsOneSecret(t *testing.T) {
 	assert.True(t, backend.Capabilities().Sensitive)
 
 	_, watchable := backend.(config.WatchableBackend)
-	assert.True(t, watchable, "built at rung 2, the backend keeps its watch (go/config-gcp-secret#2)")
+	assert.True(t, watchable, "built at rung 2, the backend keeps its watch")
 }
 
 func TestFactory_Refuses(t *testing.T) {
 	t.Parallel()
 
-	open := func(context.Context, config.Reader) (configgcpsecret.API, error) { return fakeSecrets{}, nil }
+	open := func(context.Context, config.Reader) (configgcpsecret.API, io.Closer, error) {
+		return fakeSecrets{}, nil, nil
+	}
 
 	_, err := factoryWith(open)(t.Context(), settings(t, "secret: app\n"), withJSON)
 	require.ErrorIs(t, err, gcpsource.ErrNoProject)
@@ -78,7 +81,34 @@ func TestFactory_Refuses(t *testing.T) {
 func TestOpenSecrets_BuildsWithoutTheNetwork(t *testing.T) {
 	gcpsourcetest.Isolate(t)
 
-	api, err := openSecrets(t.Context(), settings(t, "project: acme\n"))
+	api, closer, err := openSecrets(t.Context(), settings(t, "project: acme\n"))
 	require.NoError(t, err)
 	assert.NotNil(t, api)
+	require.NotNil(t, closer, "the client is handed on to be closed")
+	assert.NoError(t, closer.Close())
+}
+
+type closing struct {
+	setup.ConfigBootstrap
+	got []io.Closer
+}
+
+func (c *closing) CloseWithStore(closer io.Closer) { c.got = append(c.got, closer) }
+
+type stubCloser struct{}
+
+func (stubCloser) Close() error { return nil }
+
+// The client the opener built is the store's to close.
+func TestFactory_HandsTheClientToTheStore(t *testing.T) {
+	t.Parallel()
+
+	open := func(context.Context, config.Reader) (configgcpsecret.API, io.Closer, error) {
+		return fakeSecrets{}, stubCloser{}, nil
+	}
+	b := &closing{ConfigBootstrap: bootstrap{}}
+
+	_, err := factoryWith(open)(t.Context(), settings(t, "project: acme\n"), b)
+	require.NoError(t, err)
+	assert.Equal(t, []io.Closer{stubCloser{}}, b.got)
 }

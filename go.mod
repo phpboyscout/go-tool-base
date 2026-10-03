@@ -9,9 +9,8 @@ require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
 	charm.land/log/v2 v2.0.1
-	cloud.google.com/go/parametermanager v1.0.0
-	cloud.google.com/go/secretmanager v1.21.0
-	cloud.google.com/go/storage v1.67.1
+	cloud.google.com/go/parametermanager v1.1.0
+	cloud.google.com/go/secretmanager v1.22.0
 	dario.cat/mergo v1.0.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
 	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2 v2.2.0
@@ -46,9 +45,9 @@ require (
 	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.2
 	gitlab.com/phpboyscout/go/config-consul v0.3.1
 	gitlab.com/phpboyscout/go/config-dotenv v0.2.10
-	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.2
-	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.1
-	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.2
+	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.3
+	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.2
+	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.3
 	gitlab.com/phpboyscout/go/config-hcl v0.2.10
 	gitlab.com/phpboyscout/go/config-ini v0.2.10
 	gitlab.com/phpboyscout/go/config-json v0.2.10
@@ -99,6 +98,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.1 // indirect
 	cloud.google.com/go/iam v1.12.0 // indirect
 	cloud.google.com/go/monitoring v1.30.0 // indirect
+	cloud.google.com/go/storage v1.68.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect

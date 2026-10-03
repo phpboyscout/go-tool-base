@@ -2,6 +2,7 @@ package gcpparameter
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +13,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/gcpsource"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/gcpsource/gcpsourcetest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 type fakePM map[string]string
@@ -29,8 +31,8 @@ func (f fakePM) List(context.Context, string) ([]configgcpparameter.Parameter, e
 func TestFactory_ReadsOneParameter(t *testing.T) {
 	t.Parallel()
 
-	open := func(context.Context, config.Reader) (configgcpparameter.PM, error) {
-		return fakePM{"mytool": "log:\n  level: debug\n"}, nil
+	open := func(context.Context, config.Reader) (configgcpparameter.PM, io.Closer, error) {
+		return fakePM{"mytool": "log:\n  level: debug\n"}, nil, nil
 	}
 
 	backend, err := factoryWith(open)(t.Context(), settings(t, "project: acme\nparameter: mytool\n"), bootstrap{})
@@ -44,7 +46,9 @@ func TestFactory_ReadsOneParameter(t *testing.T) {
 func TestFactory_Refuses(t *testing.T) {
 	t.Parallel()
 
-	open := func(context.Context, config.Reader) (configgcpparameter.PM, error) { return fakePM{}, nil }
+	open := func(context.Context, config.Reader) (configgcpparameter.PM, io.Closer, error) {
+		return fakePM{}, nil, nil
+	}
 
 	_, err := factoryWith(open)(t.Context(), settings(t, "parameter: mytool\n"), bootstrap{})
 	require.ErrorIs(t, err, gcpsource.ErrNoProject)
@@ -59,7 +63,34 @@ func TestFactory_Refuses(t *testing.T) {
 func TestOpenParameters_BuildsWithoutTheNetwork(t *testing.T) {
 	gcpsourcetest.Isolate(t)
 
-	pm, err := openParameters(t.Context(), settings(t, "project: acme\n"))
+	pm, closer, err := openParameters(t.Context(), settings(t, "project: acme\n"))
 	require.NoError(t, err)
 	assert.NotNil(t, pm)
+	require.NotNil(t, closer, "the client is handed on to be closed")
+	assert.NoError(t, closer.Close())
+}
+
+type closing struct {
+	setup.ConfigBootstrap
+	got []io.Closer
+}
+
+func (c *closing) CloseWithStore(closer io.Closer) { c.got = append(c.got, closer) }
+
+type stubCloser struct{}
+
+func (stubCloser) Close() error { return nil }
+
+// The client the opener built is the store's to close.
+func TestFactory_HandsTheClientToTheStore(t *testing.T) {
+	t.Parallel()
+
+	open := func(context.Context, config.Reader) (configgcpparameter.PM, io.Closer, error) {
+		return fakePM{}, stubCloser{}, nil
+	}
+	b := &closing{ConfigBootstrap: bootstrap{}}
+
+	_, err := factoryWith(open)(t.Context(), settings(t, "project: acme\nparameter: mytool\n"), b)
+	require.NoError(t, err)
+	assert.Equal(t, []io.Closer{stubCloser{}}, b.got)
 }

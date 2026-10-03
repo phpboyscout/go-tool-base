@@ -1,12 +1,13 @@
 // Package gcpparameter links the gcp-parameter config source kind: one
 // Parameter Manager parameter whose payload is a document, or every
 // parameter under an ID prefix, read as configuration (spec 0204 D3, D18).
-// The client is built from gcpclient's ambient options and handed to the
-// adapter's FromClient, whose backend keeps its watch.
+// The client is built from gcpclient's ambient options so tests can stand a
+// fake in its place, and the store closes it.
 package gcpparameter
 
 import (
 	"context"
+	"io"
 
 	parametermanager "cloud.google.com/go/parametermanager/apiv1"
 
@@ -31,7 +32,7 @@ var ErrNoParameter = errors.NewSentinel("gtb.config.sources.gcp_parameter.no_par
 
 // opener builds the Parameter Manager client from a slot's settings: the GCP
 // SDK in production, a fake in tests.
-type opener func(ctx context.Context, settings config.Reader) (configgcpparameter.PM, error)
+type opener func(ctx context.Context, settings config.Reader) (configgcpparameter.PM, io.Closer, error)
 
 func init() {
 	setup.RegisterConfigSourceKind(Kind, factoryWith(openParameters), setup.ConfigSourceInitialiserFor(Kind))
@@ -55,9 +56,13 @@ func factoryWith(open opener) setup.SourceFactory {
 			return nil, err
 		}
 
-		pm, err := open(ctx, settings)
+		pm, closer, err := open(ctx, settings)
 		if err != nil {
 			return nil, err
+		}
+
+		if closer != nil {
+			setup.CloseWithStore(b, closer)
 		}
 
 		if prefix != "" {
@@ -100,15 +105,15 @@ func options(settings config.Reader, b setup.ConfigBootstrap, single bool) ([]co
 	return opts, nil
 }
 
-func openParameters(ctx context.Context, settings config.Reader) (configgcpparameter.PM, error) {
+func openParameters(ctx context.Context, settings config.Reader) (configgcpparameter.PM, io.Closer, error) {
 	clientOpts, err := gcpsource.ClientOptions(ctx, settings, gcpsource.ScopeCloudPlatform)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	client, err := parametermanager.NewClient(ctx, clientOpts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "building the Parameter Manager client")
+		return nil, nil, errors.Wrap(err, "building the Parameter Manager client")
 	}
 
 	location := settings.GetString("location")
@@ -116,5 +121,5 @@ func openParameters(ctx context.Context, settings config.Reader) (configgcpparam
 		location = defaultLocation
 	}
 
-	return configgcpparameter.Wrap(client, settings.GetString("project"), location), nil
+	return configgcpparameter.Wrap(client, settings.GetString("project"), location), client, nil
 }

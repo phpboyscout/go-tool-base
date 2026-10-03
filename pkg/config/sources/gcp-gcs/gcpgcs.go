@@ -1,14 +1,12 @@
 // Package gcpgcs links the gcp-gcs config source kind: one config file held
 // as a Cloud Storage object, in the format its name says (spec 0204 D2, D3,
-// D18). The client is built from gcpclient's ambient options and wrapped
-// directly, which keeps the adapter's poll hint that its owned filesystem
-// hides (go/config-gcp-gcs#2).
+// D18). The filesystem is built through the adapter's FromOptions from
+// gcpclient's ambient options, and the store closes the client it owns.
 package gcpgcs
 
 import (
 	"context"
-
-	"cloud.google.com/go/storage"
+	"io"
 
 	"gitlab.com/phpboyscout/go/config"
 	configgcpgcs "gitlab.com/phpboyscout/go/config-gcp-gcs"
@@ -26,7 +24,7 @@ var ErrNoObject = errors.NewSentinel("gtb.config.sources.gcp_gcs.no_object", "gc
 
 // opener builds the bucket's filesystem from a slot's settings: the GCP SDK
 // in production, a fake in tests.
-type opener func(ctx context.Context, settings config.Reader) (config.FS, error)
+type opener func(ctx context.Context, settings config.Reader) (config.FS, io.Closer, error)
 
 func init() {
 	setup.RegisterConfigSourceKind(Kind, factoryWith(openBucket), setup.ConfigSourceInitialiserFor(Kind))
@@ -46,25 +44,29 @@ func factoryWith(open opener) setup.SourceFactory {
 			return nil, err
 		}
 
-		fsys, err := open(ctx, settings)
+		fsys, closer, err := open(ctx, settings)
 		if err != nil {
 			return nil, err
+		}
+
+		if closer != nil {
+			setup.CloseWithStore(b, closer)
 		}
 
 		return config.NewCodecBackend(fsys, object, codec), nil
 	}
 }
 
-func openBucket(ctx context.Context, settings config.Reader) (config.FS, error) {
+func openBucket(ctx context.Context, settings config.Reader) (config.FS, io.Closer, error) {
 	clientOpts, err := gcpsource.ClientOptions(ctx, settings, gcpsource.ScopeStorage)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	client, err := storage.NewClient(ctx, clientOpts...)
+	fsys, err := configgcpgcs.FromOptions(ctx, settings.GetString("bucket"), clientOpts)
 	if err != nil {
-		return nil, errors.Wrap(err, "building the Cloud Storage client")
+		return nil, nil, errors.Wrap(err, "building the Cloud Storage client")
 	}
 
-	return configgcpgcs.Wrap(client, settings.GetString("bucket")), nil
+	return fsys, fsys, nil
 }

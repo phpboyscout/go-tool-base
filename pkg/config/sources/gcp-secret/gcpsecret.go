@@ -1,13 +1,13 @@
 // Package gcpsecret links the gcp-secret config source kind: one Secret
 // Manager secret whose payload is a document, or a project's secrets, read
 // as configuration (spec 0204 D3, D18). The client is built from gcpclient's
-// ambient options and handed to the adapter's FromClient rather than built
-// through FromOptions, whose owned backend hides the watch
-// (go/config-gcp-secret#2). Reading is sensitive and read-only.
+// ambient options and the store closes it; the adapter's FromOptions has no
+// single-secret shape. Reading is sensitive and read-only.
 package gcpsecret
 
 import (
 	"context"
+	"io"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 
@@ -28,7 +28,7 @@ const defaultValueFormat = "json"
 
 // opener builds the Secret Manager client from a slot's settings: the GCP SDK
 // in production, a fake in tests.
-type opener func(ctx context.Context, settings config.Reader) (configgcpsecret.API, error)
+type opener func(ctx context.Context, settings config.Reader) (configgcpsecret.API, io.Closer, error)
 
 func init() {
 	setup.RegisterConfigSourceKind(Kind, factoryWith(openSecrets), setup.ConfigSourceInitialiserFor(Kind))
@@ -44,18 +44,9 @@ func factoryWith(open opener) setup.SourceFactory {
 
 		secret := settings.GetString("secret")
 
-		format := settings.GetString("value_format")
-		if secret != "" && format == "" {
-			format = defaultValueFormat
-		}
-
-		var codec config.Codec
-
-		if format != "" {
-			var err error
-			if codec, err = b.CodecFor("value." + format); err != nil {
-				return nil, err
-			}
+		codec, err := valueCodec(settings, b, secret != "")
+		if err != nil {
+			return nil, err
 		}
 
 		opts, err := options(settings)
@@ -63,9 +54,13 @@ func factoryWith(open opener) setup.SourceFactory {
 			return nil, err
 		}
 
-		api, err := open(ctx, settings)
+		api, closer, err := open(ctx, settings)
 		if err != nil {
 			return nil, err
+		}
+
+		if closer != nil {
+			setup.CloseWithStore(b, closer)
 		}
 
 		if secret != "" {
@@ -78,6 +73,22 @@ func factoryWith(open opener) setup.SourceFactory {
 
 		return configgcpsecret.New(api, opts...), nil
 	}
+}
+
+// valueCodec is the codec a secret's value decodes through: JSON for one
+// secret unless the slot says otherwise, none for a project's secrets unless
+// it asks for one.
+func valueCodec(settings config.Reader, b setup.ConfigBootstrap, single bool) (config.Codec, error) {
+	format := settings.GetString("value_format")
+	if single && format == "" {
+		format = defaultValueFormat
+	}
+
+	if format == "" {
+		return nil, nil
+	}
+
+	return b.CodecFor("value." + format)
 }
 
 func options(settings config.Reader) ([]configgcpsecret.Option, error) {
@@ -103,16 +114,16 @@ func options(settings config.Reader) ([]configgcpsecret.Option, error) {
 	return opts, nil
 }
 
-func openSecrets(ctx context.Context, settings config.Reader) (configgcpsecret.API, error) {
+func openSecrets(ctx context.Context, settings config.Reader) (configgcpsecret.API, io.Closer, error) {
 	clientOpts, err := gcpsource.ClientOptions(ctx, settings, gcpsource.ScopeCloudPlatform)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	client, err := secretmanager.NewClient(ctx, clientOpts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "building the Secret Manager client")
+		return nil, nil, errors.Wrap(err, "building the Secret Manager client")
 	}
 
-	return configgcpsecret.Wrap(client, settings.GetString("project"), settings.GetString("location")), nil
+	return configgcpsecret.Wrap(client, settings.GetString("project"), settings.GetString("location")), client, nil
 }
