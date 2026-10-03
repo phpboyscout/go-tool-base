@@ -1,13 +1,19 @@
 package generate
 
 import (
+	"cmp"
 	"fmt"
+	"hash/fnv"
 	"slices"
+	"strings"
 
 	"charm.land/huh/v2"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // minWizardSourceSlots is how many slot pages the Configuration page offers
@@ -31,19 +37,94 @@ type wizardSource struct {
 	Above    string
 }
 
-func (s wizardSource) name() string {
-	if s.Name == "" {
-		return s.Kind
+// slotName is slot i's name: as typed, else its kind, numbered from 2 when an
+// earlier slot already has that name, so accepting the default never collides.
+func (o *SkeletonOptions) slotName(i int) string {
+	if o.sourceSlots[i].Name != "" {
+		return o.sourceSlots[i].Name
 	}
 
-	return s.Name
+	return o.defaultSlotName(i)
 }
 
-var formatAdds = map[string]string{
-	"toml": "adds pelletier/go-toml",
-	"json": "adds tidwall/gjson and sjson",
-	"hcl":  "adds hashicorp/hcl and go-cty",
+func (o *SkeletonOptions) defaultSlotName(i int) string {
+	taken := make([]string, 0, i)
+	for j := range i {
+		taken = append(taken, o.slotName(j))
+	}
+
+	kind := o.sourceSlots[i].Kind
+	name := kind
+
+	for n := 2; slices.Contains(taken, name); n++ {
+		name = fmt.Sprintf("%s%d", kind, n)
+	}
+
+	return name
 }
+
+// kindGlosses say what each source kind reads, from its package doc.
+var kindGlosses = map[string]string{
+	"file":            "a fixed file beside the user's own",
+	"keychain":        "tokens in the OS keychain; may prompt to unlock",
+	"vault":           "a Vault KV v2 secret, or all under a prefix",
+	"consul":          "the keys under a Consul KV prefix",
+	"aws-s3":          "one config file in an S3 bucket",
+	"aws-ssm":         "every Systems Manager parameter under a path",
+	"aws-secrets":     "a Secrets Manager secret, or all under a prefix",
+	"azure-blob":      "one config file in Azure Blob Storage",
+	"azure-keyvault":  "a Key Vault secret, or every one in the vault",
+	"azure-appconfig": "the settings under an App Configuration prefix",
+	"gcp-gcs":         "one config file in a Cloud Storage bucket",
+	"gcp-secret":      "a Secret Manager secret, or a project's secrets",
+	"gcp-parameter":   "a Parameter Manager parameter, or all under a prefix",
+	"etcd":            "the keys under an etcd prefix; your code connects",
+	"sftp":            "one config file on an SFTP server; your code connects",
+	"billy":           "a file in a go-billy filesystem your code supplies",
+	"iofs":            "a file in an io/fs.FS your code supplies, e.g. embed",
+	"afero":           "a file in an afero filesystem your code supplies",
+}
+
+// docsBase is the framework's documentation site.
+const docsBase = "https://gtb.phpboyscout.uk"
+
+// The pages the Configuration page links; a test holds each to docs/.
+const (
+	ownFormatDocs     = docsBase + "/explanation/components/config/#the-tools-own-format"
+	configSourcesDocs = docsBase + "/explanation/components/config/#config-sources"
+	overrideHowTo     = docsBase + "/how-to/override-a-config-source/"
+)
+
+// kindListExtraRows sizes the kind list beyond the kinds: its title and the
+// "No more config sources" row. The height holds every kind, so the list does
+// not resize when the keychain is offered or withdrawn.
+const kindListExtraRows = 2
+
+// noteWidth is where the settings note wraps, inside the wizard's margin.
+const noteWidth = 68
+
+const (
+	configurationBlurb = "Where your tool reads its settings from. YAML is always available.\n" +
+		"Link another format when your users already keep their config in it,\n" +
+		"or a source serves it. Each one adds its parser to your binary, so\n" +
+		"link only what your users will bring.\n\n" +
+		"Recorded under properties.config in the manifest. More:\n" +
+		ownFormatDocs + "\n"
+
+	sourcesBlurb = "A config source is somewhere beyond the user's own files that settings\n" +
+		"come from. Add one when settings should be shared across a team, or\n" +
+		"kept out of files on disk because they are secrets. Most tools need\n" +
+		"none: choose No more config sources to skip.\n\n" +
+		"The kinds come in three groups:\n" +
+		"  file, keychain     on the user's own machine.\n" +
+		"  vault to gcp-*     a service. Where it is comes from each user's\n" +
+		"                     \"<tool> init config <name>\", or from the\n" +
+		"                     tool's defaults; their usual login is used.\n" +
+		"  etcd to afero      built by your own code. The wizard reserves the\n" +
+		"                     slot; the override how-to shows the code.\n\n" +
+		"Config sources: " + configSourcesDocs + "\n" +
+		"Override how-to: " + overrideHowTo + "\n"
+)
 
 var layerLabels = map[string]string{
 	string(props.LayerDefaults): "the embedded defaults",
@@ -75,16 +156,12 @@ func (o *SkeletonOptions) configurationGroups() []*huh.Group {
 func (o *SkeletonOptions) configFormatsGroup() *huh.Group {
 	formats := make([]huh.Option[string], 0, len(generator.ConfigFormats()))
 	for _, f := range generator.ConfigFormats() {
-		adds := formatAdds[f]
-		if adds == "" {
-			adds = "nothing beyond go/config"
-		}
-
+		gloss := "read and write; can be the tool's own file"
 		if !generator.IsWritableConfigFormat(f) {
-			adds = "read-only, " + adds
+			gloss = "read only; users may supply one, nothing writes it"
 		}
 
-		formats = append(formats, huh.NewOption(f+": "+adds, f))
+		formats = append(formats, huh.NewOption(optionLabel(f, gloss, len("properties")), f))
 	}
 
 	own := func() []huh.Option[string] {
@@ -100,45 +177,165 @@ func (o *SkeletonOptions) configFormatsGroup() *huh.Group {
 	}
 
 	return huh.NewGroup(
-		huh.NewMultiSelect[string]().Key("config-formats").Title("Config formats").
-			Description("YAML is built in. Each format chosen is linked into the binary.").
-			Options(formats...).Value(&o.ConfigFormats),
+		newMultiSelect("Config formats", "Formats a user may hand the tool, beyond YAML.", formats).
+			Key("config-formats").Value(&o.ConfigFormats),
 		huh.NewSelect[string]().Key("config-format").Title("The tool's own config file").
-			Description("The format of the file `init` writes and `config set` edits.").
+			Description("The file \"init\" creates and \"config set\" edits, so the format your\n"+
+				"users expect to open and edit by hand. Only formats that can be\n"+
+				"written back are offered.").
 			Options(own()...).OptionsFunc(own, &o.ConfigFormats).Value(&o.ConfigFormat).
 			Validate(func(f string) error { return hintedValidation(generator.ValidateConfigFormats(o.ConfigFormats, f)) }),
 	).
 		Title("Configuration").
-		Description("Recorded under properties.config in the manifest.\n")
+		Description(configurationBlurb)
 }
 
 func (o *SkeletonOptions) sourceKindGroup(i int) *huh.Group {
-	kinds := make([]huh.Option[string], 0, 1+len(generator.ConfigSourceKinds()))
-	kinds = append(kinds, huh.NewOption("No more config sources", ""))
-
-	for _, k := range generator.ConfigSourceKinds() {
-		kinds = append(kinds, huh.NewOption(kindLabel(k), k))
-	}
+	kinds := o.kindOptions()
 
 	return huh.NewGroup(
 		huh.NewSelect[string]().Key(fmt.Sprintf("config-source-%d-kind", i)).
 			Title(fmt.Sprintf("Config source %d", i+1)).
-			Description("A named slot in the config stack. Where it connects is the user's, set with `<tool> init config <name>`.").
-			Options(kinds...).Value(&o.sourceSlots[i].Kind),
+			Options(kinds...).OptionsFunc(o.kindOptions, &o.Features).
+			Height(len(generator.ConfigSourceKinds()) + kindListExtraRows).Value(&o.sourceSlots[i].Kind),
 	).
 		Title("Configuration: sources").
+		Description(sourcesBlurb).
 		WithHideFunc(func() bool { return i > 0 && o.sourceSlots[i-1].Kind == "" })
 }
 
-func kindLabel(kind string) string {
-	switch {
-	case generator.IsOverrideOnlySourceKind(kind):
-		return kind + ": needs author code, see the override how-to"
-	case kind == "keychain":
-		return kind + ": set up with init config; may prompt for an unlock at startup"
-	default:
-		return kind + ": set up with init config"
+// kindOptions are the kinds a slot may take, after "No more config sources".
+// The keychain kind needs the OS Keychain feature (D12), so it is offered
+// only while that is selected.
+func (o *SkeletonOptions) kindOptions() []huh.Option[string] {
+	kinds := make([]huh.Option[string], 0, 1+len(generator.ConfigSourceKinds()))
+	kinds = append(kinds, huh.NewOption("No more config sources", ""))
+
+	for _, k := range generator.ConfigSourceKinds() {
+		if o.kindOffered(k) {
+			kinds = append(kinds, huh.NewOption(optionLabel(k, kindGloss(k), len("azure-appconfig")), k))
+		}
 	}
+
+	return kinds
+}
+
+func (o *SkeletonOptions) kindOffered(kind string) bool {
+	return kind != "keychain" || slices.Contains(o.Features, generator.KeychainFeature)
+}
+
+func kindGloss(kind string) string { return kindGlosses[kind] }
+
+// settingsNote tells the author that a slot's settings are not set in the
+// wizard (spec 0204 R1), who sets them, where they land and what they look
+// like, and where a default goes. The keys are the kind's own, from the
+// catalogue its init config asks.
+func (o *SkeletonOptions) settingsNote(i int) string {
+	kind := o.sourceSlots[i].Kind
+	if generator.IsOverrideOnlySourceKind(kind) {
+		return noteText(wrapNote("Config is not set here: this only reserves the slot. Your own code "+
+			"builds this source and reads its settings however it likes. The override how-to shows the code:") + "\n" + overrideHowTo)
+	}
+
+	tool := cmp.Or(o.Name, "<tool>")
+	name := o.slotName(i)
+	example := settingsExample(name, setup.ConfigSourceSettings(kind, tool, name))
+	userFile := fmt.Sprintf("~/.%s/config.%s", strings.ToLower(tool), o.ownFormatExt())
+
+	if !slices.Contains(o.Features, string(props.InitCmd)) {
+		return noteText(strings.Join([]string{
+			wrapNote("Config is not set here: this only wires in the adapter. The tool has no init command " +
+				"(Initialization is not selected), so set this source's settings in " +
+				"pkg/cmd/root/assets/config.yaml, where they look like:"),
+			example,
+			wrapNote(fmt.Sprintf("A user may still override them in their own config file (typically %s).", userFile)),
+			"Every key this source reads:\n" + configSourcesDocs,
+		}, "\n\n"))
+	}
+
+	initConfig := fmt.Sprintf("%q", tool+" init config "+name)
+
+	return noteText(strings.Join([]string{
+		wrapNote(fmt.Sprintf("Config is not set here: this only wires in the adapter. Each user must run %s, "+
+			"which captures the settings for this source and saves them to the tool's config file "+
+			"(typically %s), where they look like:", initConfig, userFile)),
+		example,
+		wrapNote(fmt.Sprintf("To predefine a default, put the values you want under config.sources.%s in "+
+			"pkg/cmd/root/assets/config.yaml. They apply when %s has not been run.", name, initConfig)),
+		"Every key, including the ones init config does not ask:\n" + configSourcesDocs,
+	}, "\n\n"))
+}
+
+func (o *SkeletonOptions) ownFormatExt() string {
+	if o.ConfigFormat == "" || o.ConfigFormat == "yaml" {
+		return "yaml"
+	}
+
+	return o.ConfigFormat
+}
+
+// settingsExample is the block init config writes for a slot, as YAML: each
+// key with its default or empty, dotted keys nested as the file holds them.
+func settingsExample(name string, settings []setup.SourceSetting) string {
+	lines := []string{"  config:", "    sources:", "      " + name + ":"}
+	parents := map[string]bool{}
+
+	for _, s := range settings {
+		indent := "        "
+		key := s.Key
+
+		if parent, child, nested := strings.Cut(s.Key, "."); nested {
+			if !parents[parent] {
+				lines = append(lines, indent+parent+":")
+				parents[parent] = true
+			}
+
+			indent += "  "
+			key = child
+		}
+
+		lines = append(lines, fmt.Sprintf("%s%s: %q", indent, key, s.Default))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// textBinding binds a note to its own text. huh re-renders a dynamic
+// description when its binding's hash changes, and the hash skips unexported
+// fields such as the source slots and cannot see answers given pages
+// earlier, so the binding hashes what the note would show.
+type textBinding struct{ text func() string }
+
+// Hash implements hashstructure.Hashable.
+func (b textBinding) Hash() (uint64, error) {
+	h := fnv.New64a()
+	_, err := h.Write([]byte(b.text()))
+
+	return h.Sum64(), err
+}
+
+// noteText escapes what huh's Note renders as markup: _ and * toggle italic
+// and bold, and a backtick opens a code span its renderer never closes.
+func noteText(s string) string {
+	return strings.NewReplacer("\\", "\\\\", "_", "\\_", "*", "\\*", "`", "'").Replace(s)
+}
+
+// wrapNote wraps text at noteWidth.
+func wrapNote(text string) string {
+	var lines []string
+
+	line := ""
+
+	for _, word := range strings.Fields(text) {
+		if line != "" && len(line)+len(word)+1 > noteWidth {
+			lines = append(lines, line)
+			line = ""
+		}
+
+		line = strings.TrimSpace(line + " " + word)
+	}
+
+	return strings.Join(append(lines, line), "\n")
 }
 
 func (o *SkeletonOptions) sourceDetailGroup(i int) *huh.Group {
@@ -158,18 +355,27 @@ func (o *SkeletonOptions) sourceDetailGroup(i int) *huh.Group {
 	}
 
 	return huh.NewGroup(
+		huh.NewNote().Title("Settings").Description(o.settingsNote(i)).
+			DescriptionFunc(func() string { return o.settingsNote(i) }, textBinding{func() string { return o.settingsNote(i) }}),
 		huh.NewInput().Key(fmt.Sprintf("config-source-%d-name", i)).Title("Name").
-			Description("A lower-case command word, unique among the slots. Empty means the kind's name.").
-			PlaceholderFunc(func() string { return slot.Kind }, &slot.Kind).
+			Description("Its key under config.sources and the word in \"<tool> init config <name>\";\n"+
+				"a lower-case command word, unique among the slots. Empty uses the one shown.").
+			PlaceholderFunc(func() string { return o.defaultSlotName(i) }, &slot.Kind).
 			Value(&slot.Name).
 			Validate(func(v string) error { return o.validateSlotName(i, v) }),
 		huh.NewConfirm().Key(fmt.Sprintf("config-source-%d-required", i)).
-			Title("Required?").Description("A required source that cannot be reached stops the tool starting.").
+			Title("Required?").
+			Description("Yes: the tool will not start until this source is configured and\n"+
+				"reachable. No: it runs without it and warns.").
 			Affirmative("Yes").Negative("No").Value(&slot.Required),
 		huh.NewSelect[string]().Key(fmt.Sprintf("config-source-%d-access", i)).Title("Writable?").
+			Description("Whether \"config set\" may write to it. Read-only suits a store\n"+
+				"someone else manages.").
 			Options(access()...).OptionsFunc(access, &slot.Kind).Value(&slot.Access),
 		huh.NewSelect[string]().Key(fmt.Sprintf("config-source-%d-placement", i)).Title("Precedence").
-			Description("Where the source sits in the stack; a higher layer overrides a lower one.").
+			Description("A higher layer overrides a lower one. Below the user's files, a team\n"+
+				"source supplies values each user can override; above them, it\n"+
+				"enforces them.").
 			Options(o.placementOptions()...).Value(&slot.Above),
 	).
 		Title("Configuration: sources").
@@ -179,14 +385,22 @@ func (o *SkeletonOptions) sourceDetailGroup(i int) *huh.Group {
 // validateSlotName checks slot i's name against the slots before it, with
 // the rules the manifest is held to.
 func (o *SkeletonOptions) validateSlotName(i int, v string) error {
-	sources := make([]generator.ManifestConfigSource, 0, i+1)
-	for _, s := range o.sourceSlots[:i] {
-		sources = append(sources, generator.ManifestConfigSource{Name: s.name(), Kind: s.Kind})
+	if v == "" {
+		v = o.defaultSlotName(i)
 	}
 
-	current := o.sourceSlots[i]
-	current.Name = v
-	sources = append(sources, generator.ManifestConfigSource{Name: current.name(), Kind: current.Kind})
+	sources := make([]generator.ManifestConfigSource, 0, i+1)
+
+	for j := range i {
+		name := o.slotName(j)
+		if name == v {
+			return errors.Newf("%q is already config source %d's name: type another", v, j+1)
+		}
+
+		sources = append(sources, generator.ManifestConfigSource{Name: name, Kind: o.sourceSlots[j].Kind})
+	}
+
+	sources = append(sources, generator.ManifestConfigSource{Name: v, Kind: o.sourceSlots[i].Kind})
 
 	return hintedValidation(generator.ValidateConfigSources(sources, nil, nil))
 }
@@ -277,7 +491,13 @@ func (o *SkeletonOptions) applySourceSlots() {
 		return
 	}
 
-	active := o.activeSourceSlots()
+	declared := o.activeSourceSlots()
+	for i := range declared {
+		declared[i].Name = o.slotName(i)
+	}
+
+	active := slices.DeleteFunc(slices.Clone(declared), func(s wizardSource) bool { return !o.kindOffered(s.Kind) })
+
 	o.recordSourceSlots(active)
 	o.ConfigLayers = o.slotLayers(active)
 }
@@ -296,17 +516,17 @@ func (o *SkeletonOptions) recordSourceSlots(active []wizardSource) {
 	o.ConfigSources, o.ConfigSourcesOptional, o.ConfigSourcesWritable, o.readOnlySources = nil, nil, nil, nil
 
 	for _, s := range active {
-		o.ConfigSources = append(o.ConfigSources, s.name()+"="+s.Kind)
+		o.ConfigSources = append(o.ConfigSources, s.Name+"="+s.Kind)
 
 		if !s.Required {
-			o.ConfigSourcesOptional = append(o.ConfigSourcesOptional, s.name())
+			o.ConfigSourcesOptional = append(o.ConfigSourcesOptional, s.Name)
 		}
 
 		switch s.Access {
 		case sourceAccessWritable:
-			o.ConfigSourcesWritable = append(o.ConfigSourcesWritable, s.name())
+			o.ConfigSourcesWritable = append(o.ConfigSourcesWritable, s.Name)
 		case sourceAccessReadOnly:
-			o.readOnlySources = append(o.readOnlySources, s.name())
+			o.readOnlySources = append(o.readOnlySources, s.Name)
 		}
 	}
 }
@@ -329,7 +549,7 @@ func (o *SkeletonOptions) slotLayers(active []wizardSource) []string {
 
 		for _, s := range active {
 			if s.Above == b {
-				layers = append(layers, s.name())
+				layers = append(layers, s.Name)
 			}
 		}
 	}

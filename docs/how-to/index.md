@@ -103,6 +103,9 @@ Make `--server-port` override `server.port` by binding flags into the configurat
 ### [React to Configuration Changes at Runtime](config-hot-reload.md)
 Use `config.Observable` and `AddObserver` to reconfigure long-running services without restarting.
 
+### [Build a Config Source in Your Own Code](override-a-config-source.md)
+Register `setup.OverrideConfigSource` for an etcd, sftp, billy, iofs or afero slot, or any slot you want to build yourself.
+
 ### [Observe Typed Config Sections](observe-typed-config.md)
 Use `config.ObserveSection` to rehydrate typed settings and react only when a config struct changes.
 

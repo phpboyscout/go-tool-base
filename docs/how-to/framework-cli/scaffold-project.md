@@ -256,10 +256,11 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   and empty means none.
 
 **Configuration** *(always)*
-: The config formats the tool links beyond YAML, each row naming what it adds
-  to the binary, and the format of the tool's own config file, chosen from
-  the writable ones linked. Then its config sources, one page each: a kind
-  and a name (empty uses the kind), whether the tool needs it to start,
+: The config formats the tool links beyond YAML, each row saying whether it
+  can be written back, and the format of the tool's own config file, chosen
+  from the writable ones linked. Then its config sources, one page each: a kind
+  and a name (empty uses the kind, numbered `file2` and so on when another
+  slot has it), whether the tool needs it to start,
   whether it may be written, and where it sits against the built-in layers.
   Choose *No more config sources* to finish. Nothing here says how a source
   connects: each user sets that with `<tool> init config <name>`. A source
