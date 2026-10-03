@@ -1,5 +1,75 @@
 # Changelog
 
+## [v0.46.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.3...v0.46.0)
+
+### Notes
+
+- Config sources can now be a Cloud Storage object (`gcp-gcs`), Secret Manager secrets (`gcp-secret`) or Parameter Manager parameters (`gcp-parameter`), authenticated through Application Default Credentials.
+
+- Config sources can now be an Azure Storage blob (`azure-blob`), Key Vault secrets (`azure-keyvault`) or App Configuration settings (`azure-appconfig`), authenticated through the standard Azure credential chain.
+
+- Config sources can now be an S3 object (`aws-s3`), Systems Manager parameters (`aws-ssm`) or Secrets Manager secrets (`aws-secrets`), authenticated through the standard AWS credential chain.
+
+- Config sources can now be a Vault KV v2 secret (`vault`) or a Consul KV prefix (`consul`), with tokens from the provider's own variables or GTB's `auth.env` / `auth.keychain` / `auth.value` rungs.
+
+- Config sources can now be a fixed file (`file`) or the OS keychain (`keychain`): blank-import `pkg/config/sources/<kind>`, declare the slot, and configure it with `init config <name>`.
+
+- `<tool> init config <name>` configures each config source a tool declares.
+
+- `--config` no longer appears as a `config` key in `config list`, and no longer hides keys under `config.`.
+
+- Tools can declare config source slots in `props.Tool.Config.Sources` and place them in the layer list. No source kinds ship yet; they follow.
+
+- A project-local config file can no longer set `config.sources`, trusted or not; `config trust` does not re-admit it. Nothing reads it yet: it prepares for config sources.
+
+- Generated tools can read TOML, JSON, HCL, INI, XML, .env and .properties config files: declare them with `--config-formats` (or `gtb set config.formats`), and choose the tool's own file format with `--config-format`.
+
+- When a tool's own config format changes, a user whose file is still in the old format is stopped with both paths named and told to run `<tool> config convert --from <old> --to <new>`. Nothing is converted automatically; `doctor` reports the same condition.
+
+- A tool's own config file can be TOML, JSON or HCL: set `props.Tool.Config.Format` and link the format. `init` writes `config.<ext>` in that format, and `config edit` and `config unset` work on it. `setup.DefaultConfigFilename` is deprecated in favour of `props.Tool.ConfigFilename()`.
+
+- A project-local config file may be in any format the tool links (`.mytool.toml` beside nothing else), and is trust-filtered the same way. Two project files in one directory now stop the command. `setup.DiscoverProjectConfig` is deprecated in favour of `setup.FindProjectConfig`.
+
+- Config files can be TOML, JSON, HCL, INI, XML, .env or .properties when the tool blank-imports `pkg/config/formats/<format>`. A `--config` file with one of those extensions is now refused unless the format is linked; a `.json` file used to be read as YAML. See docs/reference/migration/v0.x-config-stack.md.
+
+- A tool can now order its configuration layers: `props.Tool.Config.Layers`, lowest precedence first, is the precedence. `props.Tool.ConfigLayers` is deprecated, and a generated project's `properties.config_layers` moves to `properties.config.layers` on the next regenerate. See docs/reference/migration/v0.x-config-stack.md.
+
+### Features
+
+- **doctor**: report the config stack in the order it resolves ([fbf805f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fbf805f6e4056f6b20ed82d85ead300666b35475))
+- **config**: record how each config source fared and which credential answered ([98e247c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/98e247c034a88f170d235185adc3cc1a9d086dd2))
+- **generator**: end the wizard on a summary and a confirm ([a6e076f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a6e076f1c9e56f21e6fea46f2e95d4d315364e10))
+- **generator**: the wizard's Configuration page ([5bfe06f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5bfe06f674bf4cb0f650206ab2f8e71d875892f6))
+- **generator**: declare config source slots in the manifest and scaffold ([15ea98a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/15ea98a47a319d139d5527658907928bff9dd723))
+- **config**: gcp-gcs, gcp-secret and gcp-parameter config sources ([d5d0d3a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d5d0d3adb0358ea880756861ffe9b292c0d84631))
+- **config**: azure-blob, azure-keyvault and azure-appconfig config sources ([9a94115](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9a941156f25610c205bb38d5fd8add11a7ceb757))
+- **config**: aws-s3, aws-ssm and aws-secrets config sources ([249cdf8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/249cdf8c6ca2f3e8f4a35153e93b9f1826137fff))
+- **config**: vault and consul config sources ([707fa6c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/707fa6c6dca5cd7dd14ffd871b7721ef7c4f1ce9))
+- **config**: file and keychain config sources ([9d24b1d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9d24b1dbf1f87d441b2c6d857e843f1de6b433c9))
+- **config**: init config <name> configures a declared source ([dd92682](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dd92682b86f02dcc38b5ae463bdfdc067796bf85))
+- **config**: a tool can declare config source slots ([686025b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/686025b1be92513fe64bcb46229912db8d9daa9b))
+- **config**: a project file can never choose a config source ([74b2a95](https://gitlab.com/phpboyscout/go-tool-base/-/commit/74b2a9595505f3fbe4e98c03e11affedd809aa99))
+- **generator**: a generated tool links the config formats it declares ([737d8e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/737d8e69f208f07aa22c26ef2f605845d2be714d))
+- **config**: a tool refuses a config file left in its previous format ([43053a6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/43053a6130dc367b985dc167826febb5fcc1b0c5))
+- **config**: a tool's own config file may be TOML, JSON or HCL ([02baa43](https://gitlab.com/phpboyscout/go-tool-base/-/commit/02baa437ac0b84a91a2a21b433bd48ddbc27d121))
+- **config**: the project-local file may be any linked format ([22e6fbf](https://gitlab.com/phpboyscout/go-tool-base/-/commit/22e6fbfa98b6820034a997880799ef073172dfbc))
+- **config**: config files are read in any linked format, chosen by extension ([33fa7d2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33fa7d2dd95227020d6084867e2e529b68919a53))
+- **config**: the declared config layer order is the precedence ([4141f50](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4141f5034f14c2e98c6f93cd53f5800d9e5b08bd))
+
+### Bug Fixes
+
+- **generator**: explain the wizard's Configuration page and show every row ([131eb76](https://gitlab.com/phpboyscout/go-tool-base/-/commit/131eb768d472c1f047e4b7db14c818d5617467ca))
+- **setup**: keep a field editable when huh refuses a page change ([5aaeb41](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5aaeb419058e245e9ed0c8c5637b0d748a281ba1))
+- **deps**: require config v0.20.0 and read provenance through DefinedIn ([6711131](https://gitlab.com/phpboyscout/go-tool-base/-/commit/67111318d24fe4733f1403799911b4c7862080c8))
+- **deps**: update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.113.4 ([b9f9163](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b9f9163432262776a73b6981a2d180aa98ffc2d2))
+- **config**: --config is not a configuration key ([6619efd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6619efd5c65db8d9497b82ee0bf5346ba62fcbd0))
+
+### Other
+
+- **config**: one catalogue of what each source kind's init config asks ([77d47b3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/77d47b3a6078e859eebbff32c1e1015d25b8a3cc))
+
 ## [v0.45.3](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.3)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.2...v0.45.3)
