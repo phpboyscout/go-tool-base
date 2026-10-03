@@ -283,7 +283,7 @@ func TestWizard_ConfigurationDocsLinksResolve(t *testing.T) {
 
 	link := regexp.MustCompile(regexp.QuoteMeta(docsBase) + `(/[^\s#]*)(#[a-z-]+)?`)
 	links := link.FindAllStringSubmatch(configurationBlurb+sourcesBlurb, -1)
-	require.Len(t, links, 3)
+	require.Len(t, links, 4)
 
 	for _, l := range links {
 		page := strings.Trim(l[1], "/")

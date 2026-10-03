@@ -275,6 +275,21 @@ It never prints a credential, so the output is safe to paste into an issue or a 
 
 Resolution is also **lazy**: nothing is read, and no keychain is touched, until something actually needs the credential. A repository that authenticates over SSH will never trigger an OS unlock prompt for a token it does not use.
 
+## How a config source's token resolves
+
+A Vault or Consul [config source](configure-the-config-stack.md) takes its token
+through the same rungs, under `config.sources.<name>`: `auth.env` names a
+variable, `auth.keychain` a `service/account` entry, and `auth.value` holds the
+token itself, which is refused under CI. With none set, the provider's own
+variable applies (`VAULT_TOKEN`, `CONSUL_HTTP_TOKEN`). The cloud kinds use their
+provider's credential chain instead.
+
+These settings are read only from the tool's embedded defaults, your own config
+files, the environment and flags. A repository's project file cannot set
+`config.sources` even once trusted, so a cloned repository cannot point your
+tool at its own secret store or its own token variable. `doctor`'s Config stack
+check names the rung each source's token came from, never the token.
+
 ## Configuring forge credentials
 
 The same three-mode UX appears in `init github`, `init gitlab`, `init gitea`, `init codeberg` and `init bitbucket`. The single-token forges behave alike; the wrinkles below are the ones worth knowing.

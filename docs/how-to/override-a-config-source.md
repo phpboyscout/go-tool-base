@@ -127,5 +127,7 @@ func init() {
 - A slot of an override-only kind with no override stops the tool, naming
   `setup.OverrideConfigSource`.
 
-See [Config sources](../explanation/components/config/index.md#config-sources)
-for how slots, kinds and the two-pass store fit together.
+See [Configure a tool's config stack](configure-the-config-stack.md) for
+declaring, configuring and ordering slots, and
+[Config sources](../explanation/components/config/index.md#config-sources) for
+how slots, kinds and the two-pass store fit together.

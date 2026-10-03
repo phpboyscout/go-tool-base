@@ -93,6 +93,7 @@ const (
 	ownFormatDocs     = docsBase + "/explanation/components/config/#the-tools-own-format"
 	configSourcesDocs = docsBase + "/explanation/components/config/#config-sources"
 	overrideHowTo     = docsBase + "/how-to/override-a-config-source/"
+	configStackHowTo  = docsBase + "/how-to/configure-the-config-stack/"
 )
 
 // kindListExtraRows sizes the kind list beyond the kinds: its title and the
@@ -122,6 +123,7 @@ const (
 		"                     tool's defaults; their usual login is used.\n" +
 		"  etcd to afero      built by your own code. The wizard reserves the\n" +
 		"                     slot; the override how-to shows the code.\n\n" +
+		"Guide: " + configStackHowTo + "\n" +
 		"Config sources: " + configSourcesDocs + "\n" +
 		"Override how-to: " + overrideHowTo + "\n"
 )
