@@ -143,6 +143,8 @@ type SkeletonOptions struct {
 	readOnlySources []string
 	// sourceSlots is the Configuration page's working state.
 	sourceSlots []wizardSource
+	// confirmed is the summary page's answer: Generate (or Apply) now.
+	confirmed bool
 	// SigningRequireSignature and SigningRequireChecksum are the enforcement
 	// baselines. Only the checksum one is asked on a first run; the signature
 	// one is a footgun before a signed release has shipped (0071), so the
@@ -929,6 +931,10 @@ func (o *SkeletonOptions) runWizard(ctx context.Context, p *props.Props) error {
 		return err
 	}
 
+	if err := o.confirmedOrCancelled(); err != nil {
+		return err
+	}
+
 	return o.afterWizard()
 }
 
@@ -1128,6 +1134,7 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.signingEnableGroup(),
 		o.signingDetailGroup(),
 		o.signingEnforcementGroup(),
+		o.summaryGroup(),
 	)...)
 }
 
