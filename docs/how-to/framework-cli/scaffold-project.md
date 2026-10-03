@@ -318,6 +318,10 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
   `gtb enable signing --require-signature` set it. Answering No after entering
   details discards them.
 
+**Ready to generate** *(always, last)*
+: Every answer in one list, then *Generate now* or *Cancel*. Cancel, like
+  ctrl+c, generates nothing; shift+tab goes back to change an answer.
+
 The same wizard runs again on an existing project as
 [`gtb wizard`](../../reference/cli/wizard.md), pre-filled from the manifest;
 there the name is shown rather than asked, there is no destination page, the
