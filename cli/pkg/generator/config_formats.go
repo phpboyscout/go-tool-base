@@ -127,3 +127,11 @@ func (g *Generator) recoverConfigFormats() []string {
 
 	return formats
 }
+
+// ConfigFormats returns the formats a tool may link beyond YAML.
+func ConfigFormats() []string { return slices.Clone(configFormats) }
+
+// IsWritableConfigFormat reports whether a tool's own file may be in format.
+func IsWritableConfigFormat(format string) bool {
+	return slices.Contains(writableConfigFormats, format)
+}

@@ -172,3 +172,15 @@ func sourceTemplateData(sources []ManifestConfigSource) []templates.ConfigSource
 
 	return out
 }
+
+// ConfigSourceKinds returns every kind a slot may declare: the shipped kinds,
+// then the override-only ones.
+func ConfigSourceKinds() []string {
+	return append(slices.Clone(configSourceKinds), overrideOnlySourceKinds...)
+}
+
+// IsOverrideOnlySourceKind reports whether only an author's override builds
+// kind.
+func IsOverrideOnlySourceKind(kind string) bool {
+	return slices.Contains(overrideOnlySourceKinds, kind)
+}

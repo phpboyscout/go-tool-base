@@ -141,6 +141,8 @@ type SkeletonOptions struct {
 	// sets it, since only the keychain is writable by default (D12); it is
 	// carried so a revisit keeps a hand-edited manifest's choice.
 	readOnlySources []string
+	// sourceSlots is the Configuration page's working state.
+	sourceSlots []wizardSource
 	// SigningRequireSignature and SigningRequireChecksum are the enforcement
 	// baselines. Only the checksum one is asked on a first run; the signature
 	// one is a footgun before a signed release has shipped (0071), so the
@@ -937,6 +939,12 @@ func (o *SkeletonOptions) runWizard(ctx context.Context, p *props.Props) error {
 // a later No switched off (#46). The flag path keeps "email implies signing".
 func (o *SkeletonOptions) afterWizard() error {
 	o.resolveEnvPrefix()
+	o.applySourceSlots()
+
+	if o.ConfigFormat == "yaml" {
+		o.ConfigFormat = ""
+	}
+
 	o.NoForge = !o.hosted
 
 	if o.NoForge {
@@ -1097,12 +1105,16 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.MCPMode = string(props.MCPCompact)
 	}
 
-	return newForm(
+	groups := []*huh.Group{
 		o.basicsGroup(),
 		o.forgeGroup(),
 		o.moduleGroup(),
 		o.envPrefixGroup(),
 		o.envPrefixCustomGroup(),
+	}
+	groups = append(groups, o.configurationGroups()...)
+
+	return newForm(append(groups,
 		o.selfUpdateGroup(),
 		o.releaseLocationGroup(),
 		o.chatProvidersGroup(),
@@ -1116,7 +1128,7 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.signingEnableGroup(),
 		o.signingDetailGroup(),
 		o.signingEnforcementGroup(),
-	)
+	)...)
 }
 
 // telemetryGroup asks where telemetry goes, when the feature is selected
