@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -72,13 +73,20 @@ func EncodeManifestFile(fs afero.Fs, manifestPath string, m *Manifest) error {
 // path used 2-space and the yaml.Marshal path used 4-space, so the first
 // generate/regenerate reformatted a freshly scaffolded manifest (keryx
 // round-trip churn).
+//
+// Features are written in their canonical order here too, whichever path
+// changed them (enable, disable, a migration), so a manifest matches what a
+// from-scratch rebuild writes (#105).
 func marshalManifestBytes(m *Manifest) ([]byte, error) {
 	var buf bytes.Buffer
+
+	canonical := *m
+	canonical.Properties.Features = sortManifestFeatures(slices.Clone(m.Properties.Features))
 
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(manifestIndent)
 
-	if err := enc.Encode(m); err != nil {
+	if err := enc.Encode(&canonical); err != nil {
 		_ = enc.Close()
 
 		return nil, errors.Newf("failed to marshal manifest: %w", err)

@@ -71,7 +71,7 @@ func TestApplyFeatures_EnableDefaultOff(t *testing.T) {
 	assert.Equal(t, []string{"ai"}, changed)
 
 	// Manifest records the non-default enable; root wires props.Enable(props.AiCmd).
-	assert.Equal(t, []ManifestFeature{{Name: "github", Enabled: true}, {Name: "ai", Enabled: true}}, readManifestFeatures(t, fs))
+	assert.Equal(t, []ManifestFeature{{Name: "ai", Enabled: true}, {Name: "github", Enabled: true}}, readManifestFeatures(t, fs))
 	assert.Contains(t, readRootCmd(t, fs), "props.Enable(props.AiCmd)")
 }
 
@@ -84,7 +84,7 @@ func TestApplyFeatures_DisableDefaultOn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"doctor"}, changed)
 
-	assert.Equal(t, []ManifestFeature{{Name: "github", Enabled: true}, {Name: "doctor", Enabled: false}}, readManifestFeatures(t, fs))
+	assert.Equal(t, []ManifestFeature{{Name: "doctor", Enabled: false}, {Name: "github", Enabled: true}}, readManifestFeatures(t, fs))
 	assert.Contains(t, readRootCmd(t, fs), "props.Disable(props.DoctorCmd)")
 }
 
@@ -227,4 +227,23 @@ func TestApplyFeatures_DisableAiKeepsProvidersAndSaysSo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(chatGo), "chat-anthropic")
 	assert.True(t, buf.Contains("still links"), "the author is told the modules stay: %s", buf.String())
+}
+
+// #105: a feature enabled after generation lands in the canonical order, so
+// the manifest matches what a from-scratch rebuild writes.
+func TestApplyFeatures_KeepsTheCanonicalOrder(t *testing.T) {
+	t.Parallel()
+
+	g, fs := newFeatureProject(t)
+
+	_, err := g.ApplyFeatures(context.Background(), map[string]bool{"ai": true, "doctor": false})
+	require.NoError(t, err)
+
+	enabled := readManifestFeatures(t, fs)
+
+	require.NoError(t, fs.Remove("/work/.gtb/manifest.yaml"))
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	assert.Equal(t, readManifestFeatures(t, fs), enabled, "in order, not only as a set")
+	assert.Equal(t, []ManifestFeature{{Name: "ai", Enabled: true}, {Name: "doctor", Enabled: false}, {Name: "github", Enabled: true}}, enabled)
 }
