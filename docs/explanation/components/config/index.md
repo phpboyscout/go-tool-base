@@ -356,7 +356,12 @@ the fragments across bundles as it always has, then writes the result through
 the own format's codec (`setup.EncodeConfig`). The merge decodes and re-encodes,
 so template comments never reached a user's file in any format; see
 [spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
-revision R4. `config edit` and `config unset` decode the file they touch through
+revision R4. That applies to a fresh file. On an existing one, `init` leaves
+the file as written and adds only the template keys it lacks, through the same
+format-preserving edit `config set` uses, so a user's comments, order and
+layout survive; `--clean` replaces it with the template instead. YAML the
+framework writes is indented by two, as those edits are.
+`config edit` and `config unset` decode the file they touch through
 its own codec too, and `config edit` seeds a new JSON file with `{}` rather
 than a comment JSON cannot hold.
 

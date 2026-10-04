@@ -214,7 +214,7 @@ func marshalStructuredData(merged map[string]any, ext string) ([]byte, error) {
 	case ".properties", ".env":
 		output = []byte(formatFlatKV(merged))
 	default: // yaml
-		output, err = yaml.Marshal(merged)
+		output, err = MarshalYAML(merged)
 	}
 
 	return output, err
@@ -575,3 +575,25 @@ func (fi *mergedFileInfo) Mode() fs.FileMode  { return fs.FileMode(dirPermRead) 
 func (fi *mergedFileInfo) ModTime() time.Time { return time.Time{} }
 func (fi *mergedFileInfo) IsDir() bool        { return false }
 func (fi *mergedFileInfo) Sys() any           { return nil }
+
+// MarshalYAML encodes v as YAML indented by two, the step go/config's
+// format-preserving edits use, so a file the framework writes and the keys
+// later added to it agree.
+func MarshalYAML(v any) ([]byte, error) {
+	var buf bytes.Buffer
+
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(yamlIndent)
+
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+const yamlIndent = 2

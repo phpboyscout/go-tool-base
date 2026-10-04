@@ -28,7 +28,7 @@ The credential wizards (GitHub, Bitbucket, AI) are interactive. When `init` runs
 | Flag | Description | Default |
 | :--- | :--- | :--- |
 | `-d, --dir` | Directory to initialize the config in | `~/.mytool/` |
-| `-c, --clean` | Reset existing configuration and replace with defaults | `false` |
+| `-c, --clean` | Reset existing configuration and replace with defaults. Without it, an existing file is left as written and gains only the template keys it lacks | `false` |
 | `-l, --skip-login` | Skip the GitHub login process | `false` (or `true` in CI) |
 | `-k, --skip-key` | Skip SSH key configuration, for every forge that offers it | `false` (or `true` in CI) |
 | `--skip-gitlab` | Skip configuring GitLab credentials | `false` (or `true` in CI) |

@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strings"
 
-	"dario.cat/mergo"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
@@ -265,7 +264,8 @@ func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean boo
 		return nil, targetFile, errors.Wrap(err, "Failed to create directory")
 	}
 
-	if err := writeInitialConfig(p, targetFile, codec, clean); err != nil {
+	missing, err := writeInitialConfig(p, targetFile, codec, clean)
+	if err != nil {
 		return nil, targetFile, err
 	}
 
@@ -279,6 +279,12 @@ func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean boo
 	store, err := config.NewStore(ctx, storeOpts...)
 	if err != nil {
 		return nil, targetFile, errors.Wrap(err, "opening config for initialisation")
+	}
+
+	if len(missing) > 0 {
+		if _, err := store.Apply(ctx, missing...); err != nil {
+			return nil, targetFile, errors.Wrap(err, "adding the init template's missing keys")
+		}
 	}
 
 	return &storeEditor{ctx: ctx, store: store}, targetFile, nil
@@ -318,61 +324,51 @@ func AssetSource(p *props.Props, path string) *config.NamedSource {
 }
 
 // writeInitialConfig materialises the target file. Absent (or --clean): the
-// merged init template is written. Existing: the file's values are merged over
-// the template so re-running init gains new template keys without disturbing
-// user values. Both paths re-encode (the cross-bundle template merge parses
-// and re-emits, so template comments do not carry) — parity with the viper
-// round-trip this replaces. Comments the USER writes survive later edits,
-// because wizard writes go through Apply.
-//
-// The template is always YAML, merged across bundles; the file is written
-// through codec, the tool's own format (spec 0204 R4). A YAML file gets the
-// template's own bytes when fresh.
-func writeInitialConfig(p *props.Props, targetFile string, codec config.Codec, clean bool) error {
+// merged init template is written, in the tool's own format (spec 0204 R4).
+// Present: the file is left exactly as it is, and the template keys it lacks
+// are returned for the caller to add through the store, whose edits keep the
+// user's comments, order and layout.
+func writeInitialConfig(p *props.Props, targetFile string, codec config.Codec, clean bool) ([]config.Change, error) {
 	seed := AssetDocument(p, InitTemplateAssetPath)
 
 	exists, err := afero.Exists(p.FS, targetFile)
 	if err != nil {
-		return errors.Wrap(err, "checking config file existence")
+		return nil, errors.Wrap(err, "checking config file existence")
 	}
 
 	if exists && !clean {
-		p.Logger.Info("Configuration file already exists, attempting to merge")
+		p.Logger.Info("Configuration file already exists; adding any keys it lacks")
 
-		merged, mergeErr := mergeExistingOverTemplate(p.FS, targetFile, codec, seed)
-		if mergeErr != nil {
-			return mergeErr
+		if chmodErr := p.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
+			p.Logger.Warn("failed to set config file permissions", "error", chmodErr)
 		}
 
-		if merged == nil {
-			// No template to gain keys from; leave the user's file untouched.
-			return nil
-		}
+		return missingTemplateKeys(p.FS, targetFile, codec, seed)
+	}
 
-		seed = merged
-	} else if seed, err = seedInFormat(codec, targetFile, seed); err != nil {
-		return err
+	if seed, err = seedInFormat(codec, targetFile, seed); err != nil {
+		return nil, err
 	}
 
 	if err := afero.WriteFile(p.FS, targetFile, seed, configFilePerm); err != nil {
-		return errors.Wrap(err, "writing config file")
+		return nil, errors.Wrap(err, "writing config file")
 	}
 
-	// Restrict permissions on pre-existing files — the file may contain
-	// credentials, and WriteFile's mode only applies on creation.
+	// Restrict permissions on a file --clean replaced: WriteFile's mode only
+	// applies on creation, and the file may hold credentials.
 	if exists {
 		if chmodErr := p.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
 			p.Logger.Warn("failed to set config file permissions", "error", chmodErr)
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
-// mergeExistingOverTemplate deep-merges the existing file's values over the
-// template document, returning the encoded result — or nil when there is no
-// template to merge.
-func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, codec config.Codec, seed []byte) ([]byte, error) {
+// missingTemplateKeys returns a set for each template leaf the existing file
+// does not define. A key the user has set, or replaced with a value of
+// another shape, is theirs and is never touched.
+func missingTemplateKeys(fsys afero.Fs, targetFile string, codec config.Codec, seed []byte) ([]config.Change, error) {
 	if len(seed) == 0 {
 		return nil, nil
 	}
@@ -392,11 +388,57 @@ func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, codec config.Co
 		return nil, errors.Wrap(err, "parsing existing config")
 	}
 
-	if err := mergo.Merge(&seedDoc, existingDoc, mergo.WithOverride); err != nil {
-		return nil, errors.Wrap(err, "merging existing config over template")
+	leaves := map[string]any{}
+	collectLeaves("", seedDoc, leaves)
+
+	paths := make([]string, 0, len(leaves))
+	for path := range leaves {
+		if !reachable(existingDoc, strings.Split(path, ".")) {
+			paths = append(paths, path)
+		}
 	}
 
-	return EncodeConfig(codec, targetFile, seedDoc)
+	slices.Sort(paths)
+
+	changes := make([]config.Change, 0, len(paths))
+	for _, path := range paths {
+		changes = append(changes, config.Set(path, leaves[path]))
+	}
+
+	return changes, nil
+}
+
+func collectLeaves(prefix string, doc map[string]any, into map[string]any) {
+	for key, value := range doc {
+		path := key
+		if prefix != "" {
+			path = prefix + "." + key
+		}
+
+		if child, ok := value.(map[string]any); ok && len(child) > 0 {
+			collectLeaves(path, child, into)
+
+			continue
+		}
+
+		into[path] = value
+	}
+}
+
+// reachable reports whether doc defines path, or a value of its own shape
+// somewhere along it, which the user chose over the template's.
+func reachable(doc map[string]any, path []string) bool {
+	value, ok := doc[path[0]]
+	if !ok {
+		return false
+	}
+
+	child, isMap := value.(map[string]any)
+	if len(path) == 1 || !isMap {
+		return true
+	}
+
+	return reachable(child, path[1:])
 }
 
 // seedInFormat re-encodes the YAML template for a file in another format.

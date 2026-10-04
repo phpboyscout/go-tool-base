@@ -24,6 +24,7 @@ Feature: CLI Init Command
   Scenario: Init merges with existing config preserving user values
     Given the init directory contains a config file:
       """
+      # mine, kept as written
       log:
         level: debug
       custom:
@@ -31,7 +32,8 @@ Feature: CLI Init Command
       """
     When I run gtb with "init --skip-login --skip-key --skip-ai --dir {init_dir}"
     Then the exit code is 0
-    And stderr contains "attempting to merge"
+    And stderr contains "adding any keys it lacks"
+    And the config file in the init directory contains "# mine, kept as written"
     And the config file in the init directory contains "custom"
     And the config file in the init directory contains "preserved"
     And the config file in the init directory contains "level: debug"

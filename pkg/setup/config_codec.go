@@ -6,8 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/features"
@@ -153,7 +151,7 @@ var ErrReadOnlyConfigFormat = errors.NewSentinel("gtb.setup.read_only_config_for
 // document.
 func EncodeConfig(codec config.Codec, path string, doc map[string]any) ([]byte, error) {
 	if _, ok := codec.(config.YAMLCodec); ok {
-		out, err := yaml.Marshal(doc)
+		out, err := props.MarshalYAML(doc)
 
 		return out, errors.Wrap(err, "encoding config")
 	}

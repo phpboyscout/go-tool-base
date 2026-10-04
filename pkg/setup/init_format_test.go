@@ -98,7 +98,8 @@ func TestWriteInitialConfig_YAMLIsTheSeedVerbatim(t *testing.T) {
 
 	p := editorProps(t)
 	require.NoError(t, p.FS.MkdirAll("/cfg", 0o755))
-	require.NoError(t, writeInitialConfig(p, "/cfg/config.yaml", config.YAMLCodec{}, false))
+	_, err := writeInitialConfig(p, "/cfg/config.yaml", config.YAMLCodec{}, false)
+	require.NoError(t, err)
 
 	data, err := afero.ReadFile(p.FS, "/cfg/config.yaml")
 	require.NoError(t, err)

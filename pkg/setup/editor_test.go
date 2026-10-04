@@ -139,36 +139,36 @@ func TestWriteExclusive_SurfacesWriteError(t *testing.T) {
 }
 
 // TestMergeExistingOverTemplate covers the re-init merge branches directly.
-func TestMergeExistingOverTemplate(t *testing.T) {
+func TestMissingTemplateKeys(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no template yields nil", func(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		out, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{}, nil)
+		out, err := missingTemplateKeys(fs, "config.yaml", config.YAMLCodec{}, nil)
 		require.NoError(t, err)
 		assert.Nil(t, out)
 	})
 
-	t.Run("existing values win, template keys are gained", func(t *testing.T) {
+	t.Run("only the keys the file lacks are returned", func(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte("log:\n  level: debug\n"), 0o600))
+		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte("log:\n  level: debug\nupdate: off\n"), 0o600))
 
-		out, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{},
-			[]byte("log:\n  level: info\nupdate:\n  policy: \"\"\n"))
+		out, err := missingTemplateKeys(fs, "config.yaml", config.YAMLCodec{},
+			[]byte("log:\n  level: info\n  format: text\nupdate:\n  policy: \"\"\n"))
 		require.NoError(t, err)
-		assert.Contains(t, string(out), "level: debug")
-		assert.Contains(t, string(out), "policy:")
+		assert.Equal(t, []config.Change{config.Set("log.format", "text")}, out,
+			"log.level is the user's, and update is theirs in another shape")
 	})
 
 	t.Run("unreadable existing file errors", func(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		_, err := mergeExistingOverTemplate(fs, "missing.yaml", config.YAMLCodec{}, []byte("a: 1\n"))
+		_, err := missingTemplateKeys(fs, "missing.yaml", config.YAMLCodec{}, []byte("a: 1\n"))
 		require.Error(t, err)
 	})
 
@@ -178,7 +178,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte("a: 1\n"), 0o600))
 
-		_, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{}, []byte(":\tnot yaml"))
+		_, err := missingTemplateKeys(fs, "config.yaml", config.YAMLCodec{}, []byte(":\tnot yaml"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "init template")
 	})
@@ -189,7 +189,7 @@ func TestMergeExistingOverTemplate(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte(":\tnot yaml"), 0o600))
 
-		_, err := mergeExistingOverTemplate(fs, "config.yaml", config.YAMLCodec{}, []byte("a: 1\n"))
+		_, err := missingTemplateKeys(fs, "config.yaml", config.YAMLCodec{}, []byte("a: 1\n"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "existing config")
 	})
@@ -235,7 +235,8 @@ func TestWriteInitialConfig_CleanOverwrites(t *testing.T) {
 	require.NoError(t, p.FS.MkdirAll("/cfg", 0o755))
 	require.NoError(t, afero.WriteFile(p.FS, "/cfg/config.yaml", []byte("custom: value\n"), 0o600))
 
-	require.NoError(t, writeInitialConfig(p, "/cfg/config.yaml", config.YAMLCodec{}, true))
+	_, err := writeInitialConfig(p, "/cfg/config.yaml", config.YAMLCodec{}, true)
+	require.NoError(t, err)
 
 	data, err := afero.ReadFile(p.FS, "/cfg/config.yaml")
 	require.NoError(t, err)
