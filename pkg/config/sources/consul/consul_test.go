@@ -11,6 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourceauth"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 type bootstrap struct{}
@@ -60,4 +64,49 @@ func TestFactory_NeedsAPrefix(t *testing.T) {
 
 	_, err := factory(t.Context(), settings(t, "address: https://consul.internal\n"), bootstrap{})
 	require.ErrorIs(t, err, ErrNoPrefix)
+}
+
+type unlinked struct{ bootstrap }
+
+func (unlinked) CodecFor(path string) (config.Codec, error) {
+	return nil, errors.Wrapf(setup.ErrUnlinkedConfigFormat, "%s", path)
+}
+
+// The slot's datacenter reaches Consul, and a value format decodes a
+// document stored under one key into a subtree.
+func TestFactory_DatacenterAndAValueFormat(t *testing.T) {
+	t.Setenv("CI", "")
+
+	var dc atomic.Value
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dc.Store(r.URL.Query().Get("dc"))
+
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"Key": "team/mytool/db", "Value": []byte(`{"host": "db.internal"}`), "ModifyIndex": 1},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	backend, err := factory(t.Context(), settings(t, "address: "+srv.URL+"\nprefix: team/mytool/\ndatacenter: dc2\nvalue_format: json\n"), bootstrap{})
+	require.NoError(t, err)
+
+	store, err := config.NewStore(t.Context(), config.WithBackend(backend))
+	require.NoError(t, err)
+	assert.Equal(t, "db.internal", store.View().GetString("db.host"))
+	assert.Equal(t, "dc2", dc.Load())
+}
+
+func TestFactory_RefusesAnUnlinkedValueFormat(t *testing.T) {
+	t.Setenv("CI", "")
+
+	_, err := factory(t.Context(), settings(t, "address: https://consul.internal\nprefix: team/\nvalue_format: hcl\n"), unlinked{})
+	require.ErrorIs(t, err, setup.ErrUnlinkedConfigFormat)
+}
+
+func TestFactory_RefusesALiteralTokenUnderCI(t *testing.T) {
+	t.Setenv("CI", "true")
+
+	_, err := factory(t.Context(), settings(t, "address: https://consul.internal\nprefix: team/\nauth:\n  value: c.literal\n"), bootstrap{})
+	require.ErrorIs(t, err, sourceauth.ErrLiteralUnderCI)
 }
