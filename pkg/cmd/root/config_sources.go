@@ -3,6 +3,7 @@ package root
 import (
 	"context"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -219,7 +220,9 @@ func sourceLayer(ctx context.Context, props *p.Props, src p.ConfigSource, at sou
 	status.Writable = src.IsWritable(kinds[src.Kind].WritableByDefault)
 	status.Sensitive = backend.Capabilities().Sensitive
 
-	return config.WithBackend(wrapSource(backend, status.Writable, !src.IsRequired(), props.Logger, src.Name)), status, nil
+	load := &sourceLoad{src: src, at: at, log: props.Logger, leftOut: leftOutRecorder(props, len(props.SourceStatuses))}
+
+	return config.WithBackend(wrapSource(backend, status.Writable, load)), status, nil
 }
 
 // sourceFactory picks the slot's factory: its override, else its kind's.
@@ -247,19 +250,59 @@ func sourceFactory(src p.ConfigSource, kinds map[string]setup.ConfigSourceKind, 
 // only when writable, and an optional one's watch failure drops it out of
 // watching alone. Like config.Filtered, the result implements exactly the
 // optional interfaces the inner backend does, bar the ones taken away.
-func wrapSource(b config.Backend, writable, optional bool, log logger.Logger, name string) config.Backend {
+func wrapSource(b config.Backend, writable bool, load *sourceLoad) config.Backend {
 	writer, isWritable := b.(config.WritableBackend)
 	watcher, isWatchable := b.(config.WatchableBackend)
 
-	if isWritable == writable && (!optional || !isWatchable) {
-		return b
-	}
-
-	if !writable {
+	if !writable || !isWritable {
 		writer = nil
 	}
 
-	return assembleSource(sourceBackend{inner: b, readOnly: !writable}, writer, sourceWatch(watcher, isWatchable, optional, log, name))
+	optional := !load.src.IsRequired()
+
+	return assembleSource(sourceBackend{inner: b, readOnly: !writable, load: load},
+		writer, sourceWatch(watcher, isWatchable, optional, load.log, load.src.Name))
+}
+
+// sourceLoad applies a slot's policy where an unreachable source is found:
+// a client-building factory such as Consul's or Vault's contacts nothing, so
+// the first failure is the store's first load (spec 0204 D6).
+type sourceLoad struct {
+	src     p.ConfigSource
+	at      sourcePlace
+	log     logger.Logger
+	leftOut func(error)
+	loaded  atomic.Bool
+}
+
+// failed is a source's answer to a load that failed. A required source stops
+// the build, named. An optional one is left out on the first load; on a later
+// reload the error stands, so the store keeps its last snapshot rather than
+// dropping the source's values over a blip.
+func (l *sourceLoad) failed(err error) ([]config.Layer, error) {
+	if l.src.IsRequired() {
+		return nil, errors.WithHint(
+			errors.Wrapf(setup.ErrConfigSourceUnavailable, "%q (%s, layer %d of %d): %v", l.src.Name, l.src.Kind, l.at.index, l.at.of, err),
+			"mark the source required: false if the tool may run without it")
+	}
+
+	if l.loaded.Load() {
+		return nil, err
+	}
+
+	l.log.Warn("optional config source is unavailable; continuing without it",
+		"source", l.src.Name, "kind", l.src.Kind, "layer", l.at.index, "error", err)
+	l.leftOut(err)
+
+	return nil, nil
+}
+
+// leftOutRecorder marks the slot recorded at index as unavailable.
+func leftOutRecorder(props *p.Props, index int) func(error) {
+	return func(err error) {
+		props.SourceStatuses[index].State = p.ConfigSourceUnavailable
+		props.SourceStatuses[index].Err = err.Error()
+	}
 }
 
 // sourceWatch is the watch a wrapped source offers: none for an unwatchable
@@ -316,19 +359,26 @@ func isolatedWatch(w config.WatchableBackend, log logger.Logger, name string) wa
 type sourceBackend struct {
 	inner    config.Backend
 	readOnly bool
+	load     *sourceLoad
 }
 
 func (s sourceBackend) ID() string { return s.inner.ID() }
 
 func (s sourceBackend) Load(ctx context.Context, below []config.Layer) ([]config.Layer, error) {
 	layers, err := s.inner.Load(ctx, below)
+	if err != nil {
+		return s.load.failed(err)
+	}
+
+	s.load.loaded.Store(true)
+
 	if s.readOnly {
 		for i := range layers {
 			layers[i].Source.Writable = false
 		}
 	}
 
-	return layers, err
+	return layers, nil
 }
 
 func (s sourceBackend) Capabilities() config.Capabilities { return s.inner.Capabilities() }

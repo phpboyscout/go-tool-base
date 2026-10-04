@@ -366,7 +366,7 @@ func TestWrapSource_Capabilities(t *testing.T) {
 		wantWrite          bool
 		wantWatch          bool
 	}{
-		{name: "required, declared writable: untouched", backend: file(), writable: true, wantWrite: true, wantWatch: true},
+		{name: "required, declared writable", backend: file(), writable: true, wantWrite: true, wantWatch: true},
 		{name: "optional and writable", backend: file(), writable: true, optional: true, wantWrite: true, wantWatch: true},
 		{name: "required, read-only", backend: file(), wantWatch: true},
 		{name: "optional, read-only", backend: file(), optional: true, wantWatch: true},
@@ -377,7 +377,9 @@ func TestWrapSource_Capabilities(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := wrapSource(tc.backend, tc.writable, tc.optional, logger.NewNoop(), "team")
+			required := !tc.optional
+			load := &sourceLoad{src: p.ConfigSource{Name: "team", Kind: "memfile", Required: &required}, log: logger.NewNoop()}
+			got := wrapSource(tc.backend, tc.writable, load)
 
 			w, isWritable := got.(config.WritableBackend)
 			_, isWatchable := got.(config.WatchableBackend)
