@@ -12,7 +12,7 @@ require (
 	cloud.google.com/go/parametermanager v1.1.0
 	cloud.google.com/go/secretmanager v1.22.0
 	dario.cat/mergo v1.0.2
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2
 	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2 v2.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.0
 	github.com/ProtonMail/go-crypto v1.4.1
