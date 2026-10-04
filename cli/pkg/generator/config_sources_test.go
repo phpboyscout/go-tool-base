@@ -135,6 +135,7 @@ func TestGenerateSkeleton_DeclaresSources(t *testing.T) {
 	linked := readGenerated(t, fs, "/work/cmd/src-tool/config.go")
 	assert.Contains(t, linked, `"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/consul"`)
 	assert.NotContains(t, linked, "sources/etcd", "an override-only kind has no package: the author's override builds it")
+	assert.Contains(t, linked, "properties.config.sources", "the header names where the source imports come from")
 }
 
 // An author's own prefix is kept; D21 only fills an empty one.

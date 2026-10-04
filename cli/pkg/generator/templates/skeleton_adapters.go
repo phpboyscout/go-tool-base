@@ -103,12 +103,13 @@ func blankImportFile(comment1, comment2, comment3 string, modules []string) *jen
 }
 
 // SkeletonConfigFormats renders cmd/<name>/config.go: one blank import per
-// config format the tool links beyond YAML (spec 0204 D2).
+// config format the tool links beyond YAML and per config source kind it
+// declares (spec 0204 D2, D3).
 func SkeletonConfigFormats(modules []string) *jen.File {
 	return blankImportFile(
-		"Links the config formats this tool reads beyond YAML, one per line.",
-		"Generated from properties.config.formats in .gtb/manifest.yaml; change",
-		"the list and regenerate rather than editing this file.",
+		"Links the config formats this tool reads beyond YAML and the config",
+		"source kinds it declares, one per line. Generated from properties.config.formats",
+		"and properties.config.sources in .gtb/manifest.yaml; change those and regenerate.",
 		modules,
 	)
 }
