@@ -327,7 +327,9 @@ settings overriding them. Their token may instead come through GTB's rungs,
 the chain forges use: `auth.env` names a variable, `auth.keychain` a
 `service/account` entry, and `auth.value` holds the token itself, which is
 refused under CI. A Vault source is sensitive, so the core refuses to let a
-value it holds be written into a plain file beneath it. `value_format` makes a
+key it defines be written into any layer that is not also sensitive, such as
+the user's own file, wherever that sits in the stack: `config set` on such a
+key is refused, naming the source. `value_format` makes a
 Consul value that holds a document (`json`, `yaml`, ...) a subtree, in a format
 the tool links.
 
