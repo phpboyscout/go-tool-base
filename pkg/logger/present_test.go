@@ -143,3 +143,48 @@ func TestPresentingHandler_WithAttrsAndGroup(t *testing.T) {
 	assert.Contains(t, grouped.String(), "g.hints=",
 		"an active group nests the lifted attribute, per slog's own rule")
 }
+
+type plainErr struct{}
+
+func (plainErr) Error() string { return "listen tcp :8080: bind: address already in use" }
+
+// TestPresentingHandler_KeepsTheReason is #106: a service logs an event with
+// the error as an attribute, so the message does not carry the reason, and
+// dropping the error dropped it. Below debug the error renders short.
+func TestPresentingHandler_KeepsTheReason(t *testing.T) {
+	t.Parallel()
+
+	for name, err := range map[string]error{
+		"a go/errors error": errors.New("discord: open form: 50035: Invalid Form Body"),
+		"a plain error":     plainErr{},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+
+			l := logger.ToSlog(logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel)))
+			l.Log(t.Context(), slog.LevelError, "command: failed", "error", err, "actor", "x")
+
+			out := buf.String()
+			assert.Contains(t, out, `error="`+err.Error()+`"`, "the reason is shown")
+			assert.NotContains(t, out, "kind=", "and only the reason: the rest is for debug")
+			assert.Contains(t, out, "actor=x")
+		})
+	}
+}
+
+// TestPresentingHandler_DoesNotRepeatTheMessage keeps the original intent:
+// when the message already is the error's text, the error adds nothing.
+func TestPresentingHandler_DoesNotRepeatTheMessage(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	err := errors.New("no config file found")
+
+	l := logger.ToSlog(logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel)))
+	l.Log(t.Context(), slog.LevelError, err.Error(), "error", err)
+
+	assert.NotContains(t, buf.String(), "error=")
+}

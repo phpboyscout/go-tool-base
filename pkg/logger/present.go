@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"gitlab.com/phpboyscout/go/errors"
 )
@@ -29,10 +30,13 @@ const hintsKey = "hints"
 // A hint is the one part of an error written FOR the person reading it, and
 // burying it in a rendered group is a poor way to show it.
 //
-// **The error group is debug-only.** The error's message is already the log
-// message, so rendering the group beside it repeats every failure back at the
-// user. Debug is where the kind, details and attributes earn their space, the
-// same rule errorhandling applies to stack traces.
+// **Below debug an error shows only its message, and not even that when the
+// log message already carries it.** errorhandling logs an error as its own
+// message, where rendering the group beside it would repeat the failure; a
+// service logs an event with the error as an attribute, where the error is the
+// only place the reason is (#106). Debug is where the kind, details and
+// attributes earn their space, the same rule errorhandling applies to stack
+// traces.
 //
 // The result is that ordinary output matches what GTB printed before
 // errorhandling v0.2.0, while --debug shows strictly more than it used to.
@@ -73,6 +77,10 @@ func (h *presentingHandler) Handle(ctx context.Context, r slog.Record) error {
 			}
 
 			if !verbose {
+				if !strings.Contains(r.Message, err.Error()) {
+					out.AddAttrs(slog.String(a.Key, err.Error()))
+				}
+
 				return true
 			}
 		}

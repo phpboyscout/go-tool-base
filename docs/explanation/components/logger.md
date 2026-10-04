@@ -239,6 +239,24 @@ Everything an error carries, **including the hints that tell a user what to do
 next**, arrives through `LogValue`. Against the text formatter it silently
 disappeared.
 
+### What a person is shown of an error
+
+A second wrapper, `logger.NewPresentingHandler`, decides how much of a resolved
+error a person reads. Resolution makes the record complete; presentation keeps
+it readable. Its rules:
+
+- **Hints get their own `hints=` attribute**, since a hint is the part of an
+  error written for the person reading it.
+- **Below debug an error shows only its message.** `log.Error("command:
+  failed", "error", err)` prints `error="<err.Error()>"`: the message describes
+  the event, and the error is the reason.
+- **When the log message already is the error's text, the error is not repeated.**
+  That is how `errorhandling` logs, as `log.Error(err.Error(), "error", err)`.
+- **At `--debug` the whole error is shown**: its kind, details and attributes.
+
+Unlike the resolving wrapper, this one is GTB's own choice and stays when the
+upstream issue below is fixed.
+
 ### Watch this issue
 
 <https://github.com/charmbracelet/log/issues/96>
