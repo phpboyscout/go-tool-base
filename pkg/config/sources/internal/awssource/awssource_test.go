@@ -33,3 +33,13 @@ func TestConfig_AppliesTheSlotsSettings(t *testing.T) {
 	require.NotNil(t, cfg.BaseEndpoint)
 	assert.Equal(t, "http://localhost:4566", *cfg.BaseEndpoint)
 }
+
+// A named profile is passed to the SDK's config loading, which refuses one
+// that does not exist: the slot fails rather than silently using another.
+func TestConfig_AMissingProfileIsAnError(t *testing.T) {
+	awssourcetest.Isolate(t)
+
+	_, err := awssource.Config(t.Context(), settings(t, "profile: no-such-profile\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no-such-profile")
+}

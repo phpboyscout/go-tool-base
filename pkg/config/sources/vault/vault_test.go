@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config/sources/internal/sourceauth"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -91,4 +92,62 @@ func TestTheCatalogueMountIsTheFactorysDefault(t *testing.T) {
 	}
 
 	t.Fatal("the catalogue declares no mount")
+}
+
+// A prefix reads every secret beneath it, each under its own key.
+func TestFactory_ReadsEverySecretUnderAPrefix(t *testing.T) {
+	t.Setenv("CI", "")
+	t.Setenv("VAULT_TOKEN", "s.ambient")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/secret/metadata/team", "/v1/secret/metadata/team/":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"keys": []string{"db"}}})
+		case "/v1/secret/data/team/db":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
+				"data":     map[string]any{"host": "db.internal"},
+				"metadata": map[string]any{"version": 1},
+			}})
+		default:
+			// Vault's own 404, which its client reads as no secret.
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errors":[]}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	backend, err := factory(t.Context(), settings(t, "address: "+srv.URL+"\nprefix: team\n"), nil)
+	require.NoError(t, err)
+
+	store, err := config.NewStore(t.Context(), config.WithBackend(backend))
+	require.NoError(t, err)
+	assert.Equal(t, "db.internal", store.View().GetString("db.host"))
+}
+
+// A slot's poll_interval becomes the backend's watch cadence, and a malformed
+// one is refused naming the setting.
+func TestOptions_PollInterval(t *testing.T) {
+	t.Parallel()
+
+	opts, err := options(settings(t, "poll_interval: 90s\n"))
+	require.NoError(t, err)
+	assert.Len(t, opts, 1)
+
+	opts, err = options(settings(t, "path: app\n"))
+	require.NoError(t, err)
+	assert.Empty(t, opts, "unset keeps the adapter's own cadence")
+
+	_, err = options(settings(t, "poll_interval: soon\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "poll_interval")
+
+	_, err = factory(t.Context(), settings(t, "address: https://vault.internal\npath: app\npoll_interval: soon\n"), nil)
+	require.Error(t, err, "the factory refuses it too")
+}
+
+func TestFactory_RefusesALiteralTokenUnderCI(t *testing.T) {
+	t.Setenv("CI", "true")
+
+	_, err := factory(t.Context(), settings(t, "address: https://vault.internal\npath: app\nauth:\n  value: s.literal\n"), nil)
+	require.ErrorIs(t, err, sourceauth.ErrLiteralUnderCI)
 }

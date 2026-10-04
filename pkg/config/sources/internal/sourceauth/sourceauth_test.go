@@ -58,3 +58,12 @@ func TestToken_RefusesALiteralUnderCI(t *testing.T) {
 	_, err := Token(t.Context(), settings(t, "auth:\n  value: literal\n"), &reporter{}, "team", "VAULT_TOKEN")
 	require.ErrorIs(t, err, ErrLiteralUnderCI)
 }
+
+// A keychain reference that is not service/account is an error, not a
+// missing token: silently treating it as unset turns a typo into a 401.
+func TestToken_AMalformedKeychainReferenceIsAnError(t *testing.T) {
+	t.Setenv("CI", "")
+
+	_, err := Token(t.Context(), settings(t, "auth:\n  keychain: no-slash-here\n"), &reporter{}, "team", "VAULT_TOKEN")
+	require.Error(t, err)
+}
