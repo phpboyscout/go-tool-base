@@ -93,6 +93,10 @@ include:
       assets: true
       # Must agree with blobs.directory in .goreleaser.yaml (colophon 0025 D16).
       asset_base: "https://pkg.phpboyscout.uk/go-tool-base/$CI_COMMIT_TAG"
+  - component: gitlab.com/phpboyscout/cicd/go-core-currency@main
+    inputs:
+      feed: https://phpboyscout.uk/projects.json
+      stage: release
 
   # Scheduled Renovate run — wires its own schedule gate
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
