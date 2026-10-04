@@ -64,7 +64,7 @@ require (
 	gitlab.com/phpboyscout/go/forge v0.31.0
 	gitlab.com/phpboyscout/go/gcpclient v0.1.1
 	gitlab.com/phpboyscout/go/httpclient v0.2.3
-	gitlab.com/phpboyscout/go/mcp v0.1.0
+	gitlab.com/phpboyscout/go/mcp v0.2.0
 	gitlab.com/phpboyscout/go/observability v0.3.2
 	gitlab.com/phpboyscout/go/output v0.2.2
 	gitlab.com/phpboyscout/go/redact v0.2.2

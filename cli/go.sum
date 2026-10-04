@@ -439,8 +439,8 @@ github.com/zalando/go-keyring v0.2.8 h1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPc
 github.com/zalando/go-keyring v0.2.8/go.mod h1:tsMo+VpRq5NGyKfxoBVjCuMrG47yj8cmakZDO5QGii0=
 gitlab.com/gitlab-org/api/client-go/v2 v2.64.0 h1:PrLDC9rS6je6scB0VgXAh6gmoB7fk50bgdweKT37Vdg=
 gitlab.com/gitlab-org/api/client-go/v2 v2.64.0/go.mod h1:jLHVjfgFX/BsZnWXp6OsoXv1hKzBp2tSnNoxQTl3A08=
-gitlab.com/phpboyscout/go-tool-base v0.45.0 h1:Zx4tsNeLaPEFn5YoYq5u2PS9oGDTaWUdkWmsEUnCdik=
-gitlab.com/phpboyscout/go-tool-base v0.45.0/go.mod h1:H5ekYc7jPKow1B7w9nnffMylk+BkBtWP9s6qcQ6YvYI=
+gitlab.com/phpboyscout/go-tool-base v0.45.3 h1:wzH3q+K6Sozu4kFv17/dSys5Fb2sN9BylLu0rWnom8w=
+gitlab.com/phpboyscout/go-tool-base v0.45.3/go.mod h1:H5ekYc7jPKow1B7w9nnffMylk+BkBtWP9s6qcQ6YvYI=
 gitlab.com/phpboyscout/go/aferobilly v0.2.2 h1:ZNJh83V5EBR8UJq1QeKSar6cbQ55WP4xIfaspdy92Fo=
 gitlab.com/phpboyscout/go/aferobilly v0.2.2/go.mod h1:Mz6bl4CvWXvfJhVp8rN0QPSBAM2J02EO7P8Iy/f3qzI=
 gitlab.com/phpboyscout/go/authn v0.2.3 h1:b938V083Z4XZgcsL10PL0VmLwUBuFydz8CCN8C+gRGs=
@@ -497,8 +497,8 @@ gitlab.com/phpboyscout/go/grpcclient v0.2.2 h1:Y6qO5f1wzvjZzN0P5Euo1G+HsfF5Z2xjK
 gitlab.com/phpboyscout/go/grpcclient v0.2.2/go.mod h1:Bw/9YqCyUsWux9MR4Y9sycvoxQdlcRiY+Lhf1X0KLbw=
 gitlab.com/phpboyscout/go/httpclient v0.2.3 h1:GQLhyKmIyTSUWXkVHrBckF7ZUh1duDYJ+4qmMKeKOMc=
 gitlab.com/phpboyscout/go/httpclient v0.2.3/go.mod h1:3Udml+Gu8/8lIIU85Cfcl6IZsn9JxLYgnc3GH0TCMxQ=
-gitlab.com/phpboyscout/go/mcp v0.1.0 h1:Pa5NIYc4v0s9h1jr14yyQ/+SFWzbJNLlUri9GmXYOoI=
-gitlab.com/phpboyscout/go/mcp v0.1.0/go.mod h1:TjbJNql/9mmIYqINmyv44wCdKu8NWIqBORbtzTIabCE=
+gitlab.com/phpboyscout/go/mcp v0.2.0 h1:qk6zpz94jb/qtGdnW6kJe3oyuG6xN9AZTzD4TvzyZE0=
+gitlab.com/phpboyscout/go/mcp v0.2.0/go.mod h1:MjmpzzDR4JlhAlwhh9ki0CuHlHixJjzqaFAUrRZBkwA=
 gitlab.com/phpboyscout/go/observability v0.3.2 h1:duLg1kLxjLtTANV8r95vm/VkFDh7KQgCo7AOaxQC8Lk=
 gitlab.com/phpboyscout/go/observability v0.3.2/go.mod h1:dKaR2lqTuHYH6WxA9ro2B4qUv6rAQpIMK4ogPylCWPk=
 gitlab.com/phpboyscout/go/output v0.2.2 h1:9qOVnTID4qKy0GoQOKqsBV0RspTW+Zd9v1Yh0IgMGvk=
