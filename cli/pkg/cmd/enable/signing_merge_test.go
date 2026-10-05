@@ -67,6 +67,19 @@ func TestMergeSigning(t *testing.T) {
 		assert.Equal(t, "new@acme.dev", got.ExternalKeyEmail)
 	})
 
+	t.Run("every provided release-pipeline field overrides", func(t *testing.T) {
+		t.Parallel()
+
+		base := generator.ManifestSigning{Backend: "aws-kms", KMSRegion: "eu-west-2", PublicKey: "old.asc"}
+		opts := &signingOptions{Backend: "local", KMSRegion: "us-east-1", PublicKey: "new.asc", RequireExternalCrosscheck: true}
+		got := mergeSigning(base, opts, signingFlagSet{backend: true, kmsRegion: true, publicKey: true, requireCrosscheck: true})
+
+		assert.Equal(t, "local", got.Backend)
+		assert.Equal(t, "us-east-1", got.KMSRegion)
+		assert.Equal(t, "new.asc", got.PublicKey)
+		assert.True(t, got.RequireExternalCrosscheck)
+	})
+
 	t.Run("key-source both normalises to empty", func(t *testing.T) {
 		t.Parallel()
 
