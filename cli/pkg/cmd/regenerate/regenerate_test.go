@@ -257,7 +257,7 @@ func TestRegenerateManifest_NoCommandSource(t *testing.T) {
 
 	err := execute(p, "manifest", "--path", projectRoot)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "pkg/cmd directory not found")
+	require.ErrorIs(t, err, generator.ErrNoCommandsDirectory)
 
 	exists, statErr := afero.Exists(fs, projectRoot+"/.gtb/manifest.yaml")
 	require.NoError(t, statErr)

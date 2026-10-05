@@ -14,6 +14,10 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 )
 
+// ErrNoCommandsDirectory is a manifest rebuild pointed at a directory with no
+// pkg/cmd to scan.
+var ErrNoCommandsDirectory = errors.NewSentinel("gtb.generator.no_commands_directory", "pkg/cmd directory not found")
+
 func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -25,7 +29,7 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 
 	exists, _ := afero.Exists(g.props.FS, cmdRoot)
 	if !exists {
-		return errors.New("pkg/cmd directory not found")
+		return ErrNoCommandsDirectory
 	}
 
 	commands, err := g.scanCommands(cmdRoot)
