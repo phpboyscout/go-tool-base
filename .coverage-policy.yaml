@@ -31,7 +31,6 @@ excluded:
   # --- Bucket A: exclude by design ---
   - { pkg: pkg/docs, reason: "Bubble Tea markdown-browser TUI (E2E/manual)" }
   - { pkg: pkg/cmd/docs, reason: "Wrapper around the docs TUI; residual lines are tea.NewProgram().Run() + live HTTP serve (covered to the TTY ceiling)" }
-  - { pkg: cli/pkg/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }
   # --- Bucket B: generator CLI, covered by @generator BDD E2E + generator_build ---
   - { pkg: cli/pkg/generator/verifier, reason: "Post-generation verifier — verifier_integration_test.go (generator_build)" }
   # --- OQ3 -> A: internal/generator pure helpers covered; emission excluded ---
