@@ -1,6 +1,7 @@
 package docs
 
 import (
+	"context"
 	"testing"
 	"testing/fstest"
 
@@ -84,4 +85,23 @@ func TestNewCmdDocsServe_RoutesThroughMiddleware(t *testing.T) {
 	_ = serve.RunE(serve, nil)
 
 	assert.True(t, called, "serve RunE must be wrapped by the middleware chain")
+}
+
+// TestNewCmdDocsServe_OpenWithCancelledContext drives the auto-open branch
+// without launching a browser: browser.OpenURL refuses a cancelled context
+// before invoking the OS opener, and the out-of-range port fails the bind.
+func TestNewCmdDocsServe_OpenWithCancelledContext(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	cmd := NewCmdDocsServe(&props.Props{}, newTestServeFS(t))
+	cmd.SetContext(ctx)
+	require.NoError(t, cmd.Flags().Set("open", "true"))
+	require.NoError(t, cmd.Flags().Set("port", "99999"))
+
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to start listener")
 }

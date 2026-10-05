@@ -3,6 +3,7 @@ package docs
 import (
 	"context"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"testing"
@@ -182,6 +183,31 @@ func TestNewCmdDocs_RunE_MissingDocsAssets(t *testing.T) {
 
 	// The hint chain must mention the tool name via missingAssetsHint.
 	assert.Contains(t, errors.FlattenHints(err), "mytool")
+}
+
+// unsubbableFS is a docs bundle that exists but refuses to be narrowed to a
+// subdirectory, standing in for a broken embedded filesystem.
+type unsubbableFS struct{ fstest.MapFS }
+
+func (unsubbableFS) Sub(string) (fs.FS, error) { return nil, fs.ErrInvalid }
+
+// TestNewCmdDocs_RunE_UnsubbableDocsAssets covers the branch where the docs
+// bundle is present but cannot be narrowed to assets/docs; RunE must fail
+// before it reaches the terminal-bound Bubble Tea program.
+func TestNewCmdDocs_RunE_UnsubbableDocsAssets(t *testing.T) {
+	t.Parallel()
+
+	assets := props.NewAssets(props.AssetMap{
+		"docs": unsubbableFS{fstest.MapFS{"assets/docs/index.md": {Data: []byte("# Docs")}}},
+	})
+	p := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb"}}
+
+	cmd := NewCmdDocs(p)
+	cmd.SetContext(context.Background())
+
+	err := cmd.RunE(cmd.Command, nil)
+	require.ErrorIs(t, err, fs.ErrInvalid)
+	assert.Contains(t, err.Error(), "failed to load documentation assets")
 }
 
 // TestNewCmdDocsAsk_Structure asserts the ask command's metadata, alias,
