@@ -41,7 +41,6 @@ excluded:
   - { pkg: cli/pkg/cmd/generate, reason: "Generator CLI — features/generator/* + generator_build" }
   - { pkg: cli/pkg/cmd/regenerate, reason: "Generator CLI — @generator BDD" }
   - { pkg: cli/pkg/cmd/remove, reason: "Generator CLI — @generator BDD" }
-  - { pkg: cli/pkg/cmd/root, reason: "Generator CLI root wiring — @generator BDD" }
   - { pkg: cli/pkg/cmd/template, reason: "Generator CLI — features/generator/custom-templates + template-lifecycle BDD" }
   - { pkg: cli/pkg/generator/verifier, reason: "Post-generation verifier — verifier_integration_test.go (generator_build)" }
   # --- OQ3 -> A: internal/generator pure helpers covered; emission excluded ---
