@@ -36,8 +36,6 @@ excluded:
   - { pkg: cli/pkg/cmd, reason: "Generator CLI shared wiring — covered by @generator BDD E2E" }
   - { pkg: cli/pkg/cmd/enable, reason: "Generator CLI — features/generator/feature-toggle + signing-lifecycle BDD" }
   - { pkg: cli/pkg/cmd/disable, reason: "Generator CLI — @generator BDD" }
-  - { pkg: cli/pkg/cmd/attach, reason: "Generator CLI — features/generator/external-command-attachment BDD" }
-  - { pkg: cli/pkg/cmd/detach, reason: "Generator CLI — features/generator/external-command-attachment BDD" }
   - { pkg: cli/pkg/cmd/generate, reason: "Generator CLI — features/generator/* + generator_build" }
   - { pkg: cli/pkg/cmd/regenerate, reason: "Generator CLI — @generator BDD" }
   - { pkg: cli/pkg/cmd/remove, reason: "Generator CLI — @generator BDD" }
