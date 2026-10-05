@@ -96,6 +96,7 @@ include:
   - component: gitlab.com/phpboyscout/cicd/go-core-currency@main
     inputs:
       feed: https://phpboyscout.uk/projects.json
+      first_party: gitlab.com/phpboyscout/
       stage: release
 
   # Scheduled Renovate run — wires its own schedule gate
