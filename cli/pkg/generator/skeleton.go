@@ -484,7 +484,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 			return err
 		}
 
-		result.Print(os.Stdout)
+		result.Print(g.props.GetIO().Out())
 
 		return nil
 	}

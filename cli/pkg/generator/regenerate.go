@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -24,7 +23,7 @@ func (g *Generator) RegenerateProject(ctx context.Context) error {
 			return err
 		}
 
-		result.Print(os.Stdout)
+		result.Print(g.props.GetIO().Out())
 
 		return nil
 	}

@@ -86,7 +86,7 @@ func (g *Generator) Generate(ctx context.Context) error {
 			return err
 		}
 
-		result.Print(os.Stdout)
+		result.Print(g.props.GetIO().Out())
 
 		return nil
 	}
