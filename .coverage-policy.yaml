@@ -33,7 +33,6 @@ excluded:
   - { pkg: pkg/cmd/docs, reason: "Wrapper around the docs TUI; residual lines are tea.NewProgram().Run() + live HTTP serve (covered to the TTY ceiling)" }
   - { pkg: cli/pkg/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }
   # --- Bucket B: generator CLI, covered by @generator BDD E2E + generator_build ---
-  - { pkg: cli/pkg/cmd/generate, reason: "Generator CLI — features/generator/* + generator_build" }
   - { pkg: cli/pkg/generator/verifier, reason: "Post-generation verifier — verifier_integration_test.go (generator_build)" }
   # --- OQ3 -> A: internal/generator pure helpers covered; emission excluded ---
   - { pkg: cli/pkg/generator, reason: "Pure manifest/merge/validation/template-source helpers unit-tested (83.5% on 2026-09-15, below the 90% bar); file-emission/diff-pager/AI/git-clone covered by generator_build/E2E" }
