@@ -115,3 +115,21 @@ func TestWizardRun(t *testing.T) {
 		require.Error(t, o.Run(context.Background(), p, &bytes.Buffer{}))
 	})
 }
+
+// A manifest that never set an MCP mode means compact. Building the form
+// defaults the select to compact, which a revisit with no edits must not
+// report or write as a change.
+func TestWizardRun_AnUntouchedMCPModeIsNotAChange(t *testing.T) {
+	t.Parallel()
+
+	p, _ := revisitProject(t)
+	o := &WizardOptions{Path: "/work", DryRun: true, runForm: func(so *SkeletonOptions) error {
+		_ = so.wizardForm()
+
+		return so.afterWizard()
+	}}
+
+	var out bytes.Buffer
+	require.NoError(t, o.Run(context.Background(), p, &out))
+	assert.Equal(t, "no changes\n", out.String())
+}

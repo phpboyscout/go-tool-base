@@ -96,6 +96,7 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 	}
 
 	so.Repo, so.Host = normalizeRepoHost(so.Repo, so.Host)
+	so.keepUnsetMCPMode(*before)
 
 	if err := so.validateFields(); err != nil {
 		return err

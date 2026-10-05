@@ -2,12 +2,22 @@ package generate
 
 import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // optionsFromManifest loads a project's manifest into the wizard's options,
 // marked as a revisit: the inverse of skeletonConfig, kept beside it so the
 // two cannot drift (spec 0197 D13). TestOptionsFromManifest_RoundTrip holds
 // them together through the manifest.
+// keepUnsetMCPMode undoes the form spelling out the default: a manifest with
+// no MCP mode already means compact, and a revisit that left it alone must
+// not write it.
+func (o *SkeletonOptions) keepUnsetMCPMode(m generator.Manifest) {
+	if m.Properties.MCP.Mode == "" && o.MCPMode == string(props.MCPCompact) {
+		o.MCPMode = ""
+	}
+}
+
 func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 	cfg := generator.SkeletonConfigFromManifest(m)
 
