@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"bufio"
 	"context"
 	"io"
 
@@ -87,19 +86,21 @@ func Promptable(io props.IO) bool {
 }
 
 // lineReader hands out one line per Read, however many the underlying
-// reader would give at once. See RunFormOn.
+// reader would give at once. See RunFormOn. It takes the line a byte at a
+// time: every form gets its own lineReader over the same stdin, and one that
+// buffered ahead would keep the next form's answers.
 type lineReader struct {
-	r       *bufio.Reader
+	r       io.Reader
 	pending []byte
 }
 
 func newLineReader(r io.Reader) *lineReader {
-	return &lineReader{r: bufio.NewReader(r)}
+	return &lineReader{r: r}
 }
 
 func (l *lineReader) Read(p []byte) (int, error) {
 	if len(l.pending) == 0 {
-		line, err := l.r.ReadBytes('\n')
+		line, err := l.readLine()
 		if len(line) == 0 {
 			return 0, err
 		}
@@ -111,6 +112,30 @@ func (l *lineReader) Read(p []byte) (int, error) {
 	l.pending = l.pending[n:]
 
 	return n, nil
+}
+
+// readLine reads up to and including the next newline, or to the end of the
+// input.
+func (l *lineReader) readLine() ([]byte, error) {
+	var (
+		line []byte
+		b    [1]byte
+	)
+
+	for {
+		n, err := l.r.Read(b[:])
+		if n == 1 {
+			line = append(line, b[0])
+
+			if b[0] == '\n' {
+				return line, nil
+			}
+		}
+
+		if err != nil {
+			return line, err
+		}
+	}
 }
 
 // The margin every wizard renders with: one line above, two columns in.

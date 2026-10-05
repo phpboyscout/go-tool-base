@@ -38,6 +38,23 @@ func TestRunFormOn_AccessibleAnswersOnAPipeAllArrive(t *testing.T) {
 	assert.Equal(t, "three", third, "and so must a prompt on a later page")
 }
 
+// TestRunFormOn_FormsInTurnOnOnePipeEachGetTheirAnswers: a wizard that runs
+// several forms reads one stdin. Each form gets its own line reader, so a
+// reader that buffered ahead would keep the next form's answers.
+func TestRunFormOn_FormsInTurnOnOnePipeEachGetTheirAnswers(t *testing.T) {
+	t.Parallel()
+
+	var first, second string
+
+	pipe := props.StdIO{Stdin: strings.NewReader("one\ntwo\n"), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: true}
+
+	require.NoError(t, setup.RunFormOn(t.Context(), pipe, huh.NewForm(huh.NewGroup(huh.NewInput().Title("First").Value(&first)))))
+	require.NoError(t, setup.RunFormOn(t.Context(), pipe, huh.NewForm(huh.NewGroup(huh.NewInput().Title("Second").Value(&second)))))
+
+	assert.Equal(t, "one", first)
+	assert.Equal(t, "two", second, "the second form must find its answer still on the pipe")
+}
+
 // TestPromptable: one rule for every prompt gate.
 func TestPromptable(t *testing.T) {
 	t.Parallel()

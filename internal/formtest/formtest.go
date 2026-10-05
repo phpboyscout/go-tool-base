@@ -46,7 +46,8 @@ type chunkReader struct {
 	// last is the previous chunk; an Enter moves huh to the next field or
 	// group through a command the program runs after Update returns, so the
 	// key after it waits longer or lands on the field that was just left.
-	last string
+	last     string
+	midChunk bool
 }
 
 func (r *chunkReader) Read(p []byte) (int, error) {
@@ -57,16 +58,28 @@ func (r *chunkReader) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	switch {
-	case r.pause > 0 && r.last == Enter:
-		time.Sleep(enterPace)
-	case r.pause > 0:
-		time.Sleep(r.pause)
+	if !r.midChunk {
+		switch {
+		case r.pause > 0 && r.last == Enter:
+			time.Sleep(enterPace)
+		case r.pause > 0:
+			time.Sleep(r.pause)
+		}
 	}
 
 	n := copy(p, r.chunks[0])
+	if n < len(r.chunks[0]) {
+		// A reader that asks for less than a whole chunk gets the rest on
+		// its next Read, unpaced: it is still the same keypress or line.
+		r.chunks[0] = r.chunks[0][n:]
+		r.midChunk = true
+
+		return n, nil
+	}
+
 	r.last = r.chunks[0]
 	r.chunks = r.chunks[1:]
+	r.midChunk = false
 
 	return n, nil
 }
