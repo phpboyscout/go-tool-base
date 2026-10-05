@@ -135,7 +135,7 @@ func TestSelfUpdatePage_ChannelValidation(t *testing.T) {
 		t.Parallel()
 
 		o := &SkeletonOptions{hosted: true, ForgeBackend: "github", Features: []string{string(props.UpdateCmd)}}
-		runGroupAccessible(t, o.selfUpdateGroup(), "1")
+		runGroupAccessible(t, o.selfUpdateGroup(), "1", "", "")
 		assert.Equal(t, generator.ReleaseChannelForge, o.ReleaseChannel)
 	})
 
@@ -143,7 +143,7 @@ func TestSelfUpdatePage_ChannelValidation(t *testing.T) {
 		t.Parallel()
 
 		o := &SkeletonOptions{Features: []string{string(props.UpdateCmd)}}
-		runGroupAccessible(t, o.selfUpdateGroup(), "1")
+		runGroupAccessible(t, o.selfUpdateGroup(), "1", "", "")
 		assert.Equal(t, generator.ReleaseChannelStatic, o.ReleaseChannel)
 	})
 }

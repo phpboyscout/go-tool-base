@@ -10,12 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // TestSkeletonValidateFields_RefusesEachField walks the flag-path validators
@@ -172,11 +175,23 @@ func TestWizardRevisit_Command(t *testing.T) {
 		t.Parallel()
 
 		p, _ := revisitProject(t)
-		p.IO = formtest.AccessibleTTY(formtest.Answers())
+		r := &defaultsResponder{}
+		p.IO = props.StdIO{Stdin: r, Stdout: r, Stderr: r, AccessibleMode: true}
 
 		var out bytes.Buffer
 		require.NoError(t, (&WizardOptions{Path: "/work", DryRun: true}).Run(context.Background(), p, &out))
 		assert.NotContains(t, out.String(), "description", "an untouched page changes nothing it shows")
+	})
+
+	t.Run("accessible input that runs out is not a missing terminal", func(t *testing.T) {
+		t.Parallel()
+
+		p, _ := revisitProject(t)
+		p.IO = formtest.AccessibleTTY(formtest.Answers())
+
+		err := (&WizardOptions{Path: "/work", DryRun: true}).Run(context.Background(), p, &bytes.Buffer{})
+		require.ErrorIs(t, err, setup.ErrInputEnded)
+		assert.NotContains(t, errors.FlattenHints(err), "needs a terminal")
 	})
 }
 

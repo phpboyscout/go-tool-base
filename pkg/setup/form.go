@@ -17,6 +17,10 @@ import (
 // is not a terminal and accessible mode is off.
 var ErrNonInteractive = errors.NewSentinel("gtb.setup.non_interactive", "an interactive terminal is needed")
 
+// ErrInputEnded is an accessible form whose stdin ran out before every
+// question was answered.
+var ErrInputEnded = errors.NewSentinel("gtb.setup.input_ended", "input ended before every question was answered")
+
 // RunForm runs a huh form on the invocation's streams (spec 0198 D2). The
 // accessible decision is the IO's, applied to the form here, because huh
 // decides it per form from TERM=dumb and offers no way to ask. A stdin that
@@ -34,7 +38,17 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 			"Run this from a terminal, or non-interactively: pass the answers as flags, or set GTB_ACCESSIBLE=true for line prompts on a piped stdin.")
 	}
 
-	return PrepareForm(io, f).RunWithContext(ctx)
+	f, answers := prepareForm(io, f)
+	if err := f.RunWithContext(ctx); err != nil {
+		return err
+	}
+
+	if answers != nil && answers.ranOut {
+		return errors.WithHint(ErrInputEnded,
+			"Give one line per question; an empty line takes the question's default.")
+	}
+
+	return nil
 }
 
 // PrepareForm binds f to the IO's streams the way RunFormOn does, without
@@ -42,6 +56,16 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 // options. It is for the few prompts reached from code that carries no
 // context, which then call Run themselves; everything else uses RunFormOn.
 func PrepareForm(io props.IO, f *huh.Form) *huh.Form {
+	f, _ = prepareForm(io, f)
+
+	return f
+}
+
+// prepareForm is PrepareForm returning the accessible line reader too, nil
+// on the TUI path, so RunFormOn can ask whether the answers ran out.
+func prepareForm(io props.IO, f *huh.Form) (*huh.Form, *lineReader) {
+	var answers *lineReader
+
 	// Read once: an IO may hand each form its own input (formtest.TUIForms).
 	in, out := io.In(), io.Err()
 
@@ -50,7 +74,8 @@ func PrepareForm(io props.IO, f *huh.Form) *huh.Form {
 		// over a pipe reads ahead, so every answer after the first was lost
 		// with the scanner that read it. One line per Read means a prompt can
 		// take no more than its own answer.
-		in = newLineReader(in)
+		answers = newLineReader(in)
+		in = answers
 	}
 
 	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible()).WithTheme(FormTheme())
@@ -59,7 +84,7 @@ func PrepareForm(io props.IO, f *huh.Form) *huh.Form {
 		f = f.WithProgramOptions(append(programOptions(in, out), tea.WithFilter(refocusRefusedField(f)))...)
 	}
 
-	return f
+	return f, answers
 }
 
 // FormTheme is the theme every wizard renders with: huh's Charm theme with the
@@ -92,6 +117,14 @@ func Promptable(io props.IO) bool {
 type lineReader struct {
 	r       io.Reader
 	pending []byte
+	// unterminated is a last answer given without a newline; the read that
+	// finds the end after it is the prompt finishing that answer, not a
+	// prompt left without one.
+	unterminated bool
+	// ranOut is a prompt asking for a line after the input ended. huh then
+	// takes the default without validating it (huh v2.0.3), so RunFormOn
+	// turns it into ErrInputEnded.
+	ranOut bool
 }
 
 func newLineReader(r io.Reader) *lineReader {
@@ -102,10 +135,16 @@ func (l *lineReader) Read(p []byte) (int, error) {
 	if len(l.pending) == 0 {
 		line, err := l.readLine()
 		if len(line) == 0 {
+			if errors.Is(err, io.EOF) {
+				l.ranOut = l.ranOut || !l.unterminated
+				l.unterminated = false
+			}
+
 			return 0, err
 		}
 
 		l.pending = line
+		l.unterminated = line[len(line)-1] != '\n'
 	}
 
 	n := copy(p, l.pending)

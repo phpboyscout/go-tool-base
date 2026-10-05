@@ -42,12 +42,14 @@ require.NoError(t, RunAIInit(ctx, p, dir))
 ```
 
 `formtest.Answers` is what a person types at accessible prompts: an option's
-number for a select, a line for an input, `y`/`n` for a confirm. It yields one
-answer per `Read`, because huh reads each field through a fresh buffered
-reader and a plain `strings.Reader` would lose every answer after the first.
+number for a select, a line for an input, `y`/`n` for a confirm, and an empty
+string for Enter. A multi-select is confirmed with `0`. `setup.RunForm` hands
+huh one line per read, so a plain `strings.Reader` works as well. Answers that
+run out before the questions do are `setup.ErrInputEnded`, so a test gives one
+line per question it expects to be asked.
 
-For behaviour that only the TUI path has (a hide function, `OptionsFunc`, a
-password field), drive keys instead:
+For behaviour that only the TUI path has (a password field, reactive text as
+it changes), drive keys instead:
 
 ```go
 p := &props.Props{IO: formtest.TUI(formtest.Keys(formtest.Down, formtest.Enter, "MY_VAR", formtest.Enter))}
@@ -64,17 +66,28 @@ SSH key, then the upload question) takes `formtest.TUIForms(script1, script2,
 handled and keeps the surplus when it quits, so a later form's keys on a
 shared reader are lost.
 
-Three facts about accessible mode decide which route a test takes (huh
+Facts about accessible mode that decide which route a test takes (huh
 v2.0.3, `form.go` `runAccessible`):
 
-- **Every field of every group is asked**, in order. `WithHideFunc` is not
-  consulted, so an answers script covers the hidden pages too, and a test that
-  a page *is* hidden has to drive keys.
+- **huh asks every field of every group**, ignoring `WithHideFunc`, and never
+  refreshes a `*Func` binding. The framework's and the generator's wizards
+  declare their pages through `internal/formpage` instead, which runs each
+  visible page on its own and builds it when it is asked. So for those
+  wizards an answers script covers only the visible pages, and a test can
+  assert a hidden page is absent from the transcript. A form passed straight
+  to `setup.RunForm` still has huh's behaviour.
+- **An empty line is validated as `""`** before huh falls back to the field's
+  value. A text field that validates wraps its validator in
+  `formpage.ValidateAnswer`, so Enter keeps a pre-filled answer.
 - **Group titles and descriptions are not printed.** Assert on field titles.
 - **A field's error is swallowed.** A password input with no terminal behind
   it fails with "password asking needs a tty" and the bound value stays blank.
   A wizard that must have the value checks for the blank itself
   (`promptManualToken` returns `ErrNoTokenEntered`).
+
+The upstream fixes are proposed in huh#780, huh#832 and huh#833; when a huh
+release carries them, `internal/formpage`'s accessible path and
+`ValidateAnswer` can go.
 
 The answers route touches nothing global and is parallel-safe. The key route
 is time-paced (huh's group transitions are asynchronous commands), so tests

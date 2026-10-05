@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -53,6 +55,58 @@ func TestRunFormOn_FormsInTurnOnOnePipeEachGetTheirAnswers(t *testing.T) {
 
 	assert.Equal(t, "one", first)
 	assert.Equal(t, "two", second, "the second form must find its answer still on the pipe")
+}
+
+// TestRunFormOn_InputThatEndsEarlyFails: huh's accessible prompts take their
+// default when stdin ends, skipping the validator, and the form reports
+// success. Running out of answers is a failure, not a set of defaults.
+func TestRunFormOn_InputThatEndsEarlyFails(t *testing.T) {
+	t.Parallel()
+
+	required := func(s string) error {
+		if s == "" {
+			return errors.New("required")
+		}
+
+		return nil
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		want    [2]string
+	}{
+		{name: "every answer given", input: "one\ntwo\n", want: [2]string{"one", "two"}},
+		{name: "a last answer without a newline", input: "one\ntwo", want: [2]string{"one", "two"}},
+		{name: "an empty line takes the default", input: "one\n\n", want: [2]string{"one", "fallback"}},
+		{name: "answers that run out", input: "one\n", wantErr: true},
+		{name: "no answers at all", input: "", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			first, second := "", "fallback"
+			form := huh.NewForm(huh.NewGroup(
+				huh.NewInput().Title("First").Value(&first).Validate(required),
+				huh.NewInput().Title("Second").Value(&second),
+			))
+
+			pipe := props.StdIO{Stdin: strings.NewReader(tc.input), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: true}
+			err := setup.RunFormOn(t.Context(), pipe, form)
+
+			if tc.wantErr {
+				require.ErrorIs(t, err, setup.ErrInputEnded)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, [2]string{first, second})
+		})
+	}
 }
 
 // TestPromptable: one rule for every prompt gate.

@@ -45,6 +45,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [Chat defaults in the manifest; the fallback chain is the module's](v0.x-chat-defaults-in-the-manifest.md) |
 | v0.x | v0.x | [Author settings as one surface](v0.x-author-settings.md) |
 | v0.x | v0.x | [`Props.IO`, and the setup wizards' test seams](v0.x-props-io.md) |
+| v0.x | v0.x | [Accessible prompts skip hidden pages, and running out of answers fails](v0.x-accessible-prompts.md) |
 | v0.x | v0.x | [features as a value, and a root that owns its registries](v0.x-features-as-a-value.md) |
 | v0.x | v0.x | [the scaffold's go.mod is edited in place](v0.x-gomod-seeded-in-place.md) |
 | v0.x | v0.x | [MCP publishes progressively, on the estate's own module](v0.x-mcp-progressive-discovery.md) |

@@ -150,6 +150,24 @@ func TestSettingsInitialiser_Default(t *testing.T) {
 	assert.False(t, init.IsConfigured(emptyReader(t)))
 }
 
+// A required setting with nothing to fall back on refuses an empty answer.
+func TestSettingsInitialiser_RequiredWithoutDefault(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{
+		Tool:   props.Tool{Name: "mytool"},
+		Logger: logger.NewNoop(),
+		IO:     props.StdIO{Stdin: formtest.Answers(""), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: true},
+	}
+
+	init := setup.SettingsInitialiser(props.ConfigSource{Name: "team", Kind: "consul"},
+		setup.SourceSetting{Key: "address", Title: "Address", Required: true})
+
+	editor := &recordingEditor{}
+	require.ErrorIs(t, init.Configure(t.Context(), p, editor), setup.ErrInputEnded)
+	assert.Empty(t, editor.set)
+}
+
 func emptyReader(t *testing.T) config.Reader {
 	t.Helper()
 

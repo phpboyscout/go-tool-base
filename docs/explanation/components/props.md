@@ -82,6 +82,10 @@ implementation, whose zero value is the process's stdin, stdout and stderr.
 `Props` behaves as before. The root command fills it from cobra once, in its
 pre-run, which is the one place cobra touches Props; a `--accessible` flag or
 `GTB_ACCESSIBLE=true` asks for line prompts instead of a full-screen form.
+The framework's wizards ask only the pages a person would see at those
+prompts, and answers piped in that run out before the questions do fail with
+`setup.ErrInputEnded` rather than taking defaults (see the
+[migration note](../../reference/migration/v0.x-accessible-prompts.md)).
 
 Every huh form in the framework runs through `setup.RunForm(ctx, p, form)`,
 which reads the IO, so a test drives a real wizard by setting `Props.IO` and

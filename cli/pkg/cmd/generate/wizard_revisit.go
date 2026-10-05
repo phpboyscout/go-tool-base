@@ -71,6 +71,10 @@ func (o *WizardOptions) run(ctx context.Context, p *props.Props, so *SkeletonOpt
 	}
 
 	if err := so.runWizard(ctx, p); err != nil {
+		if errors.Is(err, setup.ErrInputEnded) {
+			return err // the prompts ran; the answers did not
+		}
+
 		return errors.WithHint(err, needsTerminalHint)
 	}
 
