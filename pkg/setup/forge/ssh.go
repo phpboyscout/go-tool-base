@@ -109,7 +109,7 @@ type sshKeyConfig struct {
 // the page the choice needs. The upload question is asked afterwards,
 // because whether an upload is possible is only known once the key manager
 // resolves (spec 0186 D7).
-func sshPages(cfg *sshKeyConfig, options []huh.Option[string]) []formpage.Page {
+func sshPages(cfg *sshKeyConfig, options []huh.Option[string], secret huh.EchoMode) []formpage.Page {
 	return []formpage.Page{
 		formpage.Of(huh.NewGroup(
 			huh.NewSelect[string]().
@@ -130,7 +130,7 @@ func sshPages(cfg *sshKeyConfig, options []huh.Option[string]) []formpage.Page {
 				Key("passphrase").
 				Title("Enter passphrase for new SSH key").
 				Description(fmt.Sprintf("should be a minimum of %d characters long", minPassphraseLength)).
-				EchoMode(huh.EchoModePassword).
+				EchoMode(secret).
 				Validate(validatePassphrase).
 				Value(&cfg.Passphrase),
 		)).HiddenWhen(func() bool { return cfg.Choice != sshChoiceGenerate }),
@@ -139,7 +139,7 @@ func sshPages(cfg *sshKeyConfig, options []huh.Option[string]) []formpage.Page {
 
 // sshForm is sshPages as the one form the TUI runs.
 func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
-	return huh.NewForm(formpage.Groups(sshPages(cfg, options)...)...)
+	return huh.NewForm(formpage.Groups(sshPages(cfg, options, huh.EchoModePassword)...)...)
 }
 
 func validatePassphrase(s string) error {
@@ -183,7 +183,7 @@ func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg c
 		keyCfg.Choice = cfg.GetString(profile.sshKeyPathKey())
 	}
 
-	if err := runPages(ctx, p, sshPages(keyCfg, potentialKeys)); err != nil {
+	if err := runPages(ctx, p, sshPages(keyCfg, potentialKeys, setup.SecretEchoMode(p.GetIO()))); err != nil {
 		return "", "", err
 	}
 

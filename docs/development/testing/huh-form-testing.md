@@ -18,7 +18,7 @@ Interactive prompts in GTB are built on [`charm.land/huh`](https://github.com/ch
 | Code runs its form through `setup.RunForm(ctx, p, form)` (every form in `pkg/`) | **D. `Props.IO` with `internal/formtest`** | Yes |
 | You need to assert **field-level keystroke behaviour** (a hide function, a dynamic select) | **C. Drive the form as a `tea.Model`**, or D with `formtest.Keys` | Yes |
 | Legacy code calls `huh.NewForm(...).Run()` directly and you can't change it | **A. Accessible mode + scripted stdin** (`TERM=dumb`, swap `os.Stdin`) | No (serial) |
-| The field is a **password** (`EchoMode(huh.EchoModePassword)`) | D with `formtest.Keys`, or C (accessible mode can't script it, see [gotchas](#gotchas)) | — |
+| The field is a **secret** (`EchoMode(setup.SecretEchoMode(io))`) | D with answers (it reads a plain line on a pipe), or `formtest.Keys` for the TUI | — |
 
 The default for framework code is **D**. Injecting a form creator (the old
 "B, `WithForm` pattern") is gone: it left the wizard's own forms untested and
@@ -48,8 +48,8 @@ huh one line per read, so a plain `strings.Reader` works as well. Answers that
 run out before the questions do are `setup.ErrInputEnded`, so a test gives one
 line per question it expects to be asked.
 
-For behaviour that only the TUI path has (a password field, reactive text as
-it changes), drive keys instead:
+For behaviour that only the TUI path has (reactive text as it changes, a
+password field's masking), drive keys instead:
 
 ```go
 p := &props.Props{IO: formtest.TUI(formtest.Keys(formtest.Down, formtest.Enter, "MY_VAR", formtest.Enter))}
@@ -80,10 +80,12 @@ v2.0.3, `form.go` `runAccessible`):
   value. A text field that validates wraps its validator in
   `formpage.ValidateAnswer`, so Enter keeps a pre-filled answer.
 - **Group titles and descriptions are not printed.** Assert on field titles.
-- **A field's error is swallowed.** A password input with no terminal behind
-  it fails with "password asking needs a tty" and the bound value stays blank.
-  A wizard that must have the value checks for the blank itself
-  (`promptManualToken` returns `ErrNoTokenEntered`).
+- **A password needs a terminal.** huh reads an accessible password straight
+  from the terminal's descriptor, fails without one ("password asking needs a
+  tty") and swallows the error, leaving the value blank. A secret field takes
+  its echo mode from `setup.SecretEchoMode(io)`: hidden at a terminal, whose
+  descriptor `setup.RunForm` passes through, and a plain line on a pipe, where
+  nothing echoes anyway ([#108](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/108)). So an answers script can supply a secret.
 
 The upstream fixes are proposed in huh#780, huh#832 and huh#833; when a huh
 release carries them, `internal/formpage`'s accessible path and
@@ -216,7 +218,7 @@ Use this when you specifically need to assert **keystroke-level** behaviour (nav
 
 ## Gotchas
 
-- **Password fields aren't scriptable at accessible prompts.** `EchoMode(huh.EchoModePassword)` routes through `PromptPassword`, which reads the **raw terminal fd** (it type-asserts `r.(interface{ Fd() uintptr })` and puts it in raw mode). A plain `os.Pipe` won't behave, and huh swallows the failure, leaving the value blank. Test secret entry with `formtest.Keys` (D) or C.
+- **A hard-coded `EchoModePassword` isn't scriptable at accessible prompts.** It routes through `PromptPassword`, which reads the **raw terminal fd** (it type-asserts `r.(interface{ Fd() uintptr })` and puts it in raw mode). A plain `os.Pipe` won't behave, and huh swallows the failure, leaving the value blank. Use `setup.SecretEchoMode(io)` for the field and script it with answers, or test it with `formtest.Keys` (D) or C. The terminal path is covered with a real pseudo-terminal (`pkg/setup/form_secret_test.go`).
 - **Feed enough lines, then close the writer.** A form with N fields reads N lines. Under-feeding leaves the read blocking. The helper closes the pipe writer after writing, so a stuck read surfaces as a fast EOF rather than a hang.
 - **Validation loops consume extra lines.** If a value fails `Validate`, the field re-prompts and reads again. Feed values that pass, or script the retry explicitly.
 - **Redirect `os.Stdout`.** Accessible prompts print to stdout; without the `devnull` swap they spam the test log. (Note huh writes the prompt to `output|os.Stdout`, not stderr.)

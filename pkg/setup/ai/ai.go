@@ -151,7 +151,7 @@ func aiPages(ctx context.Context, p *props.Props, cfg *AIConfig, existing config
 		formpage.Deferred(func() *huh.Group { return setup.StorageModeGroup(ctx, p, &cfg.StorageMode, noCredential) }).
 			HiddenWhen(noCredential),
 		formpage.Deferred(func() *huh.Group { return envVarGroup(cfg) }).HiddenWhen(envVarHidden),
-		formpage.Deferred(func() *huh.Group { return keyGroup(cfg, existing) }).HiddenWhen(keyHidden),
+		formpage.Deferred(func() *huh.Group { return keyGroup(cfg, existing, setup.SecretEchoMode(p.GetIO())) }).HiddenWhen(keyHidden),
 	}
 }
 
@@ -221,14 +221,14 @@ func envVarGroup(cfg *AIConfig) *huh.Group {
 
 // keyGroup asks the key itself, masked; blank keeps an existing one, which
 // the description says (masked) when there is one.
-func keyGroup(cfg *AIConfig, existing config.Reader) *huh.Group {
+func keyGroup(cfg *AIConfig, existing config.Reader, secret huh.EchoMode) *huh.Group {
 	return huh.NewGroup(
 		huh.NewInput().
 			Key("api-key").
 			TitleFunc(func() string { return fmt.Sprintf("%s API Key", providerLabel(cfg.Provider)) }, &cfg.Provider).
 			DescriptionFunc(func() string { return keyDescription(cfg.Provider, existing) }, &cfg.Provider).
 			Placeholder("paste new key or press enter to keep existing").
-			EchoMode(huh.EchoModePassword).
+			EchoMode(secret).
 			Value(&cfg.APIKey),
 	)
 }

@@ -474,7 +474,7 @@ func promptManualToken(ctx context.Context, p *props.Props, profile Profile) (st
 			huh.NewInput().
 				Title(profile.Label+" Personal Access Token").
 				Description("Paste the token you just generated. Input is hidden.").
-				EchoMode(huh.EchoModePassword).
+				EchoMode(setup.SecretEchoMode(p.GetIO())).
 				Value(&token).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {

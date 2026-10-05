@@ -3,11 +3,13 @@ package setup
 import (
 	"context"
 	"io"
+	"os"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/errors"
+	"golang.org/x/term"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -76,6 +78,13 @@ func prepareForm(io props.IO, f *huh.Form) (*huh.Form, *lineReader) {
 		// take no more than its own answer.
 		answers = newLineReader(in)
 		in = answers
+
+		if tty, ok := terminal(io.In()); ok {
+			// huh reads a password straight from the terminal and needs its
+			// descriptor to do it (#108); the line reader byte-reads, so it
+			// holds nothing back from that read.
+			in = terminalLineReader{lineReader: answers, tty: tty}
+		}
 	}
 
 	f = f.WithInput(in).WithOutput(out).WithAccessible(io.Accessible()).WithTheme(FormTheme())
@@ -151,6 +160,44 @@ func (l *lineReader) Read(p []byte) (int, error) {
 	l.pending = l.pending[n:]
 
 	return n, nil
+}
+
+// terminalLineReader is a lineReader over a terminal, exposing its descriptor
+// for the reads huh makes directly.
+type terminalLineReader struct {
+	*lineReader
+	tty *os.File
+}
+
+// Fd is the terminal's descriptor.
+func (t terminalLineReader) Fd() uintptr {
+	return t.tty.Fd()
+}
+
+// terminal reports whether r is a terminal, the rule StdIO.Interactive
+// applies.
+func terminal(r io.Reader) (*os.File, bool) {
+	f, ok := r.(*os.File)
+	if !ok || !term.IsTerminal(int(f.Fd())) {
+		return nil, false
+	}
+
+	return f, true
+}
+
+// SecretEchoMode is the echo mode for a field that takes a secret. huh hides
+// an accessible password by reading the terminal, which a piped stdin does
+// not have; there it is read as a plain line, since nothing echoes on a pipe.
+func SecretEchoMode(io props.IO) huh.EchoMode {
+	if !io.Accessible() {
+		return huh.EchoModePassword // asked before In: an IO may hand each read its own input
+	}
+
+	if _, ok := terminal(io.In()); ok {
+		return huh.EchoModePassword
+	}
+
+	return huh.EchoModeNormal
 }
 
 // readLine reads up to and including the next newline, or to the end of the
