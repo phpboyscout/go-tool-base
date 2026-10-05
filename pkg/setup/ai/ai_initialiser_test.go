@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"charm.land/huh/v2"
+
 	"github.com/spf13/cobra"
 
 	"github.com/spf13/afero"
@@ -159,7 +161,7 @@ func TestAIForm_PagesFollowTheAnswers(t *testing.T) {
 	assert.NotNil(t, aiForm(t.Context(), newTestProps(t), local, view, allLinked))
 
 	assert.NotNil(t, envVarGroup(envVar))
-	assert.NotNil(t, keyGroup(&AIConfig{Provider: "claude"}, view))
+	assert.NotNil(t, keyGroup(&AIConfig{Provider: "claude"}, view, huh.EchoModePassword))
 }
 
 // TestStorageModeChanges_UnknownMode covers the default arm of the

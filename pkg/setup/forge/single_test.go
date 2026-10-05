@@ -447,13 +447,13 @@ func TestConfigure_EnvVarFetchTokenCaptureError(t *testing.T) {
 	p := newTestProps(t)
 	cfg := newTestEditor(t, p, "")
 
-	// OAuth fails; the manual prompt is a password field, which accessible
-	// mode cannot answer without a terminal, and the wizard refuses the blank.
+	// OAuth fails and the wizard falls back to the manual token prompt, which
+	// on a pipe reads a plain line (#108); with none left the answers run out.
 	p.IO, _ = singleAuthIO(t, credentials.ModeEnvVar, "GITHUB_TOKEN", true)
 	init := NewGitHubInitialiser(p, false, true,
 		withProviderFactory(authProviderFactory("", assert.AnError)),
 	)
-	require.ErrorIs(t, init.Configure(t.Context(), p, cfg), ErrNoTokenEntered)
+	require.ErrorIs(t, init.Configure(t.Context(), p, cfg), setup.ErrInputEnded)
 }
 
 func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {

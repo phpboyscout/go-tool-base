@@ -2,12 +2,14 @@ package ai
 
 import (
 	"bytes"
+	"io"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
@@ -121,4 +123,24 @@ func TestRunAIForms_AccessibleAsksNoHiddenPage(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, out.String(), "Credential Storage")
 	assert.NotContains(t, out.String(), "Environment Variable Name")
+}
+
+// TestRunAIForms_PipedKeyIsRead: on a pipe nothing echoes, so the key field
+// reads a plain line there; huh's password prompt needs a terminal, and the
+// key came back empty (#108).
+func TestRunAIForms_PipedKeyIsRead(t *testing.T) {
+	// Not parallel: literal mode is only offered outside CI.
+	withNoCI(t)
+
+	p := newTestProps(t)
+	p.IO = props.StdIO{
+		Stdin:          formtest.Answers(strconv.Itoa(providerNumber(t, "claude")), strconv.Itoa(modeNumber(t, credentials.ModeLiteral)), "sk-ant-piped"),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
+		AccessibleMode: true,
+	}
+
+	got, err := runAIForms(t.Context(), p, testutil.StoreFromYAML(t, "").View(), allLinked)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-ant-piped", got.APIKey)
 }

@@ -177,14 +177,16 @@ func TestFinaliseDualConfig(t *testing.T) {
 
 // A password cannot be read at an accessible prompt without a terminal; huh
 // leaves it blank and says nothing, so the wizard has to refuse the blank.
-func TestConfigure_AccessibleRunWithoutATerminalRefusesTheBlankPassword(t *testing.T) {
+// On a pipe the app password is asked as a plain line (#108), so a blank one
+// is refused by its validator, and answers that then run out write nothing.
+func TestConfigure_AccessibleRunRefusesTheBlankPassword(t *testing.T) {
 	p := newDualTestProps(t)
 	cfg := setupmocks.NewMockEditor(t)
 
-	p.IO, _ = answersIO(modeNumber(t, credentials.ModeLiteral), "", "", "alice")
+	p.IO, _ = answersIO(modeNumber(t, credentials.ModeLiteral), "alice", "")
 	i := NewBitbucketInitialiser(p)
 
-	require.ErrorIs(t, i.Configure(t.Context(), p, cfg), ErrCredentialsIncomplete)
+	require.ErrorIs(t, i.Configure(t.Context(), p, cfg), setup.ErrInputEnded)
 }
 
 // --- IsConfigured ---
@@ -643,13 +645,14 @@ func TestRunInitCmd_MkdirError(t *testing.T) {
 func TestDualForm_UsernameIsRequired(t *testing.T) {
 	t.Setenv("CI", "")
 
-	io, out := answersIO(modeNumber(t, credentials.ModeLiteral), "", "", "", "alice")
+	io, out := answersIO(modeNumber(t, credentials.ModeLiteral), "", "alice", "s3cret")
 	p := newTestProps(t)
 	p.IO = io
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), p, bitbucketProfile, cfg)))
+	require.NoError(t, runPages(t.Context(), p, dualPages(t.Context(), p, bitbucketProfile, cfg)))
 	assert.Equal(t, "alice", cfg.Username)
+	assert.Equal(t, "s3cret", cfg.AppPassword)
 	assert.Contains(t, out.String(), "username is required")
 }
 
@@ -676,4 +679,18 @@ func TestNewCmdInitBitbucket_RunE_Error(t *testing.T) {
 	err := cmd.RunE(cmd, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to configure Bitbucket")
+}
+
+// On a pipe the app password is read as a plain line (#108).
+func TestDualForm_LiteralModeOnAPipe(t *testing.T) {
+	t.Setenv("CI", "")
+
+	io, _ := answersIO(modeNumber(t, credentials.ModeLiteral), "alice", "s3cret")
+	p := newTestProps(t)
+	p.IO = io
+
+	cfg := &DualConfig{}
+	require.NoError(t, runPages(t.Context(), p, dualPages(t.Context(), p, bitbucketProfile, cfg)))
+	assert.Equal(t, "alice", cfg.Username)
+	assert.Equal(t, "s3cret", cfg.AppPassword)
 }

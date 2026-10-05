@@ -282,7 +282,7 @@ func TestSSHForm_AgentAtAccessiblePrompts(t *testing.T) {
 	p.IO = io
 
 	cfg := &sshKeyConfig{}
-	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options)))
+	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options, setup.SecretEchoMode(p.GetIO()))))
 	assert.Equal(t, sshChoiceAgent, cfg.Choice)
 	assert.Contains(t, out.String(), "Select SSH key")
 	assert.NotContains(t, out.String(), "Enter path to SSH key", "the path page is for a manual choice")
@@ -674,3 +674,22 @@ func TestGenerateAndSaveSSHKey_Success(t *testing.T) {
 }
 
 // --- runForm ---
+
+// On a pipe the new key's passphrase is read as a plain line (#108).
+func TestSSHForm_GenerateOnAPipeReadsThePassphrase(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
+
+	p := newTestProps(t)
+	options := []huh.Option[string]{
+		huh.NewOption("Generate a new SSH key", sshChoiceGenerate),
+		huh.NewOption("I use ssh-agent to handle my keys", sshChoiceAgent),
+	}
+
+	io, _ := answersIO(sshChoiceNumber(t, p, sshChoiceGenerate), "a long enough passphrase")
+	p.IO = io
+
+	cfg := &sshKeyConfig{}
+	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options, setup.SecretEchoMode(p.GetIO()))))
+	assert.Equal(t, sshChoiceGenerate, cfg.Choice)
+	assert.Equal(t, "a long enough passphrase", cfg.Passphrase)
+}

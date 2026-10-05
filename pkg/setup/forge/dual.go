@@ -96,7 +96,7 @@ func dualPages(ctx context.Context, p *props.Props, profile Profile, cfg *DualCo
 				Key("app-password").
 				Title(profile.Label+" app password").
 				Description("Input is hidden. Create one at bitbucket.org → Personal settings → App passwords.").
-				EchoMode(huh.EchoModePassword).
+				EchoMode(setup.SecretEchoMode(p.GetIO())).
 				Value(&cfg.AppPassword).
 				Validate(required("app password")),
 		)).HiddenWhen(envVar),
