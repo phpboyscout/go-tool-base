@@ -98,7 +98,12 @@ func TestSkeletonRoot_ToolOptions(t *testing.T) {
 		{
 			name: "sub-second interval",
 			data: SkeletonRootData{UpdateCheckInterval: "1500ms"},
-			want: []string{"UpdateCheckInterval: time.Duration(int64(1500000000))"},
+			want: []string{"UpdateCheckInterval: 1500 * time.Millisecond"},
+		},
+		{
+			name: "sub-millisecond interval",
+			data: SkeletonRootData{UpdateCheckInterval: "1500ns"},
+			want: []string{"UpdateCheckInterval: time.Duration(1500)"},
 		},
 		{
 			name: "direct MCP",

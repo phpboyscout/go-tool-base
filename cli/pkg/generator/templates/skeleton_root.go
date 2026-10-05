@@ -329,8 +329,10 @@ func updateCheckIntervalCode(raw string) (jen.Code, bool) {
 		return jen.Lit(int(d/time.Minute)).Op("*").Qual("time", "Minute"), true
 	case d%time.Second == 0:
 		return jen.Lit(int(d/time.Second)).Op("*").Qual("time", "Second"), true
+	case d%time.Millisecond == 0:
+		return jen.Lit(int(d/time.Millisecond)).Op("*").Qual("time", "Millisecond"), true
 	default:
-		return jen.Qual("time", "Duration").Call(jen.Lit(int64(d))), true
+		return jen.Qual("time", "Duration").Call(jen.Lit(int(d))), true
 	}
 }
 
