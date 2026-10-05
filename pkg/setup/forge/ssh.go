@@ -17,6 +17,7 @@ import (
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -108,23 +109,23 @@ type sshKeyConfig struct {
 // the page the choice needs. The upload question is asked afterwards,
 // because whether an upload is possible is only known once the key manager
 // resolves (spec 0186 D7).
-func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
-	return huh.NewForm(
-		huh.NewGroup(
+func sshPages(cfg *sshKeyConfig, options []huh.Option[string]) []formpage.Page {
+	return []formpage.Page{
+		formpage.Of(huh.NewGroup(
 			huh.NewSelect[string]().
 				Key("ssh-key").
 				Title("Select SSH key").
 				Description("pick a private key from the list, enter a path to a key manually or generate a new key").
 				Options(options...).
 				Value(&cfg.Choice),
-		),
-		huh.NewGroup(
+		)),
+		formpage.Of(huh.NewGroup(
 			huh.NewText().
 				Key("ssh-key-path").
 				Title("Enter path to SSH key").
 				Value(&cfg.Path),
-		).WithHideFunc(func() bool { return cfg.Choice != sshChoiceOther }),
-		huh.NewGroup(
+		)).HiddenWhen(func() bool { return cfg.Choice != sshChoiceOther }),
+		formpage.Of(huh.NewGroup(
 			huh.NewInput().
 				Key("passphrase").
 				Title("Enter passphrase for new SSH key").
@@ -132,8 +133,13 @@ func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
 				EchoMode(huh.EchoModePassword).
 				Validate(validatePassphrase).
 				Value(&cfg.Passphrase),
-		).WithHideFunc(func() bool { return cfg.Choice != sshChoiceGenerate }),
-	)
+		)).HiddenWhen(func() bool { return cfg.Choice != sshChoiceGenerate }),
+	}
+}
+
+// sshForm is sshPages as the one form the TUI runs.
+func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
+	return huh.NewForm(formpage.Groups(sshPages(cfg, options)...)...)
 }
 
 func validatePassphrase(s string) error {
@@ -177,7 +183,7 @@ func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg c
 		keyCfg.Choice = cfg.GetString(profile.sshKeyPathKey())
 	}
 
-	if err := setup.RunForm(ctx, p, sshForm(keyCfg, potentialKeys)); err != nil {
+	if err := runPages(ctx, p, sshPages(keyCfg, potentialKeys)); err != nil {
 		return "", "", err
 	}
 

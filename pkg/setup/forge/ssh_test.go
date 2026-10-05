@@ -278,14 +278,15 @@ func TestSSHForm_AgentAtAccessiblePrompts(t *testing.T) {
 		huh.NewOption("Enter path to key manually", sshChoiceOther),
 	}
 
-	// Accessible mode asks the hidden pages too; blank answers leave them be.
-	io, out := answersIO(sshChoiceNumber(t, p, sshChoiceAgent), "")
+	io, out := answersIO(sshChoiceNumber(t, p, sshChoiceAgent))
 	p.IO = io
 
 	cfg := &sshKeyConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, sshForm(cfg, options)))
+	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options)))
 	assert.Equal(t, sshChoiceAgent, cfg.Choice)
 	assert.Contains(t, out.String(), "Select SSH key")
+	assert.NotContains(t, out.String(), "Enter path to SSH key", "the path page is for a manual choice")
+	assert.NotContains(t, out.String(), "passphrase", "the passphrase page is for a generated key")
 }
 
 func TestValidatePassphrase(t *testing.T) {

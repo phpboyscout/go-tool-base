@@ -158,8 +158,8 @@ func TestAIForm_PagesFollowTheAnswers(t *testing.T) {
 	local := &AIConfig{Provider: "claude-local"}
 	assert.NotNil(t, aiForm(t.Context(), newTestProps(t), local, view, allLinked))
 
-	assert.NotNil(t, envVarGroup(envVar, func() bool { return false }))
-	assert.NotNil(t, keyGroup(&AIConfig{Provider: "claude"}, view, func() bool { return false }))
+	assert.NotNil(t, envVarGroup(envVar))
+	assert.NotNil(t, keyGroup(&AIConfig{Provider: "claude"}, view))
 }
 
 // TestStorageModeChanges_UnknownMode covers the default arm of the

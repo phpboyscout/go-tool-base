@@ -6,6 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -35,6 +36,14 @@ func promptable(p *props.Props) bool {
 // options are applied once, in one place.
 func runForm(ctx context.Context, p *props.Props, f *huh.Form) error {
 	return setup.RunFormOn(ctx, p.GetIO(), f)
+}
+
+// runPages runs a wizard's pages through runForm: one form on a terminal, and
+// in accessible mode only the visible pages, each on its own (see formpage).
+func runPages(ctx context.Context, p *props.Props, pages []formpage.Page) error {
+	return formpage.Run(pages, p.GetIO().Accessible(), newForm, func(f *huh.Form) error {
+		return runForm(ctx, p, f)
+	})
 }
 
 func newForm(groups ...*huh.Group) *huh.Form {

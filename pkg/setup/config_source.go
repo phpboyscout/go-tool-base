@@ -12,6 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -290,13 +291,13 @@ func (i settingsInitialiser) Configure(ctx context.Context, p *props.Props, cfg 
 
 		input := huh.NewInput().Title(s.Title).Description(s.Description).Value(&values[n])
 		if s.Required {
-			input = input.Validate(func(v string) error {
+			input = input.Validate(formpage.ValidateAnswer(&values[n], func(v string) error {
 				if strings.TrimSpace(v) == "" {
 					return errors.Newf("%s is required", s.Title)
 				}
 
 				return nil
-			})
+			}))
 		}
 
 		fields[n] = input

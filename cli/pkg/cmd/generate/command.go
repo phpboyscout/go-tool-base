@@ -13,6 +13,7 @@ import (
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -360,10 +361,13 @@ func (o *CommandOptions) runInteractivePrompt(ctx context.Context, p *props.Prop
 	o.ExposeToMCP = true
 
 	// The core fields and the (conditionally shown) AI-prompt group are one
-	// native form: the prompt group reveals itself via WithHideFunc when the
-	// "Set AI Prompt" confirm is checked. The flag stage stays an imperative
-	// loop below because huh has no repeat-group primitive.
-	if err := runForm(ctx, p, newForm(o.buildMainGroup(), o.buildPromptGroup())); err != nil {
+	// wizard: the prompt page shows when the "Set AI Prompt" confirm is
+	// checked. The flag stage stays an imperative loop below because huh has
+	// no repeat-group primitive.
+	if err := runPages(ctx, p, []formpage.Page{
+		formpage.Deferred(o.buildMainGroup),
+		formpage.Deferred(o.buildPromptGroup).HiddenWhen(o.promptHidden),
+	}); err != nil {
 		return err
 	}
 
@@ -389,26 +393,26 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 			Title("Command Name").
 			Description("Kebab-case name (e.g. create-user)").
 			Value(&o.Name).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.Name, func(s string) error {
 				return hintedValidation(generator.ValidateCommandName(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Short Description").
 			Value(&o.Short).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.Short, func(s string) error {
 				if s == "" {
 					return errors.Newf("description is required")
 				}
 
 				return hintedValidation(generator.ValidateDescription(s))
-			}),
+			})),
 		huh.NewText().
 			Title("Long Description").
 			Description("Optional — leave blank to use short description").
 			Value(&o.Long).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.Long, func(s string) error {
 				return hintedValidation(generator.ValidateLongDescription(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Aliases").
 			Description("Comma-separated aliases (e.g. ls, list)").
@@ -417,9 +421,9 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 			Title("Parent Command").
 			Description("Parent command name or path (e.g. root, or kube/ctx)").
 			Value(&o.Parent).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.Parent, func(s string) error {
 				return hintedValidation(generator.ValidateParentPath(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Positional Arguments").
 			Description("Cobra argument validation (e.g. ExactArgs(1), ArbitraryArgs)").
@@ -475,13 +479,13 @@ func (o *CommandOptions) buildFlagGroup(fi *FlagFormInput, existing []string) *h
 			Title("Flag Name").
 			Description("Kebab-case name (e.g. output-format)").
 			Value(&fi.Name).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&fi.Name, func(s string) error {
 				if s == "" {
 					return errors.Newf("flag name is required")
 				}
 
 				return hintedValidation(generator.ValidateFlagName(s))
-			}),
+			})),
 		huh.NewSelect[string]().
 			Title("Type").
 			Options(
@@ -497,16 +501,16 @@ func (o *CommandOptions) buildFlagGroup(fi *FlagFormInput, existing []string) *h
 		huh.NewInput().
 			Title("Description").
 			Value(&fi.Description).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&fi.Description, func(s string) error {
 				return hintedValidation(generator.ValidateDescription(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Shorthand").
 			Description("Single character (leave blank for none)").
 			Value(&fi.Shorthand).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&fi.Shorthand, func(s string) error {
 				return hintedValidation(generator.ValidateFlagShorthand(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Default Value").
 			Description("Leave blank for zero value").
@@ -561,9 +565,8 @@ func flagsSummary(flags []string) string {
 	return sb.String()
 }
 
-// buildPromptGroup returns the AI-prompt form group. It is shown only when the
-// "Set AI Prompt" confirm on the main group is checked; WithHideFunc keeps it
-// hidden otherwise and huh skips it during navigation.
+// buildPromptGroup returns the AI-prompt form group, shown only when the
+// "Set AI Prompt" confirm on the main group is checked (promptHidden).
 func (o *CommandOptions) buildPromptGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewText().
@@ -571,8 +574,11 @@ func (o *CommandOptions) buildPromptGroup() *huh.Group {
 			Description("Describe what this command should do, or paste a script to convert to Go.").
 			Value(&o.Prompt),
 	).Title("AI Generation").
-		Description("Provide a prompt or script for AI-assisted command logic generation.\n").
-		WithHideFunc(func() bool { return !o.AddPrompt })
+		Description("Provide a prompt or script for AI-assisted command logic generation.\n")
+}
+
+func (o *CommandOptions) promptHidden() bool {
+	return !o.AddPrompt
 }
 
 // applyMCPExposureChoice translates the interactive ExposeToMCP confirm into the

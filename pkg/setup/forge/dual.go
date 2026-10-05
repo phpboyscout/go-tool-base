@@ -11,6 +11,7 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/errors"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -38,7 +39,7 @@ type DualConfig struct {
 func (i *Initialiser) configureDual(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	bbCfg := &DualConfig{}
 
-	if err := setup.RunForm(ctx, p, dualForm(ctx, p, i.profile, bbCfg)); err != nil {
+	if err := runPages(ctx, p, dualPages(ctx, p, i.profile, bbCfg)); err != nil {
 		return errors.Wrap(err, "auth form cancelled")
 	}
 
@@ -60,14 +61,14 @@ func (i *Initialiser) configureDual(ctx context.Context, p *props.Props, cfg set
 // mode, then the page that mode needs. Env-var mode names the two variables
 // (blank keeps the profile's fallback); keychain and literal modes take the
 // username and app password themselves.
-func dualForm(ctx context.Context, p *props.Props, profile Profile, cfg *DualConfig) *huh.Form {
+func dualPages(ctx context.Context, p *props.Props, profile Profile, cfg *DualConfig) []formpage.Page {
 	notEnvVar := func() bool { return cfg.StorageMode != credentials.ModeEnvVar }
 	envVar := func() bool { return cfg.StorageMode == credentials.ModeEnvVar }
 
-	return huh.NewForm(
-		setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return false }).
-			Title(profile.Label+" Credential Storage"),
-		huh.NewGroup(
+	return []formpage.Page{
+		formpage.Of(setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return false }).
+			Title(profile.Label + " Credential Storage")),
+		formpage.Of(huh.NewGroup(
 			huh.NewInput().
 				Key("username-env").
 				Title("Username env var name").
@@ -75,7 +76,7 @@ func dualForm(ctx context.Context, p *props.Props, profile Profile, cfg *DualCon
 					profile.Label, profile.UserFallbackEnv)).
 				Placeholder(profile.UserFallbackEnv).
 				Value(&cfg.UsernameEnvName).
-				Validate(optionalEnvVarName),
+				Validate(formpage.ValidateAnswer(&cfg.UsernameEnvName, optionalEnvVarName)),
 			huh.NewInput().
 				Key("app-password-env").
 				Title("App password env var name").
@@ -83,14 +84,14 @@ func dualForm(ctx context.Context, p *props.Props, profile Profile, cfg *DualCon
 					profile.Label, profile.PassFallbackEnv)).
 				Placeholder(profile.PassFallbackEnv).
 				Value(&cfg.AppPasswordEnvName).
-				Validate(optionalEnvVarName),
-		).WithHideFunc(notEnvVar),
-		huh.NewGroup(
+				Validate(formpage.ValidateAnswer(&cfg.AppPasswordEnvName, optionalEnvVarName)),
+		)).HiddenWhen(notEnvVar),
+		formpage.Of(huh.NewGroup(
 			huh.NewInput().
 				Key("username").
 				Title(profile.Label+" username").
 				Value(&cfg.Username).
-				Validate(required("username")),
+				Validate(formpage.ValidateAnswer(&cfg.Username, required("username"))),
 			huh.NewInput().
 				Key("app-password").
 				Title(profile.Label+" app password").
@@ -98,8 +99,13 @@ func dualForm(ctx context.Context, p *props.Props, profile Profile, cfg *DualCon
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.AppPassword).
 				Validate(required("app password")),
-		).WithHideFunc(envVar),
-	)
+		)).HiddenWhen(envVar),
+	}
+}
+
+// dualForm is dualPages as the one form the TUI runs.
+func dualForm(ctx context.Context, p *props.Props, profile Profile, cfg *DualConfig) *huh.Form {
+	return huh.NewForm(formpage.Groups(dualPages(ctx, p, profile, cfg)...)...)
 }
 
 // optionalEnvVarName accepts blank (the fallback stands in) or a valid name.

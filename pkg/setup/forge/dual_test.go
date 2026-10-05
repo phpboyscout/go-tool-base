@@ -251,29 +251,30 @@ func TestIsConfigured(t *testing.T) {
 func TestDualForm_EnvVarModeAsksTheTwoNames(t *testing.T) {
 	t.Setenv("CI", "")
 
-	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "U_VAR", "P_VAR", "ignored")
+	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "U_VAR", "P_VAR")
 	p := newTestProps(t)
 	p.IO = io
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), p, bitbucketProfile, cfg)))
+	require.NoError(t, runPages(t.Context(), p, dualPages(t.Context(), p, bitbucketProfile, cfg)))
 	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
 	assert.Equal(t, "U_VAR", cfg.UsernameEnvName)
 	assert.Equal(t, "P_VAR", cfg.AppPasswordEnvName)
 	assert.Contains(t, out.String(), "Username env var name")
 	assert.Contains(t, out.String(), "App password env var name")
+	assert.NotContains(t, out.String(), bitbucketProfile.Label+" username", "the credential page is for the other modes")
 }
 
 func TestDualForm_RejectsAnInvalidEnvVarName(t *testing.T) {
 	t.Setenv("CI", "")
 
 	// The invalid name is re-asked; blank is accepted and means the fallback.
-	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "not valid", "", "P_VAR", "ignored")
+	io, out := answersIO(modeNumber(t, credentials.ModeEnvVar), "not valid", "", "P_VAR")
 	p := newTestProps(t)
 	p.IO = io
 
 	cfg := &DualConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, dualForm(t.Context(), p, bitbucketProfile, cfg)))
+	require.NoError(t, runPages(t.Context(), p, dualPages(t.Context(), p, bitbucketProfile, cfg)))
 	assert.Empty(t, cfg.UsernameEnvName)
 	assert.Equal(t, "P_VAR", cfg.AppPasswordEnvName)
 	assert.Contains(t, out.String(), "env var name must match")

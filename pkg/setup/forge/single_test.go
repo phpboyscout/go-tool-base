@@ -275,12 +275,27 @@ func TestAuthForm_EnvVarModeAsksNameAndFetch(t *testing.T) {
 	p.IO = io
 
 	cfg := &AuthConfig{FetchToken: true}
-	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), p, gitHubProfile, cfg)))
+	require.NoError(t, runPages(t.Context(), p, authPages(t.Context(), p, gitHubProfile, cfg)))
 	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode)
 	assert.Equal(t, "MYTOOL_GH", cfg.EnvVarName)
 	assert.False(t, cfg.FetchToken)
 	assert.Contains(t, out.String(), "Environment Variable Name")
 	assert.Contains(t, out.String(), "Fetch a token now?")
+}
+
+// Literal mode takes the token later; the env-var page is never asked.
+func TestAuthForm_LiteralModeAtAccessiblePromptsAsksNoEnvVar(t *testing.T) {
+	t.Setenv("CI", "")
+
+	io, out := answersIO(modeNumber(t, credentials.ModeLiteral))
+	p := newTestProps(t)
+	p.IO = io
+
+	cfg := &AuthConfig{FetchToken: true}
+	require.NoError(t, runPages(t.Context(), p, authPages(t.Context(), p, gitHubProfile, cfg)))
+	assert.Equal(t, credentials.ModeLiteral, cfg.StorageMode)
+	assert.NotContains(t, out.String(), "Environment Variable Name")
+	assert.NotContains(t, out.String(), "Fetch a token now?")
 }
 
 func TestAuthForm_RejectsAnInvalidEnvVarName(t *testing.T) {
@@ -292,7 +307,7 @@ func TestAuthForm_RejectsAnInvalidEnvVarName(t *testing.T) {
 	p.IO = io
 
 	cfg := &AuthConfig{}
-	require.NoError(t, setup.RunForm(t.Context(), p, authForm(t.Context(), p, gitHubProfile, cfg)))
+	require.NoError(t, runPages(t.Context(), p, authPages(t.Context(), p, gitHubProfile, cfg)))
 	assert.Equal(t, "GH_OK", cfg.EnvVarName)
 	assert.True(t, cfg.FetchToken)
 	assert.Contains(t, out.String(), "env var name must match")

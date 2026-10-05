@@ -15,6 +15,7 @@ import (
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -117,7 +118,7 @@ func (i *Initialiser) configureAuth(ctx context.Context, p *props.Props, cfg set
 
 	authCfg := &AuthConfig{FetchToken: true}
 
-	if err := setup.RunForm(ctx, p, authForm(ctx, p, profile, authCfg)); err != nil {
+	if err := runPages(ctx, p, authPages(ctx, p, profile, authCfg)); err != nil {
 		return errors.Wrap(err, "auth form cancelled")
 	}
 
@@ -317,13 +318,13 @@ func writeSingleLiteral(profile Profile, cfg setup.Editor, authCfg *AuthConfig) 
 // mode, then, for env-var mode, the variable's name and whether to fetch a
 // token now. The OAuth capture and the display-once page follow it, because
 // a token has to exist before it can be shown.
-func authForm(ctx context.Context, p *props.Props, profile Profile, cfg *AuthConfig) *huh.Form {
+func authPages(ctx context.Context, p *props.Props, profile Profile, cfg *AuthConfig) []formpage.Page {
 	notEnvVar := func() bool { return cfg.StorageMode != credentials.ModeEnvVar }
 
-	return huh.NewForm(
-		setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return false }).
-			Title(profile.Label+" Credential Storage"),
-		huh.NewGroup(
+	return []formpage.Page{
+		formpage.Of(setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return false }).
+			Title(profile.Label + " Credential Storage")),
+		formpage.Of(huh.NewGroup(
 			huh.NewInput().
 				Key("env-var").
 				Title("Environment Variable Name").
@@ -332,13 +333,13 @@ func authForm(ctx context.Context, p *props.Props, profile Profile, cfg *AuthCon
 					"multiple tools with conflicting tokens.", profile.Label, profile.FallbackEnv)).
 				Placeholder(profile.FallbackEnv).
 				Value(&cfg.EnvVarName).
-				Validate(func(s string) error {
+				Validate(formpage.ValidateAnswer(&cfg.EnvVarName, func(s string) error {
 					if s == "" {
 						return nil
 					}
 
 					return credentials.ValidateEnvVarName(s)
-				}),
+				})),
 			huh.NewConfirm().
 				Key("fetch-token").
 				Title("Fetch a token now?").
@@ -347,8 +348,13 @@ func authForm(ctx context.Context, p *props.Props, profile Profile, cfg *AuthCon
 				Affirmative("Yes, run OAuth").
 				Negative("No, I already have one").
 				Value(&cfg.FetchToken),
-		).WithHideFunc(notEnvVar),
-	)
+		)).HiddenWhen(notEnvVar),
+	}
+}
+
+// authForm is authPages as the one form the TUI runs.
+func authForm(ctx context.Context, p *props.Props, profile Profile, cfg *AuthConfig) *huh.Form {
+	return huh.NewForm(formpage.Groups(authPages(ctx, p, profile, cfg)...)...)
 }
 
 // singleDisplayOnceForm shows the captured token inside a non-editable input,

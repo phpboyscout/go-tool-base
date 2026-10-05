@@ -100,18 +100,21 @@ func answersIO(lines ...string) (props.IO, *bytes.Buffer) {
 	return props.StdIO{Stdin: formtest.Answers(lines...), Stdout: out, Stderr: out, AccessibleMode: true}, out
 }
 
-// singleAuthIO answers the single-token wizard at accessible prompts. huh's
-// accessible mode asks every field whatever the hide functions say (v2.0.3,
-// form.go runAccessible), so the env-var name and the fetch decision are
-// answered for every mode; the wizard ignores them outside env-var mode. When
-// a token is fetched, the display-once page is acknowledged.
+// singleAuthIO answers the single-token wizard at accessible prompts: the
+// mode, and in env-var mode the variable name, the fetch decision, and the
+// display-once acknowledgement when a token is fetched. The other modes
+// never see those pages.
 func singleAuthIO(t *testing.T, mode credentials.Mode, envVar string, fetch bool) (props.IO, *bytes.Buffer) {
 	t.Helper()
 
-	lines := []string{modeNumber(t, mode), envVar, yn(fetch)}
+	lines := []string{modeNumber(t, mode)}
 
-	if mode == credentials.ModeEnvVar && fetch {
-		lines = append(lines, "y") // "Have you saved the token?"
+	if mode == credentials.ModeEnvVar {
+		lines = append(lines, envVar, yn(fetch))
+
+		if fetch {
+			lines = append(lines, "y") // "Have you saved the token?"
+		}
 	}
 
 	return answersIO(lines...)
@@ -123,13 +126,11 @@ func nonInteractiveIO() props.IO {
 }
 
 // dualEnvIO answers the dual-credential wizard for env-var mode at accessible
-// prompts: the mode, the two variable names (blank keeps the fallback), and a
-// throwaway username for the credential page accessible mode asks anyway (its
-// password prompt cannot be answered without a terminal and is left blank).
+// prompts: the mode and the two variable names (blank keeps the fallback).
 func dualEnvIO(t *testing.T, userEnv, passEnv string) props.IO {
 	t.Helper()
 
-	io, _ := answersIO(modeNumber(t, credentials.ModeEnvVar), userEnv, passEnv, "ignored")
+	io, _ := answersIO(modeNumber(t, credentials.ModeEnvVar), userEnv, passEnv)
 
 	return io
 }

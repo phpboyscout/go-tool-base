@@ -16,6 +16,7 @@ import (
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
@@ -927,7 +928,7 @@ func (o *SkeletonOptions) resolveEnvPrefix() {
 }
 
 func (o *SkeletonOptions) runWizard(ctx context.Context, p *props.Props) error {
-	if err := runForm(ctx, p, o.wizardForm()); err != nil {
+	if err := runPages(ctx, p, o.wizardPages()); err != nil {
 		return err
 	}
 
@@ -1041,9 +1042,9 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 		fields = append(fields, huh.NewInput().
 			Title("Project Name").
 			Value(&o.Name).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.Name, func(s string) error {
 				return hintedValidation(generator.ValidateName(s))
-			}))
+			})))
 	}
 
 	fields = append(fields, huh.NewInput().
@@ -1095,6 +1096,12 @@ func basicsTitle(revisit bool) string {
 // chosen backend uses reactive *Func binders. Back-navigation is shift+tab.
 // It is a seam for tests, which drive the form directly.
 func (o *SkeletonOptions) wizardForm() *huh.Form {
+	return newForm(formpage.Groups(o.wizardPages()...)...)
+}
+
+// wizardPages are the project wizard's pages, each with the condition that
+// hides it, so accessible mode skips the same pages the TUI does.
+func (o *SkeletonOptions) wizardPages() []formpage.Page {
 	// Fixed default — not derived from another field, so it is set upfront. The
 	// signing detail group is hidden unless signing is enabled, but the key
 	// source select still binds to this so it defaults to "Both" when shown.
@@ -1111,31 +1118,31 @@ func (o *SkeletonOptions) wizardForm() *huh.Form {
 		o.MCPMode = string(props.MCPCompact)
 	}
 
-	groups := []*huh.Group{
-		o.basicsGroup(),
-		o.forgeGroup(),
-		o.moduleGroup(),
-		o.envPrefixGroup(),
-		o.envPrefixCustomGroup(),
+	pages := []formpage.Page{
+		formpage.Deferred(o.basicsGroup),
+		formpage.Deferred(o.forgeGroup).HiddenWhen(o.forgeHidden),
+		formpage.Deferred(o.moduleGroup).HiddenWhen(o.moduleHidden),
+		formpage.Deferred(o.envPrefixGroup),
+		formpage.Deferred(o.envPrefixCustomGroup).HiddenWhen(o.envPrefixCustomHidden),
 	}
-	groups = append(groups, o.configurationGroups()...)
+	pages = append(pages, o.configurationPages()...)
 
-	return newForm(append(groups,
-		o.selfUpdateGroup(),
-		o.releaseLocationGroup(),
-		o.chatProvidersGroup(),
-		o.chatDefaultGroup(),
-		o.chatEndpointGroup(),
-		o.chatCloudGroup(),
-		o.telemetryGroup(),
-		o.mcpGroup(),
-		o.slackGroup(),
-		o.teamsGroup(),
-		o.signingEnableGroup(),
-		o.signingDetailGroup(),
-		o.signingEnforcementGroup(),
-		o.summaryGroup(),
-	)...)
+	return append(pages,
+		formpage.Deferred(o.selfUpdateGroup).HiddenWhen(o.selfUpdateHidden),
+		formpage.Deferred(o.releaseLocationGroup).HiddenWhen(o.releaseLocationHidden),
+		formpage.Deferred(o.chatProvidersGroup),
+		formpage.Deferred(o.chatDefaultGroup).HiddenWhen(o.chatDefaultHidden),
+		formpage.Deferred(o.chatEndpointGroup).HiddenWhen(o.chatEndpointHidden),
+		formpage.Deferred(o.chatCloudGroup).HiddenWhen(o.chatCloudHidden),
+		formpage.Deferred(o.telemetryGroup).HiddenWhen(o.telemetryHidden),
+		formpage.Deferred(o.mcpGroup).HiddenWhen(o.mcpHidden),
+		formpage.Deferred(o.slackGroup).HiddenWhen(o.slackHidden),
+		formpage.Deferred(o.teamsGroup).HiddenWhen(o.teamsHidden),
+		formpage.Deferred(o.signingEnableGroup).HiddenWhen(o.signingEnableHidden),
+		formpage.Deferred(o.signingDetailGroup).HiddenWhen(o.signingDetailHidden),
+		formpage.Deferred(o.signingEnforcementGroup).HiddenWhen(o.signingEnforcementHidden),
+		formpage.Deferred(o.summaryGroup),
+	)
 }
 
 // telemetryGroup asks where telemetry goes, when the feature is selected
@@ -1148,15 +1155,18 @@ func (o *SkeletonOptions) telemetryGroup() *huh.Group {
 		huh.NewInput().Key("telemetry-endpoint").Title("Telemetry endpoint (optional)").
 			Description("Where usage events are sent; HTTPS.").
 			Placeholder("https://telemetry.example.internal").
-			Value(&o.TelemetryEndpoint).Validate(endpoint),
+			Value(&o.TelemetryEndpoint).Validate(formpage.ValidateAnswer(&o.TelemetryEndpoint, endpoint)),
 		huh.NewInput().Key("telemetry-otel-endpoint").Title("OpenTelemetry endpoint (optional)").
 			Description("An OTel collector for traces and metrics.").
 			Placeholder("https://otel.example.internal").
-			Value(&o.TelemetryOTelEndpoint).Validate(endpoint),
+			Value(&o.TelemetryOTelEndpoint).Validate(formpage.ValidateAnswer(&o.TelemetryOTelEndpoint, endpoint)),
 	).
 		Title("Telemetry").
-		Description("Recorded under properties.telemetry in the manifest.\n").
-		WithHideFunc(func() bool { return !slices.Contains(o.Features, string(props.TelemetryCmd)) })
+		Description("Recorded under properties.telemetry in the manifest.\n")
+}
+
+func (o *SkeletonOptions) telemetryHidden() bool {
+	return !slices.Contains(o.Features, string(props.TelemetryCmd))
 }
 
 // signingEnforcementGroup asks the enforcement a first run holds back:
@@ -1170,8 +1180,11 @@ func (o *SkeletonOptions) signingEnforcementGroup() *huh.Group {
 			Affirmative("Yes").Negative("No").
 			Value(&o.SigningRequireSignature),
 	).
-		Title("Signing enforcement").
-		WithHideFunc(func() bool { return !o.revisit || !o.updateSelected() || !o.Signing })
+		Title("Signing enforcement")
+}
+
+func (o *SkeletonOptions) signingEnforcementHidden() bool {
+	return !o.revisit || !o.updateSelected() || !o.Signing
 }
 
 // updateSelected reports whether the update feature is among the chosen
@@ -1204,8 +1217,11 @@ func (o *SkeletonOptions) moduleGroup() *huh.Group {
 			}),
 	).
 		Title("Module").
-		Description("Without a forge there is no host and repository to derive a module path from.\n").
-		WithHideFunc(func() bool { return o.hosted })
+		Description("Without a forge there is no host and repository to derive a module path from.\n")
+}
+
+func (o *SkeletonOptions) moduleHidden() bool {
+	return o.hosted
 }
 
 // staticChannelLabel is the static channel's row on the channel select.
@@ -1286,11 +1302,14 @@ func (o *SkeletonOptions) selfUpdateGroup() *huh.Group {
 			Description("How often the tool checks for releases, as a Go duration (24h, 168h). Empty is the framework default (24h); the check runs under every policy.").
 			Placeholder("24h").
 			Value(&o.UpdateCheckInterval).
-			Validate(generator.ValidateUpdateCheckInterval),
+			Validate(formpage.ValidateAnswer(&o.UpdateCheckInterval, generator.ValidateUpdateCheckInterval)),
 	).
 		Title("Self-update").
-		Description("How the generated tool finds and applies its own releases.\n").
-		WithHideFunc(func() bool { return !o.updateSelected() })
+		Description("How the generated tool finds and applies its own releases.\n")
+}
+
+func (o *SkeletonOptions) selfUpdateHidden() bool {
+	return !o.updateSelected()
 }
 
 // chatProvidersGroup is the AI page (spec 0196 D1): which providers the tool
@@ -1360,8 +1379,11 @@ func (o *SkeletonOptions) chatDefaultGroup() *huh.Group {
 			Value(&o.ChatDefault.Model),
 	).
 		Title("AI defaults").
-		Description("For the ai feature: the provider and model its features use. Needs at least one linked provider.\n").
-		WithHideFunc(func() bool { return !o.aiSelected() })
+		Description("For the ai feature: the provider and model its features use. Needs at least one linked provider.\n")
+}
+
+func (o *SkeletonOptions) chatDefaultHidden() bool {
+	return !o.aiSelected()
 }
 
 // chatDefaultOptions offers the linked providers as the default. Between
@@ -1391,15 +1413,18 @@ func (o *SkeletonOptions) chatEndpointGroup() *huh.Group {
 			Description("HTTPS, no credentials in the URL. Ollama: https://host:11434/v1; Azure: the deployment endpoint.").
 			Placeholder("https://llm.example.internal/v1").
 			Value(&o.ChatDefault.BaseURL).
-			Validate(func(string) error { return o.validateChatEndpointField() }),
+			Validate(formpage.ValidateAnswer(&o.ChatDefault.BaseURL, func(string) error { return o.validateChatEndpointField() })),
 		huh.NewInput().Key("chat-api-version").Title("API version").
 			Description("Required by azure-openai (dated, e.g. 2024-10-21); ignored by other providers.").
 			Value(&o.ChatDefault.APIVersion).
-			Validate(func(string) error { return o.validateChatEndpointField() }),
+			Validate(formpage.ValidateAnswer(&o.ChatDefault.APIVersion, func(string) error { return o.validateChatEndpointField() })),
 	).
 		Title("AI endpoint").
-		Description("Recorded under chat.default in the manifest.\n").
-		WithHideFunc(func() bool { return !o.aiSelected() || !chatDefaultNeedsEndpoint(o.ChatDefault.Provider) })
+		Description("Recorded under chat.default in the manifest.\n")
+}
+
+func (o *SkeletonOptions) chatEndpointHidden() bool {
+	return !o.aiSelected() || !chatDefaultNeedsEndpoint(o.ChatDefault.Provider)
 }
 
 // chatCloudGroup asks for the cloud addressing gemini-vertex and bedrock use
@@ -1415,8 +1440,11 @@ func (o *SkeletonOptions) chatCloudGroup() *huh.Group {
 			Value(&o.ChatDefault.Location),
 	).
 		Title("AI cloud addressing").
-		Description("Recorded under chat.default in the manifest.\n").
-		WithHideFunc(func() bool { return !o.aiSelected() || !chatDefaultUsesCloudAddressing(o.ChatDefault.Provider) })
+		Description("Recorded under chat.default in the manifest.\n")
+}
+
+func (o *SkeletonOptions) chatCloudHidden() bool {
+	return !o.aiSelected() || !chatDefaultUsesCloudAddressing(o.ChatDefault.Provider)
 }
 
 func (o *SkeletonOptions) aiSelected() bool {
@@ -1503,16 +1531,19 @@ func (o *SkeletonOptions) envPrefixCustomGroup() *huh.Group {
 			Description("Upper-case letters, digits and underscores, starting with a letter (e.g. MY_APP).").
 			Placeholder("e.g. MY_APP").
 			Value(&o.EnvPrefix).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.EnvPrefix, func(s string) error {
 				if s == "" {
 					return errors.New("type a prefix, or go back and choose None")
 				}
 
 				return hintedValidation(generator.ValidateEnvPrefix(s))
-			}),
+			})),
 	).
-		Title("Environment Variable Prefix").
-		WithHideFunc(func() bool { return o.envPrefixChoice != envPrefixOther })
+		Title("Environment Variable Prefix")
+}
+
+func (o *SkeletonOptions) envPrefixCustomHidden() bool {
+	return o.envPrefixChoice != envPrefixOther
 }
 
 // forgeGroup is the forge page (spec 0195 D3, D4, D6): which forge, where,
@@ -1542,13 +1573,13 @@ func (o *SkeletonOptions) forgeGroup() *huh.Group {
 			DescriptionFunc(func() string { return repoDescription(o.ForgeBackend) }, &o.ForgeBackend).
 			PlaceholderFunc(func() string { return repoPlaceholder(o.ForgeBackend) }, &o.ForgeBackend).
 			Value(&o.Repo).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.Repo, func(s string) error {
 				if s == "" {
 					return ErrRepositoryRequired
 				}
 
 				return hintedValidation(generator.ValidateRepo(s))
-			}),
+			})),
 		huh.NewConfirm().
 			Title("Private Repository").
 			Description("Does this repository require authentication to access releases? Enable for private repos; leave off for public ones.").
@@ -1561,8 +1592,11 @@ func (o *SkeletonOptions) forgeGroup() *huh.Group {
 			Value(&o.ForgeCredentials),
 	).
 		Title("Forge").
-		Description("Where the repository lives and how the tool reaches it.\n").
-		WithHideFunc(func() bool { return !o.hosted })
+		Description("Where the repository lives and how the tool reaches it.\n")
+}
+
+func (o *SkeletonOptions) forgeHidden() bool {
+	return !o.hosted
 }
 
 // forgeCredentialOptions lists every backend for the credential multi-select,
@@ -1588,23 +1622,26 @@ func (o *SkeletonOptions) slackGroup() *huh.Group {
 			Description("The channel where users should ask for help (e.g. #platform-help).").
 			Placeholder("#my-team-help").
 			Value(&o.SlackChannel).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.SlackChannel, func(s string) error {
 				if s == "" {
 					return ErrHelpChannelRequired
 				}
 
 				return hintedValidation(generator.ValidateSlackChannel(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Slack Team").
 			Description("The team or squad name owning this tool.").
 			Placeholder("My Team").
 			Value(&o.SlackTeam).
-			Validate(func(s string) error { return hintedValidation(generator.ValidateSlackTeam(s)) }),
+			Validate(formpage.ValidateAnswer(&o.SlackTeam, func(s string) error { return hintedValidation(generator.ValidateSlackTeam(s)) })),
 	).
 		Title("Slack Help Configuration").
-		Description("These values appear in error messages to direct users to support.\n").
-		WithHideFunc(func() bool { return o.HelpType != "slack" })
+		Description("These values appear in error messages to direct users to support.\n")
+}
+
+func (o *SkeletonOptions) slackHidden() bool {
+	return o.HelpType != "slack"
 }
 
 // teamsGroup collects Microsoft Teams help-channel details. Shown only when the
@@ -1616,23 +1653,26 @@ func (o *SkeletonOptions) teamsGroup() *huh.Group {
 			Description("The channel where users should ask for help.").
 			Placeholder("Support").
 			Value(&o.TeamsChannel).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&o.TeamsChannel, func(s string) error {
 				if s == "" {
 					return ErrHelpChannelRequired
 				}
 
 				return hintedValidation(generator.ValidateTeamsChannel(s))
-			}),
+			})),
 		huh.NewInput().
 			Title("Teams Team").
 			Description("The team name owning this tool.").
 			Placeholder("Engineering").
 			Value(&o.TeamsTeam).
-			Validate(func(s string) error { return hintedValidation(generator.ValidateTeamsTeam(s)) }),
+			Validate(formpage.ValidateAnswer(&o.TeamsTeam, func(s string) error { return hintedValidation(generator.ValidateTeamsTeam(s)) })),
 	).
 		Title("Microsoft Teams Help Configuration").
-		Description("These values appear in error messages to direct users to support.\n").
-		WithHideFunc(func() bool { return o.HelpType != "teams" })
+		Description("These values appear in error messages to direct users to support.\n")
+}
+
+func (o *SkeletonOptions) teamsHidden() bool {
+	return o.HelpType != "teams"
 }
 
 // signingEnableGroup asks whether to enable release signing (default No).
@@ -1647,8 +1687,11 @@ func (o *SkeletonOptions) signingEnableGroup() *huh.Group {
 			Value(&o.Signing),
 	).
 		Title("Release Signing").
-		Description("Verify self-update downloads against an embedded release key.\n").
-		WithHideFunc(func() bool { return !o.updateSelected() })
+		Description("Verify self-update downloads against an embedded release key.\n")
+}
+
+func (o *SkeletonOptions) signingEnableHidden() bool {
+	return !o.updateSelected()
 }
 
 // signingDetailGroup collects the WKD email and key source. Shown only when
@@ -1683,8 +1726,11 @@ func (o *SkeletonOptions) signingDetailGroup() *huh.Group {
 			Value(&o.SigningRequireChecksum),
 	).
 		Title("Signing Configuration").
-		Description("These values are written to the manifest signing block.\n").
-		WithHideFunc(func() bool { return !o.updateSelected() || !o.Signing })
+		Description("These values are written to the manifest signing block.\n")
+}
+
+func (o *SkeletonOptions) signingDetailHidden() bool {
+	return !o.updateSelected() || !o.Signing
 }
 
 // resolveFeatures builds the full feature list from the selected set,
@@ -1875,11 +1921,14 @@ func (o *SkeletonOptions) releaseLocationGroup() *huh.Group {
 				"For the estate's store that is https://pkg.phpboyscout.uk/<project path>.").
 			Placeholder("https://pkg.example.org/acme/mytool").
 			Value(&o.ReleaseBaseURL).
-			Validate(func(s string) error { return hintedValidation(generator.ValidateReleaseBaseURL(s)) }),
+			Validate(formpage.ValidateAnswer(&o.ReleaseBaseURL, func(s string) error { return hintedValidation(generator.ValidateReleaseBaseURL(s)) })),
 	).
 		Title("Release location").
-		Description("Where the static release channel lives.\n").
-		WithHideFunc(func() bool { return !o.updateSelected() || o.ReleaseChannel != generator.ReleaseChannelStatic })
+		Description("Where the static release channel lives.\n")
+}
+
+func (o *SkeletonOptions) releaseLocationHidden() bool {
+	return !o.updateSelected() || o.ReleaseChannel != generator.ReleaseChannelStatic
 }
 
 // isCIEnv reports whether the tool is running under CI, honouring the `ci`

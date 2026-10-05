@@ -85,8 +85,11 @@ func (o *SkeletonOptions) mcpGroup() *huh.Group {
 
 	return huh.NewGroup(fields...).
 		Title("MCP").
-		Description("Recorded under properties.mcp in the manifest; the surface is each command's mcp_enabled.\n").
-		WithHideFunc(func() bool { return !o.mcpSelected() })
+		Description("Recorded under properties.mcp in the manifest; the surface is each command's mcp_enabled.\n")
+}
+
+func (o *SkeletonOptions) mcpHidden() bool {
+	return !o.mcpSelected()
 }
 
 // mcpSurfaceChanges are the commands whose tick on the surface page differs

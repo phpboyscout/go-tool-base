@@ -20,6 +20,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -136,19 +137,27 @@ func envOverrideNote() string {
 	)
 }
 
-// aiForm is the whole wizard as one form (spec 0198): the provider, then the
-// storage mode, then the env var name or the key, each later page hidden
-// when the answers before it make it moot. One form means one run, back
-// navigation between pages, and a test that drives it from one stream.
-func aiForm(ctx context.Context, p *props.Props, cfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) *huh.Form {
-	needsCredential := func() bool { return chat.NeedsCredential(gochat.Provider(cfg.Provider)) }
+// aiPages are the whole wizard (spec 0198): the provider, then the storage
+// mode, then the env var name or the key, each later page hidden when the
+// answers before it make it moot. On a terminal they are one form, with back
+// navigation between pages.
+func aiPages(ctx context.Context, p *props.Props, cfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) []formpage.Page {
+	noCredential := func() bool { return !chat.NeedsCredential(gochat.Provider(cfg.Provider)) }
+	envVarHidden := func() bool { return noCredential() || cfg.StorageMode != credentials.ModeEnvVar }
+	keyHidden := func() bool { return noCredential() || cfg.StorageMode == credentials.ModeEnvVar }
 
-	return huh.NewForm(
-		providerGroup(cfg, linked),
-		setup.StorageModeGroup(ctx, p, &cfg.StorageMode, func() bool { return !needsCredential() }),
-		envVarGroup(cfg, func() bool { return !needsCredential() || cfg.StorageMode != credentials.ModeEnvVar }),
-		keyGroup(cfg, existing, func() bool { return !needsCredential() || cfg.StorageMode == credentials.ModeEnvVar }),
-	)
+	return []formpage.Page{
+		formpage.Of(providerGroup(cfg, linked)),
+		formpage.Deferred(func() *huh.Group { return setup.StorageModeGroup(ctx, p, &cfg.StorageMode, noCredential) }).
+			HiddenWhen(noCredential),
+		formpage.Deferred(func() *huh.Group { return envVarGroup(cfg) }).HiddenWhen(envVarHidden),
+		formpage.Deferred(func() *huh.Group { return keyGroup(cfg, existing) }).HiddenWhen(keyHidden),
+	}
+}
+
+// aiForm is aiPages as the one form the TUI runs.
+func aiForm(ctx context.Context, p *props.Props, cfg *AIConfig, existing config.Reader, linked func(gochat.Provider) bool) *huh.Form {
+	return huh.NewForm(formpage.Groups(aiPages(ctx, p, cfg, existing, linked)...)...)
 }
 
 // providerGroup offers the providers this binary links (spec 0196 D7), with
@@ -187,7 +196,7 @@ func providerGroup(cfg *AIConfig, linked func(gochat.Provider) bool) *huh.Group 
 
 // envVarGroup asks the name of the variable that will hold the key. Blank
 // takes the provider's well-known name, which the description shows.
-func envVarGroup(cfg *AIConfig, hide func() bool) *huh.Group {
+func envVarGroup(cfg *AIConfig) *huh.Group {
 	return huh.NewGroup(
 		huh.NewInput().
 			Key("env-var").
@@ -199,20 +208,20 @@ func envVarGroup(cfg *AIConfig, hide func() bool) *huh.Group {
 					providerLabel(cfg.Provider), providerEnvVar(cfg.Provider))
 			}, &cfg.Provider).
 			PlaceholderFunc(func() string { return providerEnvVar(cfg.Provider) }, &cfg.Provider).
-			Validate(func(s string) error {
+			Validate(formpage.ValidateAnswer(&cfg.EnvVarName, func(s string) error {
 				if s == "" {
 					return nil
 				}
 
 				return credentials.ValidateEnvVarName(s)
-			}).
+			})).
 			Value(&cfg.EnvVarName),
-	).WithHideFunc(hide)
+	)
 }
 
 // keyGroup asks the key itself, masked; blank keeps an existing one, which
 // the description says (masked) when there is one.
-func keyGroup(cfg *AIConfig, existing config.Reader, hide func() bool) *huh.Group {
+func keyGroup(cfg *AIConfig, existing config.Reader) *huh.Group {
 	return huh.NewGroup(
 		huh.NewInput().
 			Key("api-key").
@@ -221,7 +230,7 @@ func keyGroup(cfg *AIConfig, existing config.Reader, hide func() bool) *huh.Grou
 			Placeholder("paste new key or press enter to keep existing").
 			EchoMode(huh.EchoModePassword).
 			Value(&cfg.APIKey),
-	).WithHideFunc(hide)
+	)
 }
 
 // providerEnvVar returns the environment variable name for the provider's API key.
@@ -479,7 +488,8 @@ func runAIForms(ctx context.Context, p *props.Props, existing config.Reader, lin
 		aiCfg.Provider = provider
 	}
 
-	if err := setup.RunForm(ctx, p, aiForm(ctx, p, aiCfg, existing, linked)); err != nil {
+	run := func(f *huh.Form) error { return setup.RunForm(ctx, p, f) }
+	if err := formpage.Run(aiPages(ctx, p, aiCfg, existing, linked), p.GetIO().Accessible(), huh.NewForm, run); err != nil {
 		return nil, errors.Newf("AI configuration form cancelled: %w", err)
 	}
 

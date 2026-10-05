@@ -12,6 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -136,23 +137,27 @@ var layerLabels = map[string]string{
 	string(props.LayerFlags):    "flags",
 }
 
-// configurationGroups is the Configuration page (spec 0204 D9): what the
+// configurationPages is the Configuration page (spec 0204 D9): what the
 // tool links and in what order, never how a source connects.
-func (o *SkeletonOptions) configurationGroups() []*huh.Group {
+func (o *SkeletonOptions) configurationPages() []formpage.Page {
 	o.prepareSourceSlots()
 
 	if o.ConfigFormat == "" {
 		o.ConfigFormat = "yaml"
 	}
 
-	groups := make([]*huh.Group, 0, 1+2*len(o.sourceSlots))
-	groups = append(groups, o.configFormatsGroup())
+	pages := make([]formpage.Page, 0, 1+2*len(o.sourceSlots))
+	pages = append(pages, formpage.Deferred(o.configFormatsGroup))
 
 	for i := range o.sourceSlots {
-		groups = append(groups, o.sourceKindGroup(i), o.sourceDetailGroup(i))
+		pages = append(pages,
+			formpage.Deferred(func() *huh.Group { return o.sourceKindGroup(i) }).
+				HiddenWhen(func() bool { return o.sourceKindHidden(i) }),
+			formpage.Deferred(func() *huh.Group { return o.sourceDetailGroup(i) }).
+				HiddenWhen(func() bool { return o.sourceDetailHidden(i) }))
 	}
 
-	return groups
+	return pages
 }
 
 func (o *SkeletonOptions) configFormatsGroup() *huh.Group {
@@ -202,8 +207,12 @@ func (o *SkeletonOptions) sourceKindGroup(i int) *huh.Group {
 			Height(len(generator.ConfigSourceKinds()) + kindListExtraRows).Value(&o.sourceSlots[i].Kind),
 	).
 		Title("Configuration: sources").
-		Description(sourcesBlurb).
-		WithHideFunc(func() bool { return i > 0 && o.sourceSlots[i-1].Kind == "" })
+		Description(sourcesBlurb)
+}
+
+// sourceKindHidden: a slot is offered only while the one before it took a kind.
+func (o *SkeletonOptions) sourceKindHidden(i int) bool {
+	return i > 0 && o.sourceSlots[i-1].Kind == ""
 }
 
 // kindOptions are the kinds a slot may take, after "No more config sources".
@@ -364,7 +373,7 @@ func (o *SkeletonOptions) sourceDetailGroup(i int) *huh.Group {
 				"a lower-case command word, unique among the slots. Empty uses the one shown.").
 			PlaceholderFunc(func() string { return o.defaultSlotName(i) }, &slot.Kind).
 			Value(&slot.Name).
-			Validate(func(v string) error { return o.validateSlotName(i, v) }),
+			Validate(formpage.ValidateAnswer(&slot.Name, func(v string) error { return o.validateSlotName(i, v) })),
 		huh.NewConfirm().Key(fmt.Sprintf("config-source-%d-required", i)).
 			Title("Required?").
 			Description("Yes: the tool will not start until this source is configured and\n"+
@@ -380,8 +389,11 @@ func (o *SkeletonOptions) sourceDetailGroup(i int) *huh.Group {
 				"enforces them.").
 			Options(o.placementOptions()...).Value(&slot.Above),
 	).
-		Title("Configuration: sources").
-		WithHideFunc(func() bool { return slot.Kind == "" || (i > 0 && o.sourceSlots[i-1].Kind == "") })
+		Title("Configuration: sources")
+}
+
+func (o *SkeletonOptions) sourceDetailHidden(i int) bool {
+	return o.sourceSlots[i].Kind == "" || o.sourceKindHidden(i)
 }
 
 // validateSlotName checks slot i's name against the slots before it, with

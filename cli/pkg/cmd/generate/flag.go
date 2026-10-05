@@ -12,6 +12,7 @@ import (
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
+	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -89,23 +90,23 @@ func (o *AddFlagOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) e
 			huh.NewInput().
 				Title("Command Name (e.g. kube/login)").
 				Value(&o.CommandName).
-				Validate(func(s string) error {
+				Validate(formpage.ValidateAnswer(&o.CommandName, func(s string) error {
 					if s == "" {
 						return ErrCommandNameRequired
 					}
 
 					return nil
-				}),
+				})),
 			huh.NewInput().
 				Title("Flag Name").
 				Value(&o.FlagName).
-				Validate(func(s string) error {
+				Validate(formpage.ValidateAnswer(&o.FlagName, func(s string) error {
 					if s == "" {
 						return ErrFlagNameRequired
 					}
 
 					return nil
-				}),
+				})),
 			huh.NewSelect[string]().
 				Title("Flag Type").
 				Options(
@@ -123,7 +124,7 @@ func (o *AddFlagOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) e
 			huh.NewInput().
 				Title("Shorthand (single letter, optional)").
 				Value(&o.Shorthand).
-				Validate(generator.ValidateFlagShorthand),
+				Validate(formpage.ValidateAnswer(&o.Shorthand, generator.ValidateFlagShorthand)),
 			huh.NewConfirm().
 				Title("Persistent?").
 				Value(&o.Persistent),

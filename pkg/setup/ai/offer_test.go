@@ -1,12 +1,15 @@
 package ai
 
 import (
+	"bytes"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -101,4 +104,21 @@ func TestKeyDescription_EnvNoteSaysFallback(t *testing.T) {
 	assert.Contains(t, desc, chat.EnvClaudeKey)
 	assert.Contains(t, desc, "only when no key is configured")
 	assert.NotContains(t, desc, "takes precedence over the config file")
+}
+
+// TestRunAIForms_AccessibleAsksNoHiddenPage: huh's accessible runner asks
+// hidden pages too (huh v2.0.3; huh#780), so a local provider was asked how
+// to store a credential it does not have.
+func TestRunAIForms_AccessibleAsksNoHiddenPage(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+
+	p := newTestProps(t)
+	p.IO = props.StdIO{Stdin: formtest.Answers(strconv.Itoa(providerNumber(t, "claude-local"))), Stdout: &out, Stderr: &out, AccessibleMode: true}
+
+	_, err := runAIForms(t.Context(), p, testutil.StoreFromYAML(t, "").View(), allLinked)
+	require.NoError(t, err)
+	assert.NotContains(t, out.String(), "Credential Storage")
+	assert.NotContains(t, out.String(), "Environment Variable Name")
 }
