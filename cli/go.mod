@@ -20,11 +20,11 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	gitlab.com/phpboyscout/go-tool-base v0.45.3
-	gitlab.com/phpboyscout/go/chat v0.24.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.14.2
-	gitlab.com/phpboyscout/go/chat-bedrock v0.2.1
-	gitlab.com/phpboyscout/go/chat-gemini v0.15.1
-	gitlab.com/phpboyscout/go/chat-openai v0.15.1
+	gitlab.com/phpboyscout/go/chat v0.32.0
+	gitlab.com/phpboyscout/go/chat-anthropic v0.17.1
+	gitlab.com/phpboyscout/go/chat-bedrock v0.3.2
+	gitlab.com/phpboyscout/go/chat-gemini v0.16.2
+	gitlab.com/phpboyscout/go/chat-openai v0.17.1
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.2
 	gitlab.com/phpboyscout/go/config v0.20.0
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
@@ -48,7 +48,7 @@ require (
 	golang.org/x/mod v0.41.0
 	golang.org/x/net v0.59.0
 	golang.org/x/text v0.42.0
-	google.golang.org/grpc v1.83.2
+	google.golang.org/grpc v1.84.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
