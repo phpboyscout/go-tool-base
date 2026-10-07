@@ -71,7 +71,11 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 		Features: []ManifestFeature{
 			{Name: "changelog", Enabled: false},
 			{Name: "docs", Enabled: false},
+			{Name: "ai", Enabled: true},
 		},
+		// claude-local refuses tools unless the tool bridge is linked
+		// (chat-anthropic v0.17.0), so its import has to build as emitted.
+		Chat: ManifestChat{Providers: []string{"claude-local"}},
 		// Spec 0204 D2: cmd/<name>/config.go and the root's ConfigSpec
 		// build and lint clean as emitted.
 		ConfigFormats: []string{"toml", "dotenv", "properties"},
@@ -85,6 +89,10 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	}
 
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg), "skeleton generation must succeed")
+
+	chatGo, err := os.ReadFile(filepath.Join(path, "cmd", "compile-tool", "chat.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(chatGo), `"gitlab.com/phpboyscout/go/chat-mcptools"`, "claude-local links the tool bridge")
 
 	// Add a root-level command followed by a nested subcommand. The nested
 	// case is the bug class this test exists to catch.

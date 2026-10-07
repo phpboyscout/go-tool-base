@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"slices"
 	"strings"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -28,6 +29,19 @@ var providerModules = []ProviderModuleEntry{
 	{gochat.ProviderAgyLocal, "gitlab.com/phpboyscout/go/chat-gemini"},
 	{gochat.ProviderBedrock, "gitlab.com/phpboyscout/go/chat-bedrock"},
 	{gochat.ProviderAzureOpenAI, "gitlab.com/phpboyscout/go/chat-openai-azure"},
+}
+
+// ToolServerModule is the module whose blank import serves a local-CLI
+// provider its tools over MCP. Without it claude-local and codex-local refuse
+// any tool (chat-anthropic and chat-openai v0.17.0).
+const ToolServerModule = "gitlab.com/phpboyscout/go/chat-mcptools"
+
+var toolServerProviders = []gochat.Provider{gochat.ProviderClaudeLocal, gochat.ProviderCodexLocal}
+
+// NeedsToolServer reports whether a binary linking the provider needs
+// ToolServerModule for the provider to accept tools.
+func NeedsToolServer(provider gochat.Provider) bool {
+	return slices.Contains(toolServerProviders, provider)
 }
 
 // ProviderModule returns the module path whose blank import registers the

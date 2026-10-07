@@ -6,8 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
@@ -28,4 +30,15 @@ func TestEveryForgeIsLinked(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Empty(t, forge.Unlinked(set), "gtb enables every forge; providers.go must link every adapter")
+}
+
+// TestTheToolBridgeIsLinked: gtb hands tools to the configured provider (AI
+// docs generation, the verifier), and claude-local and codex-local refuse
+// them unless the binary links the tool bridge (chat-anthropic and
+// chat-openai v0.17.0).
+func TestTheToolBridgeIsLinked(t *testing.T) {
+	t.Parallel()
+
+	_, ok := gochat.RegisteredToolServer()
+	assert.True(t, ok, "providers.go must blank-import %s", chat.ToolServerModule)
 }

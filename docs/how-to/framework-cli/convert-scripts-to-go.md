@@ -52,9 +52,9 @@ The conversion engine supports multiple AI providers, giving you the flexibility
 
 | Provider | Value | Default Model | Env Var for API Key |
 | :--- | :--- | :--- | :--- |
-| **OpenAI** (fallback default) | `openai` | `gpt-5.4` | `OPENAI_API_KEY` |
-| **Claude** | `claude` | `claude-opus-4-8` | `ANTHROPIC_API_KEY` |
-| **Gemini** | `gemini` | `gemini-3.5-flash` | `GEMINI_API_KEY` |
+| **OpenAI** (fallback default) | `openai` | `gpt-6.1-sol` | `OPENAI_API_KEY` |
+| **Claude** | `claude` | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |
+| **Gemini** | `gemini` | `gemini-3.8-flash` | `GEMINI_API_KEY` |
 | **Claude Local** | `claude-local` | uses local `claude` binary default | none required |
 | **OpenAI-Compatible** | `openai-compatible` | none: must be set explicitly | backend-specific |
 

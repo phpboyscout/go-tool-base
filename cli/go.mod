@@ -20,12 +20,13 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	gitlab.com/phpboyscout/go-tool-base v0.45.3
-	gitlab.com/phpboyscout/go/chat v0.24.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.14.2
-	gitlab.com/phpboyscout/go/chat-bedrock v0.2.1
-	gitlab.com/phpboyscout/go/chat-gemini v0.15.1
-	gitlab.com/phpboyscout/go/chat-openai v0.15.1
-	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.2
+	gitlab.com/phpboyscout/go/chat v0.32.0
+	gitlab.com/phpboyscout/go/chat-anthropic v0.17.2
+	gitlab.com/phpboyscout/go/chat-bedrock v0.3.2
+	gitlab.com/phpboyscout/go/chat-gemini v0.16.2
+	gitlab.com/phpboyscout/go/chat-mcptools v0.2.1
+	gitlab.com/phpboyscout/go/chat-openai v0.17.2
+	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.3
 	gitlab.com/phpboyscout/go/config v0.20.0
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
 	gitlab.com/phpboyscout/go/controls v0.7.0
@@ -65,7 +66,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
-	github.com/anthropics/anthropic-sdk-go v1.73.0 // indirect
+	github.com/anthropics/anthropic-sdk-go v1.78.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
@@ -75,7 +76,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.61.0 // indirect
@@ -83,7 +84,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.38.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.1 // indirect
-	github.com/aws/smithy-go v1.28.1 // indirect
+	github.com/aws/smithy-go v1.28.2 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.6.1 // indirect
@@ -160,7 +161,7 @@ require (
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/openai/openai-go/v3 v3.62.0 // indirect
+	github.com/openai/openai-go/v3 v3.71.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -190,7 +191,6 @@ require (
 	gitlab.com/phpboyscout/go/awsclient v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/browser v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/changelog v0.4.0 // indirect
-	gitlab.com/phpboyscout/go/chat-mcptools v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.11 // indirect
 	gitlab.com/phpboyscout/go/credentials v0.3.2 // indirect

@@ -205,9 +205,11 @@ func chatProvidersFor(providers []string) []string {
 }
 
 // chatModules maps the manifest's provider names to the modules whose blank
-// imports register them. Unknown names are dropped here rather than failed:
-// validation is the generate command's job, and a manifest edited by hand to
-// name a provider this framework cannot configure still regenerates.
+// imports register them, and the tool bridge when a selected local-CLI
+// provider needs it (chat.NeedsToolServer). Unknown names are dropped here
+// rather than failed: validation is the generate command's job, and a
+// manifest edited by hand to name a provider this framework cannot configure
+// still regenerates.
 func chatModules(providers []string) []string {
 	var modules []string
 
@@ -218,6 +220,10 @@ func chatModules(providers []string) []string {
 		}
 
 		modules = append(modules, module)
+	}
+
+	if slices.ContainsFunc(providers, func(p string) bool { return chat.NeedsToolServer(gochat.Provider(p)) }) {
+		modules = append(modules, chat.ToolServerModule)
 	}
 
 	slices.Sort(modules)

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
@@ -62,8 +63,31 @@ func TestChatModules(t *testing.T) {
 
 	assert.Equal(t,
 		[]string{"gitlab.com/phpboyscout/go/chat-anthropic", "gitlab.com/phpboyscout/go/chat-gemini"},
-		chatModules([]string{"gemini", "claude", "claude-local", "not-a-provider"}))
+		chatModules([]string{"gemini", "claude", "not-a-provider"}))
 	assert.Empty(t, chatModules(nil))
+}
+
+// claude-local and codex-local refuse tools unless the binary links the tool
+// bridge (chat-anthropic and chat-openai v0.17.0), so selecting either links
+// it, once.
+func TestChatModules_LinkTheToolBridgeForALocalCLI(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t,
+		[]string{"gitlab.com/phpboyscout/go/chat-anthropic", "gitlab.com/phpboyscout/go/chat-mcptools"},
+		chatModules([]string{"claude-local"}))
+	assert.Equal(t,
+		[]string{"gitlab.com/phpboyscout/go/chat-anthropic", "gitlab.com/phpboyscout/go/chat-mcptools", "gitlab.com/phpboyscout/go/chat-openai"},
+		chatModules([]string{"claude-local", "codex-local"}))
+	assert.NotContains(t, chatModules([]string{"claude", "openai"}), chat.ToolServerModule)
+}
+
+// The bridge is a line the generator writes, so it is one it drops when no
+// selected provider needs it.
+func TestAdapterModules_IncludeTheToolBridge(t *testing.T) {
+	t.Parallel()
+
+	assert.Contains(t, adapterModules(), chat.ToolServerModule)
 }
 
 func TestForgeModules(t *testing.T) {

@@ -267,6 +267,8 @@ func adapterModules() []string {
 		}
 	}
 
+	modules = append(modules, chat.ToolServerModule)
+
 	for _, d := range forge.Displays() {
 		if m, ok := forge.ModuleFor(string(d.ID)); ok && !slices.Contains(modules, m) {
 			modules = append(modules, m)

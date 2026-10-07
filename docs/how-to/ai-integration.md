@@ -191,8 +191,12 @@ export AI_PROVIDER=claude-local
 # No API key needed
 ```
 
-!!! note "Tool Calling Not Supported"
-    `ProviderClaudeLocal` does not support `SetTools` in the current release. If your feature requires tool calling, use `ProviderClaude` or another API-backed provider. MCP-based tool integration is planned for a future release.
+!!! note "Tool calling needs the tool bridge"
+    `claude-local` (and `codex-local`) serve tools to the CLI over MCP through
+    `gitlab.com/phpboyscout/go/chat-mcptools`, and refuse `SetTools` unless the
+    binary blank-imports it. A generated tool gets the import in
+    `cmd/<name>/chat.go` whenever either provider is selected; a hand-wired
+    tool adds it to `main` itself.
 
 ### OpenAI-Compatible Endpoints
 

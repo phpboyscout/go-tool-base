@@ -103,3 +103,18 @@ func TestIsLocalCLI(t *testing.T) {
 		assert.False(t, IsLocalCLI(p), p)
 	}
 }
+
+// claude-local and codex-local serve their tools over MCP through the bridge
+// module, and refuse tools without it (chat-anthropic and chat-openai
+// v0.17.0); no other provider needs it.
+func TestNeedsToolServer(t *testing.T) {
+	t.Parallel()
+
+	for _, entry := range ProviderModules() {
+		want := entry.Provider == gochat.ProviderClaudeLocal || entry.Provider == gochat.ProviderCodexLocal
+		assert.Equal(t, want, NeedsToolServer(entry.Provider), string(entry.Provider))
+	}
+
+	assert.False(t, NeedsToolServer("not-a-provider"))
+	assert.Equal(t, "gitlab.com/phpboyscout/go/chat-mcptools", ToolServerModule)
+}

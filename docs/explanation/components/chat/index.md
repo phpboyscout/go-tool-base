@@ -83,6 +83,11 @@ framework integration on top:
   When `chat.New` fails because a provider is not registered
   (`gochat.ErrProviderNotRegistered`), the adapter adds a hint naming the
   import to add.
+- **The tool bridge.** `claude-local` and `codex-local` serve their tools to
+  the CLI over MCP through `chat.ToolServerModule` (`go/chat-mcptools`), and
+  refuse tools unless the binary blank-imports it. `chat.NeedsToolServer(p)`
+  says which providers need it; the generator emits the import for them, and
+  `cli/cmd/gtb/providers.go` links it.
 - **Linked providers are a feature-set question.** `chat.LinkedProviders(set)`
   is how `init ai` and `doctor` ask what this binary ships. A generated tool
   declares its manifest's providers as link-kind features
