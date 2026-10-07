@@ -49,12 +49,15 @@ func (g *Generator) resolveModel(provider gochat.Provider) string {
 
 	if model == "" {
 		switch provider {
-		case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
+		case gochat.ProviderOpenAI:
 			model = gochat.DefaultModelOpenAI
 		case gochat.ProviderGemini:
 			model = gochat.DefaultModelGemini
 		case gochat.ProviderClaude:
 			model = gochat.DefaultModelClaude
+		case gochat.ProviderOpenAICompatible:
+			// no default model; the backend hosts its own, and go/chat-openai
+			// refuses this provider without one rather than send OpenAI's
 		case gochat.ProviderClaudeLocal:
 			// no default model; the claude binary selects its own default
 		default:
