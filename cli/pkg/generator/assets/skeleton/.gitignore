@@ -27,6 +27,8 @@ go.work
 tmp/
 
 bin/*
+# goreleaser's output; untracked, it stamps every release build -dirty
+dist/
 config/local.yaml
 site/*
 CHANGELOG.md
