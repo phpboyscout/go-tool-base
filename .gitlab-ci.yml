@@ -214,6 +214,28 @@ goreleaser:
   before_script:
     - echo "$AWS_WEB_IDENTITY_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
     - test -f cli/pkg/cmd/root/assets/site/index.html || { echo "the docs site artefact is missing; gtb docs serve would ship empty"; exit 1; }
+  # The component keeps only dist/artifacts.json, which colophon reads; an
+  # overlay replaces that list, so it is restated beside the rendered cask the
+  # homebrew-tap job pushes.
+  artifacts:
+    paths:
+      - dist/artifacts.json
+      - dist/**/Casks/gtb.rb
+
+# homebrew-tap — publishes the cask GoReleaser rendered (skip_upload: true) to
+# phpboyscout/homebrew with the CI job token, which the tap allowlists. It
+# replaced GoReleaser's own push, which needed an SSH deploy key because its
+# token: field is GitHub-only. The tag pattern is the goreleaser component's.
+homebrew-tap:
+  stage: release
+  image: registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4
+  needs:
+    - job: goreleaser
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+  script:
+    - scripts/push-homebrew-cask.sh
 
 # gtb-docs-site — the static site the release binary embeds for `docs serve`.
 # The zensical-pages component never runs on tags and goreleaser's image has
