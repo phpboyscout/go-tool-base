@@ -592,6 +592,8 @@ type skeletonTemplateData struct {
 	// sourced from the generator constant (lockstep with the framework),
 	// interpolated into the pipeline includes.
 	CICDComponentVersion string
+	// ColophonVersion is the colophon the GitHub release workflow installs.
+	ColophonVersion string
 	// CIEnableE2E controls the go-test component's enable_e2e input. A freshly
 	// generated tool has no E2E suite, so this is false.
 	CIEnableE2E bool
@@ -693,6 +695,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		Bootstrap:             m.Properties.Bootstrap,
 		CIComponentSource:     resolveCIComponentSource(m.Properties.CI.ComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
+		ColophonVersion:       ColophonVersion,
 		CIEnableE2E:           false,
 	}
 }
@@ -717,6 +720,8 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 	// older manifest's entry is dropped here rather than merged back and
 	// refreshed on every run (#88).
 	delete(storedHashes, "go.mod")
+
+	g.retireSkeletonFiles(storedHashes)
 
 	// The same set the conflict resolver uses, so a rule cannot cover a file
 	// at one stage of the run and miss it at another.

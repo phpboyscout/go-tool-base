@@ -2,27 +2,34 @@
 #
 #   merge_request_event → lint, test, security        (the merge gate)
 #   tag v*.*.*          → goreleaser, pages docs       (the release fan-out)
-#   default branch      → releaser-pleaser, zensical-pages deploy
+#   default branch      → colophon, zensical-pages deploy
 #
-# Quality gates live exclusively at the MR level — pushing to the default
-# branch runs nothing except releaser-pleaser (which itself opens an MR that
-# gets the full gate), so by the time anything lands it has already been
-# vetted. Goreleaser and the zensical-pages deploy both fire from the tag
-# releaser-pleaser cuts when its Release MR merges, which means the docs site
-# always corresponds to a real tagged release.
+# Quality gates live exclusively at the MR level. Pushing to the default
+# branch runs nothing except colophon, which keeps a release MR up to date
+# (and that MR gets the full gate), so by the time anything lands it has
+# already been vetted. When the release MR merges, colophon tags the commit
+# that actually landed on the default branch and creates the release;
+# goreleaser and the zensical-pages deploy fire from that tag, so the docs
+# site always corresponds to a real tagged release.
 #
 # Project setting prerequisites (configure these on the GitLab project before
 # the pipeline can function):
-#   • RELEASER_PLEASER_TOKEN — a project access token with the Maintainer
-#     role and the api, read_repository, write_repository scopes, set as a
-#     CI/CD variable. releaser-pleaser uses it to open/update the Release MR
-#     and cut the tag. The component does not support floating tags.
-#   • Merge method: fast-forward, with "automatic rebase before merge" on.
-#   • Squash: allowed but not encouraged — meaningful commits should survive.
-#     releaser-pleaser:verify sets squash on the Release MR specifically, which
-#     is a content no-op there (it is a single commit) and is what keeps the
-#     cut tag on the release branch.
+#   • COLOPHON_TOKEN: a project or group access token with the api and
+#     write_repository scopes, set as a CI/CD variable. colophon uses it to
+#     open the release MR and push the tag. It must not be CI_JOB_TOKEN: a tag
+#     pushed with the job token does not start the tag pipeline that builds
+#     the release. If v* tags are protected, the token must be allowed to
+#     create them.
+#   • Merge method: fast-forward. colophon resolves the commit that landed
+#     rather than trusting the MR's recorded head, so rebasing on merge is
+#     safe; meaningful commits should survive rather than be squashed.
 #   • Pipelines must succeed (so the MR gates actually block merge).
+#
+# Release notes come from conventional commits. Prose for a release goes in a
+# Release-Note: trailer or a fenced release-note block in a commit message,
+# and overrides (a forced version, a hold) go in .colophon.yaml; nothing
+# written in the release MR's description survives, because colophon
+# regenerates it on every run.
 #
 # The phpboyscout/cicd components are version-pinned below. Renovate keeps the
 # pins current via the cicd preset extended in renovate.json5 — run by the
@@ -53,13 +60,11 @@ include:
 {{- end }}
   - component: {{ .CIComponentSource }}/zensical-pages@{{ .CICDComponentVersion }}
 
-  # Release MR machinery. The cicd wrapper rather than apricote/releaser-pleaser
-  # direct: it adds releaser-pleaser:verify, which sets `squash: true` on the
-  # open Release MR and then asserts the cut tag is an ancestor of the release
-  # branch. Without it, a project using GitLab's automatic-rebase-before-merge
-  # can tag a commit that no longer exists on main and silently lose the
-  # release. token/branch/stage are the component defaults.
-  - component: {{ .CIComponentSource }}/releaser-pleaser@{{ .CICDComponentVersion }}
+  # Release MR machinery: colophon proposes the release MR on the default
+  # branch, and tags and creates the release when it merges. token
+  # ($COLOPHON_TOKEN), branch (main) and stage (release) are the component
+  # defaults.
+  - component: {{ .CIComponentSource }}/colophon@{{ .CICDComponentVersion }}
 
 stages:
   - lint
@@ -69,7 +74,7 @@ stages:
   - pages
 
 # Pipeline-source gating: MR pipelines are primary; tag pipelines run the
-# release fan-out; default-branch pipelines exist only so releaser-pleaser can
+# release fan-out; default-branch pipelines exist only so colophon can
 # maintain its MR. The `never` rule suppresses duplicate branch pipelines when
 # a feature branch already has an open MR (otherwise every push to a branch
 # with an open MR would build twice).
@@ -87,7 +92,7 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 variables:
-  # releaser-pleaser + goreleaser walk the full commit history.
+  # colophon + goreleaser walk the full commit history.
   GIT_DEPTH: "0"
 {{- if .StaticChannel }}
 

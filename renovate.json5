@@ -46,6 +46,18 @@
     },
     {
       customType: 'regex',
+      description: 'Track the colophon release the project generator bakes into every scaffolded GitHub release workflow (ColophonVersion constant).',
+      managerFilePatterns: [
+        '/^cli/pkg/generator/generator\\.go$/',
+      ],
+      matchStrings: [
+        'ColophonVersion\\s*=\\s*"(?<currentValue>v[\\d.]+)"',
+      ],
+      datasourceTemplate: 'go',
+      depNameTemplate: 'gitlab.com/phpboyscout/colophon',
+    },
+    {
+      customType: 'regex',
       description: "Bump a phpboyscout image pinned as a COMPONENT INPUT in this repo's own .gitlab-ci.yml (mirrored from the gitlab>phpboyscout/cicd base preset, which this file's customManagers array would otherwise override). An image passed as `inputs: image:` is not a job-level `image:`, so the native gitlabci manager never extracts it — this repo's goreleaser include sat on dev-tools v0.2.0 for five releases while the same image was bumped normally everywhere it appears job-level. See https://gitlab.com/phpboyscout/cicd/-/wikis/specs/0065-renovate-untracked-pin-families (D3, D4).",
       managerFilePatterns: [
         '/\\.gitlab-ci\\.ya?ml$/',

@@ -327,9 +327,9 @@ func newGitLabCIGenerator(t *testing.T) (*Generator, afero.Fs) {
 
 // TestGenerateSkeletonGitLabCIComponents verifies the scaffolded
 // .gitlab-ci.yml mirrors the phpboyscout/cicd component model: absolute,
-// version-pinned component includes, the $CI_SERVER_FQDN-relative
-// releaser-pleaser component, a templated repositories input, valid YAML, and
-// no leftover local-job includes. (Spec 2026-06-15-generator-gitlab-ci-refresh.)
+// version-pinned component includes, colophon for releases (#110), a
+// templated repositories input, valid YAML, and no leftover local-job
+// includes. (Spec 2026-06-15-generator-gitlab-ci-refresh.)
 func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
 	t.Parallel()
 
@@ -351,7 +351,7 @@ func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
 	var doc any
 	require.NoError(t, yaml.Unmarshal(raw, &doc))
 
-	for _, comp := range []string{"go-lint", "go-test", "go-security", "goreleaser", "zensical-pages", "releaser-pleaser"} {
+	for _, comp := range []string{"go-lint", "go-test", "go-security", "goreleaser", "zensical-pages", "colophon"} {
 		assert.Contains(t, ci, "component: "+DefaultCICDComponentSource+"/"+comp+"@"+CICDComponentVersion)
 	}
 
@@ -365,8 +365,8 @@ func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
 		"scaffold must not pin a runner tag; no runner in the fleet carries one")
 	assert.NotContains(t, ci, "renovate-self",
 		"Renovate is run by the group-wide autodiscover bot, not a per-repo job")
-	assert.NotContains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser",
-		"must use the cicd wrapper, which adds the releaser-pleaser:verify tag guard")
+	assert.NotContains(t, ci, "releaser-pleaser", "the estate releases through colophon (#110)")
+	assert.Contains(t, ci, "COLOPHON_TOKEN", "the header names the token colophon needs")
 	assert.Contains(t, ci, `- if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'`,
 		"MR-dedup rule must be guarded on CI_COMMIT_BRANCH or it also suppresses tag pipelines")
 	assert.NotContains(t, ci, `$CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"`,
@@ -377,6 +377,11 @@ func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
 		exists, _ := afero.Exists(fs, "/work/.gitlab/ci/"+f)
 		assert.False(t, exists, ".gitlab/ci/%s should not be scaffolded", f)
 	}
+
+	// colophon reads overrides from .colophon.yaml; a commented starter says so.
+	cm, err := afero.ReadFile(fs, "/work/.colophon.yaml")
+	require.NoError(t, err)
+	assert.Contains(t, string(cm), "colophon.phpboyscout.uk/reference/release-manifest")
 
 	// renovate.json5 extends the cicd preset.
 	rj, err := afero.ReadFile(fs, "/work/renovate.json5")
@@ -409,10 +414,9 @@ func TestGenerateSkeletonGitLabCIComponentSourceOverride(t *testing.T) {
 
 	assert.Contains(t, ci, "component: "+src+"/go-lint@"+CICDComponentVersion)
 	assert.NotContains(t, ci, DefaultCICDComponentSource+"/go-lint")
-	// releaser-pleaser is a cicd component now, so it follows the override
-	// like every other include rather than staying instance-local.
-	assert.Contains(t, ci, "component: "+src+"/releaser-pleaser@"+CICDComponentVersion)
-	assert.NotContains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser")
+	// colophon is a cicd component, so it follows the override like every
+	// other include.
+	assert.Contains(t, ci, "component: "+src+"/colophon@"+CICDComponentVersion)
 
 	// Manifest persists the override.
 	mraw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")

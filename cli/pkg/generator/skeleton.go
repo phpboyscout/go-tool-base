@@ -639,6 +639,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		MCPMode:               config.MCPMode,
 		CIComponentSource:     resolveCIComponentSource(config.CIComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
+		ColophonVersion:       ColophonVersion,
 		CIEnableE2E:           false,
 	}
 
