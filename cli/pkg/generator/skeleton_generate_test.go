@@ -49,3 +49,15 @@ func TestSkeletonGitignore_IgnoresBothEmbeddedDocsTrees(t *testing.T) {
 	assert.Contains(t, string(raw), "pkg/cmd/root/assets/docs\n")
 	assert.Contains(t, string(raw), "pkg/cmd/root/assets/site\n")
 }
+
+// goreleaser writes dist/metadata.json before it builds, so an unignored
+// dist/ is an untracked file to Go, every release binary is stamped
+// vcs.modified=true, and the generated version reports -dirty (#107).
+func TestSkeletonGitignore_IgnoresGoReleaserOutput(t *testing.T) {
+	t.Parallel()
+
+	raw, err := skeletonAssets.ReadFile("assets/skeleton/.gitignore")
+	require.NoError(t, err)
+
+	assert.Contains(t, string(raw), "\ndist/\n")
+}
