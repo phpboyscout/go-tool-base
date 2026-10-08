@@ -50,7 +50,7 @@ Exits with a non-zero status code if any validation errors are found.`,
 			// env- or flag-authored and genuinely unrecognised still warns.
 			result.Warnings = actionableWarnings(props, view, result.Warnings)
 
-			printValidationResult(cmd.OutOrStdout(), result)
+			printValidationResult(cmd.OutOrStdout(), result, view.Snapshot())
 
 			if !result.Valid() {
 				return errors.New("configuration validation failed")
@@ -204,12 +204,28 @@ func flattenConfigKeys(m map[string]any, prefix string, out map[string]bool) {
 	}
 }
 
-func printValidationResult(w io.Writer, result *cfg.ValidationResult) {
+func printValidationResult(w io.Writer, result *cfg.ValidationResult, snap *cfg.Snapshot) {
 	for _, e := range result.Errors {
-		_, _ = fmt.Fprintf(w, "error:   %s\n", e.String())
+		_, _ = fmt.Fprintf(w, "error:   %s%s\n", e.String(), envOriginSuffix(snap, e.Key))
 	}
 
 	for _, e := range result.Warnings {
-		_, _ = fmt.Fprintf(w, "warning: %s\n", e.String())
+		_, _ = fmt.Fprintf(w, "warning: %s%s\n", e.String(), envOriginSuffix(snap, e.Key))
+	}
+}
+
+func envOriginSuffix(snap *cfg.Snapshot, key string) string {
+	if key == "" {
+		return ""
+	}
+
+	names := setup.EnvVariablesFor(snap, key)
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return " (from environment variable " + names[0] + ")"
+	default:
+		return " (from environment variables " + strings.Join(names, ", ") + ")"
 	}
 }

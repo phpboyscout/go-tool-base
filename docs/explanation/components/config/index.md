@@ -414,6 +414,25 @@ cmdconfig.NewCmdConfig(props,
 )
 ```
 
+## Naming the variable behind a key
+
+A refusal about a configuration value should say where the value came from,
+because a value from a stray `<PREFIX>_*` variable looks exactly like one from the
+config file. `setup.EnvVariablesFor(snapshot, key)` returns the environment
+variables that supplied a key, or any key beneath it, sorted and empty when the
+environment supplied none. It answers for a whole block as well as a leaf, so a
+tool that validates `announce` as a unit can still name the
+`MYTOOL_ANNOUNCE_FLAGS` that broke it:
+
+```go
+snap := props.Config.View().Snapshot()
+if names := setup.EnvVariablesFor(snap, "announce"); len(names) > 0 {
+    return errors.WithHintf(err, "set by environment variable %s", strings.Join(names, ", "))
+}
+```
+
+`config validate` uses it for every error and warning it prints (spec 0205).
+
 ## Relationship with `init` and `config`
 
 | Workflow | Command |

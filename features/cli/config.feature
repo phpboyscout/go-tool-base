@@ -78,6 +78,13 @@ Feature: CLI Config Command
     And stdout contains "error:"
     And stdout contains "log.level"
 
+  Scenario: Validate names the environment variable behind an invalid value
+    Given I set environment variable "GTB_LOG_LEVEL" to "verbose"
+    When I run gtb with "config validate"
+    Then the exit code is not 0
+    And stdout contains "log.level"
+    And stdout contains "from environment variable GTB_LOG_LEVEL"
+
   Scenario: Get outputs JSON with --output flag
     When I run gtb with "config get log.level --output json"
     Then the exit code is 0

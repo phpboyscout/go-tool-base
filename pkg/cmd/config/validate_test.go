@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cfg "gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -102,4 +104,44 @@ func TestCmdValidate_NilConfig(t *testing.T) {
 
 	err := cmd.Execute()
 	assert.Error(t, err)
+}
+
+// A value the environment supplied is reported with the variable that
+// supplied it, so the reader renames a shell variable rather than searching a
+// config file that is fine (spec 0205 D1).
+func TestCmdValidate_NamesTheVariableBehindAKey(t *testing.T) {
+	t.Parallel()
+
+	run := func(t *testing.T, opts ...cfg.StoreOption) string {
+		t.Helper()
+
+		store, err := cfg.NewStore(t.Context(), opts...)
+		require.NoError(t, err)
+
+		cmd := config.NewCmdValidate(&props.Props{Config: store})
+
+		var buf bytes.Buffer
+		cmd.SetOut(&buf)
+		_ = cmd.Execute()
+
+		return buf.String()
+	}
+
+	file := cfg.WithReaders(cfg.NamedSource{Name: "file", Content: []byte("log:\n  level: info\n")})
+
+	t.Run("an invalid value from the environment names its variable", func(t *testing.T) {
+		t.Parallel()
+
+		out := run(t, file, cfg.WithEnv("TOOLTEST", cfg.WithEnviron(func() []string { return []string{"TOOLTEST_LOG_LEVEL=loud"} })))
+		assert.Contains(t, out, "log.level")
+		assert.Contains(t, out, "from environment variable TOOLTEST_LOG_LEVEL")
+	})
+
+	t.Run("the same value from a file names no variable", func(t *testing.T) {
+		t.Parallel()
+
+		out := run(t, cfg.WithReaders(cfg.NamedSource{Name: "file", Content: []byte("log:\n  level: loud\n")}))
+		assert.Contains(t, out, "log.level")
+		assert.NotContains(t, out, "environment variable")
+	})
 }

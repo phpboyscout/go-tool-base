@@ -124,6 +124,24 @@ embedded `assets/config.yaml` or its `assets/init/config.yaml` template. Project
 scaffolded by `gtb generate project` already do this for `update.policy` and
 `update.check_interval`.
 
+### A variable you did not mean as configuration
+
+Every `<PREFIX>_*` variable becomes a key, whether or not the tool reads it. A CI
+job that keeps its own state in `MYTOOL_FLAGS` or `MYTOOL_VERSION` has, as far as
+the store is concerned, set `flags` and `version`. That is harmless until
+something reads or validates the key, and then the refusal looks like a problem
+with the config file.
+
+`config validate` names the variable behind any key the environment supplied:
+
+```text
+error:   log.level: value "verbose" is not allowed (hint: allowed values: debug, info, warn, error) (from environment variable MYTOOL_LOG_LEVEL)
+```
+
+The fix in that case is renaming or unsetting the variable, not editing the file.
+`config validate` does not warn about a key only the environment defines,
+because an unrelated variable must not be able to fail validation.
+
 If two keys a tool defines would both spell the same variable name, the store
 refuses to guess: config loading fails with `environment variable is ambiguous:
 it could mean <a> or <b>`. Rename one of the keys.
