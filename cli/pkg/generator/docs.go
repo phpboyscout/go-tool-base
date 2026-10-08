@@ -245,7 +245,7 @@ func (g *Generator) handleNoAIDocs(name, fullCmdName, relPath, moduleName, outpu
 		return g.generatePackagesIndex()
 	}
 
-	if err := g.writeBasicCommandDocs(name, fullCmdName, outputPath); err != nil {
+	if err := g.writeBasicCommandDocs(name, fullCmdName, relPath, outputPath); err != nil {
 		return err
 	}
 
@@ -404,7 +404,7 @@ func (g *Generator) apiReferenceNote(pkgRel, moduleName string) string {
 // writeBasicCommandDocs generates a markdown template for a command using data
 // available without AI: the manifest (description, flags, subcommands) and
 // generator config (Short/Long when set from generate command flow).
-func (g *Generator) writeBasicCommandDocs(name, fullCmdName, outputPath string) error {
+func (g *Generator) writeBasicCommandDocs(name, fullCmdName, relPath, outputPath string) error {
 	currentDate := time.Now().Format("2006-01-02")
 
 	var sb strings.Builder
@@ -419,7 +419,13 @@ func (g *Generator) writeBasicCommandDocs(name, fullCmdName, outputPath string) 
 	)
 
 	if m, err := g.loadManifest(); err == nil {
-		parentPath, _ = g.FindCommandParentPath(name)
+		// The source location names the command exactly; a name lookup
+		// returns the first command with that leaf name (#102).
+		parentPath = parentPartsFromCmdRelPath(relPath)
+		if parentPath == nil {
+			parentPath, _ = g.FindCommandParentPath(name)
+		}
+
 		cmd = findCommandAt(m.Commands, parentPath, name)
 	}
 
@@ -1466,7 +1472,7 @@ func (g *Generator) generateDocs() error {
 
 	fullCmdName, outputPath := g.prepareDocsContext(g.config.Name, relPath, false)
 
-	if err := g.writeBasicCommandDocs(g.config.Name, fullCmdName, outputPath); err != nil {
+	if err := g.writeBasicCommandDocs(g.config.Name, fullCmdName, relPath, outputPath); err != nil {
 		return err
 	}
 

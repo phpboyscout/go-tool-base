@@ -44,7 +44,7 @@ func NewCmdPlan(props *props.Props) *setup.Command {
 	require.NoError(t, afero.WriteFile(g.props.FS, "/work/pkg/cmd/plan/cmd.go", []byte(src), 0o644))
 
 	out := filepath.Join("/work", "docs", "reference", "cli", "plan.md")
-	require.NoError(t, g.writeBasicCommandDocs("plan", "mytool plan", out))
+	require.NoError(t, g.writeBasicCommandDocs("plan", "mytool plan", "", out))
 
 	data, err := afero.ReadFile(g.props.FS, out)
 	require.NoError(t, err)
@@ -64,9 +64,31 @@ func TestWriteBasicCommandDocs_ManifestFlagsWhenNoSource(t *testing.T) {
 	g := newPromptGenerator(t, manifest, false)
 
 	out := "/work/docs/reference/cli/plan.md"
-	require.NoError(t, g.writeBasicCommandDocs("plan", "mytool plan", out))
+	require.NoError(t, g.writeBasicCommandDocs("plan", "mytool plan", "", out))
 
 	data, err := afero.ReadFile(g.props.FS, out)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "| `-C, --repo` | Path to the git repository to read | `.` |  |")
+}
+
+// Two commands share the leaf name status. The page for review status was
+// written with index status's description, because the manifest was searched
+// by name and index came first (#102).
+func TestWriteBasicCommandDocs_ResolvesTheCommandByItsPath(t *testing.T) {
+	t.Parallel()
+
+	manifest := "properties:\n  name: mytool\ncommands:\n" +
+		"  - name: index\n    description: Manage the index\n    commands:\n" +
+		"      - name: status\n        description: Report what is indexed and how stale it is\n" +
+		"  - name: review\n    description: Review answers\n    commands:\n" +
+		"      - name: status\n        description: Report how many shadow answers have been reviewed\n"
+	g := newPromptGenerator(t, manifest, false)
+
+	out := "/work/docs/reference/cli/review/status.md"
+	require.NoError(t, g.handleNoAIDocs("status", "mytool review status", "pkg/cmd/review/status", "example.com/mytool", out, false))
+
+	page, err := afero.ReadFile(g.props.FS, out)
+	require.NoError(t, err)
+	assert.Contains(t, string(page), "Report how many shadow answers have been reviewed")
+	assert.NotContains(t, string(page), "Report what is indexed")
 }
