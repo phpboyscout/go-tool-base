@@ -1,12 +1,14 @@
 package generator
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
@@ -80,6 +82,20 @@ func TestChatModules_LinkTheToolBridgeForALocalCLI(t *testing.T) {
 		[]string{"gitlab.com/phpboyscout/go/chat-anthropic", "gitlab.com/phpboyscout/go/chat-mcptools", "gitlab.com/phpboyscout/go/chat-openai"},
 		chatModules([]string{"claude-local", "codex-local"}))
 	assert.NotContains(t, chatModules([]string{"claude", "openai"}), chat.ToolServerModule)
+}
+
+// tool_bridge: false opts out: a tool that selects a local CLI but never
+// passes it tools ships without the MCP SDK (#104). true is the default rule.
+func TestChatModulesFor_ToolBridgeOptOut(t *testing.T) {
+	t.Parallel()
+
+	local := []string{"claude-local", "codex-local"}
+
+	assert.NotContains(t, chatModulesFor(ManifestChat{Providers: local, ToolBridge: new(false)}), chat.ToolServerModule)
+	assert.Contains(t, chatModulesFor(ManifestChat{Providers: local}), chat.ToolServerModule)
+	assert.Contains(t, chatModulesFor(ManifestChat{Providers: local, ToolBridge: new(true)}), chat.ToolServerModule)
+	assert.NotContains(t, chatModulesFor(ManifestChat{Providers: []string{"claude"}, ToolBridge: new(true)}), chat.ToolServerModule,
+		"true links it only where a provider needs it")
 }
 
 // The bridge is a line the generator writes, so it is one it drops when no
@@ -272,11 +288,44 @@ func init() {
 func TestChatModulesFor_FollowsTheListNotTheFeature(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, chatModulesFor([]string{"claude"}))
-	assert.Empty(t, chatModulesFor(nil))
+	assert.Equal(t, []string{"gitlab.com/phpboyscout/go/chat-anthropic"}, chatModulesFor(ManifestChat{Providers: []string{"claude"}}))
+	assert.Empty(t, chatModulesFor(ManifestChat{}))
 
 	assert.False(t, chatFileWanted(ManifestProperties{}))
 	assert.True(t, chatFileWanted(ManifestProperties{Chat: ManifestChat{Providers: []string{"claude"}}}))
 	assert.True(t, chatFileWanted(ManifestProperties{Features: []ManifestFeature{{Name: string(props.AiCmd), Enabled: true}}}),
 		"under ai an empty list is still a file")
+}
+
+// A from-scratch rebuild reads the opt-out back from chat.go: a local CLI
+// linked without the tool bridge is tool_bridge: false; with it, the default
+// rule (#104).
+func TestRecoverChatToolBridge(t *testing.T) {
+	t.Parallel()
+
+	chatGo := func(t *testing.T, c ManifestChat) (*Generator, []string) {
+		t.Helper()
+
+		g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+		require.NoError(t, fs.MkdirAll("/proj/cmd/tool", 0o755))
+
+		var buf strings.Builder
+		require.NoError(t, templates.SkeletonChatProviders(c.Providers, chatModulesFor(c), false).Render(&buf))
+		require.NoError(t, afero.WriteFile(fs, "/proj/cmd/tool/chat.go", []byte(buf.String()), 0o644))
+
+		return g, g.recoverChatProviders()
+	}
+
+	local := []string{"claude-local"}
+
+	g, providers := chatGo(t, ManifestChat{Providers: local, ToolBridge: new(false)})
+	got := g.recoverChatToolBridge(providers)
+	require.NotNil(t, got)
+	assert.False(t, *got)
+
+	g, providers = chatGo(t, ManifestChat{Providers: local})
+	assert.Nil(t, g.recoverChatToolBridge(providers))
+
+	g, providers = chatGo(t, ManifestChat{Providers: []string{"claude"}})
+	assert.Nil(t, g.recoverChatToolBridge(providers), "nothing to opt out of without a local CLI")
 }

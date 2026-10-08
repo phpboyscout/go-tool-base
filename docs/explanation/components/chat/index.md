@@ -86,7 +86,8 @@ framework integration on top:
 - **The tool bridge.** `claude-local` and `codex-local` serve their tools to
   the CLI over MCP through `chat.ToolServerModule` (`go/chat-mcptools`), and
   refuse tools unless the binary blank-imports it. `chat.NeedsToolServer(p)`
-  says which providers need it; the generator emits the import for them, and
+  says which providers need it; the generator emits the import for them
+  unless the manifest sets `chat.tool_bridge: false`, and
   `cli/cmd/gtb/providers.go` links it.
 - **Linked providers are a feature-set question.** `chat.LinkedProviders(set)`
   is how `init ai` and `doctor` ask what this binary ships. A generated tool

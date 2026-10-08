@@ -165,3 +165,42 @@ func TestSetSetting_RefusesARename(t *testing.T) {
 		assert.Contains(t, errors.FlattenHints(err), "cmd/<old>")
 	}
 }
+
+// TestSetSetting_ToolBridgeOptOut: chat.tool_bridge is a *bool, unset meaning
+// "link the bridge where a provider needs it" (#104).
+func TestSetSetting_ToolBridgeOptOut(t *testing.T) {
+	t.Parallel()
+
+	const local = "properties:\n  name: mytool\n  features:\n    - name: ai\n      enabled: true\n" +
+		"  chat:\n    providers: [claude-local]\n" +
+		"release_source:\n  type: github\n  backend: github\n  host: github.com\n  owner: org\n  repo: mytool\n" +
+		"version:\n  gtb: v1.0.0\n  go: \"1.26\"\ncommands: []\n"
+
+	g, fs, _ := newPerimeterTestProject(t, local)
+
+	require.NoError(t, g.SetSetting(context.Background(), "chat.tool_bridge", []string{"true"}))
+	chatGo, err := afero.ReadFile(fs, "/work/cmd/mytool/chat.go")
+	require.NoError(t, err)
+	require.Contains(t, string(chatGo), "chat-mcptools", "claude-local links the bridge by default")
+
+	require.NoError(t, g.SetSetting(context.Background(), "chat.tool_bridge", []string{"false"}))
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	require.NotNil(t, m.Properties.Chat.ToolBridge)
+	assert.False(t, *m.Properties.Chat.ToolBridge)
+
+	got, err := g.GetSetting("chat.tool_bridge")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"false"}, got)
+
+	chatGo, err = afero.ReadFile(fs, "/work/cmd/mytool/chat.go")
+	require.NoError(t, err)
+	assert.NotContains(t, string(chatGo), "chat-mcptools", "the sync drops the bridge import")
+
+	require.NoError(t, g.UnsetSetting(context.Background(), "chat.tool_bridge"))
+
+	m, err = g.loadManifest()
+	require.NoError(t, err)
+	assert.Nil(t, m.Properties.Chat.ToolBridge, "unset returns it to the default rule")
+}

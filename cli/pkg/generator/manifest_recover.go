@@ -81,6 +81,7 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 
 	if providers := g.recoverChatProviders(); providers != nil {
 		props.Chat.Providers = providers
+		props.Chat.ToolBridge = g.recoverChatToolBridge(providers)
 	}
 
 	props.Config.Formats = g.recoverConfigFormats()

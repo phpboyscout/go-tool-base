@@ -668,7 +668,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
 		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
 		Links:                 enabledLinks(m.Properties.Features),
-		ChatModules:           chatModulesFor(m.Properties.Chat.Providers),
+		ChatModules:           chatModulesFor(m.Properties.Chat),
 		ChatProviders:         chatProvidersFor(m.Properties.Chat.Providers),
 		ForgeLinks:            enabledForges(m.Properties.Features),
 		ChatDefault:           chatDefaultsFor(m.Properties),

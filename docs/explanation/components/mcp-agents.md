@@ -245,7 +245,9 @@ links `go/chat-mcptools`, the tool bridge those providers need to accept
 tools, which imports the same SDK, so such a tool still carries the SDK (not
 `go/mcp`) through that module. The generator writes that import into
 `cmd/<name>/chat.go` when either provider is selected; no other provider
-needs it. A
+needs it. A tool that selects one but never passes it tools opts out with
+`chat.tool_bridge: false` (`gtb set chat.tool_bridge false`, or
+`--chat-tool-bridge=false`), and then carries no MCP SDK at all. A
 hand-wired tool adds or omits the import itself; the
 [migration note](../../reference/migration/v0.x-mcp-link-kind.md) covers a tool
 that predates the link.

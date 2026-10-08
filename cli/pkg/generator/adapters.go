@@ -179,12 +179,19 @@ func chatDefaultsYAML(d ManifestChatDefault) []byte {
 	return []byte(b.String())
 }
 
-// chatModulesFor is the modules the manifest's provider list links. The list
-// is the record of linked adapters on its own: a tool drives go/chat from its
-// own code without the ai feature, which switches GTB's AI-based features
-// (#94, revising spec 0194 D4).
-func chatModulesFor(providers []string) []string {
-	return chatModules(providers)
+// chatModulesFor is the modules the manifest's chat block links. The provider
+// list is the record of linked adapters on its own: a tool drives go/chat from
+// its own code without the ai feature, which switches GTB's AI-based features
+// (#94, revising spec 0194 D4). tool_bridge: false leaves the tool bridge out
+// (#104).
+func chatModulesFor(c ManifestChat) []string {
+	modules := chatModules(c.Providers)
+
+	if c.ToolBridge != nil && !*c.ToolBridge {
+		modules = slices.DeleteFunc(modules, func(m string) bool { return m == chat.ToolServerModule })
+	}
+
+	return modules
 }
 
 // chatProvidersFor is the provider names chat.go declares as link features:
@@ -286,7 +293,7 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 	if chatFileWanted(m.Properties) {
 		if err := g.writeGeneratedGoFile(chatFile, templates.SkeletonChatProviders(
 			chatProvidersFor(m.Properties.Chat.Providers),
-			chatModulesFor(m.Properties.Chat.Providers),
+			chatModulesFor(m.Properties.Chat),
 			!withDefaults.IsZero(),
 		)); err != nil {
 			return err
@@ -381,6 +388,27 @@ func (g *Generator) syncChatDefaultsBundle(root, name string, d ManifestChatDefa
 	}
 
 	return nil
+}
+
+// recoverChatToolBridge reads the tool bridge opt-out back from chat.go: a
+// local CLI linked without go/chat-mcptools is tool_bridge: false (#104).
+// Nil, the default rule, otherwise.
+func (g *Generator) recoverChatToolBridge(providers []string) *bool {
+	if !slices.ContainsFunc(providers, func(p string) bool { return chat.NeedsToolServer(gochat.Provider(p)) }) {
+		return nil
+	}
+
+	matches, err := afero.Glob(g.props.FS, filepath.Join(g.config.Path, "cmd", "*", "chat.go"))
+	if err != nil || len(matches) == 0 {
+		return nil
+	}
+
+	src, err := afero.ReadFile(g.props.FS, matches[0])
+	if err != nil || strings.Contains(string(src), `"`+chat.ToolServerModule+`"`) {
+		return nil
+	}
+
+	return new(false)
 }
 
 // recoverChatProviders reads cmd/<name>/chat.go on a from-scratch rebuild.

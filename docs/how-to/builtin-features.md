@@ -43,7 +43,8 @@ blank-imports `gitlab.com/phpboyscout/go-tool-base/pkg/mcp` (a generated
 project's `cmd/<name>/mcp.go`); without the import there is no `mcp` command
 and the binary carries neither `go/mcp` nor the MCP SDK (the `claude-local`
 and `codex-local` chat providers bring the SDK back through
-`go/chat-mcptools`, the tool bridge they need to accept tools). Omit the import for a build that must ship without an MCP surface. A `props.Disable(props.McpCmd)`
+`go/chat-mcptools`, the tool bridge they need to accept tools, unless the
+manifest sets `chat.tool_bridge: false`). Omit the import for a build that must ship without an MCP surface. A `props.Disable(props.McpCmd)`
 left in an older `main` is ignored and listed by `doctor`.
 
 ## Enabling Opt-in Features
