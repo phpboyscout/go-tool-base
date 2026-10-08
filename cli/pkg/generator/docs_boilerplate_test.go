@@ -42,7 +42,7 @@ func TestWriteBasicCommandDocs_HelpPointer(t *testing.T) {
 
 	g := newPromptGenerator(t, "", false)
 	out := "/work/docs/reference/cli/deploy.md"
-	require.NoError(t, g.writeBasicCommandDocs("deploy", "mytool deploy", out))
+	require.NoError(t, g.writeBasicCommandDocs("deploy", "mytool deploy", "", out))
 
 	data, err := afero.ReadFile(g.props.FS, out)
 	require.NoError(t, err)
