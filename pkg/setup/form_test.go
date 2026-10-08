@@ -9,6 +9,7 @@ import (
 	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/credentials"
 
@@ -33,6 +34,10 @@ func TestRunForm(t *testing.T) {
 		err := RunForm(context.Background(), p, f)
 		require.ErrorIs(t, err, ErrNonInteractive)
 		assert.Empty(t, name, "the form never opened")
+
+		hint := errors.FlattenHints(err)
+		assert.Contains(t, hint, "--accessible")
+		assert.NotContains(t, hint, "flags", "a command need not have flags for its answers (#101)")
 	})
 
 	t.Run("accessible answers drive the real form", func(t *testing.T) {

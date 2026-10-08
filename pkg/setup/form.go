@@ -27,7 +27,8 @@ var ErrInputEnded = errors.NewSentinel("gtb.setup.input_ended", "input ended bef
 // accessible decision is the IO's, applied to the form here, because huh
 // decides it per form from TERM=dumb and offers no way to ask. A stdin that
 // is neither a terminal nor in accessible mode is refused before the form
-// opens, with the non-interactive route in the hint.
+// opens, with the accessible route in the hint. The hint names no answer
+// flags, because not every command has them (#101).
 func RunForm(ctx context.Context, p *props.Props, f *huh.Form) error {
 	return RunFormOn(ctx, p.GetIO(), f)
 }
@@ -37,7 +38,7 @@ func RunForm(ctx context.Context, p *props.Props, f *huh.Form) error {
 func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 	if !Promptable(io) {
 		return errors.WithHint(ErrNonInteractive,
-			"Run this from a terminal, or non-interactively: pass the answers as flags, or set GTB_ACCESSIBLE=true for line prompts on a piped stdin.")
+			"Run this from a terminal, or pass --accessible (or set GTB_ACCESSIBLE=true) to answer its prompts one line at a time on a piped stdin.")
 	}
 
 	f, answers := prepareForm(io, f)
