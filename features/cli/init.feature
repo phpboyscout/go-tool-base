@@ -7,11 +7,11 @@ Feature: CLI Init Command
     Given the gtb binary is built
     And a temporary init directory
 
-  Scenario: Non-interactive init creates config and gitignore
+  Scenario: Non-interactive init creates the config and nothing else
     When I run gtb with "init --skip-login --skip-key --skip-ai --dir {init_dir}"
     Then the exit code is 0
     And the file "config.yaml" exists in the init directory
-    And the file ".gitignore" exists in the init directory
+    And the file ".gitignore" does not exist in the init directory
 
   Scenario: JSON output returns config path
     When I run gtb with "init --skip-login --skip-key --skip-ai --dir {init_dir} --output json"

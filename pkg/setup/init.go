@@ -237,10 +237,6 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 		}
 	}
 
-	if err := writeGitignore(p.FS, opts.Dir); err != nil {
-		p.Logger.Warn("failed to write .gitignore", "error", err)
-	}
-
 	warnIfAPIKeysInGitRepo(p, opts.Dir)
 
 	return targetFile, nil
@@ -453,30 +449,6 @@ func seedInFormat(codec config.Codec, targetFile string, seed []byte) ([]byte, e
 	}
 
 	return EncodeConfig(codec, targetFile, doc)
-}
-
-const gitignoreContent = `# Ignore files that may contain secrets
-*.env
-*.secret
-*.key
-`
-
-// writeGitignore creates a .gitignore in the config directory if one doesn't already exist.
-func writeGitignore(fs afero.Fs, configDir string) error {
-	gitignorePath := filepath.Join(configDir, ".gitignore")
-
-	exists, err := afero.Exists(fs, gitignorePath)
-	if err != nil {
-		return errors.Wrap(err, "checking .gitignore existence")
-	}
-
-	if exists {
-		return nil
-	}
-
-	const filePerm = 0o644
-
-	return afero.WriteFile(fs, gitignorePath, []byte(gitignoreContent), filePerm)
 }
 
 // warnIfAPIKeysInGitRepo logs a warning if config files in a git repo appear to contain API keys.

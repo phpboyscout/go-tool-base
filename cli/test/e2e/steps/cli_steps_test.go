@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,6 +116,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the JSON field "([^"]*)" is not empty$`, theJSONFieldIsNotEmpty)
 	ctx.Step(`^the JSON field "([^"]*)" is an array with at least (\d+) items$`, theJSONFieldIsArrayWithAtLeast)
 	ctx.Step(`^the file "([^"]*)" exists in the init directory$`, theFileExistsInInitDir)
+	ctx.Step(`^the file "([^"]*)" does not exist in the init directory$`, theFileDoesNotExistInInitDir)
 	ctx.Step(`^the config file in the init directory contains "([^"]*)"$`, theInitConfigContains)
 	ctx.Step(`^the config file in the init directory does not contain "([^"]*)"$`, theInitConfigDoesNotContain)
 	ctx.Step(`^the config file contains "([^"]*)"$`, theScenarioConfigContains)
@@ -580,6 +582,21 @@ func theFileExistsInInitDir(ctx context.Context, filename string) error {
 	path := filepath.Join(w.initDir, filename)
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("file %q does not exist in init directory: %w", filename, err)
+	}
+
+	return nil
+}
+
+func theFileDoesNotExistInInitDir(ctx context.Context, filename string) error {
+	w := getCLIWorld(ctx)
+
+	_, err := os.Stat(filepath.Join(w.initDir, filename))
+	if err == nil {
+		return fmt.Errorf("file %q exists in init directory", filename)
+	}
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("checking for %q in init directory: %w", filename, err)
 	}
 
 	return nil

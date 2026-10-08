@@ -74,42 +74,6 @@ func TestOpenConfigEditor(t *testing.T) {
 	})
 }
 
-func TestWriteGitignore_NewDir(t *testing.T) {
-	t.Parallel()
-
-	fs := afero.NewMemMapFs()
-	configDir := "/home/user/.mytool"
-	_ = fs.MkdirAll(configDir, 0755)
-
-	err := writeGitignore(fs, configDir)
-	require.NoError(t, err)
-
-	content, err := afero.ReadFile(fs, filepath.Join(configDir, ".gitignore"))
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "*.env")
-	assert.Contains(t, string(content), "*.secret")
-	assert.Contains(t, string(content), "*.key")
-}
-
-func TestWriteGitignore_ExistingPreserved(t *testing.T) {
-	t.Parallel()
-
-	fs := afero.NewMemMapFs()
-	configDir := "/home/user/.mytool"
-	_ = fs.MkdirAll(configDir, 0755)
-
-	existingContent := "# my custom gitignore\n*.log\n"
-	require.NoError(t, afero.WriteFile(fs, filepath.Join(configDir, ".gitignore"), []byte(existingContent), 0644))
-
-	err := writeGitignore(fs, configDir)
-	require.NoError(t, err)
-
-	// Should not overwrite existing .gitignore
-	content, err := afero.ReadFile(fs, filepath.Join(configDir, ".gitignore"))
-	require.NoError(t, err)
-	assert.Equal(t, existingContent, string(content))
-}
-
 func TestWarnIfAPIKeysInGitRepo_Warns(t *testing.T) {
 	t.Parallel()
 

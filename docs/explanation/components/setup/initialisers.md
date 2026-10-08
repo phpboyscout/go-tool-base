@@ -154,22 +154,9 @@ The AI initialiser abstracts over multiple LLM providers, normalizing their conf
 
 ## Security Features
 
-### Automatic `.gitignore` Generation
-
-During `init`, if the config directory does not already contain a `.gitignore` file, one is automatically created to prevent accidental commit of sensitive files:
-
-```
-# Ignore files that may contain secrets
-*.env
-*.secret
-*.key
-```
-
-Existing `.gitignore` files are never overwritten.
-
 ### API Key Detection Warning
 
-After writing config files, the init process scans config files for common API key patterns (`sk-`, `api_key`, `token`, `secret`). If the config directory is inside a git repository, a warning is logged advising the user to ensure the config directory is gitignored. This provides defence in depth against accidental credential commits.
+After writing config files, the init process scans config files for common API key patterns (`sk-`, `api_key`, `token`, `secret`). If the config directory is inside a git repository, a warning is logged advising the user to ensure the config directory is gitignored. `init` writes nothing into the config directory but the config file itself.
 
 ## Creating Custom Initialisers
 

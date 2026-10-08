@@ -67,7 +67,9 @@ func TestInitialise_CreatesDirectoryAndConfigFile(t *testing.T) {
 	assert.Contains(t, string(content), "log:")
 }
 
-func TestInitialise_WritesGitignore(t *testing.T) {
+// The config directory is the user's, normally under their home, and
+// nothing in it is a repository to protect (#103).
+func TestInitialise_WritesNoGitignore(t *testing.T) {
 	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "setup")
 
@@ -78,35 +80,9 @@ func TestInitialise_WritesGitignore(t *testing.T) {
 	_, err := setup.Initialise(t.Context(), p, setup.InitOptions{Dir: dir})
 	require.NoError(t, err)
 
-	gitignorePath := filepath.Join(dir, ".gitignore")
-	exists, _ := afero.Exists(fs, gitignorePath)
-	assert.True(t, exists)
-
-	content, err := afero.ReadFile(fs, gitignorePath)
+	exists, err := afero.Exists(fs, filepath.Join(dir, ".gitignore"))
 	require.NoError(t, err)
-	assert.Contains(t, string(content), "*.env")
-	assert.Contains(t, string(content), "*.secret")
-	assert.Contains(t, string(content), "*.key")
-}
-
-func TestInitialise_GitignoreNotOverwritten(t *testing.T) {
-	t.Parallel()
-	testutil.SkipIfNotIntegration(t, "setup")
-
-	fs := afero.NewMemMapFs()
-	p := newInitProps(fs)
-	dir := "/home/testuser/.test-tool"
-
-	// Pre-create a custom .gitignore
-	require.NoError(t, fs.MkdirAll(dir, 0o755))
-	require.NoError(t, afero.WriteFile(fs, filepath.Join(dir, ".gitignore"), []byte("custom content\n"), 0o644))
-
-	_, err := setup.Initialise(t.Context(), p, setup.InitOptions{Dir: dir})
-	require.NoError(t, err)
-
-	content, err := afero.ReadFile(fs, filepath.Join(dir, ".gitignore"))
-	require.NoError(t, err)
-	assert.Equal(t, "custom content\n", string(content), "existing .gitignore should not be overwritten")
+	assert.False(t, exists)
 }
 
 // TestInitialise_WrittenConfigIsTemplateNotDefaults pins the segregated-defaults
@@ -323,17 +299,10 @@ func TestInitialise_APIKeyWarningInGitRepo(t *testing.T) {
 	require.NoError(t, fs.MkdirAll("/project/.git", 0o755))
 	dir := "/project/.test-tool"
 
-	initWithToken := &testInitialiser{
-		name: "token-provider",
-		configFn: func(c setup.Editor) {
-			require.NoError(t, c.Set("auth.token", "sk-supersecret123"))
-		},
-	}
+	require.NoError(t, fs.MkdirAll(dir, 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(dir, "config.yaml"), []byte("auth:\n  token: sk-supersecret123\n"), 0o600))
 
-	_, err := setup.Initialise(t.Context(), p, setup.InitOptions{
-		Dir:          dir,
-		Initialisers: []setup.Initialiser{initWithToken},
-	})
+	_, err := setup.Initialise(t.Context(), p, setup.InitOptions{Dir: dir})
 	require.NoError(t, err)
 
 	// Should warn about API keys in git repo

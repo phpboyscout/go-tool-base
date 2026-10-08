@@ -159,7 +159,7 @@ These tests require **no external credentials**, only local network access.
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `init_integration_test.go` | Directory creation, config merge/clean, gitignore, initialisers, API key warnings | Filesystem (in-memory) |
+| `init_integration_test.go` | Directory creation, config merge/clean, initialisers, API key warnings | Filesystem (in-memory) |
 
 ### `pkg/vcs/repo/`: Git Operations
 
