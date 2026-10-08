@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/errors"
 
@@ -79,7 +80,8 @@ func TestSkeletonRun(t *testing.T) {
 		"test-project/.github/CODEOWNERS",
 		"test-project/.github/renovate.json5",
 		"test-project/.github/workflows/docs.yaml",
-		"test-project/.github/workflows/releaser-pleaser.yaml",
+		"test-project/.github/workflows/release.yaml",
+		"test-project/.colophon.yaml",
 		"test-project/.github/workflows/test.yaml",
 		"test-project/.github/workflows/goreleaser.yaml",
 		"test-project/.goreleaser.yaml",
@@ -91,6 +93,22 @@ func TestSkeletonRun(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, exists, "file %s should exist", f)
 	}
+
+	// GitHub projects release through colophon too (#110).
+	gone, err := afero.Exists(fs, "test-project/.github/workflows/releaser-pleaser.yaml")
+	require.NoError(t, err)
+	assert.False(t, gone, "releaser-pleaser is no longer scaffolded")
+
+	release, err := afero.ReadFile(fs, "test-project/.github/workflows/release.yaml")
+	require.NoError(t, err)
+	assert.Contains(t, string(release), "COLOPHON_VERSION: "+generator.ColophonVersion)
+	assert.Contains(t, string(release), "go install gitlab.com/phpboyscout/colophon/cmd/colophon@${COLOPHON_VERSION}")
+	assert.Contains(t, string(release), "secrets.COLOPHON_TOKEN")
+	assert.Contains(t, string(release), "fetch-depth: 0", "colophon refuses a shallow checkout")
+
+	var workflow map[string]any
+	require.NoError(t, yaml.Unmarshal(release, &workflow), "the rendered workflow is valid YAML")
+	assert.Contains(t, workflow, "jobs")
 
 	// Verify go.mod content
 	content, err := afero.ReadFile(fs, "test-project/go.mod")
@@ -196,9 +214,8 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	}
 
 	// .gitlab-ci.yml must mirror the component model: absolute cicd component
-	// paths pinned to the lockstep version, the $CI_SERVER_FQDN-relative
-	// releaser-pleaser component, and the templated repositories input. No
-	// leftover local-job includes.
+	// paths pinned to the lockstep version, colophon for releases (#110), and
+	// the templated repositories input. No leftover local-job includes.
 	ciContent, err := afero.ReadFile(memFs, "gitlab-project/.gitlab-ci.yml")
 	require.NoError(t, err)
 	ci := string(ciContent)
@@ -207,7 +224,8 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/go-security@"+generator.CICDComponentVersion)
 	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/goreleaser@"+generator.CICDComponentVersion)
 	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/zensical-pages@"+generator.CICDComponentVersion)
-	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/releaser-pleaser@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/colophon@"+generator.CICDComponentVersion)
+	assert.NotContains(t, ci, "releaser-pleaser")
 	assert.Contains(t, ci, "enable_e2e: false")
 	assert.NotContains(t, ci, "local: .gitlab/ci/")
 

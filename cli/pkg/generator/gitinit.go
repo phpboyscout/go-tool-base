@@ -18,7 +18,7 @@ import (
 
 const (
 	// defaultGitBranch is the framework default branch the initial commit lands
-	// on. It matches the rendered CI (releaser-pleaser operates on main).
+	// on. It matches the rendered CI (colophon releases from main).
 	defaultGitBranch = "main"
 
 	// fallbackAuthorName / fallbackAuthorEmail are the last-resort commit
@@ -249,8 +249,8 @@ func initialCommitSubject(toolName string) string {
 }
 
 // initialCommitMessage builds the conventional scaffold commit message. The
-// chore: type is non-releasing so the empty scaffold never makes
-// releaser-pleaser cut a release.
+// chore: type is non-releasing so the empty scaffold never makes colophon
+// propose a release.
 func initialCommitMessage(toolName, version string) string {
 	subject := initialCommitSubject(toolName)
 

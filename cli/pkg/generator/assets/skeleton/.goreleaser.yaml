@@ -53,7 +53,7 @@ release:
   use_existing_draft: true
   replace_existing_artifacts: true
   make_latest: true
-  # releaser-pleaser creates the Release (with its changelog) when the
+  # colophon creates the Release (with its changelog) when the
   # Release PR/MR is merged; this job only attaches the build artefacts.
   mode: keep-existing
 {{ else -}}
@@ -99,7 +99,7 @@ snapshot:
   version_template: "{{ "{{" }} incpatch .Version {{ "}}" }}-dev{{ "{{" }}.ShortCommit{{ "}}" }}"
 
 changelog:
-  # releaser-pleaser owns the changelog and Release notes.
+  # colophon owns the changelog and Release notes.
   disable: true
 
 {{ if .StaticChannel -}}

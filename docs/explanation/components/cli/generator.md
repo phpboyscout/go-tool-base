@@ -76,7 +76,7 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `workflows/lint.yaml`: CI linting checks.
 -   `workflows/test.yaml`: CI unit tests with race detection.
 -   `workflows/goreleaser.yaml`: Release automation (builds + attaches binaries on tag).
--   `workflows/releaser-pleaser.yaml`: Version + changelog management via the Release-PR pattern.
+-   `workflows/release.yaml`: Releases through [colophon](https://colophon.phpboyscout.uk): a release pull request on every push to `main`, tagged and released when it merges. Needs a `COLOPHON_TOKEN` secret, and installs colophon at the generator's `ColophonVersion`.
 -   `workflows/docs.yaml`: Documentation publishing.
 
 #### CI/CD & Automation: GitLab (`.gitlab/`, `.gitlab-ci.yml`)
@@ -87,23 +87,25 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `.gitlab-ci.yml`: A component pipeline assembled from the
     [`phpboyscout/cicd`](https://gitlab.com/phpboyscout/cicd) CI/CD components
     (`go-lint`, `go-test`, `go-security`, `goreleaser`, `zensical-pages`,
-    `renovate-self`) plus the `apricote/releaser-pleaser/run` component, with a
-    source-gated `workflow:` (MR → gates; tag → release; default branch →
-    releaser-pleaser; schedule → renovate). This replaces the older
-    hand-written `.gitlab/ci/{test,lint,release,pages}.yml` local-job files.
-    -   **Component versions** are pinned by the `CICDComponentVersion` /
-        `ReleaserPleaserComponentVersion` generator constants
-        (`cli/pkg/generator/generator.go`), kept in *lockstep* with the
-        framework's own root `.gitlab-ci.yml` and bumped downstream by Renovate.
+    `colophon`), with a source-gated `workflow:` (MR → gates; tag → release;
+    default branch → colophon). Renovate runs from the group-wide bot, not a
+    job here. This replaces the older hand-written
+    `.gitlab/ci/{test,lint,release,pages}.yml` local-job files.
+    -   **Component versions** are pinned by the `CICDComponentVersion`
+        generator constant (`cli/pkg/generator/generator.go`), kept in
+        *lockstep* with the framework's own root `.gitlab-ci.yml` and bumped
+        downstream by Renovate.
     -   **Component source** defaults to `gitlab.com/phpboyscout/cicd` and is
         overridable via the `--ci-component-source` flag (persisted to the
         manifest's `properties.ci.component_source`) so a mirrored or
-        self-hosted downstream can repoint the include base. The
-        releaser-pleaser component stays `$CI_SERVER_FQDN`-relative regardless.
+        self-hosted downstream can repoint every include, colophon's among
+        them.
     -   **Prerequisites** (documented in the rendered file's header): a
-        `RELEASER_PLEASER_TOKEN` project access token (Maintainer role; `api`,
-        `read_repository`, `write_repository` scopes), fast-forward + squash
-        merges, and pipelines-must-succeed.
+        `COLOPHON_TOKEN` access token (`api` and `write_repository` scopes; not
+        `CI_JOB_TOKEN`, whose tags start no pipeline), fast-forward merges, and
+        pipelines-must-succeed.
+-   `.colophon.yaml` (both forges): a commented starter for colophon's release
+    overrides, such as `hold` and `announce`.
 
 #### Documentation (`docs/`)
 -   `zensical.toml`: Documentation site configuration (Zensical/MkDocs-Material).

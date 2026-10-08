@@ -1,0 +1,14 @@
+# Release manifest read by colophon, which proposes this project's release MR
+# and tags it when the MR merges. Every key is optional: with none set,
+# colophon releases what the conventional commits since the last tag say.
+# Reference: https://colophon.phpboyscout.uk/reference/release-manifest/
+#
+# Overrides live here or in commit trailers, never in the release MR's
+# description, which colophon regenerates on every run. A few you may want:
+#
+# hold: true            # stop proposing releases until this is removed
+# reason: "waiting on the v2 migration"
+#
+# announce:             # tell people about each release
+#   discord:
+#     webhook: $DISCORD_RELEASE_WEBHOOK

@@ -1,0 +1,68 @@
+# colophon drives releases: on every push to main it keeps a release pull
+# request up to date with the pending version and changelog; merging that pull
+# request tags the commit that actually landed and creates the GitHub release,
+# and the tag starts the goreleaser workflow, which attaches the binaries.
+# https://colophon.phpboyscout.uk/how-to/run-it-in-github-actions/
+#
+# Setup required in the generated repository:
+#   - Add a COLOPHON_TOKEN secret: a fine-grained PAT or GitHub App token with
+#     contents and pull requests read/write. GITHUB_TOKEN cannot be used: a
+#     tag it pushes does not start the goreleaser workflow. If v* tags are
+#     protected, the token's owner must be allowed to create them.
+#   - Settings > General > Pull Requests: allow rebase merging, so the release
+#     commit lands as itself; leave merge commits off.
+#
+# Release notes come from conventional commits. Prose goes in a Release-Note:
+# trailer or a fenced release-note block in a commit message, and overrides go
+# in .colophon.yaml; the release pull request's description is regenerated on
+# every run.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: colophon-${{ "{{" }} github.ref {{ "}}" }}
+  cancel-in-progress: false
+
+env:
+  COLOPHON_VERSION: {{ .ColophonVersion }}
+
+jobs:
+  # publish tags a merged release pull request; propose then opens the next
+  # one. Two jobs, in this order, so propose sees the tag publish pushed.
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ "{{" }} secrets.COLOPHON_TOKEN {{ "}}" }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: go install gitlab.com/phpboyscout/colophon/cmd/colophon@${COLOPHON_VERSION}
+      - run: colophon --ci publish --target main --author-name colophon --author-email colophon@phpboyscout.uk
+        env:
+          GITHUB_TOKEN: ${{ "{{" }} secrets.COLOPHON_TOKEN {{ "}}" }}
+
+  propose:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ "{{" }} secrets.COLOPHON_TOKEN {{ "}}" }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: go install gitlab.com/phpboyscout/colophon/cmd/colophon@${COLOPHON_VERSION}
+      - run: colophon --ci propose --target main --author-name colophon --author-email colophon@phpboyscout.uk
+        env:
+          GITHUB_TOKEN: ${{ "{{" }} secrets.COLOPHON_TOKEN {{ "}}" }}

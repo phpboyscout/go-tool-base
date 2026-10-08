@@ -96,7 +96,7 @@ it runs by default, including under `--ci`/non-interactive.
 |------|---------|-----------|
 | `--no-git` | off (git step on) | Skip the init + initial commit entirely; no `.git` is created. |
 | `--push` | off (opt-in) | After the commit, add the derived remote as `origin` and push the default branch. |
-| `--git-branch <name>` | `main` | Default branch the initial commit lands on (matches the rendered releaser-pleaser CI). |
+| `--git-branch <name>` | `main` | Default branch the initial commit lands on (matches the rendered colophon CI). |
 
 Behaviour details:
 
@@ -107,7 +107,7 @@ Behaviour details:
 - **Staging.** The tree is staged honouring the generated `.gitignore`, so build
   artefacts are excluded while the `.gitignore` itself is committed.
 - **Commit message.** `chore: scaffold <tool> with gtb`: the non-releasing
-  `chore:` type means the empty scaffold does not make releaser-pleaser cut a
+  `chore:` type means the empty scaffold does not make colophon propose a
   release.
 - **Author identity.** Resolved in order: host git config (`user.name` /
   `user.email`, repo-local → global → system) → the GTB config keys

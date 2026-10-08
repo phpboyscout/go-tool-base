@@ -31,11 +31,9 @@ const (
 // same change. The scaffolded renovate config (extending the cicd preset)
 // then keeps the pins current for the downstream tool.
 //
-// releaser-pleaser used to be pinned separately here, because the scaffold
-// included apricote/releaser-pleaser/run direct and $CI_SERVER_FQDN-relative
-// (instance-local) per O7. The scaffold now uses the phpboyscout/cicd wrapper
-// instead — it carries the releaser-pleaser:verify tag guard — so it rides
-// this same pin like every other component.
+// Releases go through colophon (#110): on GitLab it is the phpboyscout/cicd
+// colophon component and rides this pin; a GitHub workflow cannot include a
+// component, so it installs colophon itself at ColophonVersion.
 const (
 	// DefaultCICDComponentSource is the default include base for the
 	// phpboyscout/cicd components. It is overridable via the manifest
@@ -45,10 +43,15 @@ const (
 
 	// CICDComponentVersion is the phpboyscout/cicd component version the
 	// scaffold pins (go-lint, go-test, go-security, goreleaser,
-	// zensical-pages, releaser-pleaser). Mirrors the framework's own pin; kept
+	// zensical-pages, colophon). Mirrors the framework's own pin; kept
 	// current automatically by the Renovate customManager in renovate.json5
 	// (do not hand-bump — let Renovate propose it).
 	CICDComponentVersion = "v0.53.0"
+
+	// ColophonVersion is the colophon release the scaffolded GitHub release
+	// workflow installs. Kept current by the Renovate customManager in
+	// renovate.json5.
+	ColophonVersion = "v0.16.1"
 )
 
 type Config struct {
