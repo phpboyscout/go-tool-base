@@ -49,6 +49,7 @@ var probes = map[string]func(c *SkeletonConfig){
 	"Signing.KMSRegion":                 func(c *SkeletonConfig) { c.Signing.KMSRegion = "eu-west-2" },
 	"Signing.PublicKey":                 func(c *SkeletonConfig) { c.Signing.PublicKey = "keys/probe.asc" },
 	"Chat.Providers":                    func(c *SkeletonConfig) { c.Chat.Providers = []string{"claude", "codex-local"} },
+	"Chat.ToolBridge":                   func(c *SkeletonConfig) { c.Chat.Providers = []string{"claude-local"}; c.Chat.ToolBridge = new(false) },
 	"Chat.Default.Provider":             func(c *SkeletonConfig) { c.Chat.Default.Provider = "codex-local" },
 	"Chat.Default.Model":                func(c *SkeletonConfig) { c.Chat.Default.Model = "m" },
 	"Chat.Default.BaseURL":              func(c *SkeletonConfig) { c.Chat.Default.BaseURL = "https://llm.internal/v1" },

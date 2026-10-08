@@ -41,7 +41,8 @@ for them the file is the toggle: `disable <id>` removes `cmd/<name>/<id>.go`
 and `enable <id>` writes it back; nothing is rendered into `SetFeatures`. A
 project without `mcp.go` ships without `go/mcp` and the MCP SDK (unless its
 `claude-local` or `codex-local` chat provider brings the SDK in through
-`go/chat-mcptools`, the tool bridge those providers need).
+`go/chat-mcptools`, the tool bridge those providers need, and
+`chat.tool_bridge` is not `false`).
 
 With **no feature argument**, an interactive multi-select of the candidate
 features (those not already in the target state) is shown. In a

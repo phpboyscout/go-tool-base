@@ -232,18 +232,13 @@ func fieldByYAMLTag(v reflect.Value, name string) (reflect.Value, bool) {
 }
 
 // assignLeaf coerces the strings set was given into the leaf's type: a
-// string or string-like, a bool, or a slice of either.
+// string or string-like, a bool or optional bool, or a slice of strings.
 func assignLeaf(leaf reflect.Value, values []string) error {
 	switch leaf.Kind() {
 	case reflect.String:
 		leaf.SetString(strings.Join(values, " "))
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.Join(values, ""))
-		if err != nil {
-			return errors.Wrapf(ErrInvalidInput, "%q: want true or false", strings.Join(values, " "))
-		}
-
-		leaf.SetBool(b)
+	case reflect.Bool, reflect.Pointer:
+		return assignBool(leaf, values)
 	case reflect.Slice:
 		if leaf.Type().Elem().Kind() != reflect.String {
 			return errors.Wrapf(ErrSettingReadOnly, "a %s is not set this way", leaf.Type())
@@ -260,6 +255,36 @@ func assignLeaf(leaf reflect.Value, values []string) error {
 	}
 
 	return nil
+}
+
+// assignBool sets a bool leaf, or an optional one, which set allocates.
+func assignBool(leaf reflect.Value, values []string) error {
+	optional := leaf.Kind() == reflect.Pointer
+	if optional && leaf.Type().Elem().Kind() != reflect.Bool {
+		return errors.Wrapf(ErrSettingReadOnly, "a %s is not set this way", leaf.Type())
+	}
+
+	b, err := parseSettingBool(values)
+	if err != nil {
+		return err
+	}
+
+	if optional {
+		leaf.Set(reflect.ValueOf(&b))
+	} else {
+		leaf.SetBool(b)
+	}
+
+	return nil
+}
+
+func parseSettingBool(values []string) (bool, error) {
+	b, err := strconv.ParseBool(strings.Join(values, ""))
+	if err != nil {
+		return false, errors.Wrapf(ErrInvalidInput, "%q: want true or false", strings.Join(values, " "))
+	}
+
+	return b, nil
 }
 
 // splitList accepts values as separate arguments or comma separated.
@@ -287,6 +312,12 @@ func leafStrings(leaf reflect.Value) []string {
 		return []string{leaf.String()}
 	case reflect.Bool:
 		return []string{strconv.FormatBool(leaf.Bool())}
+	case reflect.Pointer:
+		if leaf.IsNil() || leaf.Type().Elem().Kind() != reflect.Bool {
+			return nil
+		}
+
+		return []string{strconv.FormatBool(leaf.Elem().Bool())}
 	case reflect.Slice:
 		out := make([]string, 0, leaf.Len())
 		for i := 0; i < leaf.Len(); i++ {

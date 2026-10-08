@@ -277,3 +277,41 @@ func TestWizardHelpers_RemainingBranches(t *testing.T) {
 		assert.Equal(t, "github org/tool, private", o.hostingSummary())
 	})
 }
+
+// The tool bridge page asks only when a local CLI is linked, and a No is
+// recorded as the opt-out (#104).
+func TestChatToolBridgePage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("No opts out", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Features: []string{string(props.AiCmd)}, ChatProviders: []string{"claude-local"}}
+		o.seedChatToolBridge()
+		runGroupAccessible(t, o.chatToolBridgeGroup(), "n")
+		require.NoError(t, o.afterWizard())
+
+		cfg := o.skeletonConfig(nil)
+		require.NotNil(t, cfg.Chat.ToolBridge)
+		assert.False(t, *cfg.Chat.ToolBridge)
+	})
+
+	t.Run("Yes keeps the default rule", func(t *testing.T) {
+		t.Parallel()
+
+		o := &SkeletonOptions{Features: []string{string(props.AiCmd)}, ChatProviders: []string{"codex-local"}}
+		o.seedChatToolBridge()
+		runGroupAccessible(t, o.chatToolBridgeGroup(), "y")
+		require.NoError(t, o.afterWizard())
+
+		assert.Nil(t, o.skeletonConfig(nil).Chat.ToolBridge)
+	})
+
+	t.Run("hidden without a local CLI or without ai", func(t *testing.T) {
+		t.Parallel()
+
+		assert.True(t, (&SkeletonOptions{Features: []string{string(props.AiCmd)}, ChatProviders: []string{"claude"}}).chatToolBridgeHidden())
+		assert.True(t, (&SkeletonOptions{ChatProviders: []string{"claude-local"}}).chatToolBridgeHidden())
+		assert.False(t, (&SkeletonOptions{Features: []string{string(props.AiCmd)}, ChatProviders: []string{"claude-local"}}).chatToolBridgeHidden())
+	})
+}

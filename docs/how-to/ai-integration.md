@@ -196,7 +196,8 @@ export AI_PROVIDER=claude-local
     `gitlab.com/phpboyscout/go/chat-mcptools`, and refuse `SetTools` unless the
     binary blank-imports it. A generated tool gets the import in
     `cmd/<name>/chat.go` whenever either provider is selected; a hand-wired
-    tool adds it to `main` itself.
+    tool adds it to `main` itself. A tool that never passes them tools can
+    drop it, and the MCP SDK with it, with `gtb set chat.tool_bridge false`.
 
 ### OpenAI-Compatible Endpoints
 

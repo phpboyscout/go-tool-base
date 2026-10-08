@@ -64,6 +64,7 @@ manifest.
 | `--chat-api-version` | — | Dated API version. Required by `azure-openai`, which has no default. |
 | `--chat-project` | — | Cloud project, for `gemini-vertex` (optional; falls back to `GOOGLE_CLOUD_PROJECT` at runtime). |
 | `--chat-location` | — | Region, for `gemini-vertex` and `bedrock` (optional; falls back to the platform's environment at runtime). |
+| `--chat-tool-bridge` | `true` | Whether `cmd/<name>/chat.go` links `go/chat-mcptools`, the tool bridge `claude-local` and `codex-local` need to accept tools. Only matters when one of them is linked. `false` ships no MCP SDK and leaves those providers refusing tools; recorded as `chat.tool_bridge: false`, and unrecorded otherwise. |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. Recorded as `version.go`; `regenerate` renders that, never the toolchain it happens to run on. |
 | `--telemetry-endpoint` | — | Where the `telemetry` feature sends usage events, an `http` or `https` URL. Plain `http` is accepted for a collector on a private network and every generate and regenerate warns about it. Recorded as `telemetry.endpoint`. |
 | `--telemetry-otel-endpoint` | — | OpenTelemetry collector endpoint. Recorded as `telemetry.otel_endpoint`. |
@@ -128,7 +129,7 @@ provider to do anything.
 
 | File | Derived from | Modules |
 |------|--------------|---------|
-| `cmd/<name>/chat.go` | `chat.providers` in the manifest, whether or not `ai` is enabled | `claude`, `claude-local` → `go/chat-anthropic`; `openai`, `openai-compatible`, `codex-local` → `go/chat-openai`; `gemini`, `gemini-vertex`, `agy-local` → `go/chat-gemini`; `bedrock` → `go/chat-bedrock`; `azure-openai` → `go/chat-openai-azure` |
+| `cmd/<name>/chat.go` | `chat.providers` in the manifest, whether or not `ai` is enabled | `claude`, `claude-local` → `go/chat-anthropic`; `openai`, `openai-compatible`, `codex-local` → `go/chat-openai`; `gemini`, `gemini-vertex`, `agy-local` → `go/chat-gemini`; `bedrock` → `go/chat-bedrock`; `azure-openai` → `go/chat-openai-azure`; and `go/chat-mcptools` when `claude-local` or `codex-local` is linked, unless `chat.tool_bridge: false` |
 | `cmd/<name>/forge.go` | the enabled forge features, implied by `--forge-backend` and `--forge-credentials` | `github` → `go/forge-github`; `gitlab` → `go/forge-gitlab`; `gitea`, `codeberg` → `go/forge-gitea`; `bitbucket` → `go/forge-bitbucket` |
 
 Nothing is linked unless asked: `--chat-providers` names the list, and the `ai`
@@ -147,7 +148,9 @@ manifest by every command that writes the manifest, so its presence is a fact
 about the manifest and its absence is temporary. To ship no chat provider with
 `ai` on, set `chat.providers: []`; to drop the linked modules, `gtb unset
 chat.providers` (`gtb disable ai` turns the AI features off and leaves the
-wiring, saying so); to drop the keychain, `gtb disable keychain`; to turn
+wiring, saying so); to drop the tool bridge from a `claude-local` or
+`codex-local` tool that passes no tools, `gtb set chat.tool_bridge false`; to
+drop the keychain, `gtb disable keychain`; to turn
 signing off, `gtb disable signing`. A project generated before the `chat:`
 block existed has no block at all, and gets the full list written into its
 manifest the first time it is regenerated (or `enable ai` is run) with `ai`

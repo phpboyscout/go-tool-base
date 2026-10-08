@@ -17,6 +17,7 @@ import (
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/internal/formpage"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
@@ -45,6 +46,9 @@ type SkeletonOptions struct {
 	// envPrefixChoice is the env-prefix page's answer: derived, none or
 	// other; afterWizard resolves it into EnvPrefix.
 	envPrefixChoice string
+	// chatToolBridgeAnswer is the wizard's answer to the tool bridge page,
+	// seeded from ChatToolBridge and turned back into it by afterWizard.
+	chatToolBridgeAnswer bool
 
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
@@ -165,6 +169,9 @@ type SkeletonOptions struct {
 	// recorded in the manifest and shipped as the tool's lowest config layer.
 	// Required when several providers are linked (spec 0196 D1, D9).
 	ChatDefault generator.ManifestChatDefault
+	// ChatToolBridge false opts out of linking the tool bridge a local-CLI
+	// provider needs; nil keeps the default rule (#104).
+	ChatToolBridge *bool
 
 	// Templates carries the custom template-overlay specs (<src>@<ref>)
 	// supplied via --template (repeatable). Each is parsed into a manifest
@@ -178,6 +185,8 @@ func NewCmdSkeleton(p *props.Props, shared *SharedFlags) *cobra.Command {
 		ForgeBackend: "github",
 		HelpType:     "none",
 	}
+
+	var toolBridge bool
 
 	cmd := &cobra.Command{
 		Use:     "project",
@@ -197,6 +206,10 @@ Run without --name/--repo in an interactive terminal to launch a guided wizard;
 otherwise supply the flags directly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.ChatProvidersSet = cmd.Flags().Changed("chat-providers")
+
+			if cmd.Flags().Changed("chat-tool-bridge") {
+				opts.ChatToolBridge = &toolBridge
+			}
 
 			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
 				return usageError(err)
@@ -238,6 +251,8 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringVar(&opts.ChatDefault.APIVersion, "chat-api-version", "", "Dated API version; required by azure-openai")
 	cmd.Flags().StringVar(&opts.ChatDefault.Project, "chat-project", "", "Cloud project, for gemini-vertex")
 	cmd.Flags().StringVar(&opts.ChatDefault.Location, "chat-location", "", "Region, for gemini-vertex and bedrock")
+	cmd.Flags().BoolVar(&toolBridge, "chat-tool-bridge", true,
+		"Link go/chat-mcptools so claude-local and codex-local accept tools; false ships no MCP SDK and those providers refuse tools")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
 	cmd.Flags().StringVar(&opts.TelemetryEndpoint, "telemetry-endpoint", "", "Where the telemetry feature sends usage events (an http or https URL; plain http warns)")
 	cmd.Flags().StringVar(&opts.TelemetryOTelEndpoint, "telemetry-otel-endpoint", "", "OpenTelemetry collector endpoint for the telemetry feature")
@@ -947,6 +962,7 @@ func (o *SkeletonOptions) runWizard(ctx context.Context, p *props.Props) error {
 func (o *SkeletonOptions) afterWizard() error {
 	o.resolveEnvPrefix()
 	o.applySourceSlots()
+	o.applyChatToolBridge()
 
 	if o.ConfigFormat == "yaml" {
 		o.ConfigFormat = ""
@@ -1111,6 +1127,7 @@ func (o *SkeletonOptions) wizardPages() []formpage.Page {
 
 	// The confirm is bound positively (spec 0195 D3); the flag is the negative.
 	o.hosted = !o.NoForge
+	o.seedChatToolBridge()
 
 	// The mode select needs a value to sit on; compact is the framework's
 	// default and what an untouched flag path means.
@@ -1131,6 +1148,7 @@ func (o *SkeletonOptions) wizardPages() []formpage.Page {
 		formpage.Deferred(o.selfUpdateGroup).HiddenWhen(o.selfUpdateHidden),
 		formpage.Deferred(o.releaseLocationGroup).HiddenWhen(o.releaseLocationHidden),
 		formpage.Deferred(o.chatProvidersGroup),
+		formpage.Deferred(o.chatToolBridgeGroup).HiddenWhen(o.chatToolBridgeHidden),
 		formpage.Deferred(o.chatDefaultGroup).HiddenWhen(o.chatDefaultHidden),
 		formpage.Deferred(o.chatEndpointGroup).HiddenWhen(o.chatEndpointHidden),
 		formpage.Deferred(o.chatCloudGroup).HiddenWhen(o.chatCloudHidden),
@@ -1325,6 +1343,45 @@ func (o *SkeletonOptions) selfUpdateHidden() bool {
 // provider on the same page. Between several providers the first option is a
 // placeholder the validator refuses, so Enter cannot pick a default on the
 // author's behalf (OQ5); a single provider is offered alone and accepted.
+// seedChatToolBridge sets the page's answer from the recorded choice: Yes
+// unless the manifest or a flag opted out.
+func (o *SkeletonOptions) seedChatToolBridge() {
+	o.chatToolBridgeAnswer = o.ChatToolBridge == nil || *o.ChatToolBridge
+}
+
+// applyChatToolBridge records the page's answer, only when the page was
+// shown: Yes is the default rule and records nothing, No is the opt-out.
+func (o *SkeletonOptions) applyChatToolBridge() {
+	if o.chatToolBridgeHidden() {
+		return
+	}
+
+	if o.chatToolBridgeAnswer {
+		o.ChatToolBridge = nil
+
+		return
+	}
+
+	o.ChatToolBridge = new(false)
+}
+
+// chatToolBridgeGroup asks whether to link the tool bridge claude-local and
+// codex-local need to accept tools (#104).
+func (o *SkeletonOptions) chatToolBridgeGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewConfirm().Key("chat-tool-bridge").
+			Title("Let claude-local and codex-local use tools?").
+			Description("Yes links go/chat-mcptools, which serves them tools over MCP and brings the\n" +
+				"MCP SDK into the binary. No ships without it, and those providers refuse tools.").
+			Affirmative("Yes").Negative("No").
+			Value(&o.chatToolBridgeAnswer),
+	).Title("AI tools")
+}
+
+func (o *SkeletonOptions) chatToolBridgeHidden() bool {
+	return !o.aiSelected() || !slices.ContainsFunc(o.ChatProviders, func(p string) bool { return chat.NeedsToolServer(gochat.Provider(p)) })
+}
+
 func (o *SkeletonOptions) chatProvidersGroup() *huh.Group {
 	return huh.NewGroup(
 		newMultiSelect("Chat providers",
@@ -1844,7 +1901,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 	// The provider list is the tool's wiring and is recorded as given (#94).
 	// The default is the ai feature's: without ai none is kept, and with ai
 	// and one provider it is that provider (spec 0196 D3).
-	chat := generator.ManifestChat{Providers: o.ChatProviders, Default: o.ChatDefault}
+	chat := generator.ManifestChat{Providers: o.ChatProviders, Default: o.ChatDefault, ToolBridge: o.ChatToolBridge}
 	if !o.aiSelected() {
 		chat.Default = generator.ManifestChatDefault{}
 	} else if chat.Default.Provider == "" && len(chat.Providers) == 1 {

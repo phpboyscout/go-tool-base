@@ -613,7 +613,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		DisabledFeatures:      calculateDisabledFeatures(config.Features),
 		EnabledFeatures:       calculateEnabledFeatures(config.Features),
 		Links:                 enabledLinks(config.Features),
-		ChatModules:           chatModulesFor(config.Chat.Providers),
+		ChatModules:           chatModulesFor(config.Chat),
 		ChatProviders:         chatProvidersFor(config.Chat.Providers),
 		ChatFile:              chatFileWanted(ManifestProperties{Features: config.Features, Chat: config.Chat}),
 		ForgeLinks:            enabledForges(config.Features),

@@ -63,6 +63,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "Signing.KMSRegion", Kind: KindSetting, Flag: "signing-kms-region", Manifest: "properties.signing.kms_region"},
 	{Field: "Signing.PublicKey", Kind: KindSetting, Flag: "signing-public-key", Manifest: "properties.signing.public_key"},
 	{Field: "Chat.Providers", Kind: KindSetting, Flag: "chat-providers", Wizard: "chat-providers", Manifest: "properties.chat.providers"},
+	{Field: "Chat.ToolBridge", Kind: KindSetting, Flag: "chat-tool-bridge", Wizard: "chat-tool-bridge", Manifest: "properties.chat.tool_bridge"},
 	{Field: "Chat.Default.Provider", Kind: KindSetting, Flag: "chat-default-provider", Wizard: "chat-default", Manifest: "properties.chat.default.provider"},
 	{Field: "Chat.Default.Model", Kind: KindSetting, Flag: "chat-default-model", Wizard: "chat-model", Manifest: "properties.chat.default.model"},
 	{Field: "Chat.Default.BaseURL", Kind: KindSetting, Flag: "chat-base-url", Wizard: "chat-base-url", Manifest: "properties.chat.default.base_url"},

@@ -51,6 +51,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		CIComponentSource:     cfg.CIComponentSource,
 		ChatProviders:         cfg.Chat.Providers,
 		ChatDefault:           cfg.Chat.Default,
+		ChatToolBridge:        cfg.Chat.ToolBridge,
 		revisit:               true,
 	}
 

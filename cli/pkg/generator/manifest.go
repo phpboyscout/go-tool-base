@@ -405,6 +405,10 @@ type ManifestCI struct {
 type ManifestChat struct {
 	Providers []string            `yaml:"providers"`
 	Default   ManifestChatDefault `yaml:"default,omitempty"`
+	// ToolBridge set false leaves go/chat-mcptools unlinked even though
+	// claude-local or codex-local is selected: the tool carries no MCP SDK,
+	// and those providers refuse tools. Unset links it when they need it.
+	ToolBridge *bool `yaml:"tool_bridge,omitempty"`
 }
 
 // ManifestChatDefault is the author's default for the tool's chat client: the
@@ -427,7 +431,9 @@ func (d ManifestChatDefault) IsZero() bool { return d == ManifestChatDefault{} }
 
 // IsZero reports an absent block, which yaml omits; an empty non-nil list is
 // not zero and is written as `providers: []`.
-func (c ManifestChat) IsZero() bool { return c.Providers == nil && c.Default.IsZero() }
+func (c ManifestChat) IsZero() bool {
+	return c.Providers == nil && c.Default.IsZero() && c.ToolBridge == nil
+}
 
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`

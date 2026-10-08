@@ -141,3 +141,36 @@ func TestSkeletonOptions_ChatProvidersWithoutAi(t *testing.T) {
 		require.ErrorIs(t, o.validateFields(), generator.ErrChatProvidersRequired)
 	})
 }
+
+// --chat-tool-bridge=false records the opt-out; leaving the flag alone keeps
+// the default rule, so the manifest says nothing (#104).
+func TestProjectCommand_ChatToolBridgeFlag(t *testing.T) {
+	t.Parallel()
+
+	manifestAfter := func(t *testing.T, args ...string) string {
+		t.Helper()
+
+		fs := afero.NewMemMapFs()
+		cmd := NewCmdSkeleton(&props.Props{FS: fs, Logger: logger.NewNoop()}, &SharedFlags{})
+		cmd.SetArgs(append([]string{"--name", "tool", "--repo", "org/tool", "--forge-backend", "github",
+			"--features", "ai", "--chat-providers", "claude-local", "--path", "/work", "--no-git"}, args...))
+		require.NoError(t, cmd.Execute())
+
+		raw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+		require.NoError(t, err)
+
+		return string(raw)
+	}
+
+	t.Run("passed false, it opts out", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Contains(t, manifestAfter(t, "--chat-tool-bridge=false"), "tool_bridge: false")
+	})
+
+	t.Run("left alone, the default rule stands", func(t *testing.T) {
+		t.Parallel()
+
+		assert.NotContains(t, manifestAfter(t), "tool_bridge")
+	})
+}
