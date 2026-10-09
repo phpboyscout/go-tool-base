@@ -140,7 +140,8 @@ error:   log.level: value "verbose" is not allowed (hint: allowed values: debug,
 
 The fix in that case is renaming or unsetting the variable, not editing the file.
 `config validate` does not warn about a key only the environment defines,
-because an unrelated variable must not be able to fail validation.
+because an unrelated variable must not be able to fail validation. `doctor`'s
+**Environment variables** check lists those instead, without failing anything.
 
 If two keys a tool defines would both spell the same variable name, the store
 refuses to guess: config loading fails with `environment variable is ambiguous:

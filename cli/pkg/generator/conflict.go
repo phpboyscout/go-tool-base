@@ -546,7 +546,7 @@ func quotedList(names []string) string {
 // It also honours the explicit GTB_NON_INTERACTIVE=true opt-out and, finally,
 // the absence of a TTY on stdin.
 func (g *Generator) isNonInteractive() bool {
-	if os.Getenv("GTB_NON_INTERACTIVE") == "true" {
+	if os.Getenv(NonInteractiveEnv) == "true" {
 		return true
 	}
 

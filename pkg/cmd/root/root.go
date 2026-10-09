@@ -1705,5 +1705,5 @@ func accessibleRequested(cmd *cobra.Command) bool {
 		return true
 	}
 
-	return os.Getenv("GTB_ACCESSIBLE") == "true"
+	return os.Getenv(setup.AccessibleEnvVariable) == "true"
 }

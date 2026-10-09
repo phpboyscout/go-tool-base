@@ -164,6 +164,7 @@ func DefaultChecks(_ *p.Props) []CheckFunc {
 	checks := []CheckFunc{
 		checkGoVersion,
 		checkConfig,
+		checkStrayEnvVariables,
 		checkConfigStack,
 		checkNoLiteralCredentials,
 		checkCredentialResolution,

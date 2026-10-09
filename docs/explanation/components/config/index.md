@@ -433,6 +433,16 @@ if names := setup.EnvVariablesFor(snap, "announce"); len(names) > 0 {
 
 `config validate` uses it for every error and warning it prints (spec 0205).
 
+A tool that reads one of its own `<PREFIX>_*` variables directly, with
+`os.Getenv` rather than through the store, should declare it so `doctor` does not
+report it as a stray key:
+
+```go
+func init() {
+    setup.DeclareEnvVariable("MYTOOL_PLUGIN_DIR")
+}
+```
+
 ## Relationship with `init` and `config`
 
 | Workflow | Command |

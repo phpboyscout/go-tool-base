@@ -36,3 +36,13 @@ Feature: CLI Doctor Command
     And stdout contains "Config stack"
     And stdout contains "1. defaults: embedded defaults"
     And stdout contains "flags: changed flags"
+
+  Scenario: A prefixed variable the tool does not declare is reported, and does not fail the run
+    Given I set environment variable "GTB_PIPELINE_FLAGS" to "do-not-print"
+    And I set environment variable "GTB_NON_INTERACTIVE" to "true"
+    When I run gtb with "doctor --ci"
+    Then the exit code is 0
+    And stdout contains "[!!] Environment variables"
+    And stdout contains "GTB_PIPELINE_FLAGS sets pipeline.flags"
+    And stdout does not contain "do-not-print"
+    And stdout does not contain "GTB_NON_INTERACTIVE sets"
