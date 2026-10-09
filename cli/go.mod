@@ -1,6 +1,6 @@
 module gitlab.com/phpboyscout/go-tool-base/cli
 
-go 1.27.1
+go 1.27.2
 
 require (
 	charm.land/bubbles/v2 v2.2.1
@@ -47,7 +47,7 @@ require (
 	gitlab.com/phpboyscout/go/transport v0.6.2
 	gitlab.com/phpboyscout/go/workspace v0.2.2
 	golang.org/x/mod v0.41.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/text v0.42.0
 	google.golang.org/grpc v1.83.2
 	gopkg.in/yaml.v3 v3.0.1
