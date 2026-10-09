@@ -33,12 +33,39 @@ func settings(t *testing.T, yaml string) config.Reader {
 
 // Spec 0204 D2, D18: an aws-s3 source reads one object, in the format its key
 // names, through a client from the ambient chain; path-style addressing is a
-// setting, for MinIO and LocalStack.
+// setting, for MinIO and LocalStack, and a key prefix scopes a shared bucket.
 func TestFactory_ReadsTheObject(t *testing.T) {
 	awssourcetest.Isolate(t)
 
+	tests := []struct {
+		name     string
+		settings string
+		path     string
+	}{
+		{name: "the key alone", path: "/acme-config/mytool/config.yaml"},
+		{name: "under a key prefix", settings: "key_prefix: tenants/acme\n", path: "/acme-config/tenants/acme/mytool/config.yaml"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := objectServer(t, tt.path)
+
+			backend, err := factory(t.Context(), settings(t, "bucket: acme-config\nkey: mytool/config.yaml\npath_style: true\nendpoint: "+srv.URL+"\n"+tt.settings), bootstrap{})
+			require.NoError(t, err)
+
+			store, err := config.NewStore(t.Context(), config.WithBackend(backend))
+			require.NoError(t, err)
+			assert.Equal(t, "debug", store.View().GetString("log.level"))
+		})
+	}
+}
+
+// objectServer serves a one-key YAML document at path and 404s everything else.
+func objectServer(t *testing.T, path string) *httptest.Server {
+	t.Helper()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/acme-config/mytool/config.yaml" {
+		if r.URL.Path != path {
 			http.NotFound(w, r)
 
 			return
@@ -57,12 +84,7 @@ func TestFactory_ReadsTheObject(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	backend, err := factory(t.Context(), settings(t, "bucket: acme-config\nkey: mytool/config.yaml\npath_style: true\nendpoint: "+srv.URL+"\n"), bootstrap{})
-	require.NoError(t, err)
-
-	store, err := config.NewStore(t.Context(), config.WithBackend(backend))
-	require.NoError(t, err)
-	assert.Equal(t, "debug", store.View().GetString("log.level"))
+	return srv
 }
 
 func TestFactory_Refuses(t *testing.T) {

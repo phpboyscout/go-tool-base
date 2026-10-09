@@ -2,6 +2,7 @@ package docs
 
 import (
 	"context"
+	"io/fs"
 	"testing"
 	"testing/fstest"
 
@@ -104,4 +105,15 @@ func TestNewCmdDocsServe_OpenWithCancelledContext(t *testing.T) {
 	err := cmd.RunE(cmd, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start listener")
+}
+
+func TestNewCmdDocsServe_UnsubbableSiteAssets(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewCmdDocsServe(&props.Props{}, unsubbableFS{fstest.MapFS{"assets/site/index.html": {Data: []byte("<html></html>")}}})
+	cmd.SetContext(t.Context())
+
+	err := cmd.RunE(cmd, nil)
+	require.ErrorIs(t, err, fs.ErrInvalid)
+	assert.Contains(t, err.Error(), "failed to load static site assets")
 }

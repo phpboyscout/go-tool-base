@@ -38,6 +38,7 @@ func TestValidateChatDefault(t *testing.T) {
 		{name: "azure complete", providers: []string{"azure-openai"}, def: ManifestChatDefault{Provider: "azure-openai", BaseURL: "https://x.openai.azure.com", APIVersion: "2024-10-21"}, features: aiOn},
 		{name: "an insecure base URL is refused", providers: []string{"openai-compatible"}, def: ManifestChatDefault{Provider: "openai-compatible", BaseURL: "http://llm.internal/v1"}, features: aiOn, wantErr: ErrChatEndpointRequired},
 		{name: "without ai nothing is required", providers: []string{"claude", "openai"}},
+		{name: "no providers need no default", features: aiOn},
 	}
 
 	for _, tt := range tests {
@@ -54,6 +55,24 @@ func TestValidateChatDefault(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestValidateChatDefaultProvider_WithoutAINothingIsRequired(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, ValidateChatDefaultProvider("", []string{"claude", "openai"}, nil))
+}
+
+func TestChatProvidersFor_DropsUnknownNamesAndRepeats(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, []string{"openai", "claude"}, chatProvidersFor([]string{"openai", "not-a-provider", "claude", "openai"}))
+}
+
+func TestDeclaredLinks_UnparseableSourceDeclaresNothing(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, declaredLinks([]byte("package main\nfunc {"), "ChatLinkPrefix"))
 }
 
 // TestManifestChatDefault_Marshal: the default block is written only when set,
