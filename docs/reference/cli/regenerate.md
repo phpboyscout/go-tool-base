@@ -111,6 +111,14 @@ kept. Only a genuine failure (an unreadable file, a render fault) aborts the run
   the deterministic mode for a pipeline that regenerates.
 - `--overwrite deny` keeps every diverged file without asking.
 
+A file the manifest has no hash for, but which exists with different content,
+was not created by gtb: a project scaffolded into an existing repository, or a
+file a newer gtb adds that the project already had. It is treated as a conflict
+in the same way, reported with the reason `not created by gtb`, and stays
+unrecorded, so it is protected on every later run too. Likewise, a project
+already configured for Renovate under another name (`renovate.json`,
+`.renovaterc`, and the like) does not get gtb's `renovate.json5` beside it.
+
 A file covered by [`.gtb/ignore`](../../how-to/configure-generator-ignore.md) is
 not compared, prompted about or written at all, and outranks both `--force` and
 `--overwrite allow`. To find diverged files before regenerating, run

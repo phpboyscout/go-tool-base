@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ type conflictOutcome int
 
 const (
 	// conflictWrite: render and write. Either the file matches its recorded
-	// hash, has no recorded hash, or the user/config approved the overwrite.
+	// hash or what would be written, or the user/config approved the overwrite.
 	conflictWrite conflictOutcome = iota
 	// conflictKeep: the file has diverged and the developer chose to keep it.
 	// The run continues; the file is left exactly as it is.
@@ -31,6 +32,10 @@ const (
 	keepReasonDeclined       = "declined at the prompt"
 	keepReasonOverwriteDeny  = "--overwrite deny"
 	keepReasonNonInteractive = "no terminal to prompt on"
+
+	// keepReasonNotCreatedByGtb prefixes the reason for a file that existed
+	// with no recorded hash: the developer's own, never gtb's (#113).
+	keepReasonNotCreatedByGtb = "not created by gtb"
 )
 
 // conflictDecision is the resolver's answer for one file.
@@ -275,12 +280,23 @@ func (g *Generator) resolveConflict(fullPath, relPath, storedHash string, newCon
 		return conflictDecision{Outcome: conflictWrite}
 	}
 
-	if storedHash == "" || storedHash == calculateHash(existing) || g.config.Force {
+	if g.config.Force || bytes.Equal(existing, newContent) || (storedHash != "" && storedHash == calculateHash(existing)) {
 		return conflictDecision{Outcome: conflictWrite}
 	}
 
-	g.props.Logger.Warn("conflict detected: file has been manually modified",
-		"path", relPath, "hint", ignoreConflictHint(relPath))
+	// No recorded hash means gtb never wrote this file: generating into an
+	// existing repository, or a skeleton file a newer gtb adds that the
+	// project already has. It is the developer's, so it gets the same
+	// protection as an edit (#113).
+	foreign := storedHash == ""
+
+	if foreign {
+		g.props.Logger.Warn("conflict detected: file exists and was not created by gtb",
+			"path", relPath, "hint", ignoreConflictHint(relPath))
+	} else {
+		g.props.Logger.Warn("conflict detected: file has been manually modified",
+			"path", relPath, "hint", ignoreConflictHint(relPath))
+	}
 
 	if g.promptOverwrite(fullPath, existing, newContent) {
 		g.props.Logger.Warn("overwriting modified file", "path", relPath)
@@ -289,6 +305,9 @@ func (g *Generator) resolveConflict(fullPath, relPath, storedHash string, newCon
 	}
 
 	reason := g.keepReason()
+	if foreign {
+		reason = keepReasonNotCreatedByGtb + ", " + reason
+	}
 
 	g.props.Logger.Warn("skipping overwrite", "path", relPath, "reason", reason)
 	g.conflicts.recordKeep(relPath, reason)

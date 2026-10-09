@@ -566,6 +566,8 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 		g.runSkeletonGitInit(ctx, config)
 	}
 
+	g.reportConflicts()
+
 	if err := notVerified(failed); err != nil {
 		g.props.Logger.Warn("generated skeleton, not verified", "path", config.Path)
 
@@ -1067,7 +1069,7 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 			continue
 		}
 
-		collectedHashes[relPath] = hash
+		recordSkeletonHash(collectedHashes, relPath, hash)
 	}
 
 	// Extract the provider so we can filter CI files appropriately.
@@ -1155,7 +1157,7 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 			return nil // non-fatal, continue walk
 		}
 
-		collectedHashes[relPath] = hash
+		recordSkeletonHash(collectedHashes, relPath, hash)
 
 		return nil
 	})
@@ -1247,6 +1249,21 @@ func (g *Generator) renderPreRenderedSkeletonFile(fullPath, relPath string, cont
 func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newContent []byte, storedHashes map[string]string) (string, error) {
 	exists, _ := afero.Exists(g.props.FS, fullPath)
 
+	// A project already configured for Renovate under another name keeps that
+	// config: a second one would leave Renovate's own precedence to decide
+	// which applies (#113).
+	if !exists && slices.Contains(renovateConfigPaths, relPath) {
+		root := strings.TrimSuffix(fullPath, filepath.FromSlash(relPath))
+		if other := g.existingRenovateConfig(root, relPath); other != "" {
+			reason := "Renovate is already configured by " + other
+
+			g.props.Logger.Warn("not writing a second Renovate config", "path", relPath, "existing", other)
+			g.conflicts.recordKeep(relPath, reason)
+
+			return "", nil
+		}
+	}
+
 	// Operator-owned seed files (the init assets the operator fills in, the
 	// README, the docs landing page, the justfile) are scaffolded once and then
 	// belong to the developer. On a re-run they are preserved unconditionally —
@@ -1282,6 +1299,40 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 	g.props.Logger.Debug("wrote skeleton file", "path", relPath, "bytes", len(newContent), "hash", hash)
 
 	return hash, nil
+}
+
+// recordSkeletonHash records the hash a write returned. An empty hash is a
+// file gtb never created and kept, which must stay unrecorded so it is never
+// mistaken for gtb's on a later run (#113).
+func recordSkeletonHash(hashes map[string]string, relPath, hash string) {
+	if hash != "" {
+		hashes[relPath] = hash
+	}
+}
+
+// renovateConfigPaths are the files Renovate reads its configuration from, in
+// the order it looks for them.
+var renovateConfigPaths = []string{
+	"renovate.json", "renovate.json5",
+	".github/renovate.json", ".github/renovate.json5",
+	".gitlab/renovate.json", ".gitlab/renovate.json5",
+	".renovaterc", ".renovaterc.json", ".renovaterc.json5",
+}
+
+// existingRenovateConfig names a Renovate config the project already has under
+// a path other than target, or "" when there is none.
+func (g *Generator) existingRenovateConfig(root, target string) string {
+	for _, rel := range renovateConfigPaths {
+		if rel == target {
+			continue
+		}
+
+		if exists, _ := afero.Exists(g.props.FS, joinProjectPath(root, rel)); exists {
+			return rel
+		}
+	}
+
+	return ""
 }
 
 // joinProjectPath joins a project root and a clean slash-separated relative

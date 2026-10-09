@@ -382,6 +382,28 @@ This materialises all generated files into a temporary directory, runs `go mod t
 !!! tip
     The `--host` flag is only needed for a self-managed instance. For `github.com`, `gitlab.com`, `gitea.com`, `codeberg.org` or `bitbucket.org`, the host follows `--forge-backend`.
 
+### Into an existing repository
+
+To scaffold into a repository that already has its own files (a licence, a
+`.gitignore`, a Renovate config), run `generate project` with `--path` set to its
+checkout. Add `--overwrite deny` to keep every file gtb did not create without
+being asked:
+
+```bash
+gtb generate project --name "my-tool" --repo "org/my-tool" -p . --overwrite deny
+```
+
+- A file gtb would write that already exists with different content is kept,
+  and the summary lists it as `not created by gtb`. Under the default
+  `--overwrite ask` you are shown the diff and asked instead.
+- An existing Renovate config under another name, such as `renovate.json`, is
+  left as the project's only one, and gtb does not add `renovate.json5`.
+- The destination is already a repository, so gtb skips `git init` and the
+  initial commit.
+
+To keep a file across every later `gtb regenerate project` without relying on
+the flag, run `gtb ignore add <path>`.
+
 ## Help Channel Configuration
 
 The skeleton generator supports two built-in help channel types, which populate the `Tool.Help` field in the generated root command:
