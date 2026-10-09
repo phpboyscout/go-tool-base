@@ -43,15 +43,23 @@ const otelInstanceID = "1576673"
 var otelAuth string
 
 func init() {
-	if raw := os.Getenv("OTEL_API_KEY"); raw != "" {
-		otelAuth = base64.StdEncoding.EncodeToString([]byte(otelInstanceID + ":" + raw))
-	}
+	otelAuth = otelAuthFrom(os.Getenv("OTEL_API_KEY"), otelAuth)
 
 	// gtb-specific signing defaults (DefaultRequireChecksum,
 	// DefaultRequireSignature, DefaultExternalKeyEmail) live in the
 	// sibling signing.go file. Kept out of root.go because the
 	// scaffolding generator templates from root.go and shouldn't ship
 	// our signing posture into downstream tools.
+}
+
+// otelAuthFrom prefers a raw OTEL_API_KEY token, encoded with the instance ID,
+// over the compiled-in value.
+func otelAuthFrom(raw, compiled string) string {
+	if raw == "" {
+		return compiled
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(otelInstanceID + ":" + raw))
 }
 
 // NewCmdRoot builds gtb's own root through props.New, the one construction

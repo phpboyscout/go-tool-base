@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 	configazureblob "gitlab.com/phpboyscout/go/config-azure-blob"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -52,6 +53,12 @@ func TestFactory_Refuses(t *testing.T) {
 	_, err = factoryWith(openContainer)(t.Context(),
 		settings(t, "service_url: https://acme.blob.core.windows.net\ncontainer: config\nblob: c.toml\n"), bootstrap{})
 	require.ErrorIs(t, err, setup.ErrUnlinkedConfigFormat)
+
+	errUnreachable := errors.New("container unreachable")
+	unreachable := func(context.Context, config.Reader) (config.FS, error) { return nil, errUnreachable }
+	_, err = factoryWith(unreachable)(t.Context(),
+		settings(t, "service_url: https://acme.blob.core.windows.net\ncontainer: config\nblob: c.yaml\n"), bootstrap{})
+	require.ErrorIs(t, err, errUnreachable, "a container that cannot be opened refuses the source")
 }
 
 func TestOpenContainer_BuildsWithoutTheNetwork(t *testing.T) {
