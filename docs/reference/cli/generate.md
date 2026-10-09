@@ -79,7 +79,7 @@ manifest.
 | `--config-source-writable` | — | Slots the tool may write to; a slot is read-only otherwise, except a `keychain` one. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
-| `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. |
+| `--overwrite` | `ask` | File-conflict handling: `allow`, `deny`, or `ask`. A file already in the destination that gtb did not create is a conflict like an edited one, so generating into an existing repository keeps it under `deny` or with no terminal, and names it in the summary as `not created by gtb`. A file with exactly the content gtb would write is not a conflict. |
 | `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` after generation; exit 0 unverified. Without it a failed or unavailable step exits 3 with its reason (see [regenerate's exit codes](regenerate.md#exit-codes-emitted-is-not-verified)). Either way `go.mod` carries the direct requirements the scaffold's imports imply. |
 | `--env-prefix` | — | Env-var prefix for config overrides (e.g. `MY_APP`). |
 | `--update-policy` | *(framework default: disabled)* | Self-update posture: `disabled`, `prompt`, or `enabled`. |

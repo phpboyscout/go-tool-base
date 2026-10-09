@@ -33,6 +33,9 @@ type generatorWorld struct {
 	snapshot map[string]string
 	// remembered holds file contents taken by "I remember the generated file".
 	remembered map[string][]byte
+	// existingDir is a directory holding files before generation, the way an
+	// estate repository is created before a tool is scaffolded into it (#113).
+	existingDir string
 }
 
 // isolatedEnv returns the environment for a gtb invocation: the real
@@ -171,6 +174,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 		aGTBProjectWithACommandWithMetadata)
 	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)"$`, iGenerateAGTBProjectWithFeatures)
+	ctx.Step(`^an existing repository holding "([^"]*)" with "([^"]*)"$`, anExistingRepositoryHolding)
 	ctx.Step(`^I generate a gtb project with the flags "([^"]*)"$`, iGenerateAGTBProjectWithTheFlags)
 	ctx.Step(`^I remember the generated "([^"]*)" file$`, iRememberTheGeneratedFile)
 	ctx.Step(`^the generated "([^"]*)" file is unchanged$`, theGeneratedFileIsUnchanged)
@@ -483,9 +487,13 @@ func scaffoldProject(ctx context.Context, dirPattern string, extraArgs ...string
 
 	w.binaryPath = path
 
-	dir, err := os.MkdirTemp("", dirPattern)
-	if err != nil {
-		return fmt.Errorf("create project dir: %w", err)
+	dir := w.existingDir
+	if dir == "" {
+		var err error
+
+		if dir, err = os.MkdirTemp("", dirPattern); err != nil {
+			return fmt.Errorf("create project dir: %w", err)
+		}
 	}
 
 	w.projectDir = dir
@@ -506,6 +514,33 @@ func scaffoldProject(ctx context.Context, dirPattern string, extraArgs ...string
 	recordRun(w, cmd)
 
 	return nil
+}
+
+// anExistingRepositoryHolding writes a file into the directory the next
+// generate runs in, so a scenario can generate into a repository that already
+// has content.
+func anExistingRepositoryHolding(ctx context.Context, relPath, content string) (context.Context, error) {
+	w := getGeneratorWorld(ctx)
+
+	if w.existingDir == "" {
+		dir, err := os.MkdirTemp("", "gtb-e2e-existing-*")
+		if err != nil {
+			return ctx, fmt.Errorf("create existing repository dir: %w", err)
+		}
+
+		w.existingDir = dir
+	}
+
+	full := filepath.Join(w.existingDir, filepath.FromSlash(relPath))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return ctx, fmt.Errorf("mkdir for %s: %w", relPath, err)
+	}
+
+	if err := os.WriteFile(full, []byte(content+"\n"), 0o644); err != nil {
+		return ctx, fmt.Errorf("write %s: %w", relPath, err)
+	}
+
+	return ctx, nil
 }
 
 // recordRun executes cmd and folds its result onto the world: stdout, stderr and
