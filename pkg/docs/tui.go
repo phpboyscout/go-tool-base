@@ -1225,7 +1225,12 @@ func (m *Model) helpView() string {
 	case m.showSearchResults:
 		help = "↑/↓: Navigate • Enter: Open • S: Search Again • R: Toggle Regex • Esc: Close"
 	default:
-		help = "Tab: Toggle Sidebar • S: Search • ?: Ask AI • Q: Quit • I: Info"
+		help = "Tab: Toggle Sidebar • S: Search"
+		if m.askFunc != nil {
+			help += " • ?: Ask AI"
+		}
+
+		help += " • Q: Quit • I: Info"
 		if m.focus == focusSidebar {
 			help += " • ↑/↓: Navigate • Enter/→: Select"
 		} else {

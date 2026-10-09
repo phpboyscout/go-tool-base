@@ -422,3 +422,36 @@ func TestNewCmdDocs_AskFollowsTheAiFeature(t *testing.T) {
 	on := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb", Features: props.SetFeatures(props.Enable(props.AiCmd))}}
 	assert.NotNil(t, findSub(NewCmdDocs(on).Command, "ask"))
 }
+
+// #98: with ai off, nothing about docs describes ask: no --provider flag, no
+// mention in the help, and no ask function for the browser.
+func TestNewCmdDocs_WithoutAINothingOffersAsk(t *testing.T) {
+	t.Parallel()
+
+	assets := props.NewAssets(props.AssetMap{
+		"docs": fstest.MapFS{"assets/docs/index.md": {Data: []byte("# Docs")}},
+	})
+
+	off := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb", Features: props.SetFeatures(props.Disable(props.AiCmd))}}
+	cmd := NewCmdDocs(off)
+
+	assert.Nil(t, cmd.PersistentFlags().Lookup("provider"), "no ai, no --provider")
+	assert.NotContains(t, cmd.Long, "ask")
+	assert.Nil(t, askFuncFor(off, nil, new(string), context.Background), "no ai, no ask in the browser")
+
+	on := &props.Props{Assets: assets, Tool: props.Tool{Name: "gtb", Features: props.SetFeatures(props.Enable(props.AiCmd))}}
+	cmd = NewCmdDocs(on)
+
+	assert.NotNil(t, cmd.PersistentFlags().Lookup("provider"))
+	assert.Contains(t, cmd.Long, `"ask"`)
+	assert.NotNil(t, askFuncFor(on, nil, new(string), context.Background))
+}
+
+// #98: the --provider help lists the providers this binary links, not the
+// whole catalogue.
+func TestProviderFlagUsage(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "AI provider to use (claude, openai)", providerFlagUsage([]gochat.Provider{"claude", "openai"}))
+	assert.Equal(t, "AI provider to use", providerFlagUsage(nil))
+}

@@ -696,3 +696,13 @@ func TestWaitForAskDelta_ClosedChannelReturnsNil(t *testing.T) {
 	assert.Nil(t, waitForAskDelta(ch)())
 	assert.IsType(t, LogFinishedMsg{}, waitForAskLog(ch)())
 }
+
+// #98: the help line offers ask only when the browser has an ask function.
+func TestModel_HelpOffersAskOnlyWithAnAskFunc(t *testing.T) {
+	t.Parallel()
+
+	ask := func(string, func(string, logger.Level), func(string)) (string, error) { return "", nil }
+
+	assert.Contains(t, viewContent(newSizedModel(t, WithAskFunc(ask))), "?: Ask AI")
+	assert.NotContains(t, viewContent(newSizedModel(t)), "Ask AI")
+}

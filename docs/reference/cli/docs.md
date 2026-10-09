@@ -18,13 +18,13 @@ mytool docs [flags]
 
 ## Description
 
-Launches a TUI for browsing embedded project documentation. It features a split-pane layout, asynchronous background search, and an AI-powered Q&A assistant. When the AI provider supports streaming (Claude, OpenAI, Gemini), answers appear progressively in the content viewport as the model generates them.
+Launches a TUI for browsing embedded project documentation. It features a split-pane layout and asynchronous background search. With the `ai` feature enabled it also has an AI-powered Q&A assistant. When the AI provider supports streaming (Claude, OpenAI, Gemini), answers appear progressively in the content viewport as the model generates them. Without `ai`, the browser, the help text and the flags say nothing about asking.
 
 ## Flags
 
 | Flag | Description | Default |
 | :--- | :--- | :--- |
-| `--provider` | AI provider to use (`openai`, `claude`, `gemini`) | Auto-detected |
+| `--provider` | AI provider to use, one of those the binary links. Only with the `ai` feature. | Auto-detected |
 
 ## TUI Keybindings
 
@@ -33,7 +33,7 @@ Launches a TUI for browsing embedded project documentation. It features a split-
 | `q` | Quit the browser |
 | `Tab` | Toggle sidebar visibility |
 | `s` | Open search input |
-| `?` | Open AI Q&A input |
+| `?` | Open AI Q&A input (only with the `ai` feature) |
 | `Esc` | Focus sidebar / Close search |
 | `Enter` | Select item / Focus content |
 
@@ -79,7 +79,7 @@ When `--no-style` is set and the provider supports streaming, the answer is prin
 | Flag | Description | Default |
 | :--- | :--- | :--- |
 | `-n, --no-style` | Disable markdown styling; enables live token streaming to stdout | `false` |
-| `--provider` | AI provider to use (`openai`, `claude`, `gemini`) | Inherited from parent |
+| `--provider` | AI provider to use, one of those the binary links | Inherited from parent |
 
 **Examples:**
 ```bash
