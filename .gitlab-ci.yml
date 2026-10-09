@@ -359,8 +359,13 @@ go-work-sync:
     # that follows restores the go.sum lines GOWORK=off needs, which sync
     # trims because the workspace reads them from the root module. The pair is
     # a fixed point, and `just tidy` runs the same pair.
+    #
+    # The CLI tidy may fail, deliberately: between a framework change and the
+    # next release the CLI can import framework code no release carries (spec
+    # 0194 D2), which GOWORK=off cannot resolve. A failed tidy writes nothing,
+    # so the diff below then checks the sync alone (#109).
     - go work sync
-    - cd cli && GOWORK=off go mod tidy && cd ..
+    - '(cd cli && GOWORK=off go mod tidy) || echo "go-work-sync - CLI tidy failed, tolerated while the CLI uses unreleased framework code (spec 0194 D2, #109)"'
     - git diff --exit-code -- go.work go.work.sum go.mod go.sum cli/go.mod cli/go.sum
 
 apidiff:

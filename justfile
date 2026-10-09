@@ -4,10 +4,12 @@ set dotenv-load
 # the workspace's resolution, and the GOWORK=off tidy restores the go.sum
 # lines a `go install` of the CLI needs. CI's go-work-sync job runs the same
 # pair and fails on a diff.
+# The CLI tidy may fail while the CLI uses framework code no release carries
+# yet (spec 0194 D2); the leading - lets the recipe finish, as CI does (#109).
 tidy:
     go mod tidy
     go work sync
-    cd cli && GOWORK=off go mod tidy
+    -cd cli && GOWORK=off go mod tidy
 
 # Apply go fix to update deprecated API usage
 fix:
