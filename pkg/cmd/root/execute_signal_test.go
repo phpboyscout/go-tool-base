@@ -1,8 +1,12 @@
 package root
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -28,6 +32,32 @@ type exitSpy struct {
 }
 
 func (s *exitSpy) exit(code int) { s.codes = append(s.codes, code) }
+
+type terminateCall struct {
+	sig  os.Signal
+	code int
+}
+
+// terminateSpy records the signal-ending terminate step instead of re-raising
+// the signal at the test binary.
+type terminateSpy struct {
+	mu    sync.Mutex
+	calls []terminateCall
+}
+
+func (s *terminateSpy) terminate(sig os.Signal, code int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.calls = append(s.calls, terminateCall{sig: sig, code: code})
+}
+
+func (s *terminateSpy) recorded() []terminateCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return slices.Clone(s.calls)
+}
 
 // newSignalTestProps builds a minimal Props and the spy that records the exit
 // codes execute asks for.
@@ -81,10 +111,11 @@ func newBlockingCommand(started chan<- struct{}) *setup.Command {
 	return setup.Wrap("", cmd)
 }
 
-// TestExecute_SignalCancelsContextAndSetsExitCode proves spec D1+D2: the
-// first signal cancels cmd.Context() (a command blocking on Done() unwinds
-// promptly) and the run exits 128+signum through the ErrorHandler.
-func TestExecute_SignalCancelsContextAndSetsExitCode(t *testing.T) {
+// TestExecute_SignalCancelsContextAndEndsBySignal: the first signal cancels
+// cmd.Context() (a command blocking on Done() unwinds promptly), and the run
+// ends through terminate with that signal and 128+signum, never through the
+// ordinary exit (spec 0207 D1, D3).
+func TestExecute_SignalCancelsContextAndEndsBySignal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -92,8 +123,9 @@ func TestExecute_SignalCancelsContextAndSetsExitCode(t *testing.T) {
 		signal   os.Signal
 		wantCode int
 	}{
-		{name: "SIGINT exits 130", signal: syscall.SIGINT, wantCode: 130},
-		{name: "SIGTERM exits 143", signal: syscall.SIGTERM, wantCode: 143},
+		{name: "SIGINT", signal: syscall.SIGINT, wantCode: 130},
+		{name: "SIGTERM", signal: syscall.SIGTERM, wantCode: 143},
+		{name: "SIGHUP", signal: syscall.SIGHUP, wantCode: 129},
 	}
 
 	for _, tt := range tests {
@@ -110,10 +142,12 @@ func TestExecute_SignalCancelsContextAndSetsExitCode(t *testing.T) {
 				sigCh <- tt.signal
 			}()
 
-			runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit})
+			term := &terminateSpy{}
 
-			assert.Equal(t, []int{tt.wantCode}, spy.codes,
-				"a signal-terminated run must exit 128+signum via the ErrorHandler")
+			runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit, terminate: term.terminate})
+
+			assert.Equal(t, []terminateCall{{sig: tt.signal, code: tt.wantCode}}, term.recorded())
+			assert.Empty(t, spy.codes, "a signal-ended run does not take the ordinary exit")
 		})
 	}
 }
@@ -141,9 +175,11 @@ func TestExecute_InterruptNoticeIsDebugNotError(t *testing.T) {
 		sigCh <- syscall.SIGINT
 	}()
 
-	runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit})
+	term := &terminateSpy{}
 
-	assert.Equal(t, []int{130}, spy.codes, "interrupted run still exits 130")
+	runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit, terminate: term.terminate})
+
+	assert.Equal(t, []terminateCall{{sig: syscall.SIGINT, code: 130}}, term.recorded())
 
 	var noticeAtDebug bool
 
@@ -162,8 +198,9 @@ func TestExecute_InterruptNoticeIsDebugNotError(t *testing.T) {
 	assert.True(t, noticeAtDebug, "the interrupt notice must still be emitted at debug")
 }
 
-// TestExecute_SecondSignalForcesExit proves spec D2: a second signal
-// force-exits immediately even when the command ignores cancellation.
+// TestExecute_SecondSignalForcesExit: a second signal ends the run at once,
+// through terminate with the second signal, even when the command ignores
+// cancellation (spec 0207 D1).
 func TestExecute_SecondSignalForcesExit(t *testing.T) {
 	t.Parallel()
 
@@ -171,7 +208,6 @@ func TestExecute_SecondSignalForcesExit(t *testing.T) {
 
 	started := make(chan struct{})
 	unblock := make(chan struct{})
-	forceExited := make(chan int, 1)
 
 	cmd := &cobra.Command{
 		Use: "stubborn",
@@ -191,28 +227,28 @@ func TestExecute_SecondSignalForcesExit(t *testing.T) {
 	go func() {
 		<-started
 		sigCh <- syscall.SIGINT
-		sigCh <- syscall.SIGINT
+		sigCh <- syscall.SIGTERM
 	}()
+
+	term := &terminateSpy{}
+
+	var release sync.Once
 
 	opts := executeOptions{
 		signals:     sigCh,
 		exitProcess: spy.exit,
-		forceExit: func(code int) {
-			forceExited <- code
-			close(unblock) // let the hung command return so the test can finish
+		terminate: func(sig os.Signal, code int) {
+			term.terminate(sig, code)
+			release.Do(func() { close(unblock) }) // let the hung command return so the test can finish
 		},
 	}
 
 	runExecute(t, rootCmd, props, opts)
 
-	select {
-	case code := <-forceExited:
-		assert.Equal(t, 130, code, "second signal must force-exit with 128+signum")
-	default:
-		t.Fatal("second signal did not trigger the force-exit path")
-	}
-
-	assert.NotEmpty(t, spy.codes, "interrupted run still reports the signal exit code")
+	calls := term.recorded()
+	require.NotEmpty(t, calls, "second signal did not end the run")
+	assert.Equal(t, terminateCall{sig: syscall.SIGTERM, code: 143}, calls[0], "the second signal ends the run")
+	assert.Empty(t, spy.codes)
 }
 
 // TestExecute_FlushRunsOnCancellationPath proves spec D4: the deferred
@@ -236,10 +272,16 @@ func TestExecute_FlushRunsOnCancellationPath(t *testing.T) {
 		sigCh <- syscall.SIGINT
 	}()
 
-	runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit})
+	flushedAtTerminate := false
+	term := &terminateSpy{}
 
-	assert.True(t, backend.closed, "telemetry must be flushed on the cancellation path")
-	assert.Equal(t, []int{130}, spy.codes)
+	runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit, terminate: func(sig os.Signal, code int) {
+		flushedAtTerminate = backend.closed
+		term.terminate(sig, code)
+	}})
+
+	assert.True(t, flushedAtTerminate, "telemetry must be flushed before the run ends by its signal")
+	assert.Equal(t, []terminateCall{{sig: syscall.SIGINT, code: 130}}, term.recorded())
 }
 
 // TestExecute_FlushRunsBeforeFatalErrorExit proves the flush also runs on the
@@ -375,3 +417,63 @@ type fakeSignal struct{}
 
 func (fakeSignal) String() string { return "fake" }
 func (fakeSignal) Signal()        {}
+
+// TestExecute_FailedDrainExitsWithItsOwnCode: an error the command returns
+// after a signal, other than the cancellation, is reported like any failure and
+// ends the run with its own code, not by the signal (spec 0207 D4).
+func TestExecute_FailedDrainExitsWithItsOwnCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		returned   func(ctx context.Context) error
+		wantExit   []int
+		wantSignal bool
+	}{
+		{name: "a failed drain", returned: func(context.Context) error { return assert.AnError }, wantExit: []int{1}},
+		{name: "nil", returned: func(context.Context) error { return nil }, wantSignal: true},
+		{name: "the context's error", returned: func(ctx context.Context) error { return ctx.Err() }, wantSignal: true},
+		{name: "a wrapped cancellation", returned: func(ctx context.Context) error {
+			return fmt.Errorf("worker stopped: %w", ctx.Err())
+		}, wantSignal: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			props, spy := newSignalTestProps()
+			started := make(chan struct{})
+
+			cmd := &cobra.Command{
+				Use: "draining",
+				RunE: func(c *cobra.Command, _ []string) error {
+					close(started)
+					<-c.Context().Done()
+
+					return tt.returned(c.Context())
+				},
+			}
+			cmd.SetArgs([]string{})
+
+			sigCh := make(chan os.Signal, 2)
+
+			go func() {
+				<-started
+				sigCh <- syscall.SIGTERM
+			}()
+
+			term := &terminateSpy{}
+
+			runExecute(t, setup.Wrap("", cmd), props, executeOptions{signals: sigCh, exitProcess: spy.exit, terminate: term.terminate})
+
+			assert.Equal(t, tt.wantExit, spy.codes)
+
+			if tt.wantSignal {
+				assert.Equal(t, []terminateCall{{sig: syscall.SIGTERM, code: 143}}, term.recorded())
+			} else {
+				assert.Empty(t, term.recorded(), "a failed drain does not end by the signal")
+			}
+		})
+	}
+}

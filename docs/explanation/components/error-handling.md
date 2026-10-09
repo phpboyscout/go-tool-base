@@ -53,11 +53,13 @@ reported the same way, and there is exactly one place in the process that exits.
 
 ## Signal handling
 
-`Execute` runs the command tree under a context cancelled by `SIGINT`/`SIGTERM`. The
-first signal cancels gracefully; a **second forces an immediate exit** so a hung cleanup
-cannot trap the user. The run exits `128+signum` (130 for SIGINT, 143 for SIGTERM)
-through the module's `LevelFatalQuiet` path, the correct code, logged at debug rather
-than as an error, because an interrupt is a deliberate choice, not a failure.
+`Execute` runs the command tree under a context cancelled by `SIGINT`, `SIGTERM` or
+`SIGHUP`. The first signal cancels gracefully; a **second ends the run immediately** so a
+hung cleanup cannot trap the user. The interrupt is reported through the module's
+`LevelFatalQuiet` path, logged at debug rather than as an error, because an interrupt is
+a deliberate choice, not a failure. The process then dies by the signal, so a shell sees
+`128+signum` (130 for SIGINT, 143 for SIGTERM) and a process manager sees a clean stop.
+A drain that returns its own error is reported and exits with that error's code instead.
 
 !!! warning "Flush before the fatal call, not in a `defer`"
     `Check(..., LevelFatal)` exits the process, so **deferred cleanup in the calling

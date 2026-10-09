@@ -47,6 +47,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [`Props.IO`, and the setup wizards' test seams](v0.x-props-io.md) |
 | v0.x | v0.x | [Accessible prompts skip hidden pages, and running out of answers fails](v0.x-accessible-prompts.md) |
 | v0.x | v0.x | [Generated projects release on colophon](v0.x-generated-projects-release-on-colophon.md) |
+| v0.x | v0.x | [A signal-ended run dies by its signal](v0.x-signal-ended-runs-die-by-their-signal.md) |
 | v0.x | v0.x | [features as a value, and a root that owns its registries](v0.x-features-as-a-value.md) |
 | v0.x | v0.x | [the scaffold's go.mod is edited in place](v0.x-gomod-seeded-in-place.md) |
 | v0.x | v0.x | [MCP publishes progressively, on the estate's own module](v0.x-mcp-progressive-discovery.md) |

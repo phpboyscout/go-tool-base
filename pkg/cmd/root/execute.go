@@ -22,12 +22,14 @@ import (
 // test process. The zero value wires real signals and os.Exit.
 type executeOptions struct {
 	// signals is the signal source. When nil, execute subscribes to
-	// os.Interrupt and syscall.SIGTERM via signal.Notify.
+	// subscribedSignals via signal.Notify.
 	signals chan os.Signal
 
-	// forceExit terminates the process when a second signal arrives while the
-	// first is still being handled. Defaults to os.Exit.
-	forceExit func(int)
+	// terminate ends a run that a signal ended: after the drain, and at once on
+	// a second signal. It is given the signal and its 128+signum code. Defaults
+	// to terminateBySignal, which re-raises the signal so the process dies by it
+	// (spec 0207 D1).
+	terminate func(os.Signal, int)
 
 	// exitProcess terminates the process with the exit code a reported fatal
 	// error asked for. Defaults to os.Exit.
@@ -36,10 +38,9 @@ type executeOptions struct {
 	// errorhandling v0.2.0 reports and returns the code instead, leaving the
 	// exit to its caller.
 	//
-	// It is deliberately NOT the same seam as forceExit. The two mark different
-	// events — "the user insisted, abandon ship" versus "the run finished and
-	// failed" — and a test that distinguishes them needs to keep doing so; one
-	// shared hook would fire twice on an interrupted run.
+	// It is deliberately NOT the same seam as terminate. The two mark different
+	// events — "a signal ended the run" versus "the run finished and failed" —
+	// and the process must end differently for each.
 	exitProcess func(int)
 
 	// disableSignals suppresses the framework's signal handling entirely, so the
@@ -50,7 +51,7 @@ type executeOptions struct {
 // ExecuteOption customises how Execute runs the command tree.
 type ExecuteOption func(*executeOptions)
 
-// WithoutSignals stops the framework installing its SIGINT/SIGTERM handler, so
+// WithoutSignals stops the framework installing its SIGINT/SIGTERM/SIGHUP handler, so
 // the tool owns signal disposition itself.
 //
 // Signal disposition is process-global: whichever layer registers a handler
@@ -72,10 +73,12 @@ func WithoutSignals() ExecuteOption {
 }
 
 // Execute runs the root command with centralized error handling and a
-// signal-aware execution context. SIGINT/SIGTERM cancel cmd.Context() so
-// commands can unwind gracefully; a second signal force-exits immediately
-// (kubectl/docker UX); a signal-terminated run exits 128+signum (130 for
-// SIGINT, 143 for SIGTERM).
+// signal-aware execution context. SIGINT, SIGTERM and SIGHUP cancel
+// cmd.Context() so commands can unwind gracefully; a second signal ends the run
+// immediately (kubectl/docker UX). A run a signal ended dies by that signal once
+// it has drained, so a shell sees 128+signum and a process manager sees a clean
+// stop; a drain that returned its own error exits with that error's code
+// instead (spec 0207).
 //
 // It silences Cobra's default error output and reports any error returned by
 // the command tree through ErrorHandler.Fatal. Since errorhandling v0.2.0 the
@@ -130,6 +133,10 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 		exit = os.Exit
 	}
 
+	if opts.terminate == nil {
+		opts.terminate = terminateBySignal
+	}
+
 	ctx, receivedSignal := signalAwareContext(props, opts)
 
 	// Seed a cleanup slot the pre-run's config watcher publishes its stop func
@@ -145,12 +152,10 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 
 	cleanup.run()
 
-	if sig := receivedSignal(); sig != nil {
-		// The run was interrupted: exit 128+signum regardless of what the
-		// command tree returned (usually context.Canceled). An interrupt is a
-		// deliberate user choice, not a failure — the non-zero exit code is the
-		// signal, so the notice is logged at debug (Quietly), not error. The
-		// attached 128+signum code is what Fatal hands back.
+	if sig := receivedSignal(); sig != nil && isCancellation(ctx, err) {
+		// An interrupt is a deliberate choice, not a failure, so the notice is
+		// logged at debug (Quietly). A drain that failed falls through to the
+		// ordinary error path below instead (spec 0207 D4).
 		code := props.ErrorHandler.Fatal(
 			ctx,
 			errorhandling.WithExitCode(
@@ -161,7 +166,7 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 		)
 
 		flush()
-		exit(code)
+		opts.terminate(sig, code)
 
 		return
 	}
@@ -187,7 +192,7 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 
 // signalAwareContext derives the cancellable execution context for the
 // command tree. The first signal cancels the context (graceful shutdown);
-// a second signal force-exits immediately so a hung cleanup can never trap
+// a second signal ends the run immediately so a hung cleanup can never trap
 // the user. The returned func reports the first signal received, if any —
 // call it only after the command tree has returned.
 //
@@ -210,12 +215,7 @@ func signalAwareContext(props *p.Props, opts executeOptions) (context.Context, f
 	if sigCh == nil {
 		// Buffer two signals: the graceful first and the force-exit second.
 		sigCh = make(chan os.Signal, signalBuffer)
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	}
-
-	forceExit := opts.forceExit
-	if forceExit == nil {
-		forceExit = os.Exit
+		signal.Notify(sigCh, subscribedSignals(signal.Ignored)...)
 	}
 
 	done := make(chan struct{})
@@ -240,8 +240,8 @@ func signalAwareContext(props *p.Props, opts executeOptions) (context.Context, f
 
 		select {
 		case sig := <-sigCh:
-			// Second signal: force-exit immediately, mirroring kubectl/docker.
-			forceExit(signalExitCode(sig))
+			// Second signal: end the run immediately, mirroring kubectl/docker.
+			opts.terminate(sig, signalExitCode(sig))
 		case <-done:
 		}
 	}()
@@ -260,6 +260,13 @@ func signalAwareContext(props *p.Props, opts executeOptions) (context.Context, f
 
 		return received
 	}
+}
+
+// isCancellation reports whether err is how a command says it stopped because
+// its context was cancelled: nil, or an error wrapping the cancellation. Any
+// other error means the drain itself failed.
+func isCancellation(ctx context.Context, err error) bool {
+	return err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.Cause(ctx))
 }
 
 // signalExitCode maps a termination signal to the conventional 128+signum

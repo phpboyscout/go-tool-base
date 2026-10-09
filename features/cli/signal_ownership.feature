@@ -17,7 +17,7 @@ Feature: Single-owner signal handling
   Scenario: One SIGINT drives exactly one shutdown through the supervisor
     Given the gtb binary is running the "supervise" command
     When I send SIGINT to the running gtb process
-    Then the gtb process exits with code 130
+    Then the gtb process is terminated by SIGINT
     And the running process stdout contains "service stopped: cause=ErrShutdown"
     And the running process stdout contains "supervised shutdown complete"
     And the running process output contains "received signal" exactly 1 time(s)

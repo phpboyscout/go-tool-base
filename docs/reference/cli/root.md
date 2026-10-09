@@ -129,19 +129,29 @@ from the `ci` config key, so a config file or environment variable can set it.
 
 ## Signal handling and exit codes
 
-`root.Execute` runs the command tree under a signal-aware context. On SIGINT or
-SIGTERM:
+`root.Execute` runs the command tree under a signal-aware context. On SIGINT,
+SIGTERM or SIGHUP:
 
 1. The first signal cancels `cmd.Context()`, logs `received signal, shutting
    down gracefully (press again to force quit)`, and lets the command unwind.
-2. A second signal force-exits immediately, so a hung cleanup can never trap the
-   user.
+2. A second signal ends the run immediately, so a hung cleanup can never trap
+   the user.
 3. Buffered telemetry is flushed on every path, success, error and cancellation.
+   The second-signal path is the exception: it does not wait for the flush.
 
-An interrupted run exits **128 + signum**: `130` for SIGINT, `143` for SIGTERM.
-That code is used regardless of what the command tree returned, because an
-interrupt is a deliberate user choice rather than a failure, which is also why
-the notice is logged at debug rather than error. Any other command failure exits
+An interrupted run **dies by its signal** once it has drained. A shell sees
+**128 + signum** in `$?`: `130` for SIGINT, `143` for SIGTERM, `129` for
+SIGHUP. A process manager such as systemd sees a stop by the signal, which it
+counts as clean. On Windows, or if the signal cannot land, the run exits
+128 + signum instead. The interrupt notice is logged at debug rather than
+error, because an interrupt is a deliberate user choice rather than a failure.
+
+If the command returns an error during its drain other than the cancellation
+(`nil`, or an error wrapping `context.Canceled`), the drain failed: the error
+is reported and the run exits with its code, not by the signal.
+
+A SIGINT or SIGHUP the process started with ignored, as a background job or
+`nohup` arranges, stays ignored. Any other command failure exits
 `1` unless the error carries an explicit code. The gtb generator's commands
 (`generate project`, `generate command`, `generate add-flag`, `regenerate`)
 exit `2` when they refuse an invocation, a missing or invalid input, and `3`

@@ -153,8 +153,9 @@ func main() {
 ```
 
 `root.Execute` is not the same as Cobra's `rootCmd.Execute()`. It adds the
-signal-aware context (SIGINT/SIGTERM cancel the command context, a second signal
-force-exits, an interrupted run exits 128+signum), the shared error path, and
+signal-aware context (SIGINT, SIGTERM and SIGHUP cancel the command context, a
+second signal ends the run at once, an interrupted run dies by its signal once
+drained), the shared error path, and
 the telemetry flush. See the
 [root command reference](reference/cli/root.md#signal-handling-and-exit-codes).
 

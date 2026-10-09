@@ -82,17 +82,22 @@ file. The resulting error carries a hint naming the fix:
 
 ## Signal Handling
 
-`root.Execute` runs the command tree with a **signal-aware execution context**: it derives a cancellable context watching `os.Interrupt` (SIGINT/Ctrl-C) and `syscall.SIGTERM`, and passes it to Cobra via `ExecuteContext`, so every command's `cmd.Context()` is cancelled on interruption.
+`root.Execute` runs the command tree with a **signal-aware execution context**: it derives a cancellable context watching `os.Interrupt` (SIGINT/Ctrl-C), `syscall.SIGTERM` and `syscall.SIGHUP`, and passes it to Cobra via `ExecuteContext`, so every command's `cmd.Context()` is cancelled on interruption. A SIGINT or SIGHUP the process started with ignored, as a background job (`tool &`) or `nohup` arranges, is left ignored: subscribing would undo it. SIGTERM is always taken, because Go never keeps it ignored.
 
 The lifecycle mirrors `kubectl`/`docker`:
 
 1. **First signal**: cancels `cmd.Context()`. Long-running commands observing `ctx.Done()` unwind gracefully; the deferred telemetry flush still runs (on a bounded background context, so cancellation cannot abort the flush itself).
-2. **Second signal**: force-exits immediately, so a hung cleanup can never trap the user.
-3. **Exit code**: a signal-terminated run exits `128 + signum` (`130` for SIGINT, `143` for SIGTERM), threaded through the `ErrorHandler`'s exit path via `errorhandling.WithExitCode` so it never conflicts with normal error exits.
+2. **Second signal**: ends the run immediately, so a hung cleanup can never trap the user.
+3. **Ending by the signal**: once the drain is done, the root restores the signal's default action and sends it to its own process, so the process **dies by that signal**. A shell still sees `128 + signum` in `$?` (`130` for SIGINT, `143` for SIGTERM, `129` for SIGHUP). A process manager reading the wait status sees a stop by the signal, which systemd counts as clean without any `SuccessExitStatus=` line. If the signal cannot land, the root exits `128 + signum` instead.
+4. **A failed drain**: if the command returns an error during its drain that is not the cancellation (nil, or an error wrapping `context.Canceled`), it is reported like any other failure and the run exits with that error's code, so a process manager sees the failure.
 
-An interrupt is a deliberate user choice, not a failure, so the `interrupted by signal: …` notice is logged at **debug**, not error (it routes through `errorhandling.LevelFatalQuiet`, which exits like `LevelFatal` but logs at debug). End users see a clean exit with the conventional code; `--debug` still surfaces the notice. The non-zero exit code is the signal.
+A command that loses its terminal (SIGHUP) drains too, but anything it prints to that terminal while draining may be lost. To outlive an SSH session, run it under `tmux`, `systemd-run --user` or `nohup`.
 
-On Windows only `os.Interrupt` is deliverable; the SIGTERM registration is harmless there, so no build tags are needed.
+An interrupt is a deliberate user choice, not a failure, so the `interrupted by signal: …` notice is logged at **debug**, not error (it routes through `errorhandling.LevelFatalQuiet`, which exits like `LevelFatal` but logs at debug). End users see a clean stop; `--debug` still surfaces the notice.
+
+On Windows only `os.Interrupt` is deliverable, there is no SIGHUP, and a process cannot end itself by a signal, so the run exits `128 + signum` there.
+
+A tool that opts out with `root.WithoutSignals()` owns all of this itself: cancelling the context, ending by the signal, and leaving ignored signals alone.
 
 ### The framework owns signals, and why that matters
 

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -24,11 +26,11 @@ type signalWorld struct {
 	binaryPath string
 	configDir  string
 
-	cmd      *exec.Cmd
-	stdout   *support.SyncBuffer
-	stderr   *support.SyncBuffer
-	waitErr  error
-	exitCode int
+	cmd     *exec.Cmd
+	stdout  *support.SyncBuffer
+	stderr  *support.SyncBuffer
+	waitErr error
+	status  syscall.WaitStatus
 
 	waitOnce sync.Once
 }
@@ -69,8 +71,10 @@ func initSignalSteps(ctx *godog.ScenarioContext) {
 	})
 
 	ctx.Step(`^the gtb binary is running the "([^"]*)" command$`, theGTBBinaryIsRunningCommand)
-	ctx.Step(`^I send SIGINT to the running gtb process$`, iSendSIGINTToRunningProcess)
-	ctx.Step(`^the gtb process exits with code (\d+)$`, theGTBProcessExitsWithCode)
+	ctx.Step(`^the gtb binary is running the "([^"]*)" command with SIGINT ignored$`, theGTBBinaryIsRunningCommandWithSIGINTIgnored)
+	ctx.Step(`^I send (SIGINT|SIGTERM|SIGHUP) to the running gtb process$`, iSendSignalToRunningProcess)
+	ctx.Step(`^the gtb process is terminated by (SIGINT|SIGTERM|SIGHUP)$`, theGTBProcessIsTerminatedBy)
+	ctx.Step(`^the gtb process is still running$`, theGTBProcessIsStillRunning)
 	ctx.Step(`^the running process stdout contains "([^"]*)"$`, theRunningProcessStdoutContains)
 	ctx.Step(`^the running process output contains "([^"]*)" exactly (\d+) time\(s\)$`, theRunningProcessOutputContainsNTimes)
 }
@@ -87,7 +91,17 @@ const (
 	signalReadyTimeout = 10 * time.Second
 	signalExitTimeout  = 10 * time.Second
 	signalPollInterval = 10 * time.Millisecond
+
+	// stillRunningWindow is how long an ignored signal is given to (wrongly)
+	// end the process before the scenario concludes it was ignored.
+	stillRunningWindow = 500 * time.Millisecond
 )
+
+var namedSignals = map[string]syscall.Signal{
+	"SIGINT":  syscall.SIGINT,
+	"SIGTERM": syscall.SIGTERM,
+	"SIGHUP":  syscall.SIGHUP,
+}
 
 // readyMarkers maps each signal fixture to the line it prints when it is safe to
 // interrupt. Keyed by command so a new fixture registers its marker here rather
@@ -98,6 +112,17 @@ var readyMarkers = map[string]string{
 }
 
 func theGTBBinaryIsRunningCommand(ctx context.Context, command string) (context.Context, error) {
+	return startSignalFixture(ctx, command, false)
+}
+
+// theGTBBinaryIsRunningCommandWithSIGINTIgnored starts the fixture the way a
+// script starts a background job: exec.Cmd cannot set an ignored disposition,
+// so sh sets it and execs the binary, which inherits it (spec 0207 D2).
+func theGTBBinaryIsRunningCommandWithSIGINTIgnored(ctx context.Context, command string) (context.Context, error) {
+	return startSignalFixture(ctx, command, true)
+}
+
+func startSignalFixture(ctx context.Context, command string, ignoreSIGINT bool) (context.Context, error) {
 	w := getSignalWorld(ctx)
 
 	path, err := support.BinaryPath()
@@ -109,11 +134,17 @@ func theGTBBinaryIsRunningCommand(ctx context.Context, command string) (context.
 	w.stdout = &support.SyncBuffer{}
 	w.stderr = &support.SyncBuffer{}
 
+	args := []string{command, "--ci", "--config", filepath.Join(w.configDir, "config.yaml")}
+
 	// Do NOT tie the subprocess to the scenario context: cancelling that
 	// context would deliver SIGKILL via CommandContext and defeat the test.
 	// The After hook guarantees cleanup instead.
-	w.cmd = exec.Command(w.binaryPath, command, //nolint:gosec // test-only: command is from a Gherkin step
-		"--ci", "--config", filepath.Join(w.configDir, "config.yaml"))
+	if ignoreSIGINT {
+		w.cmd = exec.Command("sh", append([]string{"-c", `trap "" INT; exec "$0" "$@"`, w.binaryPath}, args...)...) //nolint:gosec // test-only: command is from a Gherkin step
+	} else {
+		w.cmd = exec.Command(w.binaryPath, args...) //nolint:gosec // test-only: command is from a Gherkin step
+	}
+
 	w.cmd.Env = append(os.Environ(), "HOME="+w.configDir)
 	w.cmd.Stdout = w.stdout
 	w.cmd.Stderr = w.stderr
@@ -136,36 +167,56 @@ func theGTBBinaryIsRunningCommand(ctx context.Context, command string) (context.
 	return ctx, nil
 }
 
-func iSendSIGINTToRunningProcess(ctx context.Context) error {
+func iSendSignalToRunningProcess(ctx context.Context, name string) error {
 	w := getSignalWorld(ctx)
 
 	if w.cmd == nil || w.cmd.Process == nil {
 		return fmt.Errorf("no running gtb process to signal")
 	}
 
-	if err := w.cmd.Process.Signal(os.Interrupt); err != nil {
-		return fmt.Errorf("failed to send SIGINT: %w", err)
+	// A runner started with SIGINT ignored hands that ignore to every fixture,
+	// so a SIGINT scenario would wait forever (spec 0207 D2).
+	if name == "SIGINT" && signal.Ignored(syscall.SIGINT) {
+		return fmt.Errorf("this test runner was started with SIGINT ignored, so the fixture ignores it too: %w", godog.ErrSkip)
+	}
+
+	if err := w.cmd.Process.Signal(namedSignals[name]); err != nil {
+		return fmt.Errorf("failed to send %s: %w", name, err)
 	}
 
 	return nil
 }
 
-func theGTBProcessExitsWithCode(ctx context.Context, expected int) error {
+// theGTBProcessIsTerminatedBy reads the wait status: a run a signal ended dies
+// by it after its drain, which an exit code cannot express (spec 0207 D1).
+func theGTBProcessIsTerminatedBy(ctx context.Context, name string) error {
 	w := getSignalWorld(ctx)
 
 	select {
 	case <-w.waitDone():
 	case <-time.After(signalExitTimeout):
-		return fmt.Errorf("gtb process did not exit within %s after SIGINT\nstdout:\n%s\nstderr:\n%s",
+		return fmt.Errorf("gtb process did not end within %s\nstdout:\n%s\nstderr:\n%s",
 			signalExitTimeout, w.stdout.String(), w.stderr.String())
 	}
 
-	if w.exitCode != expected {
-		return fmt.Errorf("expected exit code %d, got %d\nstdout:\n%s\nstderr:\n%s",
-			expected, w.exitCode, w.stdout.String(), w.stderr.String())
+	if !w.status.Signaled() || w.status.Signal() != namedSignals[name] {
+		return fmt.Errorf("expected death by %s, got signalled=%t signal=%v exit status=%d\nstdout:\n%s\nstderr:\n%s",
+			name, w.status.Signaled(), w.status.Signal(), w.status.ExitStatus(), w.stdout.String(), w.stderr.String())
 	}
 
 	return nil
+}
+
+func theGTBProcessIsStillRunning(ctx context.Context) error {
+	w := getSignalWorld(ctx)
+
+	select {
+	case <-w.waitDone():
+		return fmt.Errorf("gtb process ended, expected it to keep running\nstdout:\n%s\nstderr:\n%s",
+			w.stdout.String(), w.stderr.String())
+	case <-time.After(stillRunningWindow):
+		return nil
+	}
 }
 
 func theRunningProcessStdoutContains(ctx context.Context, substr string) error {
@@ -226,10 +277,10 @@ func (w *signalWorld) waitDone() <-chan struct{} {
 	return done
 }
 
-// awaitExit waits for the process exactly once and records its exit code.
+// awaitExit waits for the process exactly once and records how it ended.
 func (w *signalWorld) awaitExit() {
 	w.waitOnce.Do(func() {
 		w.waitErr = w.cmd.Wait()
-		w.exitCode = w.cmd.ProcessState.ExitCode()
+		w.status, _ = w.cmd.ProcessState.Sys().(syscall.WaitStatus)
 	})
 }

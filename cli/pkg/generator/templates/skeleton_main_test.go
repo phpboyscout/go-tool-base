@@ -25,5 +25,5 @@ func TestSkeletonMain_DelegatesToSignalAwareExecute(t *testing.T) {
 	assert.Contains(t, out, "signal-aware context",
 		"generated main should document the signal handling contract")
 	assert.Contains(t, out, "128+signum",
-		"generated main should document the signal exit-code convention")
+		"generated main should document what a shell sees when a signal ends the run")
 }

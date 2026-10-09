@@ -169,9 +169,9 @@ import (
 )
 
 // main delegates to gtbRoot.Execute, which runs the command tree with a
-// signal-aware context: SIGINT/SIGTERM cancel cmd.Context() for graceful
-// shutdown, a second signal force-exits immediately, and a signal-terminated
-// run exits 128+signum (130 SIGINT, 143 SIGTERM).
+// signal-aware context: SIGINT, SIGTERM and SIGHUP cancel cmd.Context() for
+// graceful shutdown, a second signal ends the run immediately, and a run a
+// signal ended dies by that signal once drained (a shell sees 128+signum).
 // A construction error (an unnamed tool, an undeclared feature enabled) is a
 // defect in this project's wiring and exits 2, the usage code, before any
 // command runs.

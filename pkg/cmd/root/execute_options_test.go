@@ -102,7 +102,9 @@ func TestExecute_DefaultStillHandlesSignals(t *testing.T) {
 		},
 	}
 
-	execute(setup.Wrap("", cmd), props, executeOptions{signals: sigCh, exitProcess: spy.exit})
+	term := &terminateSpy{}
+
+	execute(setup.Wrap("", cmd), props, executeOptions{signals: sigCh, exitProcess: spy.exit, terminate: term.terminate})
 
 	select {
 	case <-cancelled:
@@ -110,6 +112,6 @@ func TestExecute_DefaultStillHandlesSignals(t *testing.T) {
 		t.Fatal("without the opt-out, a signal must still cancel the command context")
 	}
 
-	assert.Equal(t, []int{signalExitBase + int(syscall.SIGINT)}, spy.codes,
-		"a signal-terminated run must exit 128+signum")
+	assert.Equal(t, []terminateCall{{sig: syscall.SIGINT, code: signalExitBase + int(syscall.SIGINT)}}, term.recorded(),
+		"a signal-ended run ends by its signal")
 }
