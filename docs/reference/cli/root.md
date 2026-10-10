@@ -98,18 +98,26 @@ Either one:
 
 - skips the self-update check entirely,
 - suppresses the interactive telemetry-consent prompt,
-- removes literal-value storage from the credential wizards, leaving env-var and
-  keychain modes.
+- lets a run with no config file start on the defaults, the environment and the
+  flags.
 
-A run whose stdin is not a terminal gets the first two without `--ci`: nobody
-can answer a prompt there, so the root skips them itself. The third stays tied
-to CI, because it is a security posture rather than a question of who is
-present. Either way, a missing config file is not an error: the run starts on
-the defaults, the environment and the flags
+A run whose stdin is not a terminal gets all three without either: nobody can
+answer a prompt there, so the root does it itself
 ([spec 0208](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0208-an-unattended-run-starts-without-a-person)).
 
+The `CI=true` variable, and not the flag, also sets a stricter credential
+posture, because that is a security decision rather than a question of who is
+present:
+
+- the credential wizards offer no literal-value storage, leaving env-var and
+  keychain modes, and refuse to store a literal forge token;
+- a config source's token stored as a literal is refused;
+- the `init` wizards' `--skip-*` flags default on;
+- `doctor` fails on a warning, not only on a failure.
+
 `CI` is compared against the literal string `true`. `CI=1` does **not** count.
-Pass `--ci` on those runners.
+On a runner that sets anything else, pass `--ci` for the first list and set
+`CI=true` for the second.
 
 ### `--output`: supported values, and what a wrong one does
 
