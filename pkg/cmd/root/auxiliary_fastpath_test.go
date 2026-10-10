@@ -96,9 +96,12 @@ func TestPreRun_FreshInstall_InitSubtreeRuns(t *testing.T) {
 // still hard-fails on missing config, but the error must now carry a hint
 // telling the user to run '<tool> init'.
 func TestPreRun_FreshInstall_MissingConfigErrorHasInitHint(t *testing.T) {
-	t.Parallel()
+	// A person at a terminal: unattended, a missing config starts on the
+	// defaults instead (spec 0208 D8, TestPreRun_UnattendedMissingConfig).
+	t.Setenv("CI", "")
 
 	props := noConfigProps(t, "fresh-hint-tool")
+	props.IO = promptIO("")
 
 	child := &cobra.Command{Use: "child", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
 
@@ -161,9 +164,12 @@ func TestPreRun_AuxiliarySkipList_FastPath(t *testing.T) {
 // NOT cobra's generated command and must get the normal bootstrap — on a fresh
 // install that means the missing-config hard fail, not a silent fast path.
 func TestPreRun_DownstreamCompletionCommand_GetsNormalBootstrap(t *testing.T) {
-	t.Parallel()
+	// A person at a terminal: unattended, a missing config starts on the
+	// defaults instead (spec 0208 D8, TestPreRun_UnattendedMissingConfig).
+	t.Setenv("CI", "")
 
 	props := noConfigProps(t, "downstream-completion-tool")
+	props.IO = promptIO("")
 
 	var ran bool
 

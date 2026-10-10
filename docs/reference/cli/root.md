@@ -101,6 +101,13 @@ Either one:
 - removes literal-value storage from the credential wizards, leaving env-var and
   keychain modes.
 
+A run whose stdin is not a terminal gets the first two without `--ci`: nobody
+can answer a prompt there, so the root skips them itself. The third stays tied
+to CI, because it is a security posture rather than a question of who is
+present. Either way, a missing config file is not an error: the run starts on
+the defaults, the environment and the flags
+([spec 0208](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0208-an-unattended-run-starts-without-a-person)).
+
 `CI` is compared against the literal string `true`. `CI=1` does **not** count.
 Pass `--ci` on those runners.
 

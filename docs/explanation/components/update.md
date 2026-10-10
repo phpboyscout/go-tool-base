@@ -32,7 +32,7 @@ graph TD
 - **Throttling**: By default, checks occur at most once every 24 hours.
 - **Command exemptions**: some commands never trigger the check, decided by typed command metadata rather than command names: anything wrapped with the `UpdateCmd`/`InitCmd` feature, and anything stamped with `setup.MarkSkipUpdateCheck` (`version`, `doctor`, `mcp` stamp themselves; a stamped group covers its whole subtree). Cobra's generated `help`/`completion`/`__complete` commands never reach the check at all: they take the root pre-run's [auxiliary fast path](setup/root-command.md#the-auxiliary-fast-path).
 - **Two channels, one seam**: the updater reads releases through a `ReleaseChannel` (spec 0203 D4) with two branches. The **forge** branch is the tool's forge provider (GitHub, GitLab, Gitea, Bitbucket, or go/forge's direct source). The **static** branch reads a plain https location and imports no forge: `<base>/latest.json`, the pointer, names the current tag and its manifest; `<base>/<tag>/release.json` lists that release's archives with platform, size and SHA-256, its `checksums.txt`, its signature and the tag before it, so the manifests form a chain a reader can walk with no listing. The pointer is the one object on the channel that ever changes, moved last and by a conditional write, so a reader never sees a release the location does not fully hold; everything under a tag is immutable. Verification is the same code on both branches. On the static channel `update` is also exempt from the root pre-run's unlinked-forge check and missing-config gate, because its updater needs neither and exists to let a broken install pull its own fix (D10). gtb itself is on this channel. The layout is [the static release channel reference](../../reference/static-release-channel.md).
-- **Consent default**: the update prompt defaults to **No**. If it cannot be answered (no TTY (cron, CI, piped stdin), or the user aborts) the update is declined rather than run. The tool continues with the current version; use the explicit `update` command (or `--ci`/`CI=true` to skip the check) for non-interactive environments.
+- **Consent default**: the update prompt defaults to **No**, and an aborted prompt declines rather than updates. A run nobody can answer (no terminal, or CI) never reaches the prompt, because the pre-run check is skipped for it altogether (see [Background update checks](#background-update-checks-the-forcedupdate-policy)). Update such an install with the explicit `update` command.
 
 ### 2. Execution (Atomic Installation)
 
@@ -150,15 +150,15 @@ The `init ai`, `init github`, and `init bitbucket` subcommands use cobra `RunE` 
 
 ## Background update checks: the ForcedUpdate policy
 
-On every non-`--ci` invocation the root command may run a throttled update
-check. Its behaviour is governed by a **three-state policy** so a background
+On every invocation with a person at a terminal, the root command may run a
+throttled update check. Its behaviour is governed by a **three-state policy** so a background
 check never silently hijacks an unrelated command:
 
 | Policy | When a newer release is found |
 |---|---|
 | `disabled` | Log that an update is available and **continue**. No prompt, no block. **Framework default.** |
 | `prompt` | Ask "update now?"; **decline** continues with the command, **accept** updates then asks you to re-run. The `gtb` CLI itself uses this. |
-| `enabled` | **Block** every command until updated. A declined or unanswerable required update exits **non-zero** (never a masked exit 0). |
+| `enabled` | **Block** every command run at a terminal until updated. A declined required update exits **non-zero** (never a masked exit 0). A run with nobody at the terminal is not blocked (see below). |
 
 **Resolution precedence:** `--ci` / `ci: true` / the `CI=true` environment
 variable bypass the check entirely → then the `update.policy` config key → then
@@ -166,11 +166,16 @@ the tool author's baseline (`props.Tool.UpdatePolicy`, default `disabled`). The
 flag/config key and the `CI=true` environment variable are treated identically,
 so a CI run that forgets `--ci` is still recognised.
 
-**The prompt is TTY-gated.** When stdin is not a terminal (cron, piped input,
-MCP stdio), the `prompt` policy skips the confirm entirely, deterministically,
-without ever reading stdin, and continues with a warning; the `enabled` policy
-returns its "update required" error immediately. The prompt is only rendered on
-a real interactive terminal.
+**Only a person at a terminal is checked.** When stdin is not a terminal (a
+service under systemd, a pod, cron, piped input, MCP stdio), nobody can answer,
+so the check is skipped altogether under every policy: no probe, no prompt, no
+block and no self-update, and stdin is never read
+([spec 0208](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0208-an-unattended-run-starts-without-a-person)).
+Under `enabled` such a run logs one warning that the policy was not enforced, so
+whoever set it can see why. Keep a service current by redeploying it, or by
+running `update` from the deployment. The out-of-date reminder is suppressed
+too, as under CI. A service whose stdin is a terminal (`tty: true`,
+`docker run -t`) is treated as attended; pass `--ci` there.
 
 ```yaml
 update:

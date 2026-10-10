@@ -72,9 +72,12 @@ func execChild(t *testing.T, props *p.Props, child *cobra.Command) error {
 // and no bootstrap policy, a missing config is a hard error and the command
 // never runs.
 func TestPreRun_MissingConfig_HardFailsByDefault(t *testing.T) {
-	t.Parallel()
+	// A person at a terminal: unattended, a missing config starts on the
+	// defaults instead (spec 0208 D8, TestPreRun_UnattendedMissingConfig).
+	t.Setenv("CI", "")
 
 	props := noConfigProps(t, "hardfail-tool")
+	props.IO = promptIO("")
 
 	var childRan bool
 	child := &cobra.Command{Use: "child", RunE: func(_ *cobra.Command, _ []string) error {

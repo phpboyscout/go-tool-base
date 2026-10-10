@@ -66,7 +66,7 @@ func TestPromptTelemetryConsent_NonInteractiveSkipsPrompt(t *testing.T) {
 
 	assert.False(t, buf.Contains("telemetry consent prompt skipped"),
 		"non-interactive stdin must skip the consent prompt without attempting the form")
-	assert.True(t, buf.Contains("telemetry consent deferred: non-interactive stdin"))
+	assert.True(t, buf.Contains("telemetry consent deferred: no terminal"))
 }
 
 // TestHandleOutdatedVersion_NonInteractiveSkipsPrompt proves the update prompt

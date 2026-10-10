@@ -711,6 +711,9 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 				// A release version: an unstamped (zero) Version is a
 				// development build and skips the check on its own.
 				Version: ver.NewInfo("v1.0.0", "", ""),
+				// A terminal: without one the check is skipped as unattended
+				// (spec 0208), which TestCheckForUpdates_Unattended* covers.
+				IO: promptIO(""),
 			}
 
 			// Create command, with the exempting metadata under test: a

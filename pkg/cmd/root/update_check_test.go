@@ -23,10 +23,11 @@ import (
 // binary already matches the latest release: no error, no exit, and the latest
 // version is reported via the logger.
 func TestCheckForUpdates_UpToDate(t *testing.T) {
-	t.Parallel()
+	t.Setenv("CI", "")
 
 	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
+	props.IO = promptIO("")
 	state := newRootState()
 	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
@@ -34,6 +35,7 @@ func TestCheckForUpdates_UpToDate(t *testing.T) {
 	require.NoError(t, result.Error)
 	assert.False(t, result.ShouldExit)
 	assert.False(t, result.HasUpdated)
+	assert.True(t, checkRan(props), "the check ran")
 }
 
 // TestCheckForUpdates_OutdatedDeclines covers the outdated branch under the
@@ -41,10 +43,11 @@ func TestCheckForUpdates_UpToDate(t *testing.T) {
 // binary, so handleOutdatedVersion runs, logs availability, and records the
 // cached version — but does not block or exit.
 func TestCheckForUpdates_OutdatedDeclines(t *testing.T) {
-	t.Parallel()
+	t.Setenv("CI", "")
 
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
+	props.IO = promptIO("")
 	state := newRootState()
 	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
@@ -52,6 +55,7 @@ func TestCheckForUpdates_OutdatedDeclines(t *testing.T) {
 	// Default policy is "disabled": available update is logged, not blocked.
 	require.NoError(t, result.Error)
 	assert.False(t, result.ShouldExit)
+	assert.True(t, checkRan(props), "the check ran")
 }
 
 // TestCheckForUpdates_SkippedWhenDevelopment proves the skip path: a
@@ -67,28 +71,6 @@ func TestCheckForUpdates_SkippedWhenDevelopment(t *testing.T) {
 	require.NotNil(t, result)
 	require.NoError(t, result.Error)
 	assert.False(t, result.ShouldExit)
-}
-
-// TestCheckForUpdates_EnabledPolicyBlocks proves that under the "enabled"
-// policy an outdated binary with a declined (non-interactive) prompt becomes a
-// hard error rather than a masked continue.
-func TestCheckForUpdates_EnabledPolicyBlocks(t *testing.T) {
-	// Not parallel: neutralises any ambient CI env so the update check is not
-	// skipped (Config.GetBool("ci") reads the CI env via viper AutomaticEnv).
-	t.Setenv("CI", "")
-
-	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
-	props := newUpdateProps(t, "v1.0.0", provider)
-	props.Tool.UpdatePolicy = p.UpdatePolicyEnabled
-	// Decline deterministically: nobody is at the terminal, so the prompt is
-	// skipped and the update stays declined.
-	props.IO = nonInteractiveIO()
-	state := newRootState()
-
-	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
-
-	require.NotNil(t, result)
-	require.Error(t, result.Error, "enabled policy must block on a declined required update")
 }
 
 // TestWarnIfBehindCached covers the cached-version reminder path.
@@ -321,6 +303,7 @@ func TestCheckForUpdates_FailureStampsTheThrottle(t *testing.T) {
 
 	provider := forgetest.New() // no release to report: the check fails
 	props := newUpdateProps(t, "v1.0.0", provider)
+	props.IO = promptIO("")
 	cmd := mkUpdateCmd(t)
 
 	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "no marker yet")
@@ -342,6 +325,7 @@ func TestCheckForUpdates_FailureKeepsTheCachedVersion(t *testing.T) {
 
 	provider := forgetest.New()
 	props := newUpdateProps(t, "v1.0.0", provider)
+	props.IO = promptIO("")
 	cmd := mkUpdateCmd(t)
 
 	// An old marker carrying a cached version: old enough that the check runs.

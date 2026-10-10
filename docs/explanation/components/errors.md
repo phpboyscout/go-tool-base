@@ -33,7 +33,7 @@ if errors.Is(err, root.ErrNoConfigFile) {
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
-| `ErrNoConfigFile` | no config file found | Gates auto-initialise. The root pre-run heals it by running a non-interactive `init` when `Tool.Bootstrap.AutoInitialise` is set; otherwise it surfaces so the tool can prompt the user to run `init` or pass `--config`. This is GTB's own sentinel: config v0.4.0's Store treats a missing optional file as an empty layer, not an error, so the framework owns the "no config at all" distinction (it replaces config v0.2.0's `ErrNoFilesFound`). |
+| `ErrNoConfigFile` | no config file found | Gates auto-initialise. The root pre-run heals it by running a non-interactive `init` when `Tool.Bootstrap.AutoInitialise` is set; otherwise it surfaces for a run at a terminal so the tool can prompt the user to run `init` or pass `--config`, and an unattended run starts on the defaults instead. This is GTB's own sentinel: config v0.4.0's Store treats a missing optional file as an empty layer, not an error, so the framework owns the "no config at all" distinction (it replaces config v0.2.0's `ErrNoFilesFound`). |
 
 ---
 

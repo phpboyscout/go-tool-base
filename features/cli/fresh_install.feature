@@ -3,9 +3,11 @@ Feature: Fresh install auxiliary commands
   On a fresh install no config file exists yet. Cobra's own auxiliary
   commands — help, completion and the hidden __complete used by shell
   tab-completion — must work in that state instead of failing the
-  missing-config bootstrap gate, and a genuinely config-gated command must
-  fail with a hint that names "<tool> init". See
+  missing-config bootstrap gate. See
   https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0145-bootstrap-auxiliary-command-exemptions.
+  Under --ci nobody can run init, so a config-reading command starts on the
+  defaults; the "<tool> init" hint is for a person at a terminal, which the
+  harness cannot provide, and is covered by the root's unit tests (spec 0208).
 
   Background:
     Given the gtb binary is built
@@ -30,13 +32,11 @@ Feature: Fresh install auxiliary commands
     Then the exit code is 0
     And stdout contains "version"
 
-  Scenario: a config-gated command fails with a run-init hint
-    # doctor used to be the example here; it now runs without a config file
-    # and reports the absence itself, so a command that reads config stands in.
+  Scenario: under --ci a config-reading command starts on the defaults
     When I run gtb with "config list"
-    Then the exit code is not 0
-    And stderr contains "no config file found"
-    And stderr contains "gtb init"
+    Then the exit code is 0
+    And stderr contains "no config file found; starting on the defaults"
+    And stderr does not contain "gtb init"
 
   Scenario: doctor is not config-gated and diagnoses the fresh install
     When I run gtb with "doctor"

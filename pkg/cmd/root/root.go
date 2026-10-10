@@ -472,6 +472,8 @@ func asYAML(codec config.Codec, path string, content []byte) ([]byte, error) {
 // never auto-initialised for. Neither branch skips the framework bootstrap
 // itself — only the missing-config outcome changes, preserving the
 // "bootstrap always runs" invariant (2026-06-12-bootstrap-prerun-traversal).
+// Without auto-initialise, an unattended run starts on the defaults instead of
+// failing (spec 0208 D8).
 func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string, boundFlags map[string]*pflag.Flag) (*config.Store, error) {
 	initEnabled := props.GetFeatures().Enabled(p.InitCmd)
 	skipConfigCheck := setup.SkipsConfigCheck(cmd) ||
@@ -511,14 +513,41 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 		// localised config, then load it for real. ErrNoConfigFile is only
 		// returned when AllowEmpty is false — i.e. init is enabled and the
 		// command did not opt out — so the gate needs no further conjuncts.
-		if props.Tool.Bootstrap.AutoInitialise && errors.Is(err, ErrNoConfigFile) {
-			return autoInitialiseConfig(cmd.Context(), props, loadOpts)
+		if errors.Is(err, ErrNoConfigFile) {
+			if props.Tool.Bootstrap.AutoInitialise {
+				return autoInitialiseConfig(cmd.Context(), props, loadOpts)
+			}
+
+			return loadUnattendedWithoutConfig(cmd.Context(), props, loadOpts, err)
 		}
 
 		return nil, err
 	}
 
 	return cfg, nil
+}
+
+// loadUnattendedWithoutConfig starts a run with no config file on the defaults,
+// the environment and the flags when nobody is there to run init (spec 0208
+// D8); a person keeps noFile and its hint. Whether the run is unattended is
+// read from the source-free bootstrap store, so deciding builds no config
+// source.
+func loadUnattendedWithoutConfig(ctx context.Context, props *p.Props, opts ConfigLoadOptions, noFile error) (*config.Store, error) {
+	opts.AllowEmpty = true
+
+	probe, err := bootstrapStore(ctx, opts, props.Tool.ResolvedConfigSpec().Layers)
+	if err != nil {
+		return nil, err
+	}
+
+	reason := unattendedReason(props, probe.View())
+	if reason == "" {
+		return nil, noFile
+	}
+
+	props.Logger.Info("no config file found; starting on the defaults, the environment and the flags", "reason", reason)
+
+	return buildConfigStore(ctx, opts)
 }
 
 // autoInitialiseConfig heals a missing configuration by running a
@@ -623,13 +652,17 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	// Persistent out-of-date reminder from the cached latest version: emitted
 	// every invocation (even when the network check is throttled below), so a
 	// user who declined an update — or runs a disabled-policy tool — keeps
-	// being reminded. Suppressed in CI (the --ci flag / ci config key or the
-	// CI=true environment variable), for full flag/environment parity.
-	if !isCIEnvironment(view) {
+	// being reminded. Suppressed when unattended (CI, or no terminal), where
+	// no check runs to keep the cached version current.
+	if unattendedReason(props, view) == "" {
 		warnIfBehindCached(props)
 	}
 
-	if shouldSkipUpdateCheck(props, view, cmd, state) {
+	if skip := updateCheckSkip(props, view, cmd, state); skip != updateCheckRuns {
+		if skip == updateSkippedNoTerminal {
+			warnPolicyNotEnforced(props, policy)
+		}
+
 		return result
 	}
 
@@ -701,18 +734,67 @@ func isCIEnvironment(view *config.View) bool {
 	return view.GetBool("ci") || os.Getenv("CI") == "true"
 }
 
-func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) bool {
-	// Skip update checks in various conditions
+// unattendedReason says why nobody can answer a question on this run, or ""
+// when someone can: CI, or a stdin that is not a terminal (spec 0208 D1). It is
+// Interactive alone, not setup.Promptable: an unsolicited prompt on the start
+// path must never read a piped stdin, which under MCP stdio is the protocol.
+func unattendedReason(props *p.Props, view *config.View) string {
+	switch {
+	case isCIEnvironment(view):
+		return "CI environment"
+	case !props.GetIO().Interactive():
+		return "no terminal"
+	default:
+		return ""
+	}
+}
+
+// updateCheck is whether the pre-run update check runs, and if not, whether the
+// missing terminal was the only reason.
+type updateCheck int
+
+const (
+	updateCheckRuns updateCheck = iota
+	updateSkipped
+	updateSkippedNoTerminal
+)
+
+// updateCheckSkip decides the pre-run update check. The terminal comes last, so
+// updateSkippedNoTerminal means nothing else would have skipped it (spec 0208
+// D7).
+func updateCheckSkip(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) updateCheck {
 	if !props.GetFeatures().Enabled(p.UpdateCmd) ||
 		props.Version.IsDevelopment() ||
 		state.redirectingToUpdate ||
 		isCIEnvironment(view) {
-		return true
+		return updateSkipped
 	}
 
 	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, view.GetString(setup.ConfigKeyUpdateCheckInterval))
+	if setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval) {
+		return updateSkipped
+	}
 
-	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
+	if !props.GetIO().Interactive() {
+		return updateSkippedNoTerminal
+	}
+
+	return updateCheckRuns
+}
+
+func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) bool {
+	return updateCheckSkip(props, view, cmd, state) != updateCheckRuns
+}
+
+// warnPolicyNotEnforced says that an enabled policy, which would block a person
+// at a terminal, did not block a run with nobody to update it (spec 0208 D7).
+func warnPolicyNotEnforced(props *p.Props, policy p.UpdatePolicy) {
+	if policy != p.UpdatePolicyEnabled {
+		return
+	}
+
+	props.Logger.Warn(fmt.Sprintf("the enabled update policy is not enforced without a terminal: keep %s current by redeploying it or running '%s update'",
+		props.Tool.Name, props.Tool.Name))
 }
 
 func updatePromptForm(runUpdate *bool) *huh.Form {
@@ -1474,13 +1556,13 @@ func skipConfigGate(cmd *setup.Command) *setup.Command {
 const telemetryFlushTimeout = 2 * time.Second
 
 // consentPromptDeferred reports whether the one-time telemetry consent prompt
-// must be skipped without touching stdin, logging the reason for the CI and
-// non-interactive defers. It centralises the guard chain so the prompt body
-// stays simple. The order matters: author/config decisions (disabled,
-// force-enabled, env var, already-answered) short-circuit before the
-// environment gates (CI, then interactivity).
+// must be skipped without touching stdin, logging the reason when the run is
+// unattended. It centralises the guard chain so the prompt body stays simple.
+// The order matters: author/config decisions (disabled, force-enabled, env var,
+// already-answered) short-circuit before the unattended gate.
 func consentPromptDeferred(props *p.Props, view *config.View) bool {
 	_, telemetryEnvSet := os.LookupEnv("TELEMETRY_ENABLED")
+	unattended := unattendedReason(props, view)
 
 	switch {
 	case !props.GetFeatures().Enabled(p.TelemetryCmd):
@@ -1494,18 +1576,12 @@ func consentPromptDeferred(props *p.Props, view *config.View) bool {
 	case view.IsSet(setup.ConfigKeyTelemetryEnabled):
 		// Already configured — no prompt needed.
 		return true
-	case isCIEnvironment(view):
-		// CI (flag/config key or CI=true env) — defer silently, persist nothing.
-		props.Logger.Debug("telemetry consent deferred: CI environment")
-
-		return true
-	case !props.GetIO().Interactive():
-		// Non-interactive stdin (cron, piped input, MCP stdio) — defer silently
-		// rather than relying on huh to error out on a non-terminal (the
-		// assumption the MR !157 incident disproved), and without accessible
-		// mode's piped-stdin route, which on MCP stdio would read the protocol.
-		// Persist nothing; the opt-in reappears on the next interactive run.
-		props.Logger.Debug("telemetry consent deferred: non-interactive stdin")
+	case unattended != "":
+		// Nobody to ask (CI, cron, piped input, MCP stdio): defer without
+		// touching stdin, rather than relying on huh to error out on a
+		// non-terminal (the assumption the MR !157 incident disproved). Persist
+		// nothing; the opt-in reappears on the next interactive run.
+		props.Logger.Debug("telemetry consent deferred: " + unattended)
 
 		return true
 	default:

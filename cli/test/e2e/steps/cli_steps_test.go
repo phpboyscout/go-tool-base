@@ -99,6 +99,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
 	ctx.Step(`^I run gtb with "([^"]*)"$`, iRunGTBWith)
 	ctx.Step(`^I run gtb bare with "([^"]*)"$`, iRunGTBBareWith)
+	ctx.Step(`^I run gtb unattended with "([^"]*)"$`, iRunGTBUnattendedWith)
 	ctx.Step(`^a project-local config file with:$`, aProjectLocalConfigFileWith)
 	ctx.Step(`^a project-local config file named "([^"]*)" with:$`, aProjectLocalConfigFileNamed)
 	ctx.Step(`^I run gtb in the project directory with "([^"]*)"$`, iRunGTBInProjectDirWith)
@@ -291,6 +292,17 @@ func iSetEnvironmentVariable(ctx context.Context, key, value string) (context.Co
 // so utils.IsInteractive() reports false deterministically.
 func iRunGTBBareWith(ctx context.Context, args string) context.Context {
 	return runGTB(ctx, strings.Fields(args))
+}
+
+// iRunGTBUnattendedWith runs the binary with the scenario config but without
+// --ci, so the run is unattended only because stdin is not a terminal (spec
+// 0208). The scenario clears CI itself, since the runners export it.
+func iRunGTBUnattendedWith(ctx context.Context, args string) context.Context {
+	w := getCLIWorld(ctx)
+
+	parts := append(strings.Fields(args), "--config", filepath.Join(w.configDir, "config.yaml"))
+
+	return runGTB(ctx, parts)
 }
 
 func iRunGTBWith(ctx context.Context, args string) context.Context {

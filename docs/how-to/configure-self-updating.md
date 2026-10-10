@@ -255,6 +255,19 @@ update:
 
 ---
 
+## Services and Other Unattended Runs
+
+The update check only runs for a person at a terminal. A service under systemd, a pod, a cron job or a script has no terminal on stdin, so it makes no check, is never blocked by the `enabled` policy and never self-updates. Under `enabled` it logs one warning that the policy was not enforced.
+
+Keep such an install current from the deployment instead:
+
+- redeploy the service with the new release (a package upgrade, an image rollout), or
+- run `your-tool update` as a deployment step.
+
+If the service's stdin is a terminal (`tty: true` in Compose or Kubernetes, `docker run -t`), it is treated as attended. Drop the `tty`, or pass `--ci`.
+
+---
+
 ## Air-Gapped / Offline Environments
 
 For environments without network access, the update command supports installing from a local release archive. This workflow has three steps:

@@ -88,6 +88,11 @@ func buildReleaseScenario(scenario, toolName string) (forge.Provider, [][]byte) 
 			forgetest.WithMissingTag(stubMissingTag),
 		), nil
 
+	case "newer-available":
+		// A newer release with no assets: enough for the pre-run check to see
+		// an update, and any download fails before a binary swap (spec 0208).
+		return forgetest.New(forgetest.WithRelease(stubNewerVersion)), nil
+
 	case "bad-checksum":
 		// A newer release whose checksums manifest hashes a different payload
 		// than the served asset → checksum mismatch aborts before extract.

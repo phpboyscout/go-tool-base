@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Auto-initialise Configuration on First Run
 
-When your tool enables the `init` feature, the framework treats a **missing config file as a hard error** ("please run init") in the root pre-run. Because the framework bootstrap always runs first, that error aborts the invocation *before* any subcommand's own `PreRunE` can run. This guide shows the two opt-ins on `props.Tool.Bootstrap` that let a tool control first-run behaviour instead.
+When your tool enables the `init` feature, the framework treats a **missing config file as a hard error** ("please run init") in the root pre-run, for a person at a terminal. An unattended run (CI, or no terminal on stdin) starts on the embedded defaults instead, unless auto-initialise is on, in which case it auto-initialises like any other run. Because the framework bootstrap always runs first, that error aborts the invocation *before* any subcommand's own `PreRunE` can run. This guide shows the two opt-ins on `props.Tool.Bootstrap` that let a tool control first-run behaviour instead.
 
 Neither option skips the framework bootstrap itself (config load, telemetry, update check). They relax only the *missing-config outcome*, so `props.Config` is always populated.
 

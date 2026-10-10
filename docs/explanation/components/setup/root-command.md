@@ -57,11 +57,32 @@ stamp themselves (`version` prints its own check, `doctor` diagnoses the
 install it has, `mcp` must keep protocol stdout clean); a downstream command
 opts out with `setup.MarkSkipUpdateCheck(cmd)`.
 
+### Unattended runs
+
+A run is **unattended** when nobody can answer a question: it is under CI (the
+`--ci` flag, the `ci` key or `CI=true`), or its stdin is not a terminal (a
+service under systemd, a pod, cron, a script, piped input). The test is the
+terminal alone, not the accessible-mode rule the setup wizards use, because an
+unsolicited prompt on the start path must never read a piped stdin: under MCP
+stdio that stdin is the protocol. An unattended run:
+
+- makes no update check, so no policy blocks it and nothing self-updates. Under
+  the `enabled` policy it logs one warning that the policy was not enforced;
+- shows no out-of-date reminder and no telemetry consent prompt;
+- needs no config file (see below).
+
+Everything else in the pre-run runs as usual. See
+[spec 0208](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0208-an-unattended-run-starts-without-a-person).
+
 ### The missing-config gate
 
 When the `init` feature is enabled, configuration is treated as required: if no
 config file exists, loading returns `ErrNoConfigFile` rather than running the
-command against bare defaults. Two escape hatches relax it:
+command against bare defaults. An unattended run is the exception: nobody can run
+`init` there, so it starts on the embedded defaults, the environment and the
+flags, and logs that it did. Required config sources and the refusal of a
+config file in a format the tool no longer reads still apply. Two escape hatches
+relax the gate for a person too:
 
 - **Auto-initialise**: with `Tool.Bootstrap.AutoInitialise` set, the pre-run
   heals a missing config by running a non-interactive `init` (writing the
@@ -76,8 +97,8 @@ command against bare defaults. Two escape hatches relax it:
   fast path above). A command that owns its own bootstrap can opt in with
   `setup.SkipConfigCheck(cmd)` or `Tool.Bootstrap.SkipConfigCheck`.
 
-When the gate does fire: a config-gated command on a machine with no config
-file. The resulting error carries a hint naming the fix:
+When the gate does fire: a config-gated command run at a terminal on a
+machine with no config file. The resulting error carries a hint naming the fix:
 `Run '<tool> init' to create a configuration.`
 
 ## Signal Handling

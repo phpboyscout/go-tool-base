@@ -291,3 +291,17 @@ func TestNewCmdVersion_OutdatedWarnsAndAnnotates(t *testing.T) {
 	assert.Contains(t, out, "Latest:  v2.0.0 (update available)")
 	assert.Equal(t, 1, warningCount(t, props, "a new version is available"))
 }
+
+// TestNewCmdVersion_NoTerminalStillChecks: version asked for the live answer,
+// so a run without a terminal still makes the check. Only CI skips it (spec
+// 0208 D3).
+func TestNewCmdVersion_NoTerminalStillChecks(t *testing.T) {
+	t.Setenv("CI", "")
+
+	props := newTestProps(t, releaseProvider("v2.0.0"))
+	props.IO = p.StdIO{Stdin: strings.NewReader("")}
+
+	out, err := runVersionCmd(t, props, "text")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Latest:  v2.0.0 (update available)")
+}

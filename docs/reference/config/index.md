@@ -264,7 +264,10 @@ misconfigured trust anchor must not silently downgrade to no verification:
 - anything else → `unknown key_source "x" (want embedded, external, or both)`
 
 Update checks are skipped entirely when the update feature is disabled, on a
-development build, or in CI (`--ci`, the `ci` key, or `CI=true`).
+development build, in CI (`--ci`, the `ci` key, or `CI=true`), or when stdin is
+not a terminal. With `init` enabled, a config file is required only for a run at
+a terminal; an unattended run starts on the defaults, the environment and the
+flags.
 
 See [Configure self-updating](../../how-to/configure-self-updating.md) and
 [Secure releases](../../how-to/secure-releases.md).

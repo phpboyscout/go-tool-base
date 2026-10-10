@@ -174,6 +174,15 @@ func handleSignals(controller *controls.Controller, props *props.Props, cancel c
 `controller.Stop()` transitions to the `Stopping` state and runs every service's
 stop function; `controller.Wait()` blocks until they have all stopped.
 
+## Run it under a process manager
+
+Nothing extra is needed for the command to start under systemd or in a pod. With
+no terminal on stdin the root treats the run as unattended: it makes no update
+check, asks nothing, and starts without a config file on the defaults and the
+environment. If the unit or manifest gives the service a terminal (`tty: true`,
+`docker run -t`), pass `--ci` so it is still treated as unattended. See
+[Unattended runs](../explanation/components/setup/root-command.md#unattended-runs).
+
 ## Complete application
 
 ```go
