@@ -19,17 +19,17 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.45.3
+	gitlab.com/phpboyscout/go-tool-base v0.46.0
 	gitlab.com/phpboyscout/go/chat v0.32.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.17.2
-	gitlab.com/phpboyscout/go/chat-bedrock v0.3.2
-	gitlab.com/phpboyscout/go/chat-gemini v0.16.2
+	gitlab.com/phpboyscout/go/chat-bedrock v0.4.0
+	gitlab.com/phpboyscout/go/chat-gemini v0.16.3
 	gitlab.com/phpboyscout/go/chat-mcptools v0.2.1
 	gitlab.com/phpboyscout/go/chat-openai v0.17.2
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.3
-	gitlab.com/phpboyscout/go/config v0.20.0
+	gitlab.com/phpboyscout/go/config v0.20.1
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
-	gitlab.com/phpboyscout/go/controls v0.7.0
+	gitlab.com/phpboyscout/go/controls v0.7.1
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/features v0.1.0
@@ -38,7 +38,7 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitea v0.25.0
 	gitlab.com/phpboyscout/go/forge-github v0.25.0
 	gitlab.com/phpboyscout/go/forge-gitlab v0.24.0
-	gitlab.com/phpboyscout/go/redact v0.2.2
+	gitlab.com/phpboyscout/go/redact v0.2.3
 	gitlab.com/phpboyscout/go/repo v0.5.0
 	gitlab.com/phpboyscout/go/signing v0.8.2
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.6.1
@@ -116,7 +116,6 @@ require (
 	github.com/dlclark/regexp2/v2 v2.8.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
@@ -150,12 +149,10 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/leodido/go-conventionalcommits v0.13.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
-	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
@@ -229,8 +226,7 @@ require (
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.50.0 // indirect
 	google.golang.org/api v0.298.0 // indirect
-	google.golang.org/genai v1.71.0 // indirect
-	google.golang.org/genproto v0.0.0-20260720211330-0afa2a65878a // indirect
+	google.golang.org/genai v1.72.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/protobuf v1.36.12 // indirect

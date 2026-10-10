@@ -36,13 +36,13 @@ require (
 	gitlab.com/phpboyscout/go/browser v0.2.2
 	gitlab.com/phpboyscout/go/changelog v0.4.0
 	gitlab.com/phpboyscout/go/chat v0.32.0
-	gitlab.com/phpboyscout/go/config v0.20.0
+	gitlab.com/phpboyscout/go/config v0.20.1
 	gitlab.com/phpboyscout/go/config-afero v0.1.11
 	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.3
 	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.2
 	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.1
 	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.2
-	gitlab.com/phpboyscout/go/config-azure-blob v0.3.2
+	gitlab.com/phpboyscout/go/config-azure-blob v0.3.3
 	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.2
 	gitlab.com/phpboyscout/go/config-consul v0.3.1
 	gitlab.com/phpboyscout/go/config-dotenv v0.2.10
@@ -57,7 +57,7 @@ require (
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
 	gitlab.com/phpboyscout/go/config-vault v0.4.2
 	gitlab.com/phpboyscout/go/config-xml v0.2.10
-	gitlab.com/phpboyscout/go/controls v0.7.0
+	gitlab.com/phpboyscout/go/controls v0.7.1
 	gitlab.com/phpboyscout/go/credentials v0.3.2
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
@@ -68,7 +68,7 @@ require (
 	gitlab.com/phpboyscout/go/mcp v0.2.0
 	gitlab.com/phpboyscout/go/observability v0.3.3
 	gitlab.com/phpboyscout/go/output v0.2.2
-	gitlab.com/phpboyscout/go/redact v0.2.2
+	gitlab.com/phpboyscout/go/redact v0.2.3
 	gitlab.com/phpboyscout/go/regexutil v0.2.2
 	gitlab.com/phpboyscout/go/repo v0.5.0
 	gitlab.com/phpboyscout/go/signing v0.8.2
@@ -103,7 +103,8 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/internal v0.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.34.0 // indirect
@@ -112,6 +113,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
+	github.com/apache/arrow-go/v18 v18.7.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
@@ -185,9 +187,11 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/s2a-go v0.1.10 // indirect
@@ -218,7 +222,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.7.8 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.0 // indirect
@@ -256,6 +260,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
+	github.com/pierrec/lz4/v4 v4.1.28 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -292,6 +297,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	github.com/zclconf/go-cty v1.19.0 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
