@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.46.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.46.0...v0.46.1)
+
+### Notes
+
+- Credential redaction in logs and telemetry now also masks secret_key, private_key, access_key, client_secret, id_token and private_token, and in JSON key and api-key (go/redact v0.2.3), so some log lines read differently.
+
+### Bug Fixes
+
+- **deps**: take grpc v1.84.0, grpc-gateway v2.31.0 and google api v0.301.0 ([2c60322](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2c603226476138eaa9aedfc7dad35c182f134e92))
+- **deps**: bring the estate modules the release check found stale up to date ([0165615](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0165615f57e1ee699eaaefd7604b989c07fe327d))
+
 ## [v0.46.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.3...v0.46.0)
