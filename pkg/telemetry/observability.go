@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel"
-	otellogglobal "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 
@@ -180,7 +179,7 @@ func setupLogs(ctx context.Context, settings ObservabilitySettings, res *resourc
 		return nil, false, err
 	}
 
-	otellogglobal.SetLoggerProvider(lp)
+	otel.SetLoggerProvider(lp)
 
 	return lp.Shutdown, true, nil
 }
