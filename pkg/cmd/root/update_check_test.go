@@ -200,18 +200,17 @@ func TestRecordCheckedVersion_UpToDate(t *testing.T) {
 
 // TestPerformUpdate_Success drives the self-update accept path entirely from
 // the in-memory release source: a tar.gz binary asset is served and extracted,
-// and the result flags exit-and-rerun.
+// and the result flags exit-and-rerun. The install targets os.Executable, so a
+// real filesystem here would overwrite the test binary (#114).
 func TestPerformUpdate_Success(t *testing.T) {
-	// Not parallel: update.Update writes the extracted binary + markers to the
-	// HOME-derived data dir on a real FS.
-	t.Setenv("HOME", t.TempDir())
+	t.Parallel()
 
 	const tool = "covupdtool"
 
 	asset := forgetest.TarGzAsset(tool, tool, "#!/bin/sh\necho updated\n")
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0", asset))
 
-	fs := afero.NewOsFs()
+	fs := afero.NewMemMapFs()
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
@@ -250,7 +249,7 @@ func TestPerformUpdate_Success(t *testing.T) {
 // TestPerformUpdate_DownloadError covers the failure tail: a provider that
 // errors on download surfaces result.Error without HasUpdated/ShouldExit.
 func TestPerformUpdate_DownloadError(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Parallel()
 
 	const tool = "covupderrtool"
 
@@ -260,7 +259,7 @@ func TestPerformUpdate_DownloadError(t *testing.T) {
 		forgetest.WithDownloadError(assertErr{}),
 	)
 
-	fs := afero.NewOsFs()
+	fs := afero.NewMemMapFs()
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,

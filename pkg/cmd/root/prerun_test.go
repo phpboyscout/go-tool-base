@@ -357,9 +357,10 @@ func TestNewRootPreRunE_InitCmdSkipsConfig(t *testing.T) {
 // when an accepted update reports ShouldExit. Driven hermetically via the
 // injected release source and an accepting form creator.
 func TestNewRootPreRunE_UpdateExit(t *testing.T) {
-	// Not parallel: update.Update writes the extracted binary to the
-	// HOME-derived data dir on a real FS. Neutralise any ambient CI env so the
-	// update check is not skipped (Config.GetBool("ci") reads CI via AutomaticEnv).
+	// Not parallel: neutralise any ambient CI env so the update check is not
+	// skipped (Config.GetBool("ci") reads CI via AutomaticEnv). The install
+	// targets os.Executable, so a real filesystem here would overwrite the test
+	// binary (#114).
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 
@@ -368,7 +369,7 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 	asset := forgetest.TarGzAsset(tool, tool, "#!/bin/sh\necho new\n")
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0", asset))
 
-	fs := afero.NewOsFs()
+	fs := afero.NewMemMapFs()
 	props := &p.Props{
 		Logger:       logger.NewBuffer(),
 		FS:           fs,

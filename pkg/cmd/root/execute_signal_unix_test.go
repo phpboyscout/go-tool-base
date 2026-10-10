@@ -3,10 +3,8 @@
 package root
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"syscall"
 	"testing"
@@ -46,23 +44,13 @@ func TestSubscribedSignals(t *testing.T) {
 // with terminateBySignal, so a parent can read how it died.
 const terminateHelperEnv = "GTB_TEST_TERMINATE_HELPER"
 
-// terminateHelperBinary is a hard link to this test binary, taken before any
-// test runs: TestPerformUpdate_Success self-updates over os.Args[0] by rename,
-// and the link keeps the original (#114). It sits beside the binary, in go
-// test's work directory, so it goes when that does.
-var terminateHelperBinary = linkTestBinary()
+func testBinary(t *testing.T) string {
+	t.Helper()
 
-func linkTestBinary() string {
-	if os.Getenv(terminateHelperEnv) != "" {
-		return os.Args[0]
-	}
+	bin, err := os.Executable()
+	require.NoError(t, err)
 
-	link := filepath.Join(filepath.Dir(os.Args[0]), fmt.Sprintf("terminate-helper-%d", os.Getpid()))
-	if err := os.Link(os.Args[0], link); err != nil {
-		return os.Args[0]
-	}
-
-	return link
+	return bin
 }
 
 func TestTerminateHelperProcess(t *testing.T) {
@@ -88,7 +76,8 @@ func TestTerminateBySignal(t *testing.T) {
 	t.Run("dies by the signal", func(t *testing.T) {
 		t.Parallel()
 
-		status := runTerminateHelper(t, exec.Command(terminateHelperBinary, "-test.run=^TestTerminateHelperProcess$"), "TERM")
+		bin := testBinary(t)
+		status := runTerminateHelper(t, exec.Command(bin, "-test.run=^TestTerminateHelperProcess$"), "TERM")
 
 		require.True(t, status.Signaled(), "the helper must die by a signal, got exit status %d", status.ExitStatus())
 		assert.Equal(t, syscall.SIGTERM, status.Signal())
@@ -103,7 +92,7 @@ func TestTerminateBySignal(t *testing.T) {
 		}
 
 		// exec.Cmd cannot set an ignored disposition, so sh does it and execs.
-		cmd := exec.Command(sh, "-c", `trap "" INT; exec "$0" -test.run='^TestTerminateHelperProcess$'`, terminateHelperBinary)
+		cmd := exec.Command(sh, "-c", `trap "" INT; exec "$0" -test.run='^TestTerminateHelperProcess$'`, testBinary(t))
 		status := runTerminateHelper(t, cmd, "INT")
 
 		require.False(t, status.Signaled(), "an ignored signal cannot end the helper")
