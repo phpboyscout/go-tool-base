@@ -1,5 +1,170 @@
 # Changelog
 
+## [v0.46.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.3...v0.46.0)
+
+### Notes
+
+- An unattended run (CI, or stdin not a terminal: systemd, a pod, cron,
+  piped input) no longer makes the pre-run update check, so the enabled
+  update policy no longer blocks it, and with init enabled it no longer
+  needs a config file. A person at a terminal sees no change. See
+  docs/reference/migration/v0.x-unattended-runs-start-without-a-person.md.
+
+- gtb generate and regenerate keep a file they did not create instead of overwriting it, and leave an existing Renovate config alone.
+
+- A GTB tool stopped by SIGINT, SIGTERM or SIGHUP now drains and then dies
+  by that signal instead of exiting 128+signum. A shell's `$?` is
+  unchanged, but systemd and anything reading the wait status now see a
+  clean stop by the signal, so `SuccessExitStatus=143` workarounds can go.
+  SIGHUP now drains like SIGINT. A tool started with SIGINT or SIGHUP
+  ignored (a background job, `nohup`) keeps ignoring it. A drain that fails
+  exits with its error's code. See the migration note "a signal-ended run
+  dies by its signal".
+
+- Generated projects now ignore dist/, so their release builds stop reporting -dirty; an existing project picks it up on its next gtb regenerate project.
+
+- Generated projects now release through colophon instead of
+  releaser-pleaser, on GitLab and GitHub. gtb regenerate project moves an
+  existing project over; add a COLOPHON_TOKEN CI variable or secret (not
+  CI_JOB_TOKEN or GITHUB_TOKEN) and close releaser-pleaser's open release
+  MR. See docs/reference/migration/v0.x-generated-projects-release-on-colophon.md.
+
+- A generated tool that selects claude-local or codex-local but never passes
+  them tools can ship without the MCP SDK: set chat.tool_bridge: false
+  (gtb set chat.tool_bridge false, or --chat-tool-bridge=false). Those
+  providers then refuse tools.
+
+- The chat providers move to go/chat v0.32.0. Unset models now default to
+  claude-opus-5-5 (with 16000 max tokens), gpt-6.1-sol and gemini-3.8-flash;
+  set the model to keep a previous one. Refusals are reported as
+  chat.ErrRefused instead of an empty success. claude-local no longer gives
+  the model the claude CLI's own tools (Read, Grep, Write). claude-local and
+  codex-local need go/chat-mcptools linked to accept tools: a generated tool
+  gets the import when either is selected; a hand-wired tool adds it to main.
+
+- Accessible prompts can take a secret again: the AI key, Bitbucket app
+  password, manual token and SSH passphrase are read hidden at a terminal,
+  and as a plain line on a pipe. A tool's own secret field should take
+  EchoMode(setup.SecretEchoMode(p.GetIO())).
+
+- A form fed piped answers that run out before its questions do now fails
+  with setup.ErrInputEnded instead of silently taking defaults. Give one
+  line per question; an empty line takes that question's default.
+
+- Accessible prompts (--accessible, GTB_ACCESSIBLE=true) now skip the pages
+  an earlier answer hides, show current values, and let Enter keep a
+  pre-filled answer. The generate project wizard no longer panics there.
+
+- Generated projects can declare config source slots with
+  `gtb generate --config-source name=kind`; see the generate reference.
+
+- Errors logged as an attribute beside a different message, such as
+  `log.Error("command: failed", "error", err)`, show their reason again at
+  normal log levels; it had appeared only under `--debug`.
+
+- Config sources can now be a Cloud Storage object (`gcp-gcs`), Secret Manager secrets (`gcp-secret`) or Parameter Manager parameters (`gcp-parameter`), authenticated through Application Default Credentials.
+
+- Config sources can now be an Azure Storage blob (`azure-blob`), Key Vault secrets (`azure-keyvault`) or App Configuration settings (`azure-appconfig`), authenticated through the standard Azure credential chain.
+
+- Config sources can now be an S3 object (`aws-s3`), Systems Manager parameters (`aws-ssm`) or Secrets Manager secrets (`aws-secrets`), authenticated through the standard AWS credential chain.
+
+- Config sources can now be a Vault KV v2 secret (`vault`) or a Consul KV prefix (`consul`), with tokens from the provider's own variables or GTB's `auth.env` / `auth.keychain` / `auth.value` rungs.
+
+- Config sources can now be a fixed file (`file`) or the OS keychain (`keychain`): blank-import `pkg/config/sources/<kind>`, declare the slot, and configure it with `init config <name>`.
+
+- `<tool> init config <name>` configures each config source a tool declares.
+
+- `--config` no longer appears as a `config` key in `config list`, and no longer hides keys under `config.`.
+
+- Tools can declare config source slots in `props.Tool.Config.Sources` and place them in the layer list. No source kinds ship yet; they follow.
+
+- A project-local config file can no longer set `config.sources`, trusted or not; `config trust` does not re-admit it. Nothing reads it yet: it prepares for config sources.
+
+- Generated tools can read TOML, JSON, HCL, INI, XML, .env and .properties config files: declare them with `--config-formats` (or `gtb set config.formats`), and choose the tool's own file format with `--config-format`.
+
+- When a tool's own config format changes, a user whose file is still in the old format is stopped with both paths named and told to run `<tool> config convert --from <old> --to <new>`. Nothing is converted automatically; `doctor` reports the same condition.
+
+- A tool's own config file can be TOML, JSON or HCL: set `props.Tool.Config.Format` and link the format. `init` writes `config.<ext>` in that format, and `config edit` and `config unset` work on it. `setup.DefaultConfigFilename` is deprecated in favour of `props.Tool.ConfigFilename()`.
+
+- A project-local config file may be in any format the tool links (`.mytool.toml` beside nothing else), and is trust-filtered the same way. Two project files in one directory now stop the command. `setup.DiscoverProjectConfig` is deprecated in favour of `setup.FindProjectConfig`.
+
+- Config files can be TOML, JSON, HCL, INI, XML, .env or .properties when the tool blank-imports `pkg/config/formats/<format>`. A `--config` file with one of those extensions is now refused unless the format is linked; a `.json` file used to be read as YAML. See docs/reference/migration/v0.x-config-stack.md.
+
+- A tool can now order its configuration layers: `props.Tool.Config.Layers`, lowest precedence first, is the precedence. `props.Tool.ConfigLayers` is deprecated, and a generated project's `properties.config_layers` moves to `properties.config.layers` on the next regenerate. See docs/reference/migration/v0.x-config-stack.md.
+
+### Features
+
+- **root**: start an unattended run without a person ([0f0c93a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f0c93ac24a0ac237895b84c05e5c0fa8c239f17))
+- **root**: end a signal-ended run by its signal, and drain on SIGHUP ([7e9d6b8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7e9d6b87a0eeab298820c03d6fb0deeef7c353e4))
+- **doctor**: report environment variables that set undeclared keys ([294d700](https://gitlab.com/phpboyscout/go-tool-base/-/commit/294d70088897afaaa3579a8861fadebfa580a9e4))
+- **config**: name the environment variable behind a refused key ([42fa545](https://gitlab.com/phpboyscout/go-tool-base/-/commit/42fa54502edb7c112200ef1bf5aa5d2eb7fd9f08))
+- **generate**: let a tool opt out of the chat tool bridge ([a194a41](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a194a415b7907cbf5dcd2ed5ef3e97cb2ffb3362))
+- **chat**: update the go/chat family and link the tool bridge local CLIs need ([9fe7de8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9fe7de853102de7fe93e6ca655989c58886457d2))
+- **config**: the store closes the clients its config sources build ([5710d0a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5710d0a29cc068db1e80ff9fbd5111b65c462efb))
+- **doctor**: report the config stack in the order it resolves ([fbf805f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fbf805f6e4056f6b20ed82d85ead300666b35475))
+- **config**: record how each config source fared and which credential answered ([98e247c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/98e247c034a88f170d235185adc3cc1a9d086dd2))
+- **generator**: end the wizard on a summary and a confirm ([a6e076f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a6e076f1c9e56f21e6fea46f2e95d4d315364e10))
+- **generator**: the wizard's Configuration page ([5bfe06f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5bfe06f674bf4cb0f650206ab2f8e71d875892f6))
+- **generator**: declare config source slots in the manifest and scaffold ([15ea98a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/15ea98a47a319d139d5527658907928bff9dd723))
+- **config**: gcp-gcs, gcp-secret and gcp-parameter config sources ([d5d0d3a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d5d0d3adb0358ea880756861ffe9b292c0d84631))
+- **config**: azure-blob, azure-keyvault and azure-appconfig config sources ([9a94115](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9a941156f25610c205bb38d5fd8add11a7ceb757))
+- **config**: aws-s3, aws-ssm and aws-secrets config sources ([249cdf8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/249cdf8c6ca2f3e8f4a35153e93b9f1826137fff))
+- **config**: vault and consul config sources ([707fa6c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/707fa6c6dca5cd7dd14ffd871b7721ef7c4f1ce9))
+- **config**: file and keychain config sources ([9d24b1d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9d24b1dbf1f87d441b2c6d857e843f1de6b433c9))
+- **config**: init config <name> configures a declared source ([dd92682](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dd92682b86f02dcc38b5ae463bdfdc067796bf85))
+- **config**: a tool can declare config source slots ([686025b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/686025b1be92513fe64bcb46229912db8d9daa9b))
+- **config**: a project file can never choose a config source ([74b2a95](https://gitlab.com/phpboyscout/go-tool-base/-/commit/74b2a9595505f3fbe4e98c03e11affedd809aa99))
+- **generator**: a generated tool links the config formats it declares ([737d8e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/737d8e69f208f07aa22c26ef2f605845d2be714d))
+- **config**: a tool refuses a config file left in its previous format ([43053a6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/43053a6130dc367b985dc167826febb5fcc1b0c5))
+- **config**: a tool's own config file may be TOML, JSON or HCL ([02baa43](https://gitlab.com/phpboyscout/go-tool-base/-/commit/02baa437ac0b84a91a2a21b433bd48ddbc27d121))
+- **config**: the project-local file may be any linked format ([22e6fbf](https://gitlab.com/phpboyscout/go-tool-base/-/commit/22e6fbfa98b6820034a997880799ef073172dfbc))
+- **config**: config files are read in any linked format, chosen by extension ([33fa7d2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33fa7d2dd95227020d6084867e2e529b68919a53))
+- **config**: the declared config layer order is the precedence ([4141f50](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4141f5034f14c2e98c6f93cd53f5800d9e5b08bd))
+
+### Bug Fixes
+
+- **deps**: move to OpenTelemetry v1.47.0 and go/observability v0.3.3 ([1955247](https://gitlab.com/phpboyscout/go-tool-base/-/commit/195524789d318c82c63521d0f3f71f0d97561232))
+- **generator**: keep a file gtb never created, and do not duplicate a Renovate config ([c2b56f2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c2b56f2b81467a19446e347ebe558a30cf58c5ea))
+- **docs**: describe ask only when the ai feature is on ([90aac8d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/90aac8dc167707ef7581bf852d9a46d9222e9492))
+- **deps**: take golang.org/x/net v0.60.0 and Go 1.27.2 ([0f6e3ab](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f6e3ab4207789b94c3d29a81b03919449fc3410))
+- **generator**: ignore dist/ in a generated project ([7f1af84](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7f1af84601bb7fce28055ef41abb2eeb1bf04ceb))
+- **setup**: stop the form refusal telling every command to take flags ([290c19c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/290c19cf70f4dd5d388f13c7076378c923847b96))
+- **generator**: release generated projects through colophon ([be1167e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/be1167ea9a83a43d18e67ffef6f3269128c29b65))
+- **generator**: describe a command by its path in its docs page ([f971966](https://gitlab.com/phpboyscout/go-tool-base/-/commit/f9719668f9c3b4ce7e4d91a39cf9eff3302e618c))
+- **setup**: stop writing a .gitignore into the config directory ([ad1fab0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ad1fab0216efba8bb95b36f632fb0fe2de5f2028))
+- **generator**: send no default model to an OpenAI-compatible backend ([c163240](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c1632408ece6946950e7997050e0710655376624))
+- **setup**: take a secret at accessible prompts ([d66c8f3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d66c8f378d0a74c82699aca0e51c9ffb76dff7e1))
+- **deps**: update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.114.0 ([ca3dda2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ca3dda28ae9446160a87674a501409e3a69d7988))
+- **setup**: fail an accessible form whose answers run out ([804039b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/804039bd88954065e155f4bc795ef8750a9665e5))
+- **setup**: skip hidden pages at accessible prompts ([2344790](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2344790ecdb8f2103d07910d0540c9ae3497b033))
+- **setup**: read accessible answers a line at a time ([7364347](https://gitlab.com/phpboyscout/go-tool-base/-/commit/73643475b6a1e182b8bca61668ccf6012008f7da))
+- **generate**: leave an unset MCP mode unset on a wizard revisit ([598d25a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/598d25a5d7464a8e843df6569c8bd02de6ca1b10))
+- **generator**: name a missing pkg/cmd with a sentinel ([d4908ee](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d4908ee947868f1886df03c74b6f7615fa0cc101))
+- **generator**: print dry-run previews to the invocation's stdout ([106907f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/106907fad0335ab59157ddffab29aa837b8f5af6))
+- **generator**: render sub-second update intervals as durations ([74e0195](https://gitlab.com/phpboyscout/go-tool-base/-/commit/74e0195d99ca008654da53c75b28039234db6ff7))
+- **deps**: update bubbletea, go-crypto and genproto ([3766070](https://gitlab.com/phpboyscout/go-tool-base/-/commit/37660701b17fdfc7f88c24a0face9373401734b8))
+- **logger**: keep an error's reason when the log message does not carry it ([ab49325](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ab49325effd97ef9e08408522adaadc10185a706))
+- **deps**: update go/mcp to v0.2.0 and the CLI's go-tool-base require to v0.45.3 ([7f9b39a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7f9b39aaa797571013306d42d32d70aeb240702b))
+- **deps**: sync cli/go.mod to azcore v1.23.2 ([23ea44a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/23ea44acbd6050eff319eee308b0be126251005d))
+- **deps**: update module github.com/azure/azure-sdk-for-go/sdk/azcore to v1.23.2 ([e58164f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e58164f2e28a3239bbde213825d51c5c79f45309))
+- **generator**: write manifest features in their canonical order ([a0328c4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a0328c446027159c895c83ad91faab42a69b3b94))
+- **generator**: name the config sources in the generated config.go's header ([2b6d7f7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2b6d7f7130a3e80523412c4a2d196c24c65d972f))
+- **setup**: leave an existing config file as written when init runs ([5c13057](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5c130577186f949210109aa391ef78375fffd465))
+- **config**: apply a config source's policy when the store first loads it ([d753306](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d75330699a5b0ddfbee8371ca11fedd5961d649d))
+- **config**: hand the GCP sources' clients to the store ([0c117d1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0c117d1d7298a96c65ebfdc99b8357381d27328e))
+- **generator**: explain the wizard's Configuration page and show every row ([131eb76](https://gitlab.com/phpboyscout/go-tool-base/-/commit/131eb768d472c1f047e4b7db14c818d5617467ca))
+- **setup**: keep a field editable when huh refuses a page change ([5aaeb41](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5aaeb419058e245e9ed0c8c5637b0d748a281ba1))
+- **deps**: require config v0.20.0 and read provenance through DefinedIn ([6711131](https://gitlab.com/phpboyscout/go-tool-base/-/commit/67111318d24fe4733f1403799911b4c7862080c8))
+- **deps**: update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.113.4 ([b9f9163](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b9f9163432262776a73b6981a2d180aa98ffc2d2))
+- **config**: --config is not a configuration key ([6619efd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6619efd5c65db8d9497b82ee0bf5346ba62fcbd0))
+
+### Other
+
+- **setup**: share the config key recognition rule ([4f7be62](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4f7be62adc05a46f5a3df4e643926c114a438774))
+- **config**: one catalogue of what each source kind's init config asks ([77d47b3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/77d47b3a6078e859eebbff32c1e1015d25b8a3cc))
+
 ## [v0.45.3](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.45.3)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.2...v0.45.3)
