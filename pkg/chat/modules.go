@@ -2,7 +2,6 @@ package chat
 
 import (
 	"slices"
-	"strings"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/errors"
@@ -54,16 +53,6 @@ func ProviderModule(provider gochat.Provider) (string, bool) {
 	}
 
 	return "", false
-}
-
-// ProviderNames lists every known provider, comma separated, for help text.
-func ProviderNames() string {
-	names := make([]string, len(providerModules))
-	for i, entry := range providerModules {
-		names[i] = string(entry.Provider)
-	}
-
-	return strings.Join(names, ", ")
 }
 
 // ProviderModules returns every provider this adapter knows with its module, in
