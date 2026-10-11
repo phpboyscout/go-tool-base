@@ -31,7 +31,7 @@ The `Controller` is the central orchestrator that manages a collection of `Servi
 - **Channels**: The "nervous system" of the controller, using typed channels for:
     - **`Messages`**: Processing control signals (e.g., `Stop`, `Status`).
     - **`Health`**: Streaming host/port status and heartbeat messages.
-    - **`Errors`**: Centralized reporting of background service failures.
+    - **`Errors`**: every terminal service failure, and the latest of each run of retries. The controller is its only sender: read it until it closes, and never send on it. `WithOnEvent` delivers the same failures to a callback as typed `ServiceEvent`s.
     - **`Signals`**: Handling OS-level signals like `SIGINT` and `SIGTERM`:
       **opt-in only**, via `controls.WithSignals()`. Inside a GTB command the
       root command already owns signals, so the controller observes the
@@ -85,10 +85,17 @@ The restart counter measures **consecutive failures**, not lifetime restarts: af
 
 ### Graceful Shutdown
 
-Handling shutdowns correctly is critical, especially when services hold file locks or open network connections. The controller handles this through two primary triggers:
+Handling shutdowns correctly is critical, especially when services hold file locks or open network connections. A stop has one of five triggers, and the controller records which one as its **stop cause**:
 
-1.  **OS Signals**: Traps `SIGINT` and `SIGTERM` to initiate a stop sequence. Signal handling is registered only after construction options are applied, so `WithoutSignals` truly leaves the default OS disposition in place (no orphaned `signal.Notify`). The registration is detached via `signal.Stop` when the signal channel is swapped out or at shutdown. A **second** signal arriving during shutdown forces the signal-handler goroutine to exit so a wedged shutdown can be escalated.
-2.  **Context Cancellation**: Listens to the parent `context.Context` and triggers a shutdown if the context is cancelled.
+1.  **Context cancellation** (`CauseParent`): the parent `context.Context` ended. Inside a GTB command this is how a signal arrives: the root command owns `SIGINT` and `SIGTERM` and cancels `cmd.Context()`.
+2.  **OS signals** (`CauseSignal`): only with the opt-in `controls.WithSignals()`, for a standalone `main` with no CLI framework above it. Never inside a GTB command, where it would race the root's handler.
+3.  **An explicit `Stop()`** (`CauseStop`).
+4.  **A give-up** (`CauseGaveUp`): with `WithStopOnGiveUp()`, a service that fails for good stops the controller. That covers exhausting its restart policy, failing to start with no policy, and, through the death watch, a server whose `Status` reports it dead after a clean start.
+5.  **A completion** (`CauseCompleted`): a service registered with `WithRunToCompletion()` returned `nil`. `WithCompletion(CompleteOnAll)` waits for every such service.
+
+`Done()` closes once shutdown has finished, and `Outcome()` then reports the cause, the service behind a give-up or completion, and any shutdown step that didn't finish. A GTB command reads it to choose what to return, so the root can set the exit code: see [How to manage background services](../../how-to/manage-background-services.md#5-turn-the-outcome-into-the-commands-result).
+
+A panic in a service's start, a status poll or a health check is that service's failure, wrapping `controls.ErrPanicked`. It doesn't crash the process. `WithOnPanic` hands each one to a callback.
 
 When a stop is triggered, the controller stops services in **reverse registration order**, one at a time, so the last-started service stops first (respecting startup dependencies). Each `StopFunc` runs under the shutdown deadline: a context-ignoring stop is **abandoned** when the deadline elapses rather than hanging `Wait()` forever. The controller then waits for all goroutines to finish via a `sync.WaitGroup`.
 

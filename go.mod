@@ -57,7 +57,7 @@ require (
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
 	gitlab.com/phpboyscout/go/config-vault v0.4.2
 	gitlab.com/phpboyscout/go/config-xml v0.2.10
-	gitlab.com/phpboyscout/go/controls v0.7.1
+	gitlab.com/phpboyscout/go/controls v0.8.0
 	gitlab.com/phpboyscout/go/credentials v0.3.2
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0

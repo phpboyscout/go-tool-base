@@ -116,8 +116,9 @@ The "bait and switch" update pattern can fail in specific environments:
 
 ### Service Orchestration
 
-- **Zombie Services**: If a service hangs during `Stop()`, the `Controller` will wait indefinitely. Use the `Status` command to identify the hanging service and check its internal logs.
-- **Signal Collision**: If your application traps signals manually, it may conflict with the `Controller` signal handler. Use the `WithoutSignals()` option when creating the controller if you need custom handling.
+- **A stop that hangs**: a service's stop runs under the shutdown deadline and is abandoned when it passes, so `Wait()` returns. `Outcome().Unfinished` names each step that didn't finish; check that service's logs.
+- **Signal collision**: inside a GTB command, the root owns `SIGINT`/`SIGTERM`. Don't pass `controls.WithSignals()` to a controller there, or two handlers race on one Ctrl-C. To handle signals yourself, opt the root out with `root.WithoutSignals()`.
+- **The tool stays up after a service fails**: without `controls.WithStopOnGiveUp()`, a service that fails for good (a panicking start included) leaves the process running but not ready. See [How to manage background services](../how-to/manage-background-services.md).
 
 ### Credentials & Keychain
 
