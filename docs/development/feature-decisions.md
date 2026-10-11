@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 This page records the architectural decisions, development conventions, and feature evaluations that shape the GTB project. It serves as institutional memory for contributors: both to maintain consistency with established patterns and to reconsider past decisions when circumstances change.
 
-GTB's guiding principle: **foundation for tools, not an application framework**. Features that belong in the tools built on GTB (not in GTB itself) are rejected.
+GTB's guiding principle: **the foundation an application is built on, not the application itself**. Features that belong in the tools built on GTB (not in GTB itself) are rejected.
 
 ---
 
@@ -94,6 +94,8 @@ So: `Backend` is the extension point; `SecretsProvider` as originally proposed (
 
 **Rejection rationale:** The telemetry system covers CLI analytics needs (command invocations, errors, feature usage). Distributed tracing with spans is a service-level concern: tools that need it should use OpenTelemetry directly.
 
+**Update (June 2026):** Reversed in part once tools built on GTB grew long-running services. OpenTelemetry tracing, metrics and logs landed in June 2026 and now come from the standalone [`go/observability`](https://observability.go.phpboyscout.uk) module, which `pkg/telemetry` wires from config (`pkg/telemetry/observability.go`). It stays opt-in and separate from the analytics above. GTB still adds no tracing API of its own: a tool that wants spans uses OpenTelemetry's API against the provider GTB installs.
+
 ### Query DSL
 **Date:** 31 March 2026
 
@@ -107,60 +109,62 @@ So: `Backend` is the extension point; `SecretsProvider` as originally proposed (
 
 These are project-wide choices established through implemented specs. Future work should maintain consistency with these patterns.
 
-### Error Library: cockroachdb/errors
-**Spec:** `2026-02-18-cockroachdb-errors-migration.md`
+### Error Library: go/errors
+**Specs:** [`0001-cockroachdb-errors-migration`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0001-cockroachdb-errors-migration) (superseded in practice), [go/errors `0001-an-errors-package-we-own`](https://gitlab.com/phpboyscout/go/errors/-/wikis/specs/0001-an-errors-package-we-own)
 
-Chosen over standard library `errors`. Provides structured hints (`WithHint`), details, assertion failures, and stack traces: essential for user-facing error messaging. All error creation and wrapping must use `cockroachdb/errors`; do not mix with `fmt.Errorf` or standard `errors.New`.
+All error creation and wrapping uses the estate's own [`gitlab.com/phpboyscout/go/errors`](https://gitlab.com/phpboyscout/go/errors). It provides stack traces, user-facing hints (`WithHint`, `WithHintf`), details and structured attributes: what user-facing error messaging needs, and what the standard library lacks. Do not mix in `fmt.Errorf` or the standard `errors.New`.
 
-### Logging: Unified Logger Interface
-**Spec:** `2026-03-23-unified-logger-abstraction.md`
+GTB first adopted `cockroachdb/errors` for those features. The estate replaced it with go/errors, which depends on the standard library alone, because an error package is imported by every module and should be the lightest thing in the dependency graph. Every symbol GTB used from cockroachdb/errors has a same-named equivalent. Package-level sentinels use `NewSentinel(kind, msg)` rather than `New`, so their stack does not point at package initialisation, and kinds are namespaced `gtb.<package>.<name>`.
 
-Replaced dual-library logging (charmbracelet/log + slog) with a unified `Logger` interface. Backends implement the interface directly (not wrappers). Exposes `Handler() slog.Handler` for OpenTelemetry and third-party integration. Charmbracelet is the default CLI backend. Printf-style methods (`Infof`, `Warnf`) are first-class, not discouraged.
+### Logging: Slog-Shaped Logger Interface
+**Specs:** [`0022-unified-logger-abstraction`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0022-unified-logger-abstraction), [`0116-slog-first-extraction-seams`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0116-slog-first-extraction-seams)
+
+A single `Logger` interface (`pkg/logger`) replaced dual-library logging (charmbracelet/log + slog). It has the shape of `*slog.Logger`: leveled methods with key-value attributes, their `Context` forms, `Log`/`LogAttrs`, and `Handler() slog.Handler` for OpenTelemetry and third-party integration. The printf-style methods (`Infof`, `Warnf`) the first version carried are gone, so a `*slog.Logger` and GTB's logger are interchangeable at the extracted modules' seams. The Charm backend (`logger.NewCharm`) is the default for interactive output. Level and format changes are optional `Leveller` and `Reformatter` interfaces, so only the command layer adjusts them.
 
 ### DI Pattern: Narrow Interfaces + Props God Object
-**Spec:** `2026-03-21-props-interface-narrowing.md`
+**Spec:** [`0014-props-interface-narrowing`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0014-props-interface-narrowing)
 
 Props is an intentional god object. This is by design. Narrow role-based interfaces (`LoggerProvider`, `ConfigProvider`, etc.) allow consumers to declare minimal dependencies without replacing Props. New code should accept the narrowest interface that satisfies its needs.
 
 ### Middleware: Function Wrappers over a Snapshotted Registry
-**Spec:** `2026-03-24-command-middleware-system.md`
+**Spec:** [`0024-command-middleware-system`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0024-command-middleware-system)
 
 Middleware uses `func(next RunEFunc) RunEFunc`. The same pattern as Go HTTP middleware. Global middleware runs before feature-specific. The root chains from an immutable snapshot of the registry taken when it builds the tree, so a late registration is not in that tree and cannot race it (spec 0199 replaced the earlier seal, which panicked).
 
 ### Security: Shared TLS Config, Scheme Protection
-**Specs:** `2026-03-24-secure-http-client.md`, `2026-03-24-security-server-hardening.md`
+**Specs:** [`0030-secure-http-client`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0030-secure-http-client), [`0031-security-server-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0031-security-server-hardening)
 
 TLS 1.2 minimum with curated AEAD cipher suites enforced across all HTTP and gRPC components. HTTP client rejects HTTPS-to-HTTP redirect downgrades. gRPC reflection is off by default. All security settings via standard config resolution (no hardcoded bypasses).
 
 ### Concurrency: Callback-Based Resource Access
-**Spec:** `2026-03-25-vcs-repo-thread-safety.md`
+**Spec:** [`0035-vcs-repo-thread-safety`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0035-vcs-repo-thread-safety)
 
-`WithRepo`/`WithTree` callback pattern replaced raw pointer getters to keep resources inside critical sections. `sync.Mutex` (not `RWMutex`) for go-git because it mutates internal caches during reads. This pattern should be followed for any future resource that requires thread-safe access.
+The `WithRepo`/`WithTree` callback pattern (now in [`go/repo`](https://repo.go.phpboyscout.uk)) replaced raw pointer getters to keep resources inside critical sections. `sync.Mutex` (not `RWMutex`) for go-git because it mutates internal caches during reads. This pattern should be followed for any future resource that requires thread-safe access.
 
 ### Config Validation: Decentralised Per-Package
-**Spec:** `2026-03-26-config-schema-validation.md`
+**Spec:** [`0037-config-schema-validation`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0037-config-schema-validation)
 
 Each package defines and validates its own config schema via struct tags. No centralised global schema. Unknown keys produce warnings (forward-compatible); missing required fields and enum violations produce errors. Strict mode upgrades unknowns to errors.
 
 ### Testing: Strategic Godog BDD
-**Spec:** `2026-03-28-godog-bdd-strategy.md`
+**Spec:** [`0044-godog-bdd-strategy`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0044-godog-bdd-strategy)
 
 Godog is used strategically for CLI workflows and state machine scenarios (controls lifecycle, telemetry commands, chat persistence). Table-driven unit tests remain the baseline. BDD is not universal: packages where httptest mocks are effective (chat, HTTP) or AST manipulation (generator) use standard tests.
 
 ### Integration Tests: Env-Var Gating
-**Spec:** `2026-03-24-test-coverage-follow-up.md`
+**Spec:** [`0033-test-coverage-follow-up`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0033-test-coverage-follow-up)
 
 Integration tests use `testutil.SkipIfNotIntegration(t, "tag")` with `INT_TEST=1` / `INT_TEST_<TAG>=1` env vars. Chosen over `//go:build` tags for compile-time safety and IDE discoverability. Tests live in dedicated `*_integration_test.go` files.
 
 ### Release Providers: Global Registry Pattern
-**Spec:** `2026-03-29-extended-release-sources.md`
+**Spec:** [`0045-extended-release-sources`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0045-extended-release-sources)
 
-Providers register via `forge.Register(sourceType, factory)` in `init()` functions. Written once at startup, read-only thereafter. The registry half of this pattern is worth replicating for future extensibility points.
+Providers register via `forge.Register(sourceType, factory)` in the `init()` of each provider module (`go/forge-github`, `go/forge-gitlab` and the rest), and a binary links the ones it wants by blank import from its `main` (spec 0194). Written once at startup, read-only thereafter. The registry half of this pattern is worth replicating for future extensibility points.
 
 The `ReleaseSource.Params` map that used to carry provider-specific config is **not**: spec 0192 removed it when `go/forge` stopped reading one. A single map on a shared struct can describe exactly one source per type, so it could never express two `direct` sources with different templates. Provider settings now live in a configuration subtree the endpoint scopes into, which can. Prefer that shape for a new extensibility point.
 
 ### Telemetry: Opt-In with Privacy by Design
-**Spec:** `2026-03-21-opt-in-telemetry.md`
+**Spec:** [`0012-opt-in-telemetry`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0012-opt-in-telemetry)
 
 Telemetry is never enabled by default. Two-level gating: tool author enables `TelemetryCmd`, user opts in via command or env var. No PII collected. Machine IDs are SHA-256 hashed from multiple signals. Consent withdrawal (`telemetry disable`) immediately drops all buffered data. `ForceEnabled` for enterprise overrides consent but GDPR deletion still works.
 
@@ -168,7 +172,7 @@ Telemetry is never enabled by default. Two-level gating: tool author enables `Te
 
 ## Development Conventions
 
-These are opinionated positions enforced across the project. They are documented in `CLAUDE.md` and the `gtb-dev` skill but recorded here for completeness.
+These are opinionated positions enforced across the project. They are documented in `AGENTS.md` and the `gtb-dev` skill but recorded here for completeness.
 
 ### Library-First Principle
 
@@ -176,7 +180,7 @@ All new features must be implemented in `pkg/` as reusable components before bei
 
 ### Spec-Driven Development
 
-Non-trivial features (new packages, public API changes, generator modifications, architectural changes) require a spec in the [wiki](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) with status `DRAFT` before implementation begins. Quick fixes and minor changes proceed directly. Spec and implementation live on the same branch: co-locating design rationale with code in git history.
+Non-trivial features (new packages, public API changes, generator modifications, architectural changes) require a spec in the [wiki](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) with status `DRAFT` before implementation begins, and implementation starts only once it is `APPROVED`. Quick fixes and minor changes proceed directly. Specs live in the wiki rather than the repository because they are point-in-time decision records: commits and merge requests cite the spec number, and the repository keeps only an [index](specs/index.md).
 
 ### Test-Driven Development
 
@@ -184,7 +188,7 @@ Write failing tests first, derived from the spec's public API and edge cases. Ne
 
 ### No Linting Bypasses
 
-Never add `//nolint` decorators. Always address the root cause. Lint resolution order (simplest to most complex): `errcheck` → `gocritic` → `staticcheck` → `exhaustive` → `nestif` → `cyclop`. Run tests after every structural fix.
+Address the root cause rather than silencing a linter. Where a suppression is genuinely unavoidable (gosec G204 for an intentional dev-tooling subprocess, for example), it is a narrowly scoped inline `//nolint:<linter> // <justification>` on the exact line, never a file-scoped exclusion in `.golangci.yaml`. Lint resolution order (simplest to most complex): `errcheck` → `gocritic` → `staticcheck` → `exhaustive` → `nestif` → `cyclop`. Run tests after every structural fix.
 
 ### Error Bubbling via RunE
 
@@ -208,11 +212,11 @@ Prefer passing `Props` (or narrow provider interfaces) over using `context.Conte
 
 ### Secrets Are Runtime Dependencies
 
-Secrets belong to the environment, not the binary. Configuration priority: CLI flags > env vars > config files > embedded defaults. Never hardcode credentials. Use `.env` files for local development (git-ignored).
+Secrets belong to the environment, not the binary. Configuration priority, by default: changed CLI flags > env vars > the project-local file > config files > embedded defaults. Never hardcode credentials. Use `.env` files for local development (git-ignored).
 
 ### Documentation Must Match Code
 
-Any functional change must include a doc update in `docs/components/` or `docs/concepts/`, cross-referenced with the code for accuracy. Code and documentation should never diverge. Documentation examples must be functional.
+Any functional change must include a doc update in `docs/explanation/components/` or `docs/explanation/concepts/`, cross-referenced with the code for accuracy. Code and documentation should never diverge. Documentation examples must be functional.
 
 ### Automated Releases
 
@@ -220,7 +224,7 @@ Releases use the Release-MR pattern via colophon. Never manually tag. Merges to 
 
 ### Three-Layer Project Structure
 
-Discovery (`.gtb/manifest.yaml`), Orchestration (`cmd/` (wiring), Implementation (`pkg/cmd/`) logic). The manifest is the source of truth, enabling `regenerate` to update code while preserving custom logic. Assets are co-located with the code that consumes them.
+Discovery (`.gtb/manifest.yaml`), Orchestration (`cmd/`, the wiring) and Implementation (`pkg/cmd/`, the logic). The manifest is the source of truth, enabling `regenerate` to update code while preserving custom logic. Assets are co-located with the code that consumes them.
 
 ---
 
