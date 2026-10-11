@@ -1,6 +1,6 @@
 ---
 title: Go Tool Base (GTB)
-description: Overview of GTB, a library for building CLI tools in Go.
+description: Overview of GTB, a framework for building Go applications, from command-line tools to long-running services and binaries with their own UI.
 date: 2026-02-16
 tags: [overview, introduction]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -17,9 +17,9 @@ hide:
       </video>
     </div>
     <h1 class="hero-title">Go Tool Base</h1>
-    <p class="hero-subtitle">The Intelligent Lifecycle Framework for Go CLIs</p>
+    <p class="hero-subtitle">The Intelligent Lifecycle Framework for Go Applications</p>
     <p class="hero-description" style="max-width: 800px; margin-left: auto; margin-right: auto;">
-      Modern CLI tools and DevOps workflows demand more than basic flag parsing. GTB works as a "batteries-included" micro-framework, providing a standardized foundation for building mission-critical tools with built-in agentic workflows, hardware-backed credentials vaults, OpenTelemetry observability, and zero-config service management.
+      Command-line tools, long-running bots and daemons, and binaries that serve their own UI all need more than basic flag parsing. GTB works as a "batteries-included" micro-framework, providing a standardized foundation for all three, with built-in agentic workflows, hardware-backed credentials vaults, OpenTelemetry observability, and zero-config service management.
     </p>
     <div class="install-box" style="margin-left: auto; margin-right: auto;">
       <span class="install-command">curl -sSL https://gtb.phpboyscout.uk/install.sh | bash</span>
@@ -54,6 +54,12 @@ Four sections, each answering a different kind of question:
 - **[Explanation](explanation/index.md)**: why the framework is shaped this way.
 
 ## Overview
+
+GTB is for three shapes of application, and a single binary can be all three:
+
+- **Command-line tools** that run once and exit.
+- **Long-running processes**, such as bots, workers and daemons, supervised for ordered start-up, health checks and graceful shutdown. A run without a terminal (systemd, a container, cron) starts without prompting anyone.
+- **Binaries that serve their own local UI**, such as a browser studio or a desktop app's backend.
 
 GTB accelerates development by providing a standardized Dependency Injection (`Props`) container pre-wired with essential features. It includes multi-source configuration, automatic version checking, structured logging, and an AI service layer: allowing you to focus entirely on your unique business logic.
 
@@ -96,11 +102,12 @@ GTB accelerates development by providing a standardized Dependency Injection (`P
 
 ## Built-in Commands
 
-Every CLI tool built with GTB automatically includes the following commands with a cli tool:
+A tool generated with GTB carries these commands by default, whichever shape it takes:
 
 - **`init`** - Initialize tool configuration and setup
 - **`version`** - Display version information and check for updates
 - **`update`** - Update the tool to the latest version
+- **`doctor`** - Diagnose configuration, credentials and the environment
 - **`docs`** - Interactive documentation browser with AI capabilities
 - **`mcp`** - Expose your tool's capabilities via the Model Context Protocol
 
@@ -161,8 +168,8 @@ See how Go Tool Base builds and executes interactive lifecycle commands in real-
 </div>
 
 <div class="cta-banner">
-  <h2>Ready to Build Next-Gen CLIs?</h2>
-  <p>Whether you want to scaffold a new project in seconds or integrate into a complex enterprise tool, Go Tool Base gives you the developer-focused lifecycle infrastructure out-of-the-box.</p>
+  <h2>Ready to Build?</h2>
+  <p>Whether you want to scaffold a new project in seconds or grow a command-line tool into a long-running service, Go Tool Base gives you the developer-focused lifecycle infrastructure out-of-the-box.</p>
   <div class="cta-buttons">
     <a href="getting-started/" class="btn btn-primary">Get Started Now →</a>
     <a href="how-to/" class="btn btn-secondary">Explore 50+ How-to Guides</a>

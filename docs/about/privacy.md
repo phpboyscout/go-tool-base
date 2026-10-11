@@ -9,7 +9,7 @@ hide:
 
 **Effective Date:** June 25, 2026
 
-Go Tool Base (GTB) is an open-source lifecycle framework for Go CLI tools. As an open-source tool, GTB itself does not collect, store, or transmit your personal data, source code, or credentials to any central servers.
+Go Tool Base (GTB) is an open-source lifecycle framework for Go applications, from command-line tools to long-running services. As an open-source tool, GTB itself does not collect, store, or transmit your personal data, source code, or credentials to any central servers.
 
 ## Telemetry & Diagnostics
 

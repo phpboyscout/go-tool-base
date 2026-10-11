@@ -9,7 +9,7 @@ hide:
 
 # Security & Trust Model
 
-GTB is a framework for building CLI tools. It ships with opinionated defaults for credential storage, output redaction, URL handling, and dependency hygiene, but it is not a turnkey security product. The sections below describe what the framework guarantees, what responsibilities fall to the tool author, and the deployment contexts each primitive is designed for.
+GTB is a framework for building Go applications: command-line tools, long-running services and binaries that serve their own UI. It ships with opinionated defaults for credential storage, output redaction, URL handling, and dependency hygiene, but it is not a turnkey security product. The sections below describe what the framework guarantees, what responsibilities fall to the tool author, and the deployment contexts each primitive is designed for.
 
 ## Credential storage
 

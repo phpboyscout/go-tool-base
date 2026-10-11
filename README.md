@@ -6,14 +6,20 @@
 
 **The Intelligent Application Lifecycle Framework for Go.**
 
-Flag parsing is the easy part. What costs you is everything after it: configuration that layers properly, a self-update path you trust, errors a user can act on, and the same six commands written again in every tool. GTB is a batteries-included micro-framework (think Rails or Laravel) for Go command-line applications, and it ships those already built.
+Flag parsing is the easy part. What costs you is everything after it: configuration that layers properly, a self-update path you trust, errors a user can act on, and the same six commands written again in every tool. GTB is a batteries-included micro-framework (think Rails or Laravel) for Go applications, and it ships those already built.
+
+Those applications come in three shapes, and one binary can be all of them:
+
+- **Command-line tools** that run once and exit, with the built-in commands (`init`, `update`, `doctor`, `docs`, `mcp`) already wired.
+- **Long-running processes**, such as bots, workers and daemons, supervised by [go/controls](https://controls.go.phpboyscout.uk) for ordered start-up, health checks and graceful shutdown. A run without a terminal (systemd, a container, cron) starts without prompting anyone.
+- **Binaries that serve their own local UI**, a web studio or a desktop app's backend, on the same hardened HTTP server and the same `Props` as the rest of the tool.
 
 ## ✅ What GTB IS / IS NOT
 
 - **IS a full-lifecycle framework.** Configuration, versioning, auto-updates, embedded TUI docs, error handling and structured logging, out of the box.
 - **IS a dependency injection container.** Services are passed explicitly through the `Props` container to every command constructor. Nothing reaches for a global.
 - **IS an AI-ready foundation.** Agentic loop orchestration and MCP exposure are built in.
-- **NOT a web framework (like Gin/Fiber)** or a microservice generator (like Sponge). GTB primarily bootstraps CLI utilities and background daemons, though you can easily build a `serve` command that boots an HTTP router via GTB's DI container!
+- **NOT a web framework (like Gin/Fiber)** or a microservice generator (like Sponge). GTB gives an application its lifecycle: configuration, updates, supervision, errors and logging. It brings no router opinions, no templating and no service mesh. A `serve` or `studio` command boots whatever HTTP handler you choose, inside that lifecycle.
 
 > [!IMPORTANT]
 > **Full Documentation**: For detailed guides, component deep-dives, framework comparisons, and API references, please visit our documentation site:
