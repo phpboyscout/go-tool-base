@@ -1,5 +1,25 @@
 # Changelog
 
+## [v0.46.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.46.0...v0.46.1)
+
+### Notes
+
+- `chat.ProviderNames` is removed. Use `chat.ProviderModules()` for every provider the adapter knows, or `chat.LinkedProviders` for the ones a binary links (see the migration note).
+
+- Credential redaction in logs and telemetry now also masks secret_key, private_key, access_key, client_secret, id_token and private_token, and in JSON key and api-key (go/redact v0.2.3), so some log lines read differently.
+
+### Bug Fixes
+
+- **deps**: update aws-sdk-go-v2 monorepo ([af0d86e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/af0d86e28c1706e4fd13b9ec10b9580f21fbbe92))
+- **deps**: take grpc v1.84.0, grpc-gateway v2.31.0 and google api v0.301.0 ([2c60322](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2c603226476138eaa9aedfc7dad35c182f134e92))
+- **deps**: bring the estate modules the release check found stale up to date ([0165615](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0165615f57e1ee699eaaefd7604b989c07fe327d))
+
+### Other
+
+- **chat**: remove ProviderNames, which lost its last caller ([e571d96](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e571d96d3cc488f0f5b30a58a22681c83cd77f2a))
+
 ## [v0.46.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.45.3...v0.46.0)
