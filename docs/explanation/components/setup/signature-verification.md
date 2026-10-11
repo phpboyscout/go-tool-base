@@ -258,6 +258,8 @@ updater, err := setup.NewUpdater(ctx, props, version, force)
 
 `Tool.Signing.EmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`verify.BuildKeyResolver`](#buildkeyresolver) (in `signing/verify`) with the resolved `update.key_source` family to produce the resolver. The resolver chain is not pluggable from outside the framework: a further source (a DNS resolver, Sigstore) is a `Tool.Signing` field when a tool asks for one.
 
+`Tool.Signing.AnchorOnlyKeys` takes keys that must be in the trust set but may never sign a release. A rotation-authority key is the case: it is published in the same WKD bucket as the release keys, so the embedded set has to include it for the cross-check to agree. The framework adds these keys to the trust set and passes their fingerprints to `verify.KeyResolverConfig.AnchorOnlyFingerprints`. A manifest signed by one then fails with `verify.ErrSignatureInvalid`. gtb passes its rotation-authority key this way, from `cli/pkg/trustkeys/authority/`.
+
 ### BuildKeyResolver
 
 `verify.BuildKeyResolver` maps a `key_source` onto a concrete resolver:

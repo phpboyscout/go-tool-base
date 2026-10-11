@@ -30,6 +30,12 @@ import (
 //go:embed all:keys
 var keyFS embed.FS
 
+// authorityFS holds keys that anchor trust but must never sign a release.
+// They live outside keys/ so Keys cannot return them.
+//
+//go:embed authority/*.asc
+var authorityFS embed.FS
+
 // Keys returns every embedded ASCII-armored public key (the contents of
 // internal/trustkeys/keys/*.asc). It returns nil when no key files are
 // present, which leaves the embedded trust anchor unset.
@@ -40,12 +46,7 @@ var keyFS embed.FS
 // empty trust set, which would let verification fall open. Use [KeysE]
 // to handle the error explicitly.
 func Keys() [][]byte {
-	keys, err := KeysE()
-	if err != nil {
-		panic("trustkeys: reading embedded trust anchors: " + err.Error())
-	}
-
-	return keys
+	return mustKeysFromFS(keyFS, "keys")
 }
 
 // KeysE is the error-returning form of [Keys]. It propagates any error
@@ -54,6 +55,22 @@ func Keys() [][]byte {
 // site instead of degrading silently to an empty (verification-open) set.
 func KeysE() ([][]byte, error) {
 	return keysFromFS(keyFS, "keys")
+}
+
+// AuthorityKeys returns the embedded rotation-authority public keys, for
+// props.Tool.Signing.AnchorOnlyKeys. Like Keys, it panics if the embedded
+// store cannot be read.
+func AuthorityKeys() [][]byte {
+	return mustKeysFromFS(authorityFS, "authority")
+}
+
+func mustKeysFromFS(fsys fs.FS, root string) [][]byte {
+	keys, err := keysFromFS(fsys, root)
+	if err != nil {
+		panic("trustkeys: reading embedded " + root + ": " + err.Error())
+	}
+
+	return keys
 }
 
 // keysFromFS walks root in fsys, collecting every *.asc file's contents.

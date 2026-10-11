@@ -64,3 +64,18 @@ func TestKeysE_ReturnsEmbeddedKeys(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, keys, "embedded keys/*.asc must be returned without error")
 }
+
+func TestMustKeysFromFS_PanicsOnReadError(t *testing.T) {
+	t.Parallel()
+
+	fsys := errReadFS{
+		FS:       fstest.MapFS{"authority/bad.asc": &fstest.MapFile{Data: []byte("KEY")}},
+		failPath: "authority/bad.asc",
+	}
+
+	// An unreadable trust anchor must stop the binary, never yield an
+	// empty set that would let verification fall open.
+	assert.PanicsWithValue(t,
+		"trustkeys: reading embedded authority: walking embedded trust-key directory: open authority/bad.asc: permission denied",
+		func() { mustKeysFromFS(fsys, "authority") })
+}

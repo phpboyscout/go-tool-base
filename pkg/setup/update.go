@@ -128,6 +128,10 @@ type SelfUpdater struct {
 	// consumed in NewUpdater to build keyResolver when one was not
 	// supplied explicitly via withKeyResolver.
 	embeddedKeys [][]byte
+
+	// anchorOnlyKeys are props.Tool.Signing.AnchorOnlyKeys: in the trust set,
+	// refused as signers.
+	anchorOnlyKeys [][]byte
 	// keySource / externalKeyEmail / requireExternalCrosscheck are the
 	// resolved update.* config values used to build the default
 	// resolver from embeddedKeys.
@@ -401,7 +405,8 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		// library command call sites (version/update/root) thus pick up
 		// the embedded keys without passing options. An explicit
 		// withEmbeddedKeys/withKeyResolver option below still overrides.
-		embeddedKeys: p.Tool.Signing.EmbeddedKeys,
+		embeddedKeys:   p.Tool.Signing.EmbeddedKeys,
+		anchorOnlyKeys: p.Tool.Signing.AnchorOnlyKeys,
 	}
 
 	// Options are applied before the release client is resolved so
@@ -558,7 +563,13 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 		return nil
 	}
 
+	anchorOnly, err := anchorOnlyFingerprints(s.anchorOnlyKeys)
+	if err != nil {
+		return errors.Wrap(err, "configuring update signature verification")
+	}
+
 	r, err := verify.BuildKeyResolver(verify.KeyResolverConfig{
+		AnchorOnlyFingerprints:    anchorOnly,
 		KeySource:                 s.keySource,
 		ExternalKeyEmail:          s.externalKeyEmail,
 		RequireExternalCrosscheck: s.requireExternalCrosscheck,
@@ -567,7 +578,7 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 		// nil-default is a plain stdlib client).
 		Logger:     slog.New(s.logger.Handler()),
 		HTTPClient: httpclient.NewClient(),
-	}, s.embeddedKeys...)
+	}, slices.Concat(s.embeddedKeys, s.anchorOnlyKeys)...)
 	if err != nil {
 		return errors.Wrap(err, "configuring update signature verification")
 	}

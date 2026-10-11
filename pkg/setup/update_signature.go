@@ -33,6 +33,21 @@ func withEmbeddedKeys(armoredKeys ...[]byte) UpdaterOption {
 	return func(s *SelfUpdater) { s.embeddedKeys = armoredKeys }
 }
 
+// anchorOnlyFingerprints parses the anchor-only keys into the fingerprints
+// verify.KeyResolverConfig refuses as signers. None configured is nil.
+func anchorOnlyFingerprints(armoredKeys [][]byte) ([]string, error) {
+	if len(armoredKeys) == 0 {
+		return nil, nil
+	}
+
+	ts, err := verify.LoadTrustSet(armoredKeys...)
+	if err != nil {
+		return nil, errors.Wrap(err, "loading anchor-only keys")
+	}
+
+	return ts.Fingerprints(), nil
+}
+
 // SignatureAssetName returns the configured signature filename, or the
 // GoReleaser default "checksums.txt.sig" when unset.
 func (s *SelfUpdater) SignatureAssetName() string {

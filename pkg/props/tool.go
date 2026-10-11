@@ -151,6 +151,12 @@ type SigningConfig struct {
 	// build artefacts, never runtime config.
 	EmbeddedKeys [][]byte `json:"-" yaml:"-"`
 
+	// AnchorOnlyKeys are ASCII-armored public keys that join the trust set,
+	// and so the embedded-versus-WKD cross-check, but never validate a
+	// release signature. A rotation-authority key published beside the
+	// release keys belongs here rather than in EmbeddedKeys.
+	AnchorOnlyKeys [][]byte `json:"-" yaml:"-"`
+
 	// RequireChecksum is the tool author's baseline for checksum enforcement,
 	// consulted when neither config nor environment supplies one. It is a
 	// pointer so "unset" is distinguishable from "explicitly false": nil

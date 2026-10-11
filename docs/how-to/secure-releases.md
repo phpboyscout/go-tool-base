@@ -365,7 +365,7 @@ below apply to it as to the built-in sources:
 
 The trust set is a *set*, not a single key. During a rotation window, ship releases signed by both the old and new key; the verifier accepts either. Once all supported versions of the tool include the new key in their trust set, the old key can stop signing. Keep its public half in the embedded `trustkeys` directory for as long as anything signed by it should still verify, and never edit a WKD entry a shipped binary pins: the verifier requires the embedded set and the WKD set for its compiled-in identity to agree exactly, so a new trust set gets a new WKD identity and the old entry stays frozen (see infra spec 0012 D2 for the 2026 rotation that established this).
 
-For emergency rotation (compromise of the primary signing key), the design reserves a second "rotation-authority" key whose private half is stored offline. A release signed by the rotation-authority carries a `rotate-keys.json` manifest; the next update rewrites the embedded trust set from that manifest. This is documented in the spec and deferred to Phase 4.
+For emergency rotation (compromise of the primary signing key), the design reserves a second "rotation-authority" key whose private half is stored offline. It authorises a change to the trust set and never signs a release: put it in `props.Tool.Signing.AnchorOnlyKeys`, not `EmbeddedKeys`, so a manifest it signs is refused. The emergency rotation flow itself is not built yet (spec 0101).
 
 ---
 

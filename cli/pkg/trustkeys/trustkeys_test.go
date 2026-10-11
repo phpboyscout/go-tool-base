@@ -29,10 +29,6 @@ var expectedFingerprints = map[string]struct {
 	algorithm   string
 	description string
 }{
-	"2B26658409047ED08B56CEBDCF5B8DBB5D9F19C2": {
-		algorithm:   "ed25519",
-		description: "rotation-authority (offline, break-glass)",
-	},
 	"6E2072BBF83DFAAF006300C495DDAC333C37AA35": {
 		algorithm:   "rsa",
 		description: "signing-key-v1 (AWS KMS alias/gtb-release-signing-v1, old account 049815585546; retired at window close, public key trusted forever)",
@@ -88,4 +84,17 @@ func TestKeys_FingerprintsMatchExpectedSet(t *testing.T) {
 		_, expected := expectedFingerprints[fp]
 		assert.Truef(t, expected, "embedded fingerprint %s is not in the expected set — if this is a deliberate rotation, update expectedFingerprints in this test", fp)
 	}
+}
+
+// The rotation-authority key anchors trust but must never sign a release, so
+// it is served apart from Keys and passed to the updater as anchor-only.
+func TestAuthorityKeys_HoldOnlyTheRotationAuthority(t *testing.T) {
+	t.Parallel()
+
+	keys := trustkeys.AuthorityKeys()
+	require.Len(t, keys, 1)
+
+	ts, err := verify.LoadTrustSet(keys...)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"2B26658409047ED08B56CEBDCF5B8DBB5D9F19C2"}, ts.Fingerprints())
 }

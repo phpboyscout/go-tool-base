@@ -104,6 +104,11 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props, error) {
 		Signing: props.SigningConfig{
 			EmbeddedKeys: trustkeys.Keys(),
 
+			// The rotation-authority key is served in the same WKD bucket,
+			// so it must be in the set for the cross-check to agree, but it
+			// may never sign a release (#124).
+			AnchorOnlyKeys: trustkeys.AuthorityKeys(),
+
 			// GoReleaser has always produced checksums.txt on every
 			// release, so gtb fails closed: a future release with a
 			// broken pipeline aborts the update with an actionable
