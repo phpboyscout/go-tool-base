@@ -42,16 +42,37 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 	}
 
 	f, answers := prepareForm(io, f)
-	if err := f.RunWithContext(ctx); err != nil {
+	if err := runForm(ctx, f, answers); err != nil {
 		return err
 	}
 
 	if answers != nil && answers.ranOut {
-		return errors.WithHint(ErrInputEnded,
-			"Give one line per question; an empty line takes the question's default.")
+		return inputEnded()
 	}
 
 	return nil
+}
+
+// runForm runs f, turning a panic after the answers ran out into
+// ErrInputEnded. huh re-prompts a select after an out-of-range choice, finds
+// no next line, and indexes its options with the rejected number (huh v2.0.3,
+// #126). Any other panic is not ours to swallow.
+func runForm(ctx context.Context, f *huh.Form, answers *lineReader) (err error) {
+	defer func() {
+		if answers == nil || !answers.ranOut {
+			return
+		}
+
+		if r := recover(); r != nil {
+			err = inputEnded()
+		}
+	}()
+
+	return f.RunWithContext(ctx)
+}
+
+func inputEnded() error {
+	return errors.WithHint(ErrInputEnded, "Give one line per question; an empty line takes the question's default.")
 }
 
 // PrepareForm binds f to the IO's streams the way RunFormOn does, without

@@ -109,6 +109,31 @@ func TestRunFormOn_InputThatEndsEarlyFails(t *testing.T) {
 	}
 }
 
+// TestRunFormOn_AnOutOfRangeChoiceAsTheLastLineFails: huh asks a select again
+// after an out-of-range number, finds no next line, and indexes its options
+// with the rejected one (huh v2.0.3). A pipe that ran out is ErrInputEnded,
+// not a panic (#126).
+func TestRunFormOn_AnOutOfRangeChoiceAsTheLastLineFails(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"9\n", "0\n", "nine\n"} {
+		t.Run(strings.TrimSpace(input), func(t *testing.T) {
+			t.Parallel()
+
+			choice := "a"
+			form := huh.NewForm(huh.NewGroup(
+				huh.NewSelect[string]().Title("Pick").Options(huh.NewOptions("a", "b", "c", "d", "e")...).Value(&choice),
+			))
+
+			pipe := props.StdIO{Stdin: strings.NewReader(input), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: true}
+
+			require.NotPanics(t, func() {
+				require.ErrorIs(t, setup.RunFormOn(t.Context(), pipe, form), setup.ErrInputEnded)
+			})
+		})
+	}
+}
+
 // TestPromptable: one rule for every prompt gate.
 func TestPromptable(t *testing.T) {
 	t.Parallel()
