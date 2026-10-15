@@ -339,7 +339,14 @@ order the author chooses, which is under investigation with go/config.
 `keychain` is writable by default, the only kind that is, and needs the
 `keychain` feature linked (`pkg/setup/keychain`); without it the source cannot
 be built, so an optional keychain slot drops out and a required one stops the
-tool. It resolves when the store is built, which can prompt for an unlock.
+tool. Before reading, it probes the keychain with a canary write, read and
+delete under the reserved `credentials-keychain-probe` service, bounded by
+`timeout` or, when that is unset, two seconds. A keychain that does not answer
+in time (a wedged D-Bus session, a locked collection nobody unlocks) is treated
+the same way: an optional slot drops out with a warning naming the probe, and a
+required one stops the tool. The source resolves when the store is built, which
+can prompt for an unlock, so a slot that expects a person to type a passphrase
+should set `timeout` long enough for one.
 
 See [spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
 D3 to D7, D11, D12 and D19.

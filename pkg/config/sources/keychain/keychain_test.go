@@ -3,6 +3,7 @@ package keychain
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,6 +36,8 @@ func (m *memKeychain) Delete(_ context.Context, service, account string) error {
 
 func (m *memKeychain) Available() bool { return m.available }
 
+func reachable(context.Context) bool { return true }
+
 func settings(t *testing.T, yaml string) config.Reader {
 	t.Helper()
 
@@ -51,7 +54,7 @@ func TestFactory_ReadsTheDeclaredKeys(t *testing.T) {
 
 	kc := &memKeychain{available: true, entries: map[string]string{"mytool/instagram-token": "tok"}}
 
-	backend, err := factoryFor(kc)(t.Context(), settings(t, "service: mytool\nkeys:\n  platforms.instagram.token: instagram-token\ntimeout: 30s\n"), nil)
+	backend, err := factoryFor(kc, reachable)(t.Context(), settings(t, "service: mytool\nkeys:\n  platforms.instagram.token: instagram-token\ntimeout: 30s\n"), nil)
 	require.NoError(t, err)
 
 	store, err := config.NewStore(t.Context(), config.WithBackend(backend))
@@ -65,7 +68,7 @@ func TestFactory_ReadsTheDeclaredKeys(t *testing.T) {
 func TestFactory_WithoutAKeychainLinked(t *testing.T) {
 	t.Parallel()
 
-	_, err := factoryFor(&memKeychain{})(t.Context(), settings(t, "service: mytool\n"), nil)
+	_, err := factoryFor(&memKeychain{}, reachable)(t.Context(), settings(t, "service: mytool\n"), nil)
 	require.ErrorIs(t, err, ErrNoKeychain)
 	assert.Contains(t, errors.FlattenHints(err), "pkg/setup/keychain")
 }
@@ -73,6 +76,52 @@ func TestFactory_WithoutAKeychainLinked(t *testing.T) {
 func TestFactory_NeedsAService(t *testing.T) {
 	t.Parallel()
 
-	_, err := factoryFor(&memKeychain{available: true})(t.Context(), settings(t, "keys: {}\n"), nil)
+	_, err := factoryFor(&memKeychain{available: true}, reachable)(t.Context(), settings(t, "keys: {}\n"), nil)
 	require.ErrorIs(t, err, ErrNoService)
+}
+
+// A keychain that fails its probe fails the factory, so an optional slot drops
+// out and a required one is refused, without a single read attempted (gtb#130).
+func TestFactory_UnreachableKeychain(t *testing.T) {
+	t.Parallel()
+
+	kc := &memKeychain{available: true, entries: map[string]string{}}
+	unreachable := func(context.Context) bool { return false }
+
+	_, err := factoryFor(kc, unreachable)(t.Context(), settings(t, "service: mytool\n"), nil)
+	require.ErrorIs(t, err, ErrKeychainUnreachable)
+	assert.Contains(t, errors.FlattenHints(err), "timeout")
+}
+
+// The probe is bounded by DefaultProbeTimeout, or by the source's own timeout
+// when it sets one, so a slot that allows for an unlock prompt still gets it.
+func TestFactory_ProbeDeadline(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		yaml string
+		want time.Duration
+	}{
+		"default":    {yaml: "service: mytool\n", want: DefaultProbeTimeout},
+		"configured": {yaml: "service: mytool\ntimeout: 45s\n", want: 45 * time.Second},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var got time.Duration
+
+			probe := func(ctx context.Context) bool {
+				deadline, ok := ctx.Deadline()
+				require.True(t, ok)
+
+				got = time.Until(deadline)
+
+				return true
+			}
+
+			_, err := factoryFor(&memKeychain{available: true}, probe)(t.Context(), settings(t, tc.yaml), nil)
+			require.NoError(t, err)
+			assert.InDelta(t, tc.want, got, float64(time.Second))
+		})
+	}
 }
