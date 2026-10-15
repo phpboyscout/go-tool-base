@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	charm.land/bubbles/v2 v2.2.1
-	charm.land/bubbletea/v2 v2.0.10
+	charm.land/bubbletea/v2 v2.1.0
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
@@ -12,15 +12,15 @@ require (
 	cloud.google.com/go/parametermanager v1.1.0
 	cloud.google.com/go/secretmanager v1.22.0
 	dario.cat/mergo v1.0.2
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3
 	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2 v2.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.0
 	github.com/ProtonMail/go-crypto v1.5.2
-	github.com/aws/aws-sdk-go-v2 v1.47.1
-	github.com/aws/aws-sdk-go-v2/config v1.33.7
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.1
+	github.com/aws/aws-sdk-go-v2 v1.47.3
+	github.com/aws/aws-sdk-go-v2/config v1.33.9
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
 	github.com/charmbracelet/keygen v0.5.4
-	github.com/charmbracelet/x/ansi v0.11.8
+	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/creack/pty v1.1.24
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
@@ -31,50 +31,50 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
-	gitlab.com/phpboyscout/go/awsclient v0.1.1
-	gitlab.com/phpboyscout/go/azureclient v0.1.1
+	gitlab.com/phpboyscout/go/awsclient v0.1.2
+	gitlab.com/phpboyscout/go/azureclient v0.1.2
 	gitlab.com/phpboyscout/go/browser v0.2.2
-	gitlab.com/phpboyscout/go/changelog v0.4.0
+	gitlab.com/phpboyscout/go/changelog v0.4.1
 	gitlab.com/phpboyscout/go/chat v0.32.0
 	gitlab.com/phpboyscout/go/config v0.21.0
-	gitlab.com/phpboyscout/go/config-afero v0.1.11
-	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.3
-	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.2
-	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.1
-	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.2
+	gitlab.com/phpboyscout/go/config-afero v0.1.13
+	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.5
+	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.4
+	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.3
+	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.4
 	gitlab.com/phpboyscout/go/config-azure-blob v0.3.3
-	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.2
-	gitlab.com/phpboyscout/go/config-consul v0.3.1
-	gitlab.com/phpboyscout/go/config-dotenv v0.2.10
-	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.3
-	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.2
-	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.3
-	gitlab.com/phpboyscout/go/config-hcl v0.2.10
-	gitlab.com/phpboyscout/go/config-ini v0.2.10
-	gitlab.com/phpboyscout/go/config-json v0.2.10
-	gitlab.com/phpboyscout/go/config-keychain v0.2.9
-	gitlab.com/phpboyscout/go/config-properties v0.2.10
-	gitlab.com/phpboyscout/go/config-toml v0.3.10
-	gitlab.com/phpboyscout/go/config-vault v0.4.2
-	gitlab.com/phpboyscout/go/config-xml v0.2.10
-	gitlab.com/phpboyscout/go/controls v0.8.0
-	gitlab.com/phpboyscout/go/credentials v0.3.2
+	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.5
+	gitlab.com/phpboyscout/go/config-consul v0.3.3
+	gitlab.com/phpboyscout/go/config-dotenv v0.2.12
+	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.5
+	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.4
+	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.5
+	gitlab.com/phpboyscout/go/config-hcl v0.2.12
+	gitlab.com/phpboyscout/go/config-ini v0.2.12
+	gitlab.com/phpboyscout/go/config-json v0.2.12
+	gitlab.com/phpboyscout/go/config-keychain v0.2.11
+	gitlab.com/phpboyscout/go/config-properties v0.2.12
+	gitlab.com/phpboyscout/go/config-toml v0.3.12
+	gitlab.com/phpboyscout/go/config-vault v0.4.4
+	gitlab.com/phpboyscout/go/config-xml v0.2.12
+	gitlab.com/phpboyscout/go/controls v0.8.3
+	gitlab.com/phpboyscout/go/credentials v0.3.3
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/features v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.31.0
-	gitlab.com/phpboyscout/go/gcpclient v0.1.1
-	gitlab.com/phpboyscout/go/httpclient v0.2.3
-	gitlab.com/phpboyscout/go/mcp v0.2.0
+	gitlab.com/phpboyscout/go/forge v0.31.1
+	gitlab.com/phpboyscout/go/gcpclient v0.1.2
+	gitlab.com/phpboyscout/go/httpclient v0.2.4
+	gitlab.com/phpboyscout/go/mcp v0.2.1
 	gitlab.com/phpboyscout/go/observability v0.3.3
-	gitlab.com/phpboyscout/go/output v0.2.2
+	gitlab.com/phpboyscout/go/output v0.2.3
 	gitlab.com/phpboyscout/go/redact v0.2.3
 	gitlab.com/phpboyscout/go/regexutil v0.2.2
-	gitlab.com/phpboyscout/go/repo v0.5.0
-	gitlab.com/phpboyscout/go/signing v0.10.0
+	gitlab.com/phpboyscout/go/repo v0.5.1
+	gitlab.com/phpboyscout/go/signing v0.10.1
 	gitlab.com/phpboyscout/go/tls v0.2.2
-	gitlab.com/phpboyscout/go/transit v0.2.3
-	gitlab.com/phpboyscout/go/transport v0.6.2
+	gitlab.com/phpboyscout/go/transit v0.2.4
+	gitlab.com/phpboyscout/go/transport v0.6.3
 	gitlab.com/phpboyscout/go/vaultclient v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
@@ -82,10 +82,10 @@ require (
 	go.opentelemetry.io/otel/log v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/sdk/log v1.47.0
-	golang.org/x/crypto v0.57.0
-	golang.org/x/mod v0.41.0
-	golang.org/x/term v0.46.0
-	golang.org/x/text v0.42.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/mod v0.42.0
+	golang.org/x/term v0.47.0
+	golang.org/x/text v0.43.0
 	google.golang.org/api v0.301.0
 	google.golang.org/grpc v1.84.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -99,15 +99,15 @@ require (
 	cloud.google.com/go/compute/metadata v0.10.0 // indirect
 	cloud.google.com/go/iam v1.12.0 // indirect
 	cloud.google.com/go/monitoring v1.30.0 // indirect
-	cloud.google.com/go/storage v1.68.0 // indirect
+	cloud.google.com/go/storage v1.69.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/storage/internal v0.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0 // indirect
-	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.34.0 // indirect
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.35.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.58.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.58.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -118,23 +118,23 @@ require (
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.7 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.49.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.10.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.78.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.38.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.51.2 // indirect
-	github.com/aws/smithy-go v1.28.2 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.22 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.9 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.10.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.79.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.38.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.51.4 // indirect
+	github.com/aws/smithy-go v1.28.5 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/brunoga/deep v1.3.1 // indirect
@@ -144,7 +144,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260910203606-6c9e17dc7a16 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
 	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20260913004009-c615ff2f7805 // indirect
 	github.com/charmbracelet/x/exp/strings v0.1.0 // indirect
@@ -179,8 +179,8 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.9.1 // indirect
-	github.com/go-git/go-git/v5 v5.19.2 // indirect
+	github.com/go-git/go-billy/v5 v5.9.2 // indirect
+	github.com/go-git/go-git/v5 v5.19.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -213,7 +213,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
-	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
+	github.com/hashicorp/hcl/v2 v2.25.0 // indirect
 	github.com/hashicorp/serf v0.10.4 // indirect
 	github.com/hashicorp/vault/api v1.23.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
@@ -261,7 +261,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.28 // indirect
-	github.com/pjbgf/sha1cd v0.6.0 // indirect
+	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
@@ -279,9 +279,9 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	github.com/tidwall/gjson v1.19.0 // indirect
+	github.com/tidwall/gjson v1.20.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/pretty v1.2.2 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
@@ -298,15 +298,15 @@ require (
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
-	gitlab.com/phpboyscout/go/aferobilly v0.2.2 // indirect
+	gitlab.com/phpboyscout/go/aferobilly v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
-	gitlab.com/phpboyscout/go/grpcclient v0.2.2 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/yamldoc v0.7.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/detectors/gcp v1.44.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
+	go.opentelemetry.io/contrib/detectors/gcp v1.45.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0 // indirect
@@ -319,10 +319,10 @@ require (
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	golang.org/x/tools v0.50.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/genproto v0.0.0-20260720211330-0afa2a65878a // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
