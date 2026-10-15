@@ -28,6 +28,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/changelog"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/pkgmanager"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -98,6 +99,9 @@ type SelfUpdater struct {
 	Fs             afero.Fs
 	osExecutable   func() (string, error)
 	execLookPath   func(string) (string, error)
+	// detectManaged finds a package manager that owns the binary; nil is
+	// pkgmanager's real detector.
+	detectManaged func(context.Context, string) (pkgmanager.Install, bool)
 	// io is the invocation's streams, for the prompt that picks between
 	// installations; nil is the process's.
 	io props.IO
@@ -312,6 +316,12 @@ type UpdaterOption func(*SelfUpdater)
 // withOsExecutable overrides os.Executable for testing.
 func withOsExecutable(fn func() (string, error)) UpdaterOption {
 	return func(s *SelfUpdater) { s.osExecutable = fn }
+}
+
+// withManagedInstallDetector overrides the package-manager detector for
+// testing.
+func withManagedInstallDetector(fn func(context.Context, string) (pkgmanager.Install, bool)) UpdaterOption {
+	return func(s *SelfUpdater) { s.detectManaged = fn }
 }
 
 // withExecLookPath overrides exec.LookPath for testing.
@@ -724,6 +734,10 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	if err := s.refuseManagedInstall(ctx, targetPath); err != nil {
+		return targetPath, err
+	}
+
 	skip, err := s.shouldSkipUpdate(ctx)
 	if err != nil {
 		return targetPath, err
@@ -941,6 +955,10 @@ func (s *SelfUpdater) UpdateFromFile(ctx context.Context, filePath string) (stri
 		return "", err
 	}
 
+	if err := s.refuseManagedInstall(ctx, targetPath); err != nil {
+		return targetPath, err
+	}
+
 	// The offline path has no way to verify an OpenPGP signature (there is
 	// no manifest+signature flow for a local tarball), so a required
 	// signature cannot be satisfied here — fail closed rather than skip it.
@@ -1043,6 +1061,29 @@ func (s *SelfUpdater) resolveTargetPath(ctx context.Context) (string, error) {
 	}
 
 	return targetPath, nil
+}
+
+// ErrManagedInstall is a binary a package manager installed. Replacing it
+// would leave the manager's record of the install describing a file that is no
+// longer on disk, so a later upgrade or uninstall would act on the wrong one.
+var ErrManagedInstall = errors.NewSentinel("gtb.setup.managed_install", "refusing to replace a package-managed binary")
+
+// refuseManagedInstall stops an update, --force or not, when a package manager
+// owns targetPath, and names that manager's own upgrade command.
+func (s *SelfUpdater) refuseManagedInstall(ctx context.Context, targetPath string) error {
+	detect := s.detectManaged
+	if detect == nil {
+		detect = pkgmanager.New().Detect
+	}
+
+	inst, managed := detect(ctx, targetPath)
+	if !managed {
+		return nil
+	}
+
+	return errors.WithHintf(
+		errors.Wrapf(ErrManagedInstall, "%s is installed by %s (package %s)", targetPath, inst.Manager, inst.Package),
+		"Upgrade it with its package manager instead: %s", inst.UpgradeCommand())
 }
 
 // shouldSkipUpdate reports whether the explicit update should stop early

@@ -77,6 +77,17 @@ background check merely *notifies* that the source reports an older latest;
 it never applies a downgrade automatically. See
 [`0167-self-update-downgrade-guard`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0167-self-update-downgrade-guard).
 
+### Package-managed guard
+
+Before it downloads or reads anything, the updater asks `internal/pkgmanager`
+whether a package manager owns the binary it would replace: a Homebrew Caskroom
+or Cellar path (after resolving symlinks), or a file `dpkg` or `rpm` records as
+installed. If one does, both `Update` and `UpdateFromFile` return
+`ErrManagedInstall` with that manager's own upgrade command as the hint, and
+`--force` does not override it. The detector is shared so that apt and dnf
+packaging can defer to the same answer. The command reference lists what is
+recognised: [Package-managed installs](../../reference/cli/update.md#package-managed-installs).
+
 ## Testability via Abstraction
 
 The update system is designed to be fully testable despite its heavy reliance on the network and filesystem:
