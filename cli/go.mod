@@ -62,14 +62,14 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	gitea.dev/sdk v1.2.0 // indirect
 	github.com/42wim/httpsig v1.2.4 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
 	github.com/anthropics/anthropic-sdk-go v1.78.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.3 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.22 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.33.9 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.9 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3 // indirect
@@ -171,9 +171,9 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	github.com/tidwall/gjson v1.19.0 // indirect
+	github.com/tidwall/gjson v1.20.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/pretty v1.2.2 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect
@@ -189,6 +189,12 @@ require (
 	gitlab.com/phpboyscout/go/changelog v0.4.1 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.13 // indirect
+	gitlab.com/phpboyscout/go/config-dotenv v0.2.12 // indirect
+	gitlab.com/phpboyscout/go/config-hcl v0.2.12 // indirect
+	gitlab.com/phpboyscout/go/config-ini v0.2.12 // indirect
+	gitlab.com/phpboyscout/go/config-json v0.2.12 // indirect
+	gitlab.com/phpboyscout/go/config-properties v0.2.12 // indirect
+	gitlab.com/phpboyscout/go/config-xml v0.2.12 // indirect
 	gitlab.com/phpboyscout/go/credentials v0.3.3 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.4 // indirect
