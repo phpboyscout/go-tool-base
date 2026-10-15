@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.47.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.47.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.46.1...v0.47.0)
+
+### Notes
+
+- go/config is now v0.21.0. A config file holding two keys that differ only in case, such as `Log.Level` and `log.level`, used to load with one chosen at random. The tool now stops at startup and names the file and both spellings. This also applies when both keys hold the same value. `config set` on an existing key spelled differently now edits that key in TOML, JSON and HCL files instead of adding a second one, and `config unset` now removes it where it used to remove nothing. See the migration note on config keys that collide in case.
+
+- go/controls is now v0.8.0. A panic in a supervised service's start, status poll or health check is now that service's failure instead of crashing the process; without `controls.WithStopOnGiveUp()` the process stays up but not ready. The background-services how-to shows how to make the tool exit non-zero when a service gives up.
+
+- Self-update now refuses a release signed by the rotation-authority key; tools can mark such keys with `props.SigningConfig.AnchorOnlyKeys`.
+
+### Features
+
+- **controls**: adopt go/controls v0.8.0 so a supervised tool exits on give-up ([23856e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/23856e640ee9ec7b1d8d0e46fb65679e528753a2))
+
+### Bug Fixes
+
+- **deps**: sync the cli module with the workspace ([047f093](https://gitlab.com/phpboyscout/go-tool-base/-/commit/047f09312765ae94fdd52a9d0c4a60cccfa334b6))
+- **deps**: take awsclient@v0.1.2, azureclient@v0.1.2, changelog@v0.4.1, config-afero@v0.1.13, config-aws-s3@v0.3.5, config-aws-secrets@v0.3.4, config-aws-ssm@v0.3.3, config-azure-appconfig@v0.3.4, config-azure-keyvault@v0.3.5, config-consul@v0.3.3, config-dotenv@v0.2.12, config-gcp-gcs@v0.3.5, config-gcp-parameter@v0.3.4, config-gcp-secret@v0.3.5, config-hcl@v0.2.12, config-ini@v0.2.12, config-json@v0.2.12, config-keychain@v0.2.11, config-properties@v0.2.12, config-toml@v0.3.12, config-vault@v0.4.4, config-xml@v0.2.12, credentials@v0.3.3, forge@v0.31.1, gcpclient@v0.1.2, httpclient@v0.2.4, mcp@v0.2.1, output@v0.2.3, repo@v0.5.1, signing@v0.10.1, transit@v0.2.4, transport@v0.6.3 ([002d54c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/002d54c1823461c05053fc1e48bfb74c57655d45))
+- **config**: probe the keychain before building a keychain source ([1af47bd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1af47bd16f941e958168ffc97e9b0321a249dcdb))
+- **deps**: update go/config to v0.21.0, which refuses keys that collide in case ([720bf66](https://gitlab.com/phpboyscout/go-tool-base/-/commit/720bf66149073188090ed6a0a77411d297096ee2))
+- **update**: refuse to replace a package-managed binary ([feded5b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/feded5ba08639ad5f3c7c2bcab2dbd894a185436))
+- **setup**: return ErrInputEnded when a select's last piped choice is out of range ([6382b24](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6382b2497bc6fb14d0ec27bae513313579048c8a))
+- **update**: refuse a release signed by the rotation-authority key ([7bf323e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7bf323e821db7ce6d3a0602abafe8d8bbf585ff3))
+
 ## [v0.46.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.46.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.46.0...v0.46.1)
