@@ -27,7 +27,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-mcptools v0.2.1
 	gitlab.com/phpboyscout/go/chat-openai v0.17.2
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.1.3
-	gitlab.com/phpboyscout/go/config v0.20.1
+	gitlab.com/phpboyscout/go/config v0.21.0
 	gitlab.com/phpboyscout/go/config-toml v0.3.10
 	gitlab.com/phpboyscout/go/controls v0.8.0
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
@@ -198,7 +198,7 @@ require (
 	gitlab.com/phpboyscout/go/output v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/regexutil v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/tls v0.2.2 // indirect
-	gitlab.com/phpboyscout/go/yamldoc v0.6.1 // indirect
+	gitlab.com/phpboyscout/go/yamldoc v0.7.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect

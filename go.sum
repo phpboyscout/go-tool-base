@@ -678,8 +678,8 @@ gitlab.com/phpboyscout/go/chat v0.32.0 h1:EiwM55cOndjLgeXjJVlwNebZV2da3PtR2Sp1Yd
 gitlab.com/phpboyscout/go/chat v0.32.0/go.mod h1:mQ4uRkREA0GUrmHAGP86jxxklbnQgIKZkktBa0CmkKQ=
 gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 h1:Gf5NGmYg6gO8EpqTqQg+2v6ULFkpe15BMx1FKsv7+24=
 gitlab.com/phpboyscout/go/clientlifecycle v0.2.0/go.mod h1:eqA0auKPZT+0vlIOKTAezqSrKa4436FCtOA2jmXCeYk=
-gitlab.com/phpboyscout/go/config v0.20.1 h1:+KVPhaGD1k+GVzKSYiOdcqKBpkhjuGVpDrewkLQvAkk=
-gitlab.com/phpboyscout/go/config v0.20.1/go.mod h1:LnKru9nCUShe6LdPP4JlRHI2xlWr8G+Vxl7UxiSoL48=
+gitlab.com/phpboyscout/go/config v0.21.0 h1:HxJkcMWEkcjjHYhHVRDqq0Kjb/lpj6dFxlh2nWvNzCs=
+gitlab.com/phpboyscout/go/config v0.21.0/go.mod h1:3Xj1QCe/FYCaZNRAZ+OQg8JZcKj/JKM/+RBtgxQ/G2I=
 gitlab.com/phpboyscout/go/config-afero v0.1.11 h1:OU/BVJNm0csZB44vtVlPBMcB7fpgnegwqmQnClu4tYc=
 gitlab.com/phpboyscout/go/config-afero v0.1.11/go.mod h1:8c6/89LFO1fzKVzLM/Ov3wPN5uvMbXvA3RuJEOC8FDU=
 gitlab.com/phpboyscout/go/config-aws-s3 v0.3.3 h1:GMX7CRLjIJbmuIScso8bX7EtxKBAVl5VqaNceywy4RE=
@@ -760,8 +760,8 @@ gitlab.com/phpboyscout/go/transport v0.6.2 h1:yRXM0qgwpqL3PmMFCoxospzdaarnR1Zcus
 gitlab.com/phpboyscout/go/transport v0.6.2/go.mod h1:cBlyX7qywH7jsP2EYc18jHt0bq6KuyJs3y6+rbT3C2E=
 gitlab.com/phpboyscout/go/vaultclient v0.1.1 h1:bROELCvwhaWtw+sr23Ue8IHrDVK0et3QnQZLcLh0Xgk=
 gitlab.com/phpboyscout/go/vaultclient v0.1.1/go.mod h1:XPXEiMg+xDfiT4kKoZ5qGk0Ax798WNm0ZjyaIpcdY18=
-gitlab.com/phpboyscout/go/yamldoc v0.6.1 h1:Cj7KsfZVMWii2gNXyTKbbT3GvgCKgiz0dIJBZk5IZ7w=
-gitlab.com/phpboyscout/go/yamldoc v0.6.1/go.mod h1:caKnanLZr7a51A2bkJbWHjJqtbZqa6X/rhbkTxzacfY=
+gitlab.com/phpboyscout/go/yamldoc v0.7.0 h1:SkYbpBd/qkH7a7uLYOzHypAg4hTX7ejKRePqq4bp4y8=
+gitlab.com/phpboyscout/go/yamldoc v0.7.0/go.mod h1:QjWs2BdZl3cWZ+XMoME4DP7IUfTDMy28/sOOQqV1HVg=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 h1:/CdgE52i1OEPHhsGUqrggYNRaZy4v4YgVenGd52dRBI=
