@@ -112,9 +112,11 @@ func WithErrorHandler(h errorhandling.ErrorHandler) Option {
 // afero filesystem the test already holds, reached through the same
 // configafero.Wrap bridge, so the default path under test is the real one.
 //
+// It takes the tool's key mode, as every Store the root builds does.
+//
 // Callers who want configuration with something in it write to o.fs before
 // calling New, or pass their own store via WithConfig.
-func emptyStore(filesystem afero.Fs) *config.Store {
+func emptyStore(filesystem afero.Fs, tool props.Tool) *config.Store {
 	const (
 		path = "/props-test-config.yaml"
 		// Owner-only, matching what config writes: a test store that differed
@@ -126,8 +128,9 @@ func emptyStore(filesystem afero.Fs) *config.Store {
 		panic("props/test: seeding the config file: " + err.Error())
 	}
 
-	store, err := config.NewStore(context.Background(),
-		config.WithFiles(configafero.Wrap(filesystem), path))
+	store, err := config.NewStore(context.Background(), tool.ResolvedConfigSpec().WithKeyCase([]config.StoreOption{
+		config.WithFiles(configafero.Wrap(filesystem), path),
+	})...)
 	if err != nil {
 		// Unreachable: the file was just written to a filesystem the caller
 		// owns. Panicking beats returning nil, which would defer the failure to
@@ -183,8 +186,13 @@ func New(opts ...Option) *props.Props {
 		o.assets = props.NewAssets()
 	}
 
+	tool := defaultTool()
+	if o.tool != nil {
+		tool = *o.tool
+	}
+
 	if o.config == nil {
-		o.config = emptyStore(o.fs)
+		o.config = emptyStore(o.fs, tool)
 	}
 
 	if o.errHandler == nil {
@@ -199,11 +207,6 @@ func New(opts ...Option) *props.Props {
 			logger.ToSlog(o.logger),
 			nil, // nil HelpConfig is safe — the handler nil-guards it.
 		)
-	}
-
-	tool := defaultTool()
-	if o.tool != nil {
-		tool = *o.tool
 	}
 
 	return &props.Props{

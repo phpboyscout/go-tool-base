@@ -272,7 +272,7 @@ func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean boo
 
 	storeOpts = append(storeOpts, config.WithBackend(config.NewCodecBackend(p.GetConfigFS(), targetFile, codec)))
 
-	store, err := config.NewStore(ctx, storeOpts...)
+	store, err := config.NewStore(ctx, p.Tool.ResolvedConfigSpec().WithKeyCase(storeOpts)...)
 	if err != nil {
 		return nil, targetFile, errors.Wrap(err, "opening config for initialisation")
 	}

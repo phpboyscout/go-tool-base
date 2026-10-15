@@ -285,6 +285,13 @@ with every source in its declared place.
   tool's `main`) replaces the factory for one slot, and is the only way to build
   etcd, sftp, billy, iofs and afero sources. An override for a slot the tool does
   not declare stops the tool, so a stale one cannot add a layer.
+- **A backend a factory wraps forwards the key mode.** The store tells every
+  backend its key mode once, before the first load, through
+  `config.KeyCaseBinder`. go/config's own decorators (`config.Filtered`,
+  `config.Constrained`) and the framework's source wrapper forward it, and a
+  factory or override that returns a wrapper of its own must too, or a
+  decorator inside it keeps folding in an exact tool. See
+  [Key case](#key-case).
 - **A client a factory builds is the store's to close.** A factory hands it over
   with `setup.CloseWithStore`; the store closes it when it is closed, or at once
   if a later source stops the build.
@@ -384,6 +391,52 @@ config check, `doctor` and `config convert` among them, still run, and an
 explicit `--config` is never refused, because it names the file to read.
 Automatic conversion was rejected: comments and formatting do not survive it,
 and it would run where nobody is watching (spec 0204 D14).
+
+## Key case
+
+By default every key is folded to lower case as it enters the store, so
+`Log.Level`, `LOG.LEVEL` and `log.level` are one key. That suits most tools: a
+user who capitalises a key still gets the setting. A tool whose keys must keep
+their case, because they name things outside it (an account ID, an environment
+variable to export, a header), declares `props.Tool.Config.KeyCase: "exact"`.
+Every key is then kept as its source spells it.
+
+The mode belongs to the whole tool, not to a layer, since one key read two
+ways in two layers would have no defined precedence
+([go/config spec 0015](https://gitlab.com/phpboyscout/go/config/-/wikis/specs/0015-key-case)
+D1). Every store the framework builds for the tool takes it from one place,
+`ConfigSpec.WithKeyCase`: the runtime store, the bootstrap store config sources
+read their settings from, `init`'s editor, the candidate store `config unset`
+and `config edit` validate in, and `pkg/props/test`'s default store. A key one
+of them writes is the key every other reads.
+
+In an exact tool:
+
+- **`config get`, `set` and `unset` take the key as typed.**
+  `config get Log.Level` does not find `log.level`, and `config set` on a new
+  spelling adds a key.
+- **The framework's own keys stay lower case.** `log.level`, `github.auth.env`
+  and the rest are spelled that way, and `Log.Level` is a different key the
+  framework never reads. `config validate` reports it as unknown, with a hint
+  naming the key it most likely meant.
+- **Environment variables match an existing key whatever its case.**
+  `MYTOOL_LOG_LEVEL` sets `Log.Level` if a file spells it so, and sets
+  `log.level` if nothing defines the key. A file holding two spellings makes
+  the variable ambiguous, and the tool refuses it.
+- **Masking and the project-file secret guard still match credential keys in
+  any case.** `GitHub.Auth.Value` is not the key the framework reads a token
+  from, but a value under it is still almost certainly a secret.
+  `config migrate-credentials` is the exception: it moves the credentials the
+  framework reads, so it looks only at their own lower-case keys.
+- **Azure Key Vault compares secret names without regard to case.** Through an
+  `azure-keyvault` source, a secret named `DB-Password` reads only as
+  `DB-Password` in an exact tool, though the service answers to either
+  spelling.
+
+A folded tool also refuses a file whose keys collide when folded, rather than
+loading one of them at random; see the
+[migration note](../../../reference/migration/v0.x-config-keys-that-collide-in-case.md).
+See [spec 0209](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0209-case-sensitive-config-keys).
 
 ## Initialiser integration
 

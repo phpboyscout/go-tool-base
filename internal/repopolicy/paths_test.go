@@ -109,7 +109,7 @@ func listGoFiles(t *testing.T, root string) []string {
 
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "node_modules", "dist", "bin", "site":
+			case ".git", ".claude", "node_modules", "dist", "bin", "site":
 				return filepath.SkipDir
 			}
 

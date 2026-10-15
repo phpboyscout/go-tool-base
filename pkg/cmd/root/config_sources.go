@@ -113,7 +113,7 @@ func bootstrapStore(ctx context.Context, opts ConfigLoadOptions, layers []p.Conf
 		}
 	}
 
-	store, err := config.NewStore(ctx, storeOpts...)
+	store, err := config.NewStore(ctx, opts.Props.Tool.ResolvedConfigSpec().WithKeyCase(storeOpts)...)
 
 	return store, errors.Wrap(err, "loading the configuration a config source is read from")
 }
@@ -353,8 +353,8 @@ func isolatedWatch(w config.WatchableBackend, log logger.Logger, name string) wa
 }
 
 // sourceBackend forwards what config.Filtered forwards: ID, so writes route
-// back; Capabilities, so the sensitive-leak guard stays armed; the kind and
-// the poll hint. A read-only one also clears each layer's Writable, which is
+// back; Capabilities, so the sensitive-leak guard stays armed; the kind, the
+// poll hint and the key mode. A read-only one also clears each layer's Writable, which is
 // what routing walks, as go/config's own read-only nested store does.
 type sourceBackend struct {
 	inner    config.Backend
@@ -389,6 +389,16 @@ func (s sourceBackend) SourceKind() config.SourceKind {
 	}
 
 	return config.SourceFile
+}
+
+// BindKeyCase forwards the Store's key mode, so a decorator inside the source
+// compares keys as the Store does (spec 0209 D3).
+func (s sourceBackend) BindKeyCase(caseSensitive bool) error {
+	if b, ok := s.inner.(config.KeyCaseBinder); ok {
+		return b.BindKeyCase(caseSensitive)
+	}
+
+	return nil
 }
 
 func (s sourceBackend) PollInterval() time.Duration {

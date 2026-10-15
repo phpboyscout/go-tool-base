@@ -47,3 +47,26 @@ func TestEnvVariablesFor(t *testing.T) {
 		})
 	}
 }
+
+// Spec 0209 D7: in an exact Store a variable lands on an existing key's own
+// spelling, or on the lower-case dotted form when nothing defines the key,
+// and the origin is found under the key the Store produced either way.
+func TestEnvVariablesFor_ExactStore(t *testing.T) {
+	t.Parallel()
+
+	store, err := config.NewStore(t.Context(),
+		config.WithReaders(config.NamedSource{Name: "file", Content: []byte("Log:\n  Level: info\n")}),
+		config.WithEnv("APP", config.WithEnviron(func() []string {
+			return []string{"APP_LOG_LEVEL=debug", "APP_SERVER_PORT=9090"}
+		})),
+		config.WithCaseSensitiveKeys(),
+	)
+	require.NoError(t, err)
+
+	snap := store.View().Snapshot()
+
+	assert.Equal(t, "debug", store.View().GetString("Log.Level"))
+	assert.Equal(t, []string{"APP_LOG_LEVEL"}, setup.EnvVariablesFor(snap, "Log.Level"))
+	assert.Equal(t, []string{"APP_SERVER_PORT"}, setup.EnvVariablesFor(snap, "server.port"))
+	assert.Empty(t, setup.EnvVariablesFor(snap, "log.level"), "another spelling is another key")
+}

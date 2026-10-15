@@ -91,7 +91,7 @@ func TestDeleteNestedKey_NonMapPath(t *testing.T) {
 	t.Parallel()
 
 	m := map[string]any{"a": "scalar"}
-	deleteNestedKey(m, "a.b.c")
+	deleteNestedKey(m, "a.b.c", false)
 	assert.Equal(t, "scalar", m["a"], "non-map traversal must not mutate")
 }
 

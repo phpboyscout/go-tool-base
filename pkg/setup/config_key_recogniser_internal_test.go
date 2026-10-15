@@ -118,3 +118,31 @@ func TestConfigKeyRecogniser(t *testing.T) {
 	assert.True(t, r.Recognises("log.anything"), "under a framework section")
 	assert.False(t, r.Recognises("announce.flags"))
 }
+
+func TestConfigKeyRecogniser_CaseVariant(t *testing.T) {
+	t.Parallel()
+
+	r := ConfigKeyRecogniser{
+		declared: map[string]bool{"Server.TLSCert": true, "server.tlscert": true, "plain": true},
+		sections: map[string]bool{"log": true},
+	}
+
+	tests := []struct {
+		key   string
+		meant string
+		ok    bool
+	}{
+		{"Log.Format", "log.format", true},
+		{"SERVER.TLSCERT", "Server.TLSCert", true},
+		{"PLAIN", "plain", true},
+		{"log.format", "", false},
+		{"Weird.Key", "", false},
+		{"plain", "", false},
+	}
+
+	for _, tt := range tests {
+		meant, ok := r.CaseVariant(tt.key)
+		assert.Equal(t, tt.ok, ok, tt.key)
+		assert.Equal(t, tt.meant, meant, tt.key)
+	}
+}

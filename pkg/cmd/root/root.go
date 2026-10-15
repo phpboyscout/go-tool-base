@@ -223,7 +223,7 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		storeOpts = append(storeOpts, byLayer[layer]...)
 	}
 
-	store, err := config.NewStore(ctx, storeOpts...)
+	store, err := config.NewStore(ctx, spec.WithKeyCase(storeOpts)...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load config")
 	}

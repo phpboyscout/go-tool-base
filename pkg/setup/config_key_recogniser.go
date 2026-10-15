@@ -33,6 +33,29 @@ func (r ConfigKeyRecogniser) Recognises(key string) bool {
 	return recognisedConfigKey(key, r.declared, r.sections)
 }
 
+// CaseVariant returns the recognised key that key differs from only in case:
+// a key the tool declares, or the framework key, which is all lower case. It
+// is what an exact-mode tool's user most likely meant (spec 0209 D6).
+func (r ConfigKeyRecogniser) CaseVariant(key string) (string, bool) {
+	var meant string
+
+	for declared := range r.declared {
+		if declared != key && strings.EqualFold(declared, key) && (meant == "" || declared < meant) {
+			meant = declared
+		}
+	}
+
+	if meant != "" {
+		return meant, true
+	}
+
+	if lower := strings.ToLower(key); lower != key && r.sections[sectionOf(lower)] {
+		return lower, true
+	}
+
+	return "", false
+}
+
 // fixedFrameworkSections are the top-level config sections the framework and
 // its built-in features own that no registry declares. A key beneath one of
 // these is a recognised configuration key, not a typo the base schema simply

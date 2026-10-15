@@ -85,11 +85,18 @@ const unknownKeyMessage = "unknown configuration key"
 // never dropped by the unknown-key filter.
 func actionableWarnings(props *p.Props, view *cfg.View, warnings []cfg.ValidationError) []cfg.ValidationError {
 	recognised := setup.NewConfigKeyRecogniser(props)
+	exact := view.CaseSensitiveKeys()
 	kept := make([]cfg.ValidationError, 0, len(warnings))
 
 	for _, warning := range warnings {
 		if warning.Message == unknownKeyMessage && recognised.Recognises(warning.Key) {
 			continue
+		}
+
+		if warning.Message == unknownKeyMessage && exact {
+			if meant, ok := recognised.CaseVariant(warning.Key); ok {
+				warning.Hint = fmt.Sprintf("did you mean %q? keys are case-sensitive in this tool", meant)
+			}
 		}
 
 		if warning.Key == "" || userAuthoredKey(view, warning.Key) {

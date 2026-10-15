@@ -186,3 +186,14 @@ func (h *recordingHandler) Error(context.Context, error, ...errorhandling.Report
 
 func (h *recordingHandler) Warn(context.Context, error, ...errorhandling.ReportOption) {}
 func (h *recordingHandler) SetUsage(func() error)                                      {}
+
+// Spec 0209 D2: the default store takes the key mode of the tool it is built
+// for, so a test of an exact tool reads keys the way the tool does.
+func TestNew_DefaultStoreFollowsTheToolsKeyCase(t *testing.T) {
+	t.Parallel()
+
+	tool := props.Tool{Name: "exacttool", Config: props.ConfigSpec{KeyCase: props.KeyCaseExact}}
+
+	assert.True(t, test.New(test.WithTool(tool)).Config.View().CaseSensitiveKeys())
+	assert.False(t, test.New().Config.View().CaseSensitiveKeys())
+}

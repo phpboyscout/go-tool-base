@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
 )
 
@@ -23,6 +24,31 @@ type ConfigSpec struct {
 	// name in Layers (spec 0204 D15). Where each connects is runtime
 	// configuration under config.sources.<name>, never declared here.
 	Sources []ConfigSource `json:"sources,omitempty" yaml:"sources,omitempty"`
+
+	// KeyCase is how every Store the tool builds compares keys. Empty is
+	// folded (spec 0209 D1).
+	KeyCase KeyCase `json:"key_case,omitempty" yaml:"key_case,omitempty"`
+}
+
+// KeyCase is a config stack's key mode: folded to lower case, or exact.
+type KeyCase string
+
+const (
+	// KeyCaseFolded folds every key to lower case, so Log.Level is log.level.
+	KeyCaseFolded KeyCase = "folded"
+	// KeyCaseExact keeps every key as its source spells it.
+	KeyCaseExact KeyCase = "exact"
+)
+
+// WithKeyCase appends the store option the spec's key case needs to opts. It
+// is the one place a Store learns the tool's mode, so no Store the tool
+// builds can disagree with another about a key (spec 0209 D2).
+func (s ConfigSpec) WithKeyCase(opts []config.StoreOption) []config.StoreOption {
+	if s.KeyCase == KeyCaseExact {
+		return append(opts, config.WithCaseSensitiveKeys())
+	}
+
+	return opts
 }
 
 // ConfigSource is one declared config source slot.
@@ -103,6 +129,8 @@ var (
 	ErrConfigSource = errors.NewSentinel("gtb.props.config_source", "config source declaration")
 	// ErrConfigFormat is an own config format that is not writable.
 	ErrConfigFormat = errors.NewSentinel("gtb.props.config_format", "config format cannot be a tool's own")
+	// ErrConfigKeyCase is a key case other than folded or exact.
+	ErrConfigKeyCase = errors.NewSentinel("gtb.props.config_key_case", "unknown config key case")
 )
 
 // ConfigLayer names one layer of the configuration stack.
@@ -217,6 +245,13 @@ func ValidateConfigLayers(layers []ConfigLayer) error {
 // layers as ValidateConfigLayers does, with each source's name a layer too,
 // and every source a valid, unique, placed slot.
 func ValidateConfigSpec(spec ConfigSpec) error {
+	switch spec.KeyCase {
+	case "", KeyCaseFolded, KeyCaseExact:
+	default:
+		return errors.WithHint(errors.Wrapf(ErrConfigKeyCase, "%q", string(spec.KeyCase)),
+			"a config stack's key case is folded or exact")
+	}
+
 	names := make([]ConfigLayer, 0, len(spec.Sources))
 
 	for _, s := range spec.Sources {

@@ -84,7 +84,7 @@ func persistUnset(ctx context.Context, props *p.Props, key string) error {
 		return err
 	}
 
-	deleteNestedKey(settings, key)
+	deleteNestedKey(settings, key, props.Config.View().CaseSensitiveKeys())
 
 	if err := validateCandidate(ctx, props, settings); err != nil {
 		return err
@@ -122,7 +122,7 @@ func validateCandidate(ctx context.Context, props *p.Props, settings map[string]
 
 	sources = append(sources, cfg.NamedSource{Name: "candidate", Content: data})
 
-	candidate, err := cfg.NewStore(ctx, cfg.WithReaders(sources...))
+	candidate, err := cfg.NewStore(ctx, props.Tool.ResolvedConfigSpec().WithKeyCase([]cfg.StoreOption{cfg.WithReaders(sources...)})...)
 	if err != nil {
 		return errors.Wrap(err, "loading candidate configuration")
 	}
@@ -138,27 +138,46 @@ func validateCandidate(ctx context.Context, props *p.Props, settings map[string]
 	return nil
 }
 
-// deleteNestedKey removes a dot-path entry from a nested map. When
-// the path resolves through non-map nodes, the call is a no-op —
-// the caller is asking to delete something that isn't there.
-func deleteNestedKey(m map[string]any, dotPath string) {
+// deleteNestedKey removes a dot-path entry from a nested map, matching each
+// segment as the Store does: exactly, or folded. When the path resolves
+// through non-map nodes, the call is a no-op — the caller is asking to delete
+// something that isn't there.
+func deleteNestedKey(m map[string]any, dotPath string, caseSensitive bool) {
 	parts := strings.Split(dotPath, ".")
 	current := m
 
 	for i, part := range parts {
+		key := segmentKey(current, part, caseSensitive)
+
 		if i == len(parts)-1 {
-			delete(current, part)
+			delete(current, key)
 
 			return
 		}
 
-		next, ok := current[part].(map[string]any)
+		next, ok := current[key].(map[string]any)
 		if !ok {
 			return
 		}
 
 		current = next
 	}
+}
+
+// segmentKey is the key in m that part names. A folded Store refuses a
+// layer holding two keys that fold alike, so at most one matches.
+func segmentKey(m map[string]any, part string, caseSensitive bool) string {
+	if caseSensitive {
+		return part
+	}
+
+	for k := range m {
+		if strings.EqualFold(k, part) {
+			return k
+		}
+	}
+
+	return part
 }
 
 // loadWritableSettings resolves the writable config file and reads it into a

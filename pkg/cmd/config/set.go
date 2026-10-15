@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
@@ -216,8 +217,10 @@ func isSensitiveWrite(key, value string) bool {
 // isKnownCredentialKey reports whether key is one GTB recognises as holding a
 // literal credential — the catalogue config migrate scans, including the
 // Bitbucket dual-credential pair whose halves live outside knownCredentials.
+// It matches in any case: in an exact-mode tool GitHub.Auth.Value is not the
+// key GTB reads, but a value under it is still a secret (spec 0209 D5).
 func isKnownCredentialKey(key string) bool {
-	_, ok := knownCredential(key)
+	_, ok := knownCredential(strings.ToLower(key))
 
 	return ok
 }

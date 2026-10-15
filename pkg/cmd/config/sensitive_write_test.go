@@ -48,6 +48,7 @@ func TestIsSensitiveWrite(t *testing.T) {
 		want  bool
 	}{
 		{"known literal-credential key, weak value", "github.auth.value", "abc", true},
+		{"known key in any case, for an exact-mode tool", "GitHub.Auth.Value", "abc", true},
 		{"known AI key", chat.ConfigKeyClaudeKey, "x", true},
 		{"bitbucket app password", "bitbucket.app_password", "x", true},
 		{"token-shaped value under any key", "some.random.field", realToken, true},
