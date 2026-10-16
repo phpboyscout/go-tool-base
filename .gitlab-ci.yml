@@ -243,7 +243,7 @@ homebrew-tap:
 # goreleaser takes it as an artefact. Same image tag the Pages deploy uses.
 gtb-docs-site:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/docs-tools:v0.1.1
+  image: registry.gitlab.com/phpboyscout/images/docs-tools:v0.1.3
   needs: []
   interruptible: false
   rules:
