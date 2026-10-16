@@ -58,6 +58,9 @@ type SkeletonRootData struct {
 	ConfigLayers []string
 	// ConfigFormat is the tool's own config format; empty is YAML.
 	ConfigFormat string
+	// ConfigKeyCase is the config stack's key mode. Only "exact" emits a
+	// field: folded is the default, so a folded root renders as before.
+	ConfigKeyCase string
 	// ConfigSources are the declared config source slots (spec 0204 D15).
 	ConfigSources []ConfigSourceData
 	// UpdatePolicy wires props.Tool.UpdatePolicy in the generated root. Empty
@@ -469,6 +472,10 @@ func buildConfigSpec(data SkeletonRootData) jen.Code {
 
 	if len(data.ConfigSources) > 0 {
 		spec[jen.Id("Sources")] = buildConfigSources(data.ConfigSources)
+	}
+
+	if data.ConfigKeyCase == "exact" {
+		spec[jen.Id("KeyCase")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "KeyCaseExact")
 	}
 
 	if len(spec) == 0 {

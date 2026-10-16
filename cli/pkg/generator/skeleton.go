@@ -68,6 +68,8 @@ type SkeletonConfig struct {
 	ConfigFormat  string
 	// ConfigSources are the declared config source slots (spec 0204 D15).
 	ConfigSources []ManifestConfigSource
+	// ConfigKeyCase is the config stack's key mode, folded or exact (spec 0209).
+	ConfigKeyCase string
 	Signing       ManifestSigning   // self-update signature-verification posture (disabled by default)
 	Chat          ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
 	Bootstrap     ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
@@ -634,6 +636,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		ConfigFormat:          normaliseOwnFormat(config.ConfigFormat),
 		ConfigFormatModules:   configLinkModules(config.ConfigFormats, config.ConfigSources),
 		ConfigSources:         sourceTemplateData(config.ConfigSources),
+		ConfigKeyCase:         normaliseKeyCase(config.ConfigKeyCase),
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
 		UpdatePolicy:          config.UpdatePolicy,
@@ -901,6 +904,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			ConfigLayers:          data.ConfigLayers,
 			ConfigFormat:          data.ConfigFormat,
 			ConfigSources:         data.ConfigSources,
+			ConfigKeyCase:         data.ConfigKeyCase,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			MCPMode:               data.MCPMode,
@@ -1398,6 +1402,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 				Formats: normaliseConfigFormats(config.ConfigFormats),
 				Format:  normaliseOwnFormat(config.ConfigFormat),
 				Sources: config.ConfigSources,
+				KeyCase: normaliseKeyCase(config.ConfigKeyCase),
 			},
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,

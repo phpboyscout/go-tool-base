@@ -79,6 +79,7 @@ func (o *SkeletonOptions) wizardSummary() string {
 
 	add("Config formats", "yaml"+prefixed(", ", strings.Join(o.ConfigFormats, ", ")))
 	add("Own config file", cmp.Or(o.ConfigFormat, "yaml"))
+	add("Config keys", cmp.Or(o.ConfigKeyCase, string(props.KeyCaseFolded)))
 	add("Config sources", cmp.Or(o.sourcesSummary(), "none"))
 
 	width := 0

@@ -398,7 +398,9 @@ By default every key is folded to lower case as it enters the store, so
 `Log.Level`, `LOG.LEVEL` and `log.level` are one key. That suits most tools: a
 user who capitalises a key still gets the setting. A tool whose keys must keep
 their case, because they name things outside it (an account ID, an environment
-variable to export, a header), declares `props.Tool.Config.KeyCase: "exact"`.
+variable to export, a header), declares `props.Tool.Config.KeyCase: "exact"`,
+which a generated project records as `properties.config.key_case: exact`
+([how-to](../../../how-to/configure-the-config-stack.md#keep-keys-case-if-they-need-it)).
 Every key is then kept as its source spells it.
 
 The mode belongs to the whole tool, not to a layer, since one key read two

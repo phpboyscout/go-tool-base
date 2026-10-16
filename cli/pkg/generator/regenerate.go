@@ -434,6 +434,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		ConfigLayers:          m.Properties.Config.Layers,
 		ConfigFormat:          m.Properties.Config.Format,
 		ConfigSources:         sourceTemplateData(m.Properties.Config.Sources),
+		ConfigKeyCase:         normaliseKeyCase(m.Properties.Config.KeyCase),
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,
@@ -471,6 +472,8 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 
 	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
 
+	g.warnOnKeyCaseChange(rootCmdPath, data.ConfigKeyCase)
+
 	g.props.Logger.Debug("writing root command", "path", rootCmdPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(rootCmdPath), DefaultDirMode); err != nil {
@@ -489,6 +492,30 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 	}
 
 	return nil
+}
+
+// warnOnKeyCaseChange tells the author when the root about to be written
+// changes how the tool's users' existing config files read (spec 0209 OQ2).
+// The change goes ahead: the manifest is the author's decision.
+func (g *Generator) warnOnKeyCaseChange(rootCmdPath, next string) {
+	if _, err := g.props.FS.Stat(rootCmdPath); err != nil {
+		return
+	}
+
+	current, _, err := g.extractProjectProperties(rootCmdPath)
+	if err != nil || current.Config.KeyCase == next {
+		return
+	}
+
+	if next == string(props.KeyCaseExact) {
+		g.props.Logger.Warn("config keys are now case-sensitive: a key a user's file spells in another case, " +
+			"such as Log.Level for log.level, is no longer read; config validate names the key it meant")
+
+		return
+	}
+
+	g.props.Logger.Warn("config keys are now folded: a user's file holding two spellings of one key, " +
+		"such as Log.Level and log.level, now stops the tool at startup")
 }
 
 // buildSkeletonSubcommands converts the top-level manifest commands into the
@@ -579,6 +606,7 @@ type skeletonTemplateData struct {
 	ConfigFormat          string
 	ConfigFormatModules   []string
 	ConfigSources         []templates.ConfigSourceData
+	ConfigKeyCase         string
 	UpdatePolicy          string
 	UpdateCheckInterval   string
 	MCPMode               string
@@ -688,6 +716,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		ConfigFormat:          m.Properties.Config.Format,
 		ConfigFormatModules:   configLinkModules(m.Properties.Config.Formats, m.Properties.Config.Sources),
 		ConfigSources:         sourceTemplateData(m.Properties.Config.Sources),
+		ConfigKeyCase:         normaliseKeyCase(m.Properties.Config.KeyCase),
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,

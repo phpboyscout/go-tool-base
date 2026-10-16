@@ -316,8 +316,8 @@ func stringSliceLitValue(expr dst.Expr) []string {
 	return out
 }
 
-// extractConfigSpecLiteral recovers the layer set and own format from a
-// props.ConfigSpec literal. The formats are the imports of config.go, read
+// extractConfigSpecLiteral recovers the layer set, own format, sources and
+// key case from a props.ConfigSpec literal. The formats are the imports of config.go, read
 // separately.
 func extractConfigSpecLiteral(value dst.Expr, c *ManifestConfig) {
 	comp, ok := value.(*dst.CompositeLit)
@@ -331,20 +331,26 @@ func extractConfigSpecLiteral(value dst.Expr, c *ManifestConfig) {
 			continue
 		}
 
-		key, ok := kv.Key.(*dst.Ident)
-		if !ok {
-			continue
+		if key, ok := kv.Key.(*dst.Ident); ok {
+			readConfigSpecField(key.Name, kv.Value, c)
 		}
+	}
+}
 
-		switch key.Name {
-		case "Layers":
-			c.Layers = layersFromLiteral(kv.Value)
-		case "Format":
-			if v, ok := stringLitValue(kv.Value); ok {
-				c.Format = v
-			}
-		case "Sources":
-			c.Sources = sourcesFromLiteral(kv.Value)
+// readConfigSpecField records one props.ConfigSpec field in c.
+func readConfigSpecField(name string, value dst.Expr, c *ManifestConfig) {
+	switch name {
+	case "Layers":
+		c.Layers = layersFromLiteral(value)
+	case "Format":
+		if v, ok := stringLitValue(value); ok {
+			c.Format = v
+		}
+	case "Sources":
+		c.Sources = sourcesFromLiteral(value)
+	case "KeyCase":
+		if sel, ok := value.(*dst.SelectorExpr); ok && sel.Sel.Name == "KeyCaseExact" {
+			c.KeyCase = "exact"
 		}
 	}
 }

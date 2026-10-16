@@ -146,6 +146,10 @@ func (o *SkeletonOptions) configurationPages() []formpage.Page {
 		o.ConfigFormat = "yaml"
 	}
 
+	if o.ConfigKeyCase == "" {
+		o.ConfigKeyCase = string(props.KeyCaseFolded)
+	}
+
 	pages := make([]formpage.Page, 0, 1+2*len(o.sourceSlots))
 	pages = append(pages, formpage.Deferred(o.configFormatsGroup))
 
@@ -192,6 +196,15 @@ func (o *SkeletonOptions) configFormatsGroup() *huh.Group {
 				"written back are offered.").
 			Options(own()...).OptionsFunc(own, &o.ConfigFormats).Value(&o.ConfigFormat).
 			Validate(func(f string) error { return hintedValidation(generator.ValidateConfigFormats(o.ConfigFormats, f)) }),
+		huh.NewSelect[string]().Key("config-key-case").Title("Config keys").
+			Description("Folded reads Log.Level and log.level as one key, which suits\n"+
+				"most tools. Exact keeps each key as spelled, for keys that name\n"+
+				"something outside the tool, such as an account or a header.").
+			Options(
+				huh.NewOption("folded (Log.Level is log.level)", string(props.KeyCaseFolded)),
+				huh.NewOption("exact (keys keep their case)", string(props.KeyCaseExact)),
+			).
+			Value(&o.ConfigKeyCase),
 	).
 		Title("Configuration").
 		Description(configurationBlurb)

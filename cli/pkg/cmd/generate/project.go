@@ -137,6 +137,8 @@ type SkeletonOptions struct {
 	// ConfigFormat its own (spec 0204 D2).
 	ConfigFormats []string
 	ConfigFormat  string
+	// ConfigKeyCase is the config stack's key mode, folded or exact (spec 0209).
+	ConfigKeyCase string
 	// ConfigSources are the declared source slots as name=kind, and the two
 	// lists name the optional and the writable ones (spec 0204 D15).
 	ConfigSources         []string
@@ -262,6 +264,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringSliceVar(&opts.ConfigLayers, "config-layers", nil, "Config-stack layers the tool wires, in precedence order (default: the framework's)")
 	cmd.Flags().StringSliceVar(&opts.ConfigFormats, "config-formats", nil, "Config formats the tool reads beyond YAML: toml, json, hcl, ini, xml, dotenv, properties")
 	cmd.Flags().StringVar(&opts.ConfigFormat, "config-format", "", "The tool's own config file format: yaml (default), toml, json or hcl; must be linked")
+	cmd.Flags().StringVar(&opts.ConfigKeyCase, "config-key-case", "", "How config keys compare: folded (the default; Log.Level is log.level) or exact")
 	cmd.Flags().StringArrayVar(&opts.ConfigSources, "config-source", nil, "A config source slot as name=kind, e.g. team=consul; repeatable")
 	cmd.Flags().StringSliceVar(&opts.ConfigSourcesOptional, "config-source-optional", nil, "Config source slots the tool may run without")
 	cmd.Flags().StringSliceVar(&opts.ConfigSourcesWritable, "config-source-writable", nil, "Config source slots the tool may write to")
@@ -367,6 +370,10 @@ func (o *SkeletonOptions) validatePostureFields() error {
 	}
 
 	if err := generator.ValidateConfigFormats(o.ConfigFormats, o.ConfigFormat); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateConfigKeyCase(o.ConfigKeyCase); err != nil {
 		return err
 	}
 
@@ -966,6 +973,10 @@ func (o *SkeletonOptions) afterWizard() error {
 
 	if o.ConfigFormat == "yaml" {
 		o.ConfigFormat = ""
+	}
+
+	if o.ConfigKeyCase == string(props.KeyCaseFolded) {
+		o.ConfigKeyCase = ""
 	}
 
 	o.NoForge = !o.hosted
@@ -1932,6 +1943,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		ConfigLayers:          o.ConfigLayers,
 		ConfigFormats:         o.ConfigFormats,
 		ConfigFormat:          o.ConfigFormat,
+		ConfigKeyCase:         o.ConfigKeyCase,
 		ConfigSources:         o.mustConfigSources(),
 		UpdatePolicy:          o.UpdatePolicy,
 		MCPMode:               o.MCPMode,

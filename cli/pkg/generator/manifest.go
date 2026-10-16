@@ -524,6 +524,9 @@ type ManifestConfig struct {
 	// Sources are the declared config source slots, each placed in Layers
 	// (spec 0204 D15).
 	Sources []ManifestConfigSource `yaml:"sources,omitempty"`
+	// KeyCase is the config stack's key mode, folded or exact; empty is
+	// folded (spec 0209).
+	KeyCase string `yaml:"key_case,omitempty"`
 }
 
 // ManifestMCP is the properties.mcp block.

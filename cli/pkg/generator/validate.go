@@ -829,6 +829,27 @@ func ValidateUpdatePolicy(policy string) error {
 	}
 }
 
+// ValidateConfigKeyCase accepts an empty string (folded, the default) and the
+// two key modes props.ConfigSpec understands.
+func ValidateConfigKeyCase(keyCase string) error {
+	switch keyCase {
+	case "", string(props.KeyCaseFolded), string(props.KeyCaseExact):
+		return nil
+	default:
+		return rejectf("ConfigKeyCase", "config key case must be one of: folded, exact", keyCase)
+	}
+}
+
+// normaliseKeyCase drops the default, so a manifest or root that says folded
+// matches one that says nothing.
+func normaliseKeyCase(keyCase string) string {
+	if keyCase == string(props.KeyCaseFolded) {
+		return ""
+	}
+
+	return keyCase
+}
+
 // ValidateMCPMode accepts an empty string (compact, the default) and the two
 // publication modes props.Tool.MCP understands.
 func ValidateMCPMode(mode string) error {
@@ -906,6 +927,10 @@ func validateManifestConfig(p *ManifestProperties) error {
 	}
 
 	if err := ValidateConfigFormats(p.Config.Formats, p.Config.Format); err != nil {
+		return err
+	}
+
+	if err := ValidateConfigKeyCase(p.Config.KeyCase); err != nil {
 		return err
 	}
 

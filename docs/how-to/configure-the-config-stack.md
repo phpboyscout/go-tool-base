@@ -39,6 +39,25 @@ format that can be written back: `yaml`, `toml`, `json` or `hcl`. On an
 existing project, `gtb set config.formats toml` and `gtb set config.format toml`
 do the same.
 
+### Keep keys' case, if they need it
+
+By default the tool folds every key to lower case, so a user who writes
+`Log.Level` still sets `log.level`. Keep that unless your keys name something
+outside the tool whose case matters, such as an account ID or a header:
+
+```bash
+gtb generate project --config-key-case exact ...
+```
+
+The wizard asks on the same Configuration page, and `gtb set config.key_case
+exact` changes an existing project. Changing it warns: with exact keys a user's
+mis-cased key is no longer read, and `config validate` points them at the
+spelling it meant. With folded keys, a file holding two spellings of one key
+stops the tool. The framework's own keys, `log.level` and the rest, are lower
+case in either mode. An `azure-keyvault` source suits folded keys best, because
+Key Vault itself ignores the case of a secret's name. See
+[Key case](../explanation/components/config/index.md#key-case).
+
 ## 2. Declare the sources
 
 Each source is a **slot**: a name and a kind.
