@@ -22,6 +22,7 @@ require (
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/creack/pty v1.1.24
+	github.com/go-git/go-git/v5 v5.19.3
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
 	github.com/hashicorp/consul/api/v2 v2.0.0
@@ -70,7 +71,7 @@ require (
 	gitlab.com/phpboyscout/go/output v0.2.3
 	gitlab.com/phpboyscout/go/redact v0.2.3
 	gitlab.com/phpboyscout/go/regexutil v0.2.2
-	gitlab.com/phpboyscout/go/repo v0.5.1
+	gitlab.com/phpboyscout/go/repo v0.6.0
 	gitlab.com/phpboyscout/go/signing v0.10.1
 	gitlab.com/phpboyscout/go/tls v0.2.2
 	gitlab.com/phpboyscout/go/transit v0.2.4
@@ -180,7 +181,6 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.2 // indirect
-	github.com/go-git/go-git/v5 v5.19.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect

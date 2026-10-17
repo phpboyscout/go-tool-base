@@ -2,16 +2,20 @@ package repo
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh/agent"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/sshagenttest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -325,4 +329,27 @@ func TestNewRepoFromProps(t *testing.T) {
 	rNil, err := NewRepoFromProps(nil)
 	require.NoError(t, err)
 	assert.NotNil(t, rNil)
+}
+
+// TestNewRepoFromProps_EncryptedKeyHeldByAgent is go/repo's agent-first file
+// mode (its spec 0008): a recorded encrypted key opens without its passphrase
+// while ssh-agent holds it, which is the remedy for a key the init wizard
+// generated before gtb could store the passphrase (spec 0210 D8).
+func TestNewRepoFromProps_EncryptedKeyHeldByAgent(t *testing.T) {
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	private := sshagenttest.WriteEncryptedKey(t, keyPath, "correct horse battery")
+
+	keyring := sshagenttest.Start(t)
+	require.NoError(t, keyring.Add(agent.AddedKey{PrivateKey: private}))
+
+	p := &props.Props{
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
+		Logger: logger.NewNoop(),
+		Config: repoStoreFromYAML(t, "github: {ssh: {key: {type: file, path: "+keyPath+"}}}"),
+		FS:     afero.NewOsFs(),
+	}
+
+	r, err := NewRepoFromProps(p)
+	require.NoError(t, err)
+	assert.IsType(t, &ssh.PublicKeysCallback{}, r.GetAuth())
 }
