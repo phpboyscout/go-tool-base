@@ -39,7 +39,7 @@ require (
 	gitlab.com/phpboyscout/go/forge-github v0.25.0
 	gitlab.com/phpboyscout/go/forge-gitlab v0.24.0
 	gitlab.com/phpboyscout/go/redact v0.2.3
-	gitlab.com/phpboyscout/go/repo v0.5.1
+	gitlab.com/phpboyscout/go/repo v0.6.0
 	gitlab.com/phpboyscout/go/signing v0.10.1
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.6.1
 	gitlab.com/phpboyscout/go/signing-cli v0.6.1
