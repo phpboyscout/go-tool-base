@@ -1,5 +1,20 @@
 # Changelog
 
+## [v0.48.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.48.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.47.0...v0.48.0)
+
+### Notes
+
+- `gtb generate project --config-key-case exact`, the wizard's Configuration page, or `gtb set config.key_case exact` make a generated tool compare config keys exactly.
+
+- A tool can declare `props.Tool.Config.KeyCase: "exact"` to keep config keys exactly as each source spells them, and every Store the framework builds for it follows. `config unset` no longer removes a required key named in a different case.
+
+### Features
+
+- **generator**: let an author choose case-sensitive config keys ([676558e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/676558ec5af8fcd99d8e1ae4925b1d783ea37a61))
+- **config**: let a tool declare case-sensitive keys, applied to every Store it builds ([ac54d69](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ac54d69a095827398dcbb3274dba16875a0e4a08))
+
 ## [v0.47.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.47.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.46.1...v0.47.0)
