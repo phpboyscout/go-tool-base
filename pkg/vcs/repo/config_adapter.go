@@ -16,8 +16,10 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/credentials"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
@@ -141,7 +143,41 @@ func SettingsFromReader(
 
 	settings.SSH.Path = gorepo.KeyPath(path, cfg.GetString(keyPrefix+".env"))
 
+	if ref := cfg.GetString(credentialposture.SSHPassphrase(forgeName).Keychain); ref != "" {
+		settings.SSH.Passphrase = keychainPassphrase(ref, log)
+	}
+
 	return settings
+}
+
+// keychainPassphrase reads a generated key's passphrase from the keychain
+// entry ref names (spec 0210 D3). go/repo calls it only for an encrypted key
+// the agent does not hold, so no other repository reaches the keychain.
+//
+// PassphraseSource cannot fail, so a failure is logged with its reason and
+// reported as no passphrase; go/repo's passphrase-protected error follows it.
+func keychainPassphrase(ref string, log gorepo.Logger) gorepo.PassphraseSource {
+	return func() string {
+		service, account, ok := strings.Cut(ref, "/")
+		if !ok || service == "" || account == "" {
+			log.Warn("SSH key passphrase reference is not <service>/<account>", "reference", ref)
+
+			return ""
+		}
+
+		// Called at git-authentication time, with no context to inherit.
+		ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
+		defer cancel()
+
+		passphrase, err := credentials.Retrieve(ctx, service, account)
+		if err != nil {
+			log.Warn("could not read the SSH key passphrase from the keychain", "reference", ref, "error", err)
+
+			return ""
+		}
+
+		return passphrase
+	}
 }
 
 // NewRepoFromProps creates a Repo from GTB props.

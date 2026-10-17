@@ -275,7 +275,7 @@ Resolves and returns the standard configuration directory path:
 
 #### SSH Key Management
 ```go
-func ConfigureSSHKey(props *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error)
+func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (SSHKeySelection, error)
 ```
 
 Interactive SSH key configuration:
@@ -284,7 +284,8 @@ Interactive SSH key configuration:
 2. Validates key types (RSA, Ed25519, ECDSA, DSA)
 3. Offers key generation options if none found
 4. Prompts user for key selection via charmbracelet/huh
-5. Returns key type and path for configuration
+5. For a generated key, stores its passphrase in the OS keychain when the person agrees, or relies on ssh-agent, or declines when neither could open it
+6. Returns the key type, path and any keychain reference for configuration
 
 ## Integration Patterns
 

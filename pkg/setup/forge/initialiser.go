@@ -37,6 +37,10 @@ type Initialiser struct {
 
 	// sshOpts reaches the SSH stage's key-manager factory.
 	sshOpts []ConfigureSSHKeyOption
+
+	// rerunSSH runs the SSH stage even when a key is recorded, for the
+	// commands that name a forge (spec 0210 D9).
+	rerunSSH bool
 }
 
 // InitialiserOption configures an [Initialiser].
@@ -48,6 +52,11 @@ type InitialiserOption func(*Initialiser)
 // registered provider.
 func withProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provider, error)) InitialiserOption {
 	return func(i *Initialiser) { i.providerFactory = fn }
+}
+
+// withSSHRerun runs the SSH stage even when a key is already recorded.
+func withSSHRerun() InitialiserOption {
+	return func(i *Initialiser) { i.rerunSSH = true }
 }
 
 // withSSHOptions propagates [ConfigureSSHKeyOption]s into the SSH stage.
@@ -134,7 +143,8 @@ func (i *Initialiser) configureCredential(ctx context.Context, p *props.Props, c
 }
 
 // maybeConfigureSSH runs the key stage when the profile offers SSH, the run has
-// not been told to skip keys, and no key is recorded yet.
+// not been told to skip keys, and no key is recorded yet or the command named
+// the forge.
 //
 // The config is re-read here rather than reusing an earlier view: the credential
 // stage may have written keys this must observe.
@@ -144,8 +154,8 @@ func (i *Initialiser) maybeConfigureSSH(ctx context.Context, p *props.Props, cfg
 	}
 
 	view := cfg.View()
-	if view.GetString(i.profile.sshKeyPathKey()) != "" ||
-		view.GetString(i.profile.sshKeyTypeKey()) == "agent" {
+	if !i.rerunSSH && (view.GetString(i.profile.sshKeyPathKey()) != "" ||
+		view.GetString(i.profile.sshKeyTypeKey()) == "agent") {
 		return nil
 	}
 

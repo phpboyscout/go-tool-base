@@ -29,3 +29,12 @@ func TestDualCredential(t *testing.T) {
 		Account:     "bitbucket.auth",
 	}, DualCredential("bitbucket"))
 }
+
+func TestSSHPassphrase(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, SSHPassphraseKeys{
+		Keychain: "gitlab.ssh.key.keychain",
+		Account:  "gitlab.ssh.passphrase",
+	}, SSHPassphrase("gitlab"))
+}

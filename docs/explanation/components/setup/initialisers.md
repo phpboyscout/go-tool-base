@@ -127,7 +127,8 @@ The GitHub profile manages two distinct configuration areas: **Authentication** 
 *   `github.auth.value`: The GitHub Personal Access Token (PAT).
 *   `github.auth.env`: (Optional) Name of the environment variable holding the token.
 *   `github.ssh.key.path`: Path to the private SSH key.
-*   `github.ssh.key.type`: Type of key (e.g., `rsa`, `ed25519`) or `agent`.
+*   `github.ssh.key.type`: `file` for a key file, or `agent`.
+*   `github.ssh.key.keychain`: (Optional) `<tool>/github.ssh.passphrase`, the keychain entry holding a generated key's passphrase.
 
 #### Technical Workflow
 1.  **Auth Check**: Checks for `GITHUB_TOKEN` env var. If present, it validates it against the GitHub API `user` endpoint. If valid, it skips prompting.
@@ -135,6 +136,7 @@ The GitHub profile manages two distinct configuration areas: **Authentication** 
 3.  **SSH Scan**: Scans `~/.ssh` for files matching standard patterns (`id_rsa`, `id_ed25519`, etc.).
 4.  **Key Selection**: Uses `charmbracelet/huh` to present a list of found keys + a "Generate New" option.
 5.  **Agent Support**: Can be configured to use `ssh-agent` instead of a direct key file.
+6.  **A key gtb can open**: before the form is built, the stage probes the keychain and dials `SSH_AUTH_SOCK`. A generated key's passphrase goes into the keychain when the person agrees; otherwise the wizard prints `ssh-add <path>`, or declines when neither could open the key. The three `<forge>.ssh.key.*` keys are written together, so a new choice removes an earlier reference ([spec 0210](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0210-ssh-passphrase-in-the-keychain)).
 
 ### 2. AI Initialiser
 

@@ -37,3 +37,18 @@ func DualCredential(prefix string) DualCredentialKeys {
 		Account:     prefix + ".auth",
 	}
 }
+
+// SSHPassphraseKeys is where a generated SSH key's passphrase is referenced
+// from config, and the keychain account it is stored under (spec 0210 D1).
+type SSHPassphraseKeys struct {
+	Keychain, Account string
+}
+
+// SSHPassphrase lays out the `<prefix>.ssh.key.keychain` reference and its
+// `<prefix>.ssh.passphrase` keychain account.
+func SSHPassphrase(prefix string) SSHPassphraseKeys {
+	return SSHPassphraseKeys{
+		Keychain: prefix + ".ssh.key.keychain",
+		Account:  prefix + ".ssh.passphrase",
+	}
+}

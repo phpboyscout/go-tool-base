@@ -51,6 +51,7 @@ subsystem walks:
 |-----------|------------------|
 | `pkg/chat` | direct → `<provider>.api.env` (ref) → `<provider>.api.keychain` (lookup) → `<provider>.api.key` (literal) → well-known env fallback |
 | `pkg/vcs` | `auth.env` → `auth.keychain` → `auth.value` → fallback env (GitHub/GitLab/Gitea/direct) |
+| `pkg/vcs/repo` (SSH key passphrase) | `<forge>.ssh.key.keychain` (lookup), read only for an encrypted file-mode key ssh-agent does not hold. There is no env-var or literal mode for a passphrase. |
 | `go/forge-bitbucket` (external module) | `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt blob aborts resolution rather than falling through to stale literals. |
 
 ## A secure store does not silently stop being used

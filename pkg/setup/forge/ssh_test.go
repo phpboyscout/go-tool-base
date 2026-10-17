@@ -262,7 +262,7 @@ func TestSSHForm_OtherAsksForThePath(t *testing.T) {
 	p.IO = formtest.TUI(formtest.Keys(seqs...))
 
 	cfg := &sshKeyConfig{}
-	require.NoError(t, setup.RunForm(ctx, p, sshForm(cfg, options)))
+	require.NoError(t, setup.RunForm(ctx, p, sshForm(cfg, options, sshOpeners{agent: true})))
 	assert.Equal(t, sshChoiceOther, cfg.Choice)
 	assert.Equal(t, "/keys/id_x", cfg.Path)
 	assert.Empty(t, cfg.Passphrase)
@@ -282,7 +282,7 @@ func TestSSHForm_AgentAtAccessiblePrompts(t *testing.T) {
 	p.IO = io
 
 	cfg := &sshKeyConfig{}
-	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options, setup.SecretEchoMode(p.GetIO()))))
+	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options, setup.SecretEchoMode(p.GetIO()), sshOpeners{agent: true})))
 	assert.Equal(t, sshChoiceAgent, cfg.Choice)
 	assert.Contains(t, out.String(), "Select SSH key")
 	assert.NotContains(t, out.String(), "Enter path to SSH key", "the path page is for a manual choice")
@@ -331,14 +331,14 @@ func TestValidateSSHKey_Valid(t *testing.T) {
 
 	p := newTestProps(t)
 	keyPEM := generateUnencryptedKeyPEM(t)
-	require.NoError(t, validateSSHKey(keyPEM, p))
+	require.NoError(t, validateSSHKey("/k", keyPEM, p))
 }
 
 func TestValidateSSHKey_Invalid(t *testing.T) {
 	t.Parallel()
 
 	p := newTestProps(t)
-	err := validateSSHKey([]byte("not-a-key"), p)
+	err := validateSSHKey("/k", []byte("not-a-key"), p)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not a valid private key")
 }
@@ -347,7 +347,7 @@ func TestValidateSSHKey_PassphraseProtected(t *testing.T) {
 	t.Parallel()
 
 	p := newTestProps(t)
-	require.NoError(t, validateSSHKey(passphraseProtectedKeyPEM(t), p))
+	require.NoError(t, validateSSHKey("/k", passphraseProtectedKeyPEM(t), p))
 }
 
 // --- isValidSSHKey ---
@@ -391,10 +391,10 @@ func TestHandleSSHKeySelection_Agent(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceAgent}, &configureSSHKeyConfig{})
+	key, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceAgent}, &configureSSHKeyConfig{}, sshOpeners{agent: true})
 	require.NoError(t, err)
-	assert.Equal(t, "agent", keyType)
-	assert.Empty(t, keyPath)
+	assert.Equal(t, "agent", key.Type)
+	assert.Empty(t, key.Path)
 }
 
 func TestHandleSSHKeySelection_Default(t *testing.T) {
@@ -402,10 +402,10 @@ func TestHandleSSHKeySelection_Default(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: "/home/user/.ssh/id_ed25519"}, &configureSSHKeyConfig{})
+	key, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: "/home/user/.ssh/id_ed25519"}, &configureSSHKeyConfig{}, sshOpeners{agent: true})
 	require.NoError(t, err)
-	assert.Equal(t, "file", keyType)
-	assert.Equal(t, "/home/user/.ssh/id_ed25519", keyPath)
+	assert.Equal(t, "file", key.Type)
+	assert.Equal(t, "/home/user/.ssh/id_ed25519", key.Path)
 }
 
 func TestHandleSSHKeySelection_Other_Error(t *testing.T) {
@@ -413,7 +413,7 @@ func TestHandleSSHKeySelection_Other_Error(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	_, _, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/nonexistent/id_rsa"}, &configureSSHKeyConfig{})
+	_, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/nonexistent/id_rsa"}, &configureSSHKeyConfig{}, sshOpeners{agent: true})
 	require.Error(t, err)
 }
 
@@ -425,10 +425,10 @@ func TestHandleSSHKeySelection_Other_ValidKey(t *testing.T) {
 	keyPEM := generateUnencryptedKeyPEM(t)
 	require.NoError(t, afero.WriteFile(p.FS, "/test.key", keyPEM, 0o600))
 
-	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/test.key"}, &configureSSHKeyConfig{})
+	key, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/test.key"}, &configureSSHKeyConfig{}, sshOpeners{agent: true})
 	require.NoError(t, err)
-	assert.Equal(t, "file", keyType)
-	assert.Equal(t, "/test.key", keyPath)
+	assert.Equal(t, "file", key.Type)
+	assert.Equal(t, "/test.key", key.Path)
 }
 
 func TestHandleSSHKeySelection_Other_InvalidKeyContent(t *testing.T) {
@@ -438,7 +438,7 @@ func TestHandleSSHKeySelection_Other_InvalidKeyContent(t *testing.T) {
 	cfg := testutil.ViewFromYAML(t, "")
 	require.NoError(t, afero.WriteFile(p.FS, "/bad.key", []byte("not a key"), 0o600))
 
-	_, _, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/bad.key"}, &configureSSHKeyConfig{})
+	_, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg, &sshKeyConfig{Choice: sshChoiceOther, Path: "/bad.key"}, &configureSSHKeyConfig{}, sshOpeners{agent: true})
 	require.Error(t, err)
 }
 
@@ -449,12 +449,12 @@ func TestHandleSSHKeySelection_Generate(t *testing.T) {
 	p.IO, _ = answersIO("n")
 	cfg := testutil.ViewFromYAML(t, "")
 
-	keyType, keyPath, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg,
+	key, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg,
 		&sshKeyConfig{Choice: sshChoiceGenerate, Passphrase: testPassphrase},
-		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(&fakeKeyManager{}, nil)})
+		&configureSSHKeyConfig{keyManagerFactory: keyManagerFactory(&fakeKeyManager{}, nil)}, sshOpeners{agent: true})
 	require.NoError(t, err)
-	assert.Equal(t, "file", keyType)
-	assert.Contains(t, keyPath, ".ssh/id_testtool_")
+	assert.Equal(t, "file", key.Type)
+	assert.Contains(t, key.Path, ".ssh/id_testtool_")
 }
 
 func TestHandleSSHKeySelection_Generate_Error(t *testing.T) {
@@ -464,8 +464,8 @@ func TestHandleSSHKeySelection_Generate_Error(t *testing.T) {
 	p.FS = afero.NewReadOnlyFs(afero.NewMemMapFs())
 	cfg := testutil.ViewFromYAML(t, "")
 
-	_, _, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg,
-		&sshKeyConfig{Choice: sshChoiceGenerate, Passphrase: testPassphrase}, noUpload())
+	_, err := handleSSHKeySelection(t.Context(), gitHubProfile, p, cfg,
+		&sshKeyConfig{Choice: sshChoiceGenerate, Passphrase: testPassphrase}, noUpload(), sshOpeners{agent: true})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to generate SSH key")
 }
@@ -479,10 +479,10 @@ func TestConfigureSSHKey_Agent(t *testing.T) {
 	p.IO, _ = answersIO(sshChoiceNumber(t, p, sshChoiceAgent), "")
 	cfg := testutil.ViewFromYAML(t, "")
 
-	keyType, keyPath, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
+	key, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.NoError(t, err)
-	assert.Equal(t, "agent", keyType)
-	assert.Empty(t, keyPath)
+	assert.Equal(t, "agent", key.Type)
+	assert.Empty(t, key.Path)
 }
 
 // A recorded key is the selector's default: a blank answer keeps it.
@@ -497,10 +497,10 @@ func TestConfigureSSHKey_ExistingPath(t *testing.T) {
 	p.IO, _ = answersIO("", "")
 	cfg := testutil.ViewFromYAML(t, "github:\n  ssh:\n    key:\n      path: /home/testuser/.ssh/id_existing\n")
 
-	keyType, keyPath, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
+	key, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.NoError(t, err)
-	assert.Equal(t, "file", keyType)
-	assert.Equal(t, "/home/testuser/.ssh/id_existing", keyPath)
+	assert.Equal(t, "file", key.Type)
+	assert.Equal(t, "/home/testuser/.ssh/id_existing", key.Path)
 }
 
 func TestConfigureSSHKey_RefusesANonInteractiveRun(t *testing.T) {
@@ -510,7 +510,7 @@ func TestConfigureSSHKey_RefusesANonInteractiveRun(t *testing.T) {
 	p.IO = nonInteractiveIO()
 	cfg := testutil.ViewFromYAML(t, "")
 
-	_, _, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
+	_, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.ErrorIs(t, err, setup.ErrNonInteractive)
 }
 
@@ -522,7 +522,7 @@ func TestConfigureSSHKey_DiscoverError(t *testing.T) {
 	p.FS = afero.NewReadOnlyFs(afero.NewMemMapFs())
 	cfg := testutil.ViewFromYAML(t, "")
 
-	_, _, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
+	_, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.Error(t, err)
 }
 
@@ -689,7 +689,7 @@ func TestSSHForm_GenerateOnAPipeReadsThePassphrase(t *testing.T) {
 	p.IO = io
 
 	cfg := &sshKeyConfig{}
-	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options, setup.SecretEchoMode(p.GetIO()))))
+	require.NoError(t, runPages(t.Context(), p, sshPages(cfg, options, setup.SecretEchoMode(p.GetIO()), sshOpeners{agent: true})))
 	assert.Equal(t, sshChoiceGenerate, cfg.Choice)
 	assert.Equal(t, "a long enough passphrase", cfg.Passphrase)
 }

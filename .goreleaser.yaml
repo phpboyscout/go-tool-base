@@ -72,12 +72,9 @@ notarize:
 
 archives:
   # Single archive covering both darwin and linux/windows builds.
-  # The OS keychain backend now lives in its own module
-  # (pkg/credentials/keychain) that cmd/gtb does not import, so the
-  # shipped binary uses the stub credentials backend and performs no
-  # session-bus / keychain IPC — the regulated-deployment default.
-  # Downstream tools that want keychain support import the subpackage
-  # in their own cmd package.
+  # gtb links the OS keychain backend through cli/cmd/gtb/keychain.go.
+  # A regulated build deletes that file, and the binary then carries
+  # no keychain IPC code at all.
   - formats: ["tar.gz"]
     name_template: >-
       {{ .ProjectName }}_
