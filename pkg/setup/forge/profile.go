@@ -217,6 +217,18 @@ func (p Profile) authKeychainKey() string {
 }
 func (p Profile) sshKeyPathKey() string { return p.ConfigPrefix + ".ssh.key.path" }
 func (p Profile) sshKeyTypeKey() string { return p.ConfigPrefix + ".ssh.key.type" }
+func (p Profile) sshKeyKeychainKey() string {
+	return credentialposture.SSHPassphrase(p.ConfigPrefix).Keychain
+}
+func (p Profile) sshPassphraseAccount() string {
+	return credentialposture.SSHPassphrase(p.ConfigPrefix).Account
+}
+
+// sshKeyKeys is every key the SSH stage records, written together so a new
+// choice never leaves an earlier one's reference behind (spec 0210 D5).
+func (p Profile) sshKeyKeys() []string {
+	return []string{p.sshKeyTypeKey(), p.sshKeyPathKey(), p.sshKeyKeychainKey()}
+}
 
 // singleCredentialKeys is the full set of config keys that can carry the
 // single token across the three storage modes. Every writer commits its mode's

@@ -18,6 +18,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/sshagenttest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -547,6 +548,9 @@ func TestNewCmdInitBitbucket(t *testing.T) {
 // --- RunBitbucketInit / RunBitbucketInitCmd ---
 
 func TestRunBitbucketInit_Success(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
+	sshagenttest.None(t)
+
 	p := newDualTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
@@ -558,8 +562,12 @@ func TestRunBitbucketInit_Success(t *testing.T) {
 		config.Set("bitbucket.username.env", "BB_USER"),
 		config.Remove("bitbucket.keychain"),
 	}).Return(nil)
+	// init bitbucket re-runs the SSH stage over a recorded key (spec 0210 D9).
+	cfg.EXPECT().Apply(setup.ExclusiveChanges(
+		map[string]any{"bitbucket.ssh.key.type": "agent"}, bitbucketProfile.sshKeyKeys())).Return(nil)
 
-	p.IO = dualEnvIO(t, "BB_USER", "BB_APP_PW")
+	p.IO, _ = answersIO(modeNumber(t, credentials.ModeEnvVar), "BB_USER", "BB_APP_PW",
+		sshChoiceNumber(t, p, sshChoiceAgent))
 	require.NoError(t, RunBitbucketInit(t.Context(), p, cfg))
 }
 
@@ -574,6 +582,8 @@ func TestRunBitbucketInit_FormError(t *testing.T) {
 
 func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	t.Setenv("CI", "")
+	t.Setenv("HOME", "/home/testuser")
+	sshagenttest.None(t)
 
 	fs := afero.NewMemMapFs()
 	dir := t.TempDir()
@@ -589,8 +599,10 @@ func TestRunInitCmd_LoadedConfig(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
-		IO:     dualEnvIO(t, "BB_USER", "BB_APP_PW"),
 	}
+	// init bitbucket re-runs the SSH stage over the recorded key (spec 0210 D9).
+	p.IO, _ = answersIO(modeNumber(t, credentials.ModeEnvVar), "BB_USER", "BB_APP_PW",
+		sshChoiceNumber(t, p, sshChoiceAgent))
 
 	require.NoError(t, RunBitbucketInitCmd(t.Context(), p, dir))
 

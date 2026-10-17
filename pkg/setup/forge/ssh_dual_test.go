@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
+	"gitlab.com/phpboyscout/go-tool-base/internal/sshagenttest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -43,6 +44,9 @@ func dualSSHProps(t *testing.T) *props.Props {
 	t.Helper()
 	t.Setenv("CI", "")
 	t.Setenv("HOME", "/home/testuser")
+	// A generated key needs something to open it (spec 0210 D4). With no
+	// keychain linked, that is the agent.
+	sshagenttest.Start(t)
 
 	return newTestProps(t)
 }

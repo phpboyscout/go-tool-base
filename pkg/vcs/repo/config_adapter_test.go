@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -352,4 +353,138 @@ func TestNewRepoFromProps_EncryptedKeyHeldByAgent(t *testing.T) {
 	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 	assert.IsType(t, &ssh.PublicKeysCallback{}, r.GetAuth())
+}
+
+// passphraseKeychain is an in-memory keychain holding one SSH passphrase,
+// counting the reads of it.
+type passphraseKeychain struct {
+	unavailableKeychain
+
+	secret    string
+	retrieves int
+}
+
+func (k *passphraseKeychain) Retrieve(_ context.Context, service, account string) (string, error) {
+	k.retrieves++
+
+	if service != "testtool" || account != "github.ssh.passphrase" || k.secret == "" {
+		return "", credentials.ErrCredentialNotFound
+	}
+
+	return k.secret, nil
+}
+
+func (*passphraseKeychain) Available() bool { return true }
+
+func installPassphraseKeychain(t *testing.T, secret string) *passphraseKeychain {
+	t.Helper()
+
+	k := &passphraseKeychain{secret: secret}
+	credentials.RegisterBackend(k)
+	t.Cleanup(func() { credentials.RegisterBackend(unavailableKeychain{}) })
+
+	return k
+}
+
+func sshKeychainYAML(path, ref string) string {
+	return "github: {ssh: {key: {type: file, path: " + path + ", keychain: " + ref + "}}}"
+}
+
+// Spec 0210 D3: a recorded reference becomes a lazy passphrase source.
+func TestSettingsFromReader_KeychainReferenceIsALazyPassphraseSource(t *testing.T) {
+	keychain := installPassphraseKeychain(t, "s3cret passphrase")
+
+	settings := SettingsFromReader(props.ReleaseSource{Type: "github"},
+		repoViewFromYAML(t, sshKeychainYAML("/id", "testtool/github.ssh.passphrase")),
+		logger.NewNoop(), afero.NewMemMapFs())
+
+	require.NotNil(t, settings.SSH.Passphrase)
+	assert.Zero(t, keychain.retrieves, "building settings must not reach the keychain")
+	assert.Equal(t, "s3cret passphrase", settings.SSH.Passphrase())
+	assert.Equal(t, 1, keychain.retrieves)
+}
+
+func TestSettingsFromReader_NoReferenceNoPassphraseSource(t *testing.T) {
+	t.Parallel()
+
+	settings := SettingsFromReader(props.ReleaseSource{Type: "github"},
+		repoViewFromYAML(t, "github: {ssh: {key: {type: file, path: /id}}}"),
+		logger.NewNoop(), afero.NewMemMapFs())
+
+	assert.Nil(t, settings.SSH.Passphrase)
+}
+
+// Spec 0210 D3: a reference that cannot be read warns with the reason, never
+// the secret, and yields no passphrase.
+func TestSettingsFromReader_UnreadableReferenceWarns(t *testing.T) {
+	for name, ref := range map[string]string{
+		"missing entry": "testtool/github.ssh.passphrase",
+		"malformed":     "no-separator",
+	} {
+		t.Run(name, func(t *testing.T) {
+			installPassphraseKeychain(t, "")
+
+			log := logger.NewBuffer()
+			settings := SettingsFromReader(props.ReleaseSource{Type: "github"},
+				repoViewFromYAML(t, sshKeychainYAML("/id", ref)), log, afero.NewMemMapFs())
+
+			require.NotNil(t, settings.SSH.Passphrase)
+			assert.Empty(t, settings.SSH.Passphrase())
+
+			entries := log.Entries()
+			require.Len(t, entries, 1)
+			assert.Equal(t, logger.WarnLevel, entries[0].Level)
+			assert.Contains(t, fmt.Sprint(entries[0].Keyvals...), ref)
+		})
+	}
+}
+
+// The regression #128 reproduced: a generated key, its passphrase in the
+// keychain and the reference in config, no agent. The repository opens with
+// file-mode keys and the keychain is read once.
+func TestNewRepoFromProps_GeneratedKeyOpensFromTheKeychain(t *testing.T) {
+	sshagenttest.None(t)
+
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	sshagenttest.WriteEncryptedKey(t, keyPath, "correct horse battery")
+
+	keychain := installPassphraseKeychain(t, "correct horse battery")
+
+	p := &props.Props{
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
+		Logger: logger.NewNoop(),
+		Config: repoStoreFromYAML(t, sshKeychainYAML(keyPath, "testtool/github.ssh.passphrase")),
+		FS:     afero.NewOsFs(),
+	}
+
+	r, err := NewRepoFromProps(p)
+	require.NoError(t, err)
+	assert.IsType(t, &ssh.PublicKeys{}, r.GetAuth())
+	assert.Equal(t, 1, keychain.retrieves)
+
+	p.Config = repoStoreFromYAML(t, "github: {ssh: {key: {type: file, path: "+keyPath+"}}}")
+	_, err = NewRepoFromProps(p)
+	require.ErrorContains(t, err, "passphrase-protected")
+}
+
+// With the agent holding the key, the keychain is never read.
+func TestNewRepoFromProps_AgentHeldKeyNeverReachesTheKeychain(t *testing.T) {
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	private := sshagenttest.WriteEncryptedKey(t, keyPath, "correct horse battery")
+
+	keyring := sshagenttest.Start(t)
+	require.NoError(t, keyring.Add(agent.AddedKey{PrivateKey: private}))
+
+	keychain := installPassphraseKeychain(t, "correct horse battery")
+
+	p := &props.Props{
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
+		Logger: logger.NewNoop(),
+		Config: repoStoreFromYAML(t, sshKeychainYAML(keyPath, "testtool/github.ssh.passphrase")),
+		FS:     afero.NewOsFs(),
+	}
+
+	_, err := NewRepoFromProps(p)
+	require.NoError(t, err)
+	assert.Zero(t, keychain.retrieves)
 }

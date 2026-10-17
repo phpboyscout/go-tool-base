@@ -63,11 +63,11 @@ func RunGitHubInitCmd(ctx context.Context, p *props.Props, dir string) error {
 }
 
 // RunForgeInit runs a single-token forge's wizard against an existing config
-// container. ctx is the command context: it carries no deadline of its own so
+// container, including the SSH stage when a key is already recorded. ctx is the command context: it carries no deadline of its own so
 // a device-flow login can run at human pace, while Ctrl-C aborts an in-flight
 // poll.
 func RunForgeInit(ctx context.Context, p *props.Props, cfg setup.Editor, profile Profile) error {
-	return New(p, profile).Configure(ctx, p, cfg)
+	return New(p, profile, withSSHRerun()).Configure(ctx, p, cfg)
 }
 
 // NewCmdInitForge creates the `init <forge>` subcommand for a single-token
@@ -131,9 +131,10 @@ func RunForgeInitCmd(ctx context.Context, p *props.Props, dir string, profile Pr
 }
 
 // RunBitbucketInit executes the wizard against an existing config container,
-// typically invoked by [NewCmdInitBitbucket]. The forms run on p's IO.
+// including the SSH stage when a key is already recorded, typically invoked by
+// [NewCmdInitBitbucket]. The forms run on p's IO.
 func RunBitbucketInit(ctx context.Context, p *props.Props, cfg setup.Editor) error {
-	i := NewBitbucketInitialiser(p)
+	i := NewBitbucketInitialiser(p, withSSHRerun())
 
 	return i.Configure(ctx, p, cfg)
 }

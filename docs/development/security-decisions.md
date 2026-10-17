@@ -191,6 +191,8 @@ The interactive setup wizard for both AI providers and the VCS integrations wrot
 **Deferred to Phase 3.**
 - **Phase 3**: `config migrate-credentials` command, GitHub OAuth+display-once flow, BDD coverage, migration guide, optional SSH-key keychain storage.
 
+**SSH key passphrase (done, spec 0210).** A key the init wizard generates can have its passphrase stored in the OS keychain, by consent and defaulting to No, with config holding only a `<forge>.ssh.key.keychain` reference. The key file stays encrypted, an existing key's passphrase is never stored, and the passphrase has no env-var or literal mode.
+
 **Tool author responsibility.** New user-supplied credentials should route through the same three-mode pattern: prefer env-var references, fall back to literal only outside CI, and register a new `doctor` pattern when introducing a new config key that may hold a secret.
 
 Spec: [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening).

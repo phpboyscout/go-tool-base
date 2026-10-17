@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/errors"
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
@@ -103,13 +105,61 @@ type sshKeyConfig struct {
 	Path string
 	// Passphrase protects the key generated when Choice is sshChoiceGenerate.
 	Passphrase string
+	// Store keeps Passphrase in the OS keychain so gtb can open the key.
+	Store bool
+}
+
+// SSHKeySelection is what the SSH stage settled on: the key type ("file" or
+// "agent"), its path, and the keychain reference to a generated key's
+// passphrase when one was stored. The zero value is a declined stage, which
+// records nothing.
+type SSHKeySelection struct {
+	Type, Path, Keychain string
+}
+
+// sshOpeners is what could open a generated key for gtb (spec 0210 D4).
+type sshOpeners struct {
+	keychain, agent bool
+}
+
+// agentDialTimeout bounds the reachability check on SSH_AUTH_SOCK.
+const agentDialTimeout = time.Second
+
+// discoverSSHOpeners probes the keychain under its own deadline, as the
+// storage-mode page does, and dials the agent.
+func discoverSSHOpeners(ctx context.Context) sshOpeners {
+	probeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+	defer cancel()
+
+	return sshOpeners{keychain: credentials.Probe(probeCtx), agent: agentReachable(ctx)}
+}
+
+func agentReachable(ctx context.Context) bool {
+	sock := os.Getenv("SSH_AUTH_SOCK")
+	if sock == "" {
+		return false
+	}
+
+	conn, err := (&net.Dialer{Timeout: agentDialTimeout}).DialContext(ctx, "unix", sock)
+	if err != nil {
+		return false
+	}
+
+	_ = conn.Close()
+
+	return true
 }
 
 // sshForm is the SSH stage's one form (spec 0198): the key selector, then
 // the page the choice needs. The upload question is asked afterwards,
 // because whether an upload is possible is only known once the key manager
 // resolves (spec 0186 D7).
-func sshPages(cfg *sshKeyConfig, options []huh.Option[string], secret huh.EchoMode) []formpage.Page {
+//
+// The store question comes before the passphrase so that a key nothing could
+// open is declined before anyone types a passphrase for it (spec 0210 D4).
+func sshPages(cfg *sshKeyConfig, options []huh.Option[string], secret huh.EchoMode, openers sshOpeners) []formpage.Page {
+	generating := func() bool { return cfg.Choice == sshChoiceGenerate }
+
 	return []formpage.Page{
 		formpage.Of(huh.NewGroup(
 			huh.NewSelect[string]().
@@ -126,6 +176,13 @@ func sshPages(cfg *sshKeyConfig, options []huh.Option[string], secret huh.EchoMo
 				Value(&cfg.Path),
 		)).HiddenWhen(func() bool { return cfg.Choice != sshChoiceOther }),
 		formpage.Of(huh.NewGroup(
+			huh.NewConfirm().
+				Key("ssh-store-passphrase").
+				Title("Store the new key's passphrase in the OS keychain?").
+				Description("gtb needs it to open the key for git operations. Without it, the key works only while ssh-agent holds it.").
+				Value(&cfg.Store),
+		)).HiddenWhen(func() bool { return !generating() || !openers.keychain }),
+		formpage.Of(huh.NewGroup(
 			huh.NewInput().
 				Key("passphrase").
 				Title("Enter passphrase for new SSH key").
@@ -133,13 +190,13 @@ func sshPages(cfg *sshKeyConfig, options []huh.Option[string], secret huh.EchoMo
 				EchoMode(secret).
 				Validate(validatePassphrase).
 				Value(&cfg.Passphrase),
-		)).HiddenWhen(func() bool { return cfg.Choice != sshChoiceGenerate }),
+		)).HiddenWhen(func() bool { return !generating() || (!cfg.Store && !openers.agent) }),
 	}
 }
 
 // sshForm is sshPages as the one form the TUI runs.
-func sshForm(cfg *sshKeyConfig, options []huh.Option[string]) *huh.Form {
-	return huh.NewForm(formpage.Groups(sshPages(cfg, options, huh.EchoModePassword)...)...)
+func sshForm(cfg *sshKeyConfig, options []huh.Option[string], openers sshOpeners) *huh.Form {
+	return huh.NewForm(formpage.Groups(sshPages(cfg, options, huh.EchoModePassword, openers)...)...)
 }
 
 func validatePassphrase(s string) error {
@@ -157,8 +214,8 @@ var ErrPassphraseTooShort = errors.NewSentinel("gtb.setup.forge.passphrase_too_s
 	"passphrase is too short")
 
 // ConfigureSSHKey runs the interactive SSH key configuration flow on p's IO
-// and returns the key type ("file" or "agent") and path.
-func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error) {
+// and returns the key it settled on.
+func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (SSHKeySelection, error) {
 	p.Logger.Info("Configuring SSH key", "provider", profile.Label)
 
 	optsConfig := &configureSSHKeyConfig{keyManagerFactory: defaultKeyManager(profile)}
@@ -169,7 +226,7 @@ func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg c
 
 	potentialKeys, err := discoverSSHKeys(p)
 	if err != nil {
-		return "", "", err
+		return SSHKeySelection{}, err
 	}
 
 	potentialKeys = append(potentialKeys,
@@ -183,11 +240,13 @@ func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg c
 		keyCfg.Choice = cfg.GetString(profile.sshKeyPathKey())
 	}
 
-	if err := runPages(ctx, p, sshPages(keyCfg, potentialKeys, setup.SecretEchoMode(p.GetIO()))); err != nil {
-		return "", "", err
+	openers := discoverSSHOpeners(ctx)
+
+	if err := runPages(ctx, p, sshPages(keyCfg, potentialKeys, setup.SecretEchoMode(p.GetIO()), openers)); err != nil {
+		return SSHKeySelection{}, err
 	}
 
-	return handleSSHKeySelection(ctx, profile, p, cfg, keyCfg, optsConfig)
+	return handleSSHKeySelection(ctx, profile, p, cfg, keyCfg, optsConfig, openers)
 }
 
 func discoverSSHKeys(props *props.Props) ([]huh.Option[string], error) {
@@ -235,43 +294,114 @@ func isValidSSHKey(fs afero.Fs, path string) bool {
 	}
 
 	_, err = ssh.ParseRawPrivateKey(contents)
-	if err != nil {
-		// Accept passphrase-protected keys. Detect them by the typed error, not
-		// its message — a wording change upstream must not silently reject
-		// otherwise-valid protected keys.
-		var missing *ssh.PassphraseMissingError
 
-		return errors.As(err, &missing)
-	}
-
-	return true
+	return err == nil || isPassphraseMissing(err)
 }
 
-func handleSSHKeySelection(ctx context.Context, profile Profile, p *props.Props, cfg config.Reader, keyCfg *sshKeyConfig, optsConfig *configureSSHKeyConfig) (string, string, error) {
-	keyType := "file"
-
+func handleSSHKeySelection(
+	ctx context.Context,
+	profile Profile,
+	p *props.Props,
+	cfg config.Reader,
+	keyCfg *sshKeyConfig,
+	optsConfig *configureSSHKeyConfig,
+	openers sshOpeners,
+) (SSHKeySelection, error) {
 	switch keyCfg.Choice {
 	case sshChoiceGenerate:
-		key, err := generateKey(ctx, profile, p, cfg, keyCfg.Passphrase, optsConfig)
-		if err != nil {
-			return "", "", errors.Wrap(err, "failed to generate SSH key")
-		}
-
-		return keyType, key, nil
+		return generateUsableKey(ctx, profile, p, cfg, keyCfg, optsConfig, openers)
 
 	case sshChoiceAgent:
-		return sshChoiceAgent, "", nil
+		return SSHKeySelection{Type: sshChoiceAgent}, nil
 
 	case sshChoiceOther:
 		if err := validateSSHKeyFile(p, keyCfg.Path); err != nil {
-			return "", "", err
+			return SSHKeySelection{}, err
 		}
 
-		return keyType, keyCfg.Path, nil
+		return SSHKeySelection{Type: "file", Path: keyCfg.Path}, nil
 
 	default:
-		return keyType, keyCfg.Choice, nil
+		if contents, err := afero.ReadFile(p.FS, keyCfg.Choice); err == nil && isEncryptedKey(contents) {
+			warnAgentNeeded(p, keyCfg.Choice)
+		}
+
+		return SSHKeySelection{Type: "file", Path: keyCfg.Choice}, nil
 	}
+}
+
+// generateUsableKey generates a key only when gtb will be able to open it:
+// its passphrase stored in the keychain, or an agent to add it to.
+func generateUsableKey(
+	ctx context.Context,
+	profile Profile,
+	p *props.Props,
+	cfg config.Reader,
+	keyCfg *sshKeyConfig,
+	optsConfig *configureSSHKeyConfig,
+	openers sshOpeners,
+) (SSHKeySelection, error) {
+	if !keyCfg.Store && !openers.agent {
+		p.Logger.Warn("Not generating an SSH key: gtb could not open it without its passphrase",
+			"reason", "the passphrase is not stored in an OS keychain and no ssh-agent is running",
+			"next", "unlock or link an OS keychain, or start ssh-agent, then run `init "+profile.ConfigPrefix+
+				"` again; or pick an existing key")
+
+		return SSHKeySelection{}, nil
+	}
+
+	var ref string
+
+	if keyCfg.Store {
+		if err := validatePassphrase(keyCfg.Passphrase); err != nil {
+			return SSHKeySelection{}, errors.Wrap(err, "failed to generate SSH key")
+		}
+
+		stored, err := storeSSHPassphrase(ctx, profile, p.Tool.Name, keyCfg.Passphrase)
+		if err != nil {
+			return SSHKeySelection{}, err
+		}
+
+		ref = stored
+	}
+
+	key, err := generateKey(ctx, profile, p, cfg, keyCfg.Passphrase, optsConfig)
+	if err != nil {
+		return SSHKeySelection{}, errors.Wrap(err, "failed to generate SSH key")
+	}
+
+	if !keyCfg.Store {
+		warnAgentNeeded(p, key)
+	}
+
+	return SSHKeySelection{Type: "file", Path: key, Keychain: ref}, nil
+}
+
+// storeSSHPassphrase stores a generated key's passphrase and returns the
+// "<tool>/<account>" reference config records (spec 0210 D1).
+func storeSSHPassphrase(ctx context.Context, profile Profile, toolName, passphrase string) (string, error) {
+	if toolName == "" {
+		return "", errors.New("cannot write keychain entry without a tool name")
+	}
+
+	// A fresh deadline: ctx has been through the human-paced form.
+	storeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+	defer cancel()
+
+	if err := credentials.Store(storeCtx, toolName, profile.sshPassphraseAccount(), passphrase); err != nil {
+		return "", errors.WithHint(
+			errors.Wrap(err, "storing the SSH key passphrase in the OS keychain"),
+			"If the keychain is locked, unlock it and re-run; otherwise answer No and use ssh-agent.")
+	}
+
+	return toolName + "/" + profile.sshPassphraseAccount(), nil
+}
+
+// warnAgentNeeded names the ssh-add a passphrase-protected key needs before
+// gtb's own git operations can use it (spec 0210 D6).
+func warnAgentNeeded(p props.LoggerProvider, path string) {
+	p.GetLogger().Warn("gtb can use this passphrase-protected key only while ssh-agent holds it",
+		"run", "ssh-add "+path)
 }
 
 func validateSSHKeyFile(p *props.Props, path string) error {
@@ -280,26 +410,39 @@ func validateSSHKeyFile(p *props.Props, path string) error {
 		return errors.Newf("could not read file: %w", err)
 	}
 
-	return validateSSHKey(contents, p)
+	return validateSSHKey(path, contents, p)
 }
 
-func validateSSHKey(contents []byte, p props.LoggerProvider) error {
+func validateSSHKey(path string, contents []byte, p props.LoggerProvider) error {
 	_, err := ssh.ParseRawPrivateKey(contents)
-	if err != nil {
-		// Detect a passphrase-protected key by the typed error, not its message,
-		// so an upstream wording change cannot turn a valid protected key into a
-		// hard "invalid key" failure.
-		var missing *ssh.PassphraseMissingError
-		if !errors.As(err, &missing) {
-			return errors.Newf("key is not a valid private key: %w", err)
-		}
+	if err == nil {
+		p.GetLogger().Warn("Key is not protected with passphrase")
 
 		return nil
 	}
 
-	p.GetLogger().Warn("Key is not protected with passphrase")
+	if !isPassphraseMissing(err) {
+		return errors.Newf("key is not a valid private key: %w", err)
+	}
+
+	warnAgentNeeded(p, path)
 
 	return nil
+}
+
+func isEncryptedKey(contents []byte) bool {
+	_, err := ssh.ParseRawPrivateKey(contents)
+
+	return isPassphraseMissing(err)
+}
+
+// isPassphraseMissing detects a passphrase-protected key by the typed error,
+// not its message, so an upstream wording change cannot turn a valid
+// protected key into an invalid one.
+func isPassphraseMissing(err error) bool {
+	var missing *ssh.PassphraseMissingError
+
+	return errors.As(err, &missing)
 }
 
 func uploadConfirmForm(upload *bool) *huh.Form {
@@ -443,14 +586,20 @@ func generateAndSaveSSHKey(fs afero.Fs, keypath, passphrase string) ([]byte, err
 // configureSSH runs the SSH key configuration stage and records the selected
 // key type and path under the profile's SSH config keys.
 func (i *Initialiser) configureSSH(ctx context.Context, p *props.Props, cfg setup.Editor) error {
-	keyType, keyPath, err := ConfigureSSHKey(ctx, i.profile, p, cfg.View(), i.sshOpts...)
-	if err != nil {
+	key, err := ConfigureSSHKey(ctx, i.profile, p, cfg.View(), i.sshOpts...)
+	if err != nil || key.Type == "" {
 		return err
 	}
 
-	if err := cfg.Set(i.profile.sshKeyTypeKey(), keyType); err != nil {
-		return err
+	recorded := map[string]any{i.profile.sshKeyTypeKey(): key.Type}
+
+	if key.Path != "" {
+		recorded[i.profile.sshKeyPathKey()] = key.Path
 	}
 
-	return cfg.Set(i.profile.sshKeyPathKey(), keyPath)
+	if key.Keychain != "" {
+		recorded[i.profile.sshKeyKeychainKey()] = key.Keychain
+	}
+
+	return setup.WriteExclusive(cfg, recorded, i.profile.sshKeyKeys())
 }

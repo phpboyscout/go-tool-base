@@ -76,7 +76,7 @@ mytool init gitlab [--dir <path>]
 ```
 
 **Description:**
-Configures the GitLab token via the three-mode selector (env-var reference, OS keychain, or literal), and generates or selects an SSH key for Git operations.
+Configures the GitLab token via the three-mode selector (env-var reference, OS keychain, or literal), and generates or selects an SSH key for Git operations. The SSH stage runs even when a key is already recorded; pass `--skip-key` to leave keys alone.
 
 Login uses GitLab's OAuth device flow against an application the framework owns on `gitlab.com`, so no setup is required to authenticate there. A **self-hosted** instance needs its own OAuth application: register one on that instance and supply its client ID via the `gitlab.auth.client_id` config key or the `GITLAB_CLIENT_ID` environment variable. Without one, login degrades to manual token entry rather than failing.
 
@@ -91,7 +91,7 @@ mytool init gitea [--dir <path>]
 ```
 
 **Description:**
-Configures the Gitea token via the three-mode selector, and generates or selects an SSH key.
+Configures the Gitea token via the three-mode selector, and generates or selects an SSH key, even when one is already recorded.
 
 Gitea has **no interactive browser login** (the upstream adapter is personal-access-token only by design) so this wizard goes straight to manual token entry. It also carries no default host, since every Gitea instance is self-hosted; the token-creation guidance names the forge rather than inventing a URL.
 
@@ -103,7 +103,7 @@ mytool init codeberg [--dir <path>]
 ```
 
 **Description:**
-Configures the Codeberg token via the three-mode selector, and generates or selects an SSH key.
+Configures the Codeberg token via the three-mode selector, and generates or selects an SSH key, even when one is already recorded.
 
 Codeberg runs Forgejo and shares Gitea's adapter, so it behaves the same way: no interactive browser login, straight to manual token entry. It differs in having a default host (`codeberg.org`) and in writing its own `codeberg.*` config keys, so a token configured here is not shared with a self-hosted Gitea instance.
 
@@ -117,7 +117,20 @@ mytool init bitbucket [--dir <path>]
 **Description:**
 Configures Bitbucket's dual credentials (`username` + `app_password`) via the three-mode selector. Env-var mode records two variable names, keychain mode stores a single JSON blob, and literal mode writes both fields to config.
 
-An SSH key is then configured, as for the single-token forges: Bitbucket's adapter accepts key uploads, and offering one is a capability question rather than a consequence of the credential shape. The key stage runs **after** the credentials are captured, because the upload is authorised by them. Pass `--skip-key` to leave keys alone.
+An SSH key is then configured, as for the single-token forges: Bitbucket's adapter accepts key uploads, and offering one is a capability question rather than a consequence of the credential shape. The key stage runs **after** the credentials are captured, because the upload is authorised by them. It runs even when a key is already recorded. Pass `--skip-key` to leave keys alone.
+
+### Generating an SSH key
+
+Every forge command that offers SSH can generate a passphrase-protected ed25519 key. gtb has to be able to open it, so:
+
+| OS keychain | ssh-agent | Generate leads to |
+|---|---|---|
+| usable | either | "Store the passphrase in the OS keychain?" (default No), then the passphrase |
+| not usable | running | the passphrase, then the `ssh-add <path>` command to run |
+| not usable | not running | no key: the stage declines and says why |
+
+Answering No to the store question follows the row below it. A stored passphrase is referenced by
+`<forge>.ssh.key.keychain`. See [Configure credentials](../../how-to/configure-credentials.md#a-generated-ssh-key).
 
 ### Init AI
 
