@@ -18,6 +18,7 @@ not_counted:
   - cmd/
   - cli/cmd/
   - internal/exectest
+  - internal/sshagenttest
   - pkg/config/sources/internal/awssource/awssourcetest
   - pkg/config/sources/internal/gcpsource/gcpsourcetest
   - cli/pkg/version
