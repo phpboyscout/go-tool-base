@@ -108,8 +108,12 @@ func listGoFiles(t *testing.T, root string) []string {
 		}
 
 		if d.IsDir() {
+			if path != root && strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
+
 			switch d.Name() {
-			case ".git", ".claude", "node_modules", "dist", "bin", "site":
+			case "node_modules", "dist", "bin", "site":
 				return filepath.SkipDir
 			}
 
@@ -130,4 +134,20 @@ func listGoFiles(t *testing.T, root string) []string {
 	require.NoError(t, err)
 
 	return files
+}
+
+// TestListGoFilesSkipsHiddenDirectories keeps the CI module cache out of the
+// walk: the cicd component puts GOPATH at .go inside the checkout, and every
+// policy here would otherwise read each dependency's source.
+func TestListGoFilesSkipsHiddenDirectories(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	for _, f := range []string{"pkg/a.go", ".go/pkg/mod/example.com/m@v1/b.go", ".cache/c.go"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, filepath.Dir(f)), 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(root, f), []byte("package x\n"), 0o600))
+	}
+
+	require.Equal(t, []string{"pkg/a.go"}, listGoFiles(t, root))
 }
