@@ -17,7 +17,7 @@ Feature: CLI Update Command
     When I run gtb with "update --version bad"
     Then the exit code is not 0
     And stderr contains "invalid version format"
-    And stderr contains "expected semVer pattern v0.0.0"
+    And stderr contains "expected a release tag such as v1.2.3"
 
   Scenario: Empty version string with valid format is accepted
     When I run gtb with "update --version v999.999.999"

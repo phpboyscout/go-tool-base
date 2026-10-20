@@ -50,7 +50,7 @@ itself as before.
 ## Flags
 
 - `--force, -f`: Force update to the latest version even if already up to date.
-- `--version, -v string`: Specific version to update to (format: `v0.0.0`).
+- `--version, -v string`: Specific version to update to, as a release tag: `v1.2.3`, or a prerelease such as `v1.2.0-rc.1`. The shorthands `v1` and `v1.2`, build metadata (`+x`) and an unprefixed `1.2.3` are refused.
 - `--from-file string`: Path to a local `.tar.gz` release archive for offline installation. Mutually exclusive with `--version`.
 
 ## Downgrade behaviour

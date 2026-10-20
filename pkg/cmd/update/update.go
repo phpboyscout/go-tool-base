@@ -7,9 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/mod/semver"
 
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/output"
@@ -20,8 +20,12 @@ import (
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
-// semVerPattern matches semantic version strings in the format v0.0.0 or v0.0.0-suffix.
-var semVerPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+(-\w+)?$`)
+// isReleaseTag reports whether v names a release as tags are written:
+// v-prefixed, three-part, optionally a prerelease. Canonical refuses the
+// shorthands (v1, v1.2) and build metadata that IsValid alone accepts.
+func isReleaseTag(v string) bool {
+	return semver.IsValid(v) && semver.Canonical(v) == v
+}
 
 // NewUpdaterFunc constructs an [Updater] for online updates.
 type NewUpdaterFunc func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error)
@@ -119,8 +123,8 @@ access.`,
 				return errors.Wrap(err, "failed to get version flag")
 			}
 
-			if version != "" && !semVerPattern.MatchString(version) {
-				return errors.Newf("invalid version format %q, expected semVer pattern v0.0.0", version)
+			if version != "" && !isReleaseTag(version) {
+				return errors.Newf("invalid version format %q, expected a release tag such as v1.2.3 or v1.2.3-rc.1", version)
 			}
 
 			result, err := Update(cmd.Context(), props, version, force, cmd.OutOrStdout(), opts...)
