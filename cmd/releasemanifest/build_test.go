@@ -256,3 +256,63 @@ func TestCurrentTag(t *testing.T) {
 	_, err = currentTag(context.Background(), srv.URL+"/acme/escapes")
 	require.ErrorIs(t, err, static.ErrEscapesBase)
 }
+
+// A prerelease tag publishes its manifest but leaves the pointer, so it is
+// never offered as every user's latest (spec 0104 D12).
+func TestWriteDocuments_PrereleaseLeavesThePointer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		tag         string
+		wantPointer bool
+	}{
+		{"stable tag moves the pointer", "v1.2.0", true},
+		{"rc tag leaves it", "v1.2.0-rc.1", false},
+		{"beta tag leaves it", "v1.2.0-beta.1", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dist := fixtureDist(t)
+			setFixtureTag(t, dist, tt.tag)
+
+			m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", "")
+			require.NoError(t, err)
+
+			wrote, err := writeDocuments(dist, m, p)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPointer, wrote)
+
+			assert.FileExists(t, filepath.Join(dist, static.ManifestFile), "every tag publishes its manifest")
+
+			_, statErr := os.Stat(filepath.Join(dist, static.PointerFile))
+			if tt.wantPointer {
+				require.NoError(t, statErr)
+			} else {
+				require.ErrorIs(t, statErr, os.ErrNotExist)
+			}
+		})
+	}
+}
+
+func setFixtureTag(t *testing.T, dist, tag string) {
+	t.Helper()
+
+	path := filepath.Join(dist, "metadata.json")
+
+	var meta map[string]any
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(raw, &meta))
+
+	meta["tag"] = tag
+	meta["version"] = strings.TrimPrefix(tag, "v")
+
+	raw, err = json.Marshal(meta)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, raw, 0o600))
+}

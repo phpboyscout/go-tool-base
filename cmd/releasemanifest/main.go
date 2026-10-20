@@ -4,7 +4,9 @@
 // dist/checksums.txt for the archives and their digests, and the archives
 // themselves for their size and, from the binary's build info, their
 // platform. It writes dist/release.json, which the blobs pipe uploads with
-// the binaries, and dist/latest.json, which the publish step moves last.
+// the binaries, and dist/latest.json, which the publish step moves last. A
+// prerelease tag writes no latest.json, so the pointer stays on the last stable
+// release (spec 0104 D12).
 //
 //	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md]
 //
@@ -24,6 +26,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"golang.org/x/mod/semver"
 
 	"gitlab.com/phpboyscout/go/errors"
 
@@ -78,18 +82,35 @@ func run(dist, baseURL, previous, notes string) error {
 		return err
 	}
 
-	if err := writeDocument(filepath.Join(dist, static.ManifestFile), m); err != nil {
+	wrotePointer, err := writeDocuments(dist, m, p)
+	if err != nil {
 		return err
 	}
 
-	if err := writeDocument(filepath.Join(dist, static.PointerFile), p); err != nil {
-		return err
+	if wrotePointer {
+		fmt.Printf("releasemanifest: wrote %s and %s (%s, %d downloads, previous %q)\n",
+			static.ManifestFile, static.PointerFile, m.Tag, len(m.Downloads), m.Previous)
+	} else {
+		fmt.Printf("releasemanifest: wrote %s (%s, %d downloads, previous %q); %s is a prerelease, so %s stays where it is\n",
+			static.ManifestFile, m.Tag, len(m.Downloads), m.Previous, m.Tag, static.PointerFile)
 	}
-
-	fmt.Printf("releasemanifest: wrote %s and %s (%s, %d downloads, previous %q)\n",
-		static.ManifestFile, static.PointerFile, m.Tag, len(m.Downloads), m.Previous)
 
 	return nil
+}
+
+// writeDocuments writes the manifest, and the pointer unless the tag is a
+// prerelease: until channels exist the one pointer is every user's latest
+// (spec 0104 D12). It reports whether the pointer was written.
+func writeDocuments(dist string, m static.Manifest, p static.Pointer) (bool, error) {
+	if err := writeDocument(filepath.Join(dist, static.ManifestFile), m); err != nil {
+		return false, err
+	}
+
+	if semver.Prerelease(m.Tag) != "" {
+		return false, nil
+	}
+
+	return true, writeDocument(filepath.Join(dist, static.PointerFile), p)
 }
 
 func writeDocument(path string, doc any) error {

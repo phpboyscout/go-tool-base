@@ -24,6 +24,12 @@ set -euo pipefail
 pointer=$1
 url=$2
 
+# releasemanifest writes no pointer for a prerelease tag (spec 0104 D12).
+if [ ! -e "$pointer" ]; then
+  echo "move-pointer: no pointer to move ($pointer is absent); the pointer stays where it is"
+  exit 0
+fi
+
 for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
   if [ -z "${!v:-}" ]; then
     echo "move-pointer: $v is not set; the pointer stays where it is" >&2
