@@ -46,7 +46,12 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 	}{
 		{"valid version", "v1.2.3", false},
 		{"valid with suffix", "v1.2.3-alpha", false},
+		{"dotted prerelease", "v1.2.0-rc.1", false},
+		{"dotted beta", "v1.2.0-beta.1", false},
 		{"invalid format", "1.2.3", true},
+		{"major-minor shorthand", "v1.2", true},
+		{"major shorthand", "v1", true},
+		{"build metadata", "v1.2.3+x", true},
 		{"garbage", "not-a-version", true},
 		{"empty", "", false},
 	}
