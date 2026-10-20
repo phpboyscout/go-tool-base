@@ -50,9 +50,9 @@ the install script always pulls the latest release, so if something does not lin
 up, a newer version is the likeliest reason. Check the
 [migration notes](../reference/migration/index.md).
 
-`go install` also works, but the [installation guide](../installation.md)
-explains why the release binary is the better choice: a source build omits the
-gitignored assets the embedded documentation browser needs.
+Do not `go install` gtb. The [installation guide](../installation.md)
+explains why: it builds the CLI against an older framework release and can fail
+to compile. If you want a source build, use a checkout and `just install`.
 
 ## Scaffold a project
 

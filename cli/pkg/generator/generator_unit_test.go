@@ -46,6 +46,8 @@ func TestVerifyProject(t *testing.T) {
 		err := g.verifyProject()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "is lower than the version specified in the manifest")
+		assert.Contains(t, err.Error(), "gtb update --version v2.1.0")
+		assert.NotContains(t, err.Error(), "go install", "go install of gtb is not a supported install path (#132)")
 	})
 
 	t.Run("CLI version is newer (breaking changes)", func(t *testing.T) {

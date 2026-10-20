@@ -96,11 +96,15 @@ under `pkg/`.
 `{{ .Name }}` is scaffolded and kept in sync by GTB's generator. The
 `.gtb/manifest.yaml` file is the source of truth for the command tree and
 project settings, and records the `gtb` version it was generated with
-(`version.gtb`); `regenerate` refuses an older one. Install that version:
+(`version.gtb`); `regenerate` refuses an older one. Install gtb from a release
+(<https://gtb.phpboyscout.uk/installation/>), then move it to that version:
 
 ```bash
-go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@{{ .GoToolBaseVersion | escapeMarkdownCodeBlock }}
+gtb update --version {{ .GoToolBaseVersion | escapeMarkdownCodeBlock }}
 ```
+
+Do not `go install` gtb: it builds the CLI against an older framework release
+and can fail to compile.
 
 Two flows operate on the manifest:
 

@@ -159,7 +159,7 @@ enabled.
 
 **The generated `go.mod` names no `gtb` tool line.** The manifest's
 `version.gtb` is the pin, `regenerate` refuses an older gtb, and the README
-carries `go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@<version>`.
+tells the reader to install gtb from a release and run `gtb update --version <version>`.
 Nor does it name golangci-lint or mockery: the justfile and CI run the installed
 binaries, and the golangci-lint tool line pinned v1 and dragged an old viper
 whose `cloud.google.com/go/compute` made `go mod tidy` ambiguous the moment

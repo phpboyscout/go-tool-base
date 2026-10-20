@@ -92,7 +92,9 @@ func TestSkeletonGoMod_HasNoGTBToolLine(t *testing.T) {
 
 	readme, err := os.ReadFile(filepath.Join(path, "README.md"))
 	require.NoError(t, err)
-	assert.Contains(t, string(readme), "go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@", "the README says how to get the pinned gtb")
+	assert.Contains(t, string(readme), "gtb update --version", "the README says how to get the pinned gtb")
+	assert.Contains(t, string(readme), "https://gtb.phpboyscout.uk/installation/")
+	assert.NotContains(t, string(readme), "go-tool-base/cli/cmd/gtb@", "go install of gtb is not a supported install path (#132)")
 }
 
 // TestSkeletonGoMod_FrameworkReplaceIsADevelopmentKnob: with

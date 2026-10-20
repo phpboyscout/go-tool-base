@@ -242,4 +242,5 @@ Feature: A generated tool links only the adapters it selects
     Given a freshly generated gtb project
     Then the generated "go.mod" file does not contain "cli/cmd/gtb"
     And the generated "go.mod" file does not contain "golangci-lint"
-    And the generated "README.md" file contains "go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@"
+    And the generated "README.md" file contains "gtb update --version"
+    And the generated "README.md" file does not contain "go-tool-base/cli/cmd/gtb@"

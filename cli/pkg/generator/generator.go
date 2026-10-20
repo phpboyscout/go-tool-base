@@ -358,7 +358,7 @@ func (g *Generator) checkManifestVersion(m *Manifest) error {
 	}
 
 	if version.CompareVersions(cliVer, manifestVer) < 0 {
-		return errors.Newf("current gtb version (%s) is lower than the version specified in the manifest (%s). Please update gtb: gtb update, or go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@%s", cliVer, manifestVer, manifestVer)
+		return errors.Newf("current gtb version (%s) is lower than the version specified in the manifest (%s). Please update gtb: gtb update, or gtb update --version %s", cliVer, manifestVer, manifestVer)
 	}
 
 	if version.CompareVersions(cliVer, manifestVer) > 0 {

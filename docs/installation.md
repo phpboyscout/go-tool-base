@@ -198,10 +198,13 @@ That is expected: the tool will not guess at configuration it does not have. See
 
 ## Common problems
 
-**`module gitlab.com/phpboyscout/go-tool-base@latest found (v0.35.0), but does
-not contain package gitlab.com/phpboyscout/go-tool-base`.** The module root has
-no `main` package. Install
-`gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@latest` instead.
+**`go install` of gtb fails, with `does not contain package` or an
+`unknown field` or `undefined:` compile error.** `go install` is not a
+supported way to install gtb. The CLI is a nested module, and a module-mode
+install builds it against the framework release named in `cli/go.mod`, which
+lags the CLI. Use the install script, Homebrew, or a checkout built with
+`just install` ([Install the gtb CLI](#install-the-gtb-cli)), then
+`gtb update --version <version>` for a specific release.
 
 **`go.mod requires go >= 1.26.5`.** Your toolchain is older than the module
 requires. Upgrade Go, or pin an older GTB release.
