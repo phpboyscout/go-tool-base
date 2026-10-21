@@ -643,6 +643,14 @@ type UpdateCheckResult struct {
 func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
 
+	// A pin is a choice the user already made: no probe, no reminder, and no
+	// enabled-policy block (spec 0104 D6).
+	if pinned := pinnedVersion(props); pinned != "" {
+		props.Logger.Debug("pinned to " + pinned)
+
+		return result
+	}
+
 	// One pinned view for the whole check, so the policy, CI gate and
 	// interval agree with each other even under a mid-sequence reload.
 	view := props.Config.View()
@@ -721,6 +729,17 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	}
 
 	return result
+}
+
+// pinnedVersion is the tool's pin, or "" when there is none. A corrupt marker
+// reads as no pin, with a warning naming the file.
+func pinnedVersion(props *p.Props) string {
+	pinned, err := setup.GetPinnedVersion(props.FS, props.Tool.Name)
+	if err != nil {
+		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", err))
+	}
+
+	return pinned
 }
 
 // isCIEnvironment reports whether the invocation should be treated as running

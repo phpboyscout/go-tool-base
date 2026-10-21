@@ -114,3 +114,27 @@ func TestCompareVersions(t *testing.T) {
 		})
 	}
 }
+
+func TestIsReleaseTag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		tag  string
+		want bool
+	}{
+		{"v1.2.3", true},
+		{"v1.2.0-rc.1", true},
+		{"v1.2.0-beta", true},
+		{"v1.2", false},
+		{"v1", false},
+		{"v1.2.3+x", false},
+		{"1.2.3", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tag, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, IsReleaseTag(tt.tag))
+		})
+	}
+}

@@ -285,6 +285,70 @@ func GetCheckedVersion(fs afero.Fs, name string) string {
 	return strings.TrimSpace(string(data))
 }
 
+// pinnedVersionFile is the pin marker, beside last_checked (spec 0104 D4).
+const pinnedVersionFile = "pinned_version"
+
+// ErrInvalidPinnedVersion is a pin that does not name a release tag.
+var ErrInvalidPinnedVersion = errors.NewSentinel("gtb.setup.invalid_pinned_version", "the pinned version is not a release tag")
+
+// SetPinnedVersion pins the tool to version, so neither update nor the pre-run
+// check moves it. An empty version clears the pin. Like the other markers it is
+// a no-op when the config directory cannot be resolved.
+func SetPinnedVersion(fs afero.Fs, name, version string) error {
+	dir := GetDefaultConfigDir(fs, name)
+	if dir == "" {
+		return nil
+	}
+
+	version = strings.TrimSpace(version)
+	if version == "" {
+		if err := fs.Remove(filepath.Join(dir, pinnedVersionFile)); err != nil && !os.IsNotExist(err) {
+			return errors.Wrap(err, "failed to clear the pin")
+		}
+
+		return nil
+	}
+
+	if !ver.IsReleaseTag(version) {
+		return errors.WithHintf(errors.Wrapf(ErrInvalidPinnedVersion, "%q", version), "Pin a release tag such as v1.2.3 or v1.2.3-rc.1.")
+	}
+
+	return writeMarkerIn(fs, dir, pinnedVersionFile, version)
+}
+
+// GetPinnedVersion returns the version the tool is pinned to, or "" when it is
+// not pinned. A marker that does not hold a release tag reads as unpinned and
+// returns an error naming the file, so a corrupt marker can never wedge the
+// tool.
+func GetPinnedVersion(fs afero.Fs, name string) (string, error) {
+	dir := GetDefaultConfigDir(fs, name)
+	if dir == "" {
+		return "", nil
+	}
+
+	path := filepath.Join(dir, pinnedVersionFile)
+
+	data, err := afero.ReadFile(fs, path)
+
+	switch {
+	case os.IsNotExist(err):
+		return "", nil
+	case err != nil:
+		return "", errors.Wrapf(err, "failed to read the pin at %s", path)
+	}
+
+	version := strings.TrimSpace(string(data))
+
+	switch {
+	case version == "":
+		return "", nil
+	case !ver.IsReleaseTag(version):
+		return "", errors.Wrapf(ErrInvalidPinnedVersion, "%s", path)
+	default:
+		return version, nil
+	}
+}
+
 // setTimeSinceLastIn writes body to the "last_<status>" marker under configDir,
 // refreshing its modtime (the timestamp). An empty configDir is a no-op (see
 // SetTimeSinceLast) so the marker never lands in the current working directory
@@ -297,13 +361,15 @@ func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey, body
 
 	// Create the config dir lazily at first write — GetDefaultConfigDir is pure
 	// and no longer creates it as a side effect.
+	return writeMarkerIn(fs, configDir, fmt.Sprintf("last_%s", status), body)
+}
+
+func writeMarkerIn(fs afero.Fs, configDir, file, body string) error {
 	if err := fs.MkdirAll(configDir, dirPermUserOnly); err != nil {
 		return errors.Wrap(err, "failed to create config directory")
 	}
 
-	lastSinceFile := filepath.Join(configDir, fmt.Sprintf("last_%s", status))
-
-	if err := afero.WriteFile(fs, lastSinceFile, []byte(body), markerFilePerm); err != nil {
+	if err := afero.WriteFile(fs, filepath.Join(configDir, file), []byte(body), markerFilePerm); err != nil {
 		return errors.Wrap(err, "failed to write marker file")
 	}
 

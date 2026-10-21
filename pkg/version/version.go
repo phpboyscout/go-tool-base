@@ -68,6 +68,13 @@ func (i Info) IsDevelopment() bool {
 	return strings.Contains(pre, "dev") || strings.Contains(pre, "dirty")
 }
 
+// IsReleaseTag reports whether v names a release as tags are written:
+// v-prefixed, three-part, optionally a prerelease. Canonical refuses the
+// shorthands (v1, v1.2) and build metadata that IsValid alone accepts.
+func IsReleaseTag(v string) bool {
+	return semver.IsValid(v) && semver.Canonical(v) == v
+}
+
 // FormatVersionString adds or removes a "v" prefix from version string.
 func FormatVersionString(version string, prefixWanted bool) string {
 	version = strings.TrimPrefix(version, "v")

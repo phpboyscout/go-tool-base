@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
 
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/output"
@@ -19,13 +18,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
-
-// isReleaseTag reports whether v names a release as tags are written:
-// v-prefixed, three-part, optionally a prerelease. Canonical refuses the
-// shorthands (v1, v1.2) and build metadata that IsValid alone accepts.
-func isReleaseTag(v string) bool {
-	return semver.IsValid(v) && semver.Canonical(v) == v
-}
 
 // NewUpdaterFunc constructs an [Updater] for online updates.
 type NewUpdaterFunc func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error)
@@ -123,7 +115,7 @@ access.`,
 				return errors.Wrap(err, "failed to get version flag")
 			}
 
-			if version != "" && !isReleaseTag(version) {
+			if version != "" && !ver.IsReleaseTag(version) {
 				return errors.Newf("invalid version format %q, expected a release tag such as v1.2.3 or v1.2.3-rc.1", version)
 			}
 
