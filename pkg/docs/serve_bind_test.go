@@ -3,7 +3,9 @@ package docs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -64,7 +66,8 @@ func captureServeURL(t *testing.T, opts ...ServeOption) string {
 	cancel()
 
 	select {
-	case <-doneCh:
+	case err := <-doneCh:
+		assert.True(t, err == nil || errors.Is(err, http.ErrServerClosed), "unexpected error: %v", err)
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not shut down within timeout")
 	}
