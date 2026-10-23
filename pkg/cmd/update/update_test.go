@@ -181,6 +181,10 @@ func (m *mockUpdater) GetCurrentVersion() string {
 	return "v1.0.0"
 }
 
+func (m *mockUpdater) ReleaseBefore(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
 func TestUpdate(t *testing.T) {
 	t.Parallel()
 

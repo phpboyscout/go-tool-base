@@ -67,7 +67,9 @@ downgrading. The refusal names both versions and hints at the sanctioned
 routes:
 
 - `update --version <tag>`: an explicit version is sufficient intent on its
-  own, so a pinned downgrade needs no extra flag;
+  own; at a terminal it asks first, and unattended it proceeds;
+- `update --rollback`: asks first, then pins the older release (see
+  [Rollback and pin](#rollback-and-pin));
 - `update --force`: overrides the guard on the implicit path.
 
 The guard compares against the running binary version only (no persisted
@@ -87,6 +89,25 @@ installed. If one does, both `Update` and `UpdateFromFile` return
 `--force` does not override it. The detector is shared so that apt and dnf
 packaging can defer to the same answer. The command reference lists what is
 recognised: [Package-managed installs](../../reference/cli/update.md#package-managed-installs).
+
+### Rollback and pin
+
+A rollback is a downgrade a person asked for, so it is verified exactly as any update is and confirmed first. Without
+a pin it would not last: once the check interval passed, the pre-run check would find the newer release again and
+offer it, remind about it, or under the `enabled` policy refuse every command until the user moved forward. So a
+successful rollback pins its target, and a pinned tool's pre-run check makes no probe at all. The pin wins over the
+author's `enabled` policy, because it records a choice the user has already made. A hard minimum version set by an
+author would be a separate feature.
+
+The pin is a marker file, `pinned_version`, beside `last_checked` in the tool's config directory, not a config key.
+It is operational state for one installation: it survives `init`, it never shows in a config diff, and it is
+owner-only like the other markers. A marker that does not hold a release tag is ignored with a warning, so a corrupt
+file cannot wedge the tool.
+
+The release before the running one is chosen by version, not by publish order. On the static channel each manifest
+names the tag published before it, but a patch to an older line published after a newer release would make that
+pointer name the newer release. The updater lists the newest releases and takes the highest version below the running
+one. See [`0104-update-channels-rollback`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0104-update-channels-rollback).
 
 ## Testability via Abstraction
 

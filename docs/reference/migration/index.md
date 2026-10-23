@@ -58,6 +58,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [The static release channel replaces the withdrawn direct channel](v0.x-static-release-channel.md) |
 | v0.x | v0.x | [The config stack a tool declares is its precedence](v0.x-config-stack.md) |
 | v0.x | v0.x | [`ConfigureSSHKey` returns an `SSHKeySelection`](v0.x-ssh-key-selection.md) |
+| v0.x | v0.x | [Rollback and pin: `update` asks before an attended downgrade](v0.x-update-rollback-and-pin.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

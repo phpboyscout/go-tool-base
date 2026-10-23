@@ -87,7 +87,8 @@ func aStaticReleaseChannelServing(ctx context.Context, scenario string) (context
 
 // serve lays out the named scenario's releases. "nothing-published" is a
 // channel with no pointer yet; "chain" is two releases with the pointer on
-// the newer.
+// the newer; the rollback scenarios put an older release behind the running
+// one.
 func (ch *staticChannel) serve(base, scenario string) error {
 	type release struct {
 		tag, previous   string
@@ -100,6 +101,11 @@ func (ch *staticChannel) serve(base, scenario string) error {
 		"stale-latest":      {{tag: staticOlderVersion}},
 		"bad-checksum":      {{tag: staticNewerVersion, previous: staticCurrentVersion, corruptChecksum: true}},
 		"chain":             {{tag: staticCurrentVersion}, {tag: staticNewerVersion, previous: staticCurrentVersion}},
+		"rollback-chain":    {{tag: staticOlderVersion}, {tag: staticCurrentVersion, previous: staticOlderVersion}},
+		"rollback-bad-checksum": {
+			{tag: staticOlderVersion, corruptChecksum: true},
+			{tag: staticCurrentVersion, previous: staticOlderVersion},
+		},
 	}
 
 	releases, ok := scenarios[scenario]

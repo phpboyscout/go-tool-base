@@ -97,7 +97,9 @@ func (s *SelfUpdater) explainStaticRefusal(err error) (error, bool) {
 	case errors.Is(err, static.ErrReleaseNotFound):
 		return errors.WithHintf(err,
 			"The release channel at %s has no manifest for that tag. Check the tag against the "+
-				"channel's pointer, %s, which names the current one.", base, static.PointerURL(base)), true
+				"channel's pointer, %s, which names the current one. A release published before the "+
+				"tool moved to this channel has no manifest; install it from its archive with "+
+				"'update --from-file'.", base, static.PointerURL(base)), true
 
 	case errors.Is(err, static.ErrBrokenChain), errors.Is(err, static.ErrEscapesBase), errors.Is(err, static.ErrUnsupportedSchema):
 		return errors.WithHint(err,

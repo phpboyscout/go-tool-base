@@ -78,6 +78,7 @@ type Updater interface {
 	UpdateFromFile(ctx context.Context, filePath string) (string, error)
 	GetReleaseNotes(ctx context.Context, from, to string) (string, error)
 	GetCurrentVersion() string
+	ReleaseBefore(ctx context.Context, current string) (string, error)
 }
 
 // NewCmdUpdate creates the update command for self-updating the tool
@@ -90,37 +91,20 @@ func NewCmdUpdate(props *p.Props, opts ...UpdateConfigOption) *setup.Command {
 		Use:   "update",
 		Short: "Update to the latest available version",
 		Long: `Update the running binary to the latest version. Checks the configured
-release source (GitHub or GitLab) for a newer signed release, downloads
-and verifies it, then replaces the current binary in place and re-runs
-the init flow to keep config compatible. Pass a specific version to pin
-the target, or an offline release archive to install without network
-access.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fromFile, err := cmd.Flags().GetString("from-file")
-			if err != nil {
-				return errors.Wrap(err, "failed to get from-file flag")
-			}
+release source for a newer signed release, downloads and verifies it, then
+replaces the current binary in place and re-runs the init flow to keep config
+compatible. Pass a specific version to install that one, or an offline release
+archive to install without network access.
 
-			if fromFile != "" {
-				return updateFromFile(cmd, props, fromFile, opts...)
-			}
-
-			force, err := cmd.Flags().GetBool("force")
-			if err != nil {
-				return errors.Wrap(err, "failed to get force flag")
-			}
-
-			version, err := cmd.Flags().GetString("version")
-			if err != nil {
-				return errors.Wrap(err, "failed to get version flag")
-			}
-
-			if version != "" && !ver.IsReleaseTag(version) {
-				return errors.Newf("invalid version format %q, expected a release tag such as v1.2.3 or v1.2.3-rc.1", version)
-			}
-
-			result, err := Update(cmd.Context(), props, version, force, cmd.OutOrStdout(), opts...)
-			if err != nil {
+--rollback installs the release before this one, or a named older one with
+--rollback=vX.Y.Z, verified as any update is, and asks first. A rollback pins
+the tool there: neither update nor the update check moves it until --unpin.
+--pin stays on the running version, and --pin=vX.Y.Z installs that one and
+stays on it.`,
+		Args: noPositionalVersion,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			result, err := runUpdate(cmd, props, opts...)
+			if err != nil || result == nil {
 				return err
 			}
 
@@ -132,10 +116,15 @@ access.`,
 		},
 	}
 
-	updateCmd.Flags().BoolP("force", "f", false, "force update to the latest version")
+	updateCmd.Flags().BoolP("force", "f", false, "force update to the latest version, or roll back without asking")
 	updateCmd.Flags().StringP("version", "v", "", "specific version to update to. if not specified will target latest version")
 	updateCmd.Flags().String("from-file", "", "path to a local .tar.gz release archive for offline installation")
-	updateCmd.MarkFlagsMutuallyExclusive("from-file", "version")
+	updateCmd.Flags().String("rollback", "", "roll back to the release before this one, or to --rollback=vX.Y.Z, and pin it")
+	updateCmd.Flags().Lookup("rollback").NoOptDefVal = previousRelease
+	updateCmd.Flags().String("pin", "", "stay on the running version, or install --pin=vX.Y.Z and stay on it")
+	updateCmd.Flags().Lookup("pin").NoOptDefVal = runningRelease
+	updateCmd.Flags().Bool("unpin", false, "clear the pin so updates resume")
+	updateCmd.MarkFlagsMutuallyExclusive("from-file", "version", "rollback", "pin", "unpin")
 
 	return setup.AnnotateMCP(setup.Wrap(p.UpdateCmd, updateCmd), setup.MCPOpenWorld())
 }
@@ -145,64 +134,80 @@ type UpdateResult struct {
 	PreviousVersion string `json:"previous_version"`
 	NewVersion      string `json:"new_version"`
 	Updated         bool   `json:"updated"`
+	RolledBack      bool   `json:"rolled_back"`
+	Pinned          string `json:"pinned,omitempty"`
 }
 
 // Update downloads and installs the specified version (or latest) of the tool.
+// A pinned tool stays put unless a version is named or force is set, and then
+// the pin moves to what was installed (spec 0104 D7).
 func Update(ctx context.Context, props *p.Props, version string, force bool, out io.Writer, opts ...UpdateConfigOption) (*UpdateResult, error) {
-	o := &updateConfigOptions{execCommand: exec.CommandContext}
-	for _, opt := range opts {
-		opt(o)
+	return install(ctx, props, request{target: version, force: force}, out, opts...)
+}
+
+// runUpdate dispatches on the command's flags; a nil result means the command
+// emitted its own.
+func runUpdate(cmd *cobra.Command, props *p.Props, opts ...UpdateConfigOption) (*UpdateResult, error) {
+	flags := cmd.Flags()
+
+	fromFile, _ := flags.GetString("from-file")
+	force, _ := flags.GetBool("force")
+	unpin, _ := flags.GetBool("unpin")
+	version, _ := flags.GetString("version")
+	rollback, _ := flags.GetString("rollback")
+	pin, _ := flags.GetString("pin")
+
+	switch {
+	case fromFile != "":
+		return nil, updateFromFile(cmd, props, fromFile, opts...)
+	case unpin:
+		return Unpin(props)
+	case flags.Changed("rollback"):
+		target, err := namedTarget(rollback, previousRelease)
+		if err != nil {
+			return nil, err
+		}
+
+		return Rollback(cmd.Context(), props, target, force, cmd.OutOrStdout(), opts...)
+	case flags.Changed("pin"):
+		target, err := namedTarget(pin, runningRelease)
+		if err != nil {
+			return nil, err
+		}
+
+		return Pin(cmd.Context(), props, target, force, cmd.OutOrStdout(), opts...)
+	default:
+		target, err := namedTarget(version, "")
+		if err != nil {
+			return nil, err
+		}
+
+		return Update(cmd.Context(), props, target, force, cmd.OutOrStdout(), opts...)
+	}
+}
+
+// namedTarget is the release tag a flag names, or "" for the flag's bare form.
+func namedTarget(value, bare string) (string, error) {
+	if value == "" || value == bare {
+		return "", nil
 	}
 
-	o.resolveUpdaterFactories()
-
-	updater, err := o.newUpdater(ctx, props, version, force)
-	if err != nil {
-		return nil, err
+	if !ver.IsReleaseTag(value) {
+		return "", errors.Newf("invalid version format %q, expected a release tag such as v1.2.3 or v1.2.3-rc.1", value)
 	}
 
-	previousVersion := updater.GetCurrentVersion()
+	return value, nil
+}
 
-	target := version
-	if version == "" {
-		target, _ = updater.GetLatestVersionString(ctx)
+// noPositionalVersion refuses `update --rollback v1.2.3`, where the optional
+// flag value takes nothing and the version would otherwise be ignored.
+func noPositionalVersion(_ *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
 	}
 
-	currentVersion := ver.FormatVersionString(props.Version.GetVersion(), true)
-	if target != "" && target != currentVersion {
-		props.Logger.Info("Updating", "from", currentVersion, "to", target)
-	}
-
-	binPath, err := updater.Update(ctx)
-	if errors.Is(err, setup.ErrAlreadyCurrent) {
-		// Nothing was replaced, so nothing completed: no config refresh, no
-		// changelog, and the result says so (#95).
-		props.Logger.Info("already running the current version; nothing to update", "version", currentVersion)
-
-		return &UpdateResult{PreviousVersion: previousVersion, NewVersion: currentVersion, Updated: false}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	UpdateConfig(ctx, props, binPath, opts...)
-
-	if version == "" {
-		showUpdateChangelog(ctx, updater, previousVersion, out)
-	}
-
-	props.Logger.Info("Update complete")
-
-	if props.GetFeatures().Enabled(p.ChangelogCmd) {
-		props.Logger.Info(fmt.Sprintf("Run '%s changelog --latest' to see the full changelog.", props.Tool.Name))
-	}
-
-	return &UpdateResult{
-		PreviousVersion: previousVersion,
-		NewVersion:      target,
-		Updated:         true,
-	}, nil
+	return errors.WithHintf(errors.Newf("update takes no arguments, got %q", args[0]),
+		"To name a version, attach it to the flag: --rollback=%s, --pin=%s or --version %s.", args[0], args[0], args[0])
 }
 
 // showUpdateChangelog displays release notes after an update using the
@@ -224,12 +229,7 @@ func showUpdateChangelog(ctx context.Context, updater Updater, previousVersion s
 }
 
 func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ...UpdateConfigOption) error {
-	o := &updateConfigOptions{execCommand: exec.CommandContext}
-	for _, opt := range opts {
-		opt(o)
-	}
-
-	o.resolveUpdaterFactories()
+	o := newUpdateOptions(opts)
 
 	updater := o.newOfflineUpdater(props)
 

@@ -244,6 +244,29 @@ INFO  Update applied successfully. Restart to use the new version.
 
 ---
 
+## Roll Back and Pin
+
+Your users can step back from a bad release and stay there, with nothing for you to configure:
+
+```bash
+mytool update --rollback            # the release before this one, after a confirmation
+mytool update --rollback=v1.1.0     # a named older release
+mytool update --pin                 # stay on the running version
+mytool update --pin=v1.1.0          # install v1.1.0 and stay on it
+mytool update --unpin               # resume updates
+```
+
+1. **The rollback is verified** against the release's signed checksums, as a forward update is.
+2. **It asks first at a terminal.** An unattended `--rollback` (CI, or no terminal) needs `--force`.
+3. **A successful rollback pins its target.** The update check then stays quiet, even under the `enabled` policy, and
+   plain `update` does nothing until `update --unpin`.
+
+On the static release channel, a release published before your tool moved to the channel has no manifest, so it cannot
+be named. Install it from its archive with `update --from-file`. The flags and the full behaviour are in the
+[command reference](../reference/cli/update.md#rollback-and-pin).
+
+---
+
 ## Throttling
 
 By default, the update check runs at most once per 24 hours (stored in the tool's config directory). This prevents hammering the API on every command invocation. The throttle interval is configurable:

@@ -12,6 +12,9 @@ Feature: CLI Update Command
     And stdout contains "Update the running binary to the latest version"
     And stdout contains "--force"
     And stdout contains "--version"
+    And stdout contains "--rollback"
+    And stdout contains "--pin"
+    And stdout contains "--unpin"
 
   Scenario: Invalid semver format returns validation error
     When I run gtb with "update --version bad"
@@ -105,3 +108,51 @@ Feature: CLI Update Command
     Then the exit code is not 0
     And stderr contains "no release has been published"
     And stderr contains "not a configuration problem"
+
+  # Pin and rollback (spec 0104). Only outcomes that leave the binary in place
+  # run here; a successful rollback self-replaces and is covered Go-side.
+
+  Scenario: An unattended rollback needs force
+    Given a static release channel serving "rollback-chain"
+    When I run gtb with "update --rollback"
+    Then the exit code is not 0
+    And stderr contains "rolling back from v1.0.0 to v0.9.0"
+    And stderr contains "--force"
+
+  Scenario: A rollback to a release with a corrupt checksum leaves the binary and writes no pin
+    Given a static release channel serving "rollback-bad-checksum"
+    When I run gtb with "update --rollback --force"
+    Then the exit code is not 0
+    And stderr contains "checksum mismatch"
+    When I run gtb with "update"
+    Then the exit code is 0
+    And stderr contains "already running latest version"
+    And stderr does not contain "pinned"
+
+  Scenario: A rollback target that is not older is refused
+    Given a static release channel serving "chain"
+    When I run gtb with "update --rollback=v1.1.0"
+    Then the exit code is not 0
+    And stderr contains "not a rollback"
+    And stderr contains "--version v1.1.0"
+
+  Scenario: A version given after the flag instead of attached to it is refused
+    When I run gtb with "update --rollback v0.9.0"
+    Then the exit code is not 0
+    And stderr contains "--rollback=v0.9.0"
+
+  Scenario: A pinned tool is not updated until it is unpinned
+    Given a static release channel serving "chain"
+    When I run gtb with "update --pin"
+    Then the exit code is 0
+    And stderr contains "pinned to v1.0.0"
+    When I run gtb with "update --output json"
+    Then the exit code is 0
+    And the JSON field "data.updated" equals "false"
+    And the JSON field "data.pinned" equals "v1.0.0"
+    When I run gtb with "update"
+    Then stderr contains "--unpin"
+    And stderr does not contain "Update complete"
+    When I run gtb with "update --unpin"
+    Then the exit code is 0
+    And stderr contains "unpinned"

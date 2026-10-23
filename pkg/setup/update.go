@@ -786,7 +786,12 @@ func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error)
 	switch ver.CompareVersions(s.CurrentVersion, latestVersion) {
 	case -1: // need an upgrade
 		return false, fmt.Sprintf("newer version found. Please upgrade to %s.  Run the `update`", latestVersion), nil
-	case 1: // the release source reports an older "latest" than the running binary
+	case 1:
+		if s.version != "" {
+			return false, fmt.Sprintf("%s was requested, older than the running %s", latestVersion, s.CurrentVersion), nil
+		}
+
+		// the release source reports an older "latest" than the running binary
 		return false, fmt.Sprintf("the release source reports %s as latest but you are running %s; a downgrade will not be applied automatically — run `update --force` or pin a target with `update --version`", latestVersion, s.CurrentVersion), nil
 	default: // just right
 		return true, fmt.Sprintf("already running latest version, %s", s.CurrentVersion), nil
