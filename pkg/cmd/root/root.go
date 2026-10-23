@@ -644,9 +644,12 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	result := &UpdateCheckResult{}
 
 	// A pin is a choice the user already made: no probe, no reminder, and no
-	// enabled-policy block (spec 0104 D6).
-	if pinned := pinnedVersion(props); pinned != "" {
-		props.Logger.Debug("pinned to " + pinned)
+	// enabled-policy block (spec 0104 D6). A corrupt marker reads as no pin,
+	// and is reported only once a check is about to run, so CI, exempt
+	// commands and throttled runs stay quiet.
+	pinned, pinErr := setup.GetPinnedVersion(props.FS, props.Tool.Name)
+	if pinned != "" {
+		props.Logger.Debug("update check skipped: pinned", "version", pinned)
 
 		return result
 	}
@@ -672,6 +675,10 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 		}
 
 		return result
+	}
+
+	if pinErr != nil {
+		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", pinErr))
 	}
 
 	if age, ok := setup.TimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey); ok {
@@ -729,17 +736,6 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	}
 
 	return result
-}
-
-// pinnedVersion is the tool's pin, or "" when there is none. A corrupt marker
-// reads as no pin, with a warning naming the file.
-func pinnedVersion(props *p.Props) string {
-	pinned, err := setup.GetPinnedVersion(props.FS, props.Tool.Name)
-	if err != nil {
-		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", err))
-	}
-
-	return pinned
 }
 
 // isCIEnvironment reports whether the invocation should be treated as running

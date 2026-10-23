@@ -46,7 +46,7 @@ func TestCheckForUpdates_PinnedIsLeftAlone(t *testing.T) {
 				assert.True(t, info.ModTime().Equal(stale), "a pinned run makes no release probe and leaves last_checked alone")
 				assert.False(t, loggedAt(t, props, logger.WarnLevel, "a newer"), "no cached reminder")
 				assert.False(t, loggedAt(t, props, logger.WarnLevel, policyNotEnforced))
-				assert.True(t, loggedAt(t, props, logger.DebugLevel, "pinned to v1.0.0"))
+				assert.True(t, loggedAt(t, props, logger.DebugLevel, "update check skipped: pinned"))
 			})
 		}
 	}
@@ -64,4 +64,17 @@ func TestCheckForUpdates_CorruptPinIsIgnoredWithOneWarning(t *testing.T) {
 
 	assert.True(t, loggedAt(t, props, logger.WarnLevel, marker), "the warning names the file")
 	assert.True(t, checkRan(props), "a corrupt pin reads as unpinned, so the check runs")
+}
+
+func TestCheckForUpdates_CorruptPinIsQuietWhenNoCheckRuns(t *testing.T) {
+	t.Setenv("CI", "")
+
+	props := outdatedProps(t, p.UpdatePolicyPrompt, nonInteractiveIO())
+	marker := filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "pinned_version")
+	require.NoError(t, props.FS.MkdirAll(filepath.Dir(marker), 0o700))
+	require.NoError(t, afero.WriteFile(props.FS, marker, []byte("garbage"), 0o600))
+
+	checkForUpdates(context.Background(), mkUpdateCmd(t), props, newRootState())
+
+	assert.False(t, loggedAt(t, props, logger.WarnLevel, "update pin"), "an unattended run that makes no check says nothing")
 }
