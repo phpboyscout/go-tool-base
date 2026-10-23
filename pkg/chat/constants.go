@@ -1,9 +1,10 @@
 package chat
 
-// GTB config-key schema. These constants describe how go-tool-base's Viper
+// GTB config-key schema. These constants describe how go-tool-base's
 // configuration names AI provider settings; they are owned by this adapter, not
 // the standalone chat module (which is config-system-agnostic). config_adapter.go
-// maps these keys into the module's typed Config/CredentialConfig.
+// maps these keys into the module's typed Config, and credential_source.go
+// resolves the credential keys into its Credential.
 
 // configSectionAI is the config section every ai.* key lives under.
 const configSectionAI = "ai"

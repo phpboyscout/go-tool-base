@@ -23,30 +23,39 @@ func init() {
 // without relying on init having run. One descriptor per credential root,
 // derived the way CredentialKeysFor derives the keys.
 func providerCredentials() []credentialposture.Descriptor {
-	roots := []struct{ root, owner, label string }{
-		{configRootClaude, "chat:anthropic", "Anthropic API key"},
-		{configRootOpenAI, "chat:openai", "OpenAI API key"},
-		{configRootGemini, "chat:gemini", "Gemini API key"},
-		{configRootAzure, "chat:azure", "Azure OpenAI API key"},
-	}
+	out := make([]credentialposture.Descriptor, 0, len(credentialRoots))
 
-	out := make([]credentialposture.Descriptor, 0, len(roots))
-
-	for _, r := range roots {
-		keys := credentialKeysForRoot(r.root)
-		out = append(out, credentialposture.Descriptor{
-			Owner:       r.owner,
-			Feature:     string(props.AiCmd),
-			Providers:   providersUnderRoot(r.root),
-			Label:       r.label,
-			EnvKey:      keys.Env,
-			KeychainKey: keys.Keychain,
-			LiteralKey:  keys.Literal,
-			FallbackEnv: keys.FallbackEnv,
-		})
+	for _, root := range credentialRoots {
+		out = append(out, descriptorForRoot(root))
 	}
 
 	return out
+}
+
+// credentialOwners names each credential root in reports.
+var credentialOwners = map[string]struct{ owner, label string }{
+	configRootClaude: {"chat:anthropic", "Anthropic API key"},
+	configRootOpenAI: {"chat:openai", "OpenAI API key"},
+	configRootGemini: {"chat:gemini", "Gemini API key"},
+	configRootAzure:  {"chat:azure", "Azure OpenAI API key"},
+}
+
+// descriptorForRoot is the one statement of a root's credential, read by
+// doctor's report and by the source a provider resolves its key from.
+func descriptorForRoot(root string) credentialposture.Descriptor {
+	keys := credentialKeysForRoot(root)
+	names := credentialOwners[root]
+
+	return credentialposture.Descriptor{
+		Owner:       names.owner,
+		Feature:     string(props.AiCmd),
+		Providers:   providersUnderRoot(root),
+		Label:       names.label,
+		EnvKey:      keys.Env,
+		KeychainKey: keys.Keychain,
+		LiteralKey:  keys.Literal,
+		FallbackEnv: keys.FallbackEnv,
+	}
 }
 
 // providersUnderRoot lists the providers whose credential lives under root,

@@ -674,8 +674,8 @@ gitlab.com/phpboyscout/go/browser v0.2.2 h1:8DhFnMRUrr73pIAEBqbDgd7LJvZrM5X02SOm
 gitlab.com/phpboyscout/go/browser v0.2.2/go.mod h1:pYib+LXPWgPhHV6QbJtXGObzxFa6WtNHt+6ggDN75pE=
 gitlab.com/phpboyscout/go/changelog v0.4.1 h1:QCiA0d0w3OZLdQGQrcY2aN29ysU802j9UGydi4gMHWg=
 gitlab.com/phpboyscout/go/changelog v0.4.1/go.mod h1:c21jpe3FJ8KvAtRA+rWArrGhG6ynsRDkZLy1CPtEeHU=
-gitlab.com/phpboyscout/go/chat v0.32.0 h1:EiwM55cOndjLgeXjJVlwNebZV2da3PtR2Sp1YdBuNq8=
-gitlab.com/phpboyscout/go/chat v0.32.0/go.mod h1:mQ4uRkREA0GUrmHAGP86jxxklbnQgIKZkktBa0CmkKQ=
+gitlab.com/phpboyscout/go/chat v0.36.0 h1:+JFrWQBPeVb20lApCKQNz1ZMsn5JIeVPkhA/WiPcXhc=
+gitlab.com/phpboyscout/go/chat v0.36.0/go.mod h1:E0t17lGXP2rm29Lg5OOtJUHvADrCAYUEnL7HR2pc1c8=
 gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 h1:Gf5NGmYg6gO8EpqTqQg+2v6ULFkpe15BMx1FKsv7+24=
 gitlab.com/phpboyscout/go/clientlifecycle v0.2.0/go.mod h1:eqA0auKPZT+0vlIOKTAezqSrKa4436FCtOA2jmXCeYk=
 gitlab.com/phpboyscout/go/config v0.21.0 h1:HxJkcMWEkcjjHYhHVRDqq0Kjb/lpj6dFxlh2nWvNzCs=

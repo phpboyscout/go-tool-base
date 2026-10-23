@@ -11,8 +11,6 @@ import (
 	gochat "gitlab.com/phpboyscout/go/chat"
 	"gitlab.com/phpboyscout/go/httpclient"
 
-	gtbcreds "gitlab.com/phpboyscout/go/credentials"
-
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -38,14 +36,14 @@ func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, erro
 		return gochat.Settings{}, err
 	}
 
-	if err := applyCredentialConfig(view, &cfg); err != nil {
-		return gochat.Settings{}, err
+	// A Token beside a Credential is refused, so a caller's own key stands alone.
+	if cfg.Credential == nil && cfg.Token == "" {
+		if source, ok := credentialSources(view)(cfg.Provider); ok {
+			cfg.Credential = source
+		}
 	}
 
-	// Wire the GTB-side seams into the package-owned config: the OS-keychain
-	// resolver and the hardened HTTP transport. The chat core stays free of
-	// pkg/credentials and pkg/http; this adapter is the only place they enter.
-	cfg.Credentials.Lookup = gtbcreds.Retrieve
+	// The hardened transport is GTB's seam; the chat core stays free of pkg/http.
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = newHardenedChatHTTPClient(resolveChatTimeout(cfg))
 	}
@@ -124,29 +122,10 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Co
 	settings.Config.Provider = explicit
 
 	opts = append([]gochat.FallbackOption{
-		gochat.WithProviderCredentials(providerCredentialsFrom(props.ViewOrNil(p))),
+		gochat.WithProviderCredentialSources(credentialSources(props.ViewOrNil(p))),
 	}, opts...)
 
 	return gochat.NewWithFallbackSettings(ctx, settings, fallback, opts...)
-}
-
-// providerCredentialsFrom resolves a chain member's credential from GTB's
-// config the way SettingsFromProps does for a single provider.
-func providerCredentialsFrom(cfg config.Reader) gochat.ProviderCredentials {
-	return func(provider gochat.Provider) (gochat.CredentialConfig, bool) {
-		if !NeedsCredential(provider) {
-			return gochat.CredentialConfig{}, false
-		}
-
-		credentials, err := loadCredentialConfig(cfg, provider)
-		if err != nil || credentials.IsZero() {
-			return gochat.CredentialConfig{}, false
-		}
-
-		credentials.Lookup = gtbcreds.Retrieve
-
-		return credentials, true
-	}
 }
 
 // NewWithFallback adapts GTB props and framework config before constructing a
@@ -237,25 +216,6 @@ func (s aiSection) apiVersion() string {
 	}
 }
 
-func applyCredentialConfig(cfg config.Reader, target *gochat.Config) error {
-	if cfg == nil || target == nil || !NeedsCredential(target.Provider) {
-		return nil
-	}
-
-	if !target.Credentials.IsZero() {
-		return nil
-	}
-
-	credentials, err := loadCredentialConfig(cfg, target.Provider)
-	if err != nil {
-		return err
-	}
-
-	target.Credentials = credentials
-
-	return nil
-}
-
 func loadRuntimeConfig(cfg config.Reader) (aiSection, error) {
 	section, err := config.UnmarshalSection[aiSection](cfg, configSectionAI)
 	if err != nil || !section.Exists {
@@ -269,20 +229,6 @@ func loadFallbackConfig(cfg config.Reader) (gochat.FallbackConfig, error) {
 	section, err := config.UnmarshalSection[gochat.FallbackConfig](cfg, ConfigKeyAIFallback)
 	if err != nil || !section.Exists {
 		return gochat.FallbackConfig{}, err
-	}
-
-	return section.Value, nil
-}
-
-func loadCredentialConfig(cfg config.Reader, provider gochat.Provider) (gochat.CredentialConfig, error) {
-	root := credentialConfigRoot(provider)
-	if root == "" {
-		return gochat.CredentialConfig{}, nil
-	}
-
-	section, err := config.UnmarshalSection[gochat.CredentialConfig](cfg, root)
-	if err != nil || !section.Exists {
-		return gochat.CredentialConfig{}, err
 	}
 
 	return section.Value, nil

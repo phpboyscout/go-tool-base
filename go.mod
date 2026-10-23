@@ -36,7 +36,7 @@ require (
 	gitlab.com/phpboyscout/go/azureclient v0.1.2
 	gitlab.com/phpboyscout/go/browser v0.2.2
 	gitlab.com/phpboyscout/go/changelog v0.4.1
-	gitlab.com/phpboyscout/go/chat v0.32.0
+	gitlab.com/phpboyscout/go/chat v0.36.0
 	gitlab.com/phpboyscout/go/config v0.21.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.13
 	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.5

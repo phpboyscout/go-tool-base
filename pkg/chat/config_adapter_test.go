@@ -58,12 +58,9 @@ openai:
 	assert.True(t, runtime.Fallback.Enabled)
 	assert.Equal(t, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderClaude}, runtime.Fallback.Providers)
 
-	credentials, err := loadCredentialConfig(view, gochat.ProviderOpenAI)
-	require.NoError(t, err)
-
-	assert.Equal(t, "CUSTOM_OPENAI_TOKEN", credentials.Env)
-	assert.Equal(t, "service/account", credentials.Keychain)
-	assert.Equal(t, "env-literal-key", credentials.Key)
+	// CUSTOM_OPENAI_TOKEN is unset and the keychain unreachable, so the
+	// env-overridden literal supplies the key.
+	assert.Equal(t, "env-literal-key", view.GetString(ConfigKeyOpenAIKey))
 }
 
 func TestLoadFallbackConfig_TypedSection(t *testing.T) {
@@ -105,61 +102,10 @@ func TestApplyRuntimeConfig_MockReader(t *testing.T) {
 	assert.Equal(t, gochat.ProviderGemini, chatConfig.Provider)
 }
 
-func TestLoadCredentialConfig_TypedSections(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		provider gochat.Provider
-		yaml     string
-	}{
-		{
-			name:     "openai",
-			provider: gochat.ProviderOpenAI,
-			yaml:     "openai:\n  api:\n    env: TOKEN_ENV\n    keychain: service/account\n    key: literal-key\n",
-		},
-		{
-			name:     "claude",
-			provider: gochat.ProviderClaude,
-			yaml:     "anthropic:\n  api:\n    env: TOKEN_ENV\n    keychain: service/account\n    key: literal-key\n",
-		},
-		{
-			name:     "gemini",
-			provider: gochat.ProviderGemini,
-			yaml:     "gemini:\n  api:\n    env: TOKEN_ENV\n    keychain: service/account\n    key: literal-key\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			credentials, err := loadCredentialConfig(chatStoreFromYAML(t, tt.yaml).View(), tt.provider)
-			require.NoError(t, err)
-
-			assert.Equal(t, gochat.CredentialConfig{
-				Env:      "TOKEN_ENV",
-				Keychain: "service/account",
-				Key:      "literal-key",
-			}, credentials)
-		})
-	}
-}
-
-func TestLoadCredentialConfig_UnknownProvider(t *testing.T) {
-	t.Parallel()
-
-	credentials, err := loadCredentialConfig(configmocks.NewMockReader(t), gochat.Provider("unknown"))
-	require.NoError(t, err)
-
-	assert.True(t, credentials.IsZero())
-}
-
 func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
 	t.Parallel()
 
 	require.NoError(t, applyRuntimeConfig(nil, nil))
-	require.NoError(t, applyCredentialConfig(nil, nil))
 
 	runtime, err := loadRuntimeConfig(nil)
 	require.NoError(t, err)
@@ -168,22 +114,6 @@ func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
 	fallback, err := loadFallbackConfig(nil)
 	require.NoError(t, err)
 	assert.Zero(t, fallback)
-
-	credentials, err := loadCredentialConfig(nil, gochat.ProviderOpenAI)
-	require.NoError(t, err)
-	assert.True(t, credentials.IsZero())
-
-	// Credentials already supplied: the reader must not be consulted at all.
-	cfg := gochat.Config{
-		Provider:    gochat.ProviderOpenAI,
-		Credentials: gochat.CredentialConfig{Key: "already-set"},
-	}
-	require.NoError(t, applyCredentialConfig(configmocks.NewMockReader(t), &cfg))
-	assert.Equal(t, gochat.CredentialConfig{Key: "already-set"}, cfg.Credentials)
-
-	// claude-local resolves credentials via the CLI binary, never from config.
-	local := gochat.Config{Provider: gochat.ProviderClaudeLocal}
-	require.NoError(t, applyCredentialConfig(configmocks.NewMockReader(t), &local))
 }
 
 func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
@@ -304,10 +234,9 @@ openai:
 
 	assert.Equal(t, gochat.ProviderOpenAI, got.Provider)
 	assert.Equal(t, 11*time.Second, got.RequestTimeout)
-	assert.Equal(t, "env-literal-key", got.Credentials.Key)
-	assert.Empty(t, got.Credentials.Env)
-	assert.Empty(t, got.Credentials.Keychain)
-	// The GTB adapter wires the keychain resolver and hardened HTTP client.
-	assert.NotNil(t, got.Credentials.Lookup)
+	require.NotNil(t, got.Credential, "the adapter hands the provider GTB's credential walk")
+	key, err := got.Credential(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "env-literal-key", key)
 	assert.NotNil(t, got.HTTPClient)
 }

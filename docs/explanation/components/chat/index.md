@@ -40,16 +40,26 @@ framework integration on top:
   |---|---|---|---|---|
   | Claude | `anthropic.api.key` | `anthropic.api.env` | `anthropic.api.keychain` | `ANTHROPIC_API_KEY` |
   | OpenAI | `openai.api.key` | `openai.api.env` | `openai.api.keychain` | `OPENAI_API_KEY` |
-  | Gemini, Gemini Vertex | `gemini.api.key` | `gemini.api.env` | `gemini.api.keychain` | `GEMINI_API_KEY` |
+  | Gemini | `gemini.api.key` | `gemini.api.env` | `gemini.api.keychain` | `GEMINI_API_KEY` |
   | Azure OpenAI | `azure.api.key` | `azure.api.env` | `azure.api.keychain` | `AZURE_OPENAI_API_KEY` |
 
-  `openai-compatible` shares OpenAI's root. The local CLIs (`claude-local`,
-  `codex-local`, `agy-local`) and `bedrock` carry no GTB credential:
-  `chat.NeedsCredential(p)` says which. The provider is chosen by
-  `ai.provider` (or `AI_PROVIDER` when that is unset); fallback is configured
-  under `ai.fallback.*`. Resolution precedence: direct token → env-var
-  reference → OS keychain → literal → ecosystem env var. The recommended path
-  (env-var reference) keeps the literal secret out of the config file.
+  `openai-compatible` shares OpenAI's root but never reads `OPENAI_API_KEY`,
+  which belongs to api.openai.com. `gemini-vertex` authenticates with Google
+  application default credentials and takes no key. The local CLIs
+  (`claude-local`, `codex-local`, `agy-local`) and `bedrock` carry no GTB
+  credential. The provider is chosen by `ai.provider` (or `AI_PROVIDER` when
+  that is unset); fallback is configured under `ai.fallback.*`.
+- **One credential walk, shared with `doctor`.** The adapter hands each
+  provider a `chat.CredentialSource` over the same walk `doctor` reports from:
+  env-var reference → OS keychain → literal → ecosystem env var. So `doctor`
+  and the client cannot disagree about where a key comes from. Nothing is read
+  until the provider asks. A keychain entry that cannot be read, with nothing
+  below it, fails `chat.New` with the reason rather than reading as a missing
+  key, and one with a literal below it is refused as a secure-store
+  regression (see [credentials](../credentials.md#a-secure-store-does-not-silently-stop-being-used)).
+  A caller's own `Config.Token` or `Config.Credential` is left alone. The
+  recommended path (env-var reference) keeps the literal secret out of the
+  config file.
 - **The whole `ai:` section reaches the client.** `ai.model`, `ai.base_url`,
   `ai.api_version`, `ai.project` and `ai.location` fill the matching
   `chat.Config` fields when the caller left them empty, so `openai-compatible`,
@@ -57,7 +67,7 @@ framework integration on top:
   They apply to `ai.provider` only. A fallback chain is built by the module's
   `NewWithFallbackSettings`: the primary keeps its model and addressing, every
   other member resolves its own, and GTB supplies each member's credential
-  through `WithProviderCredentials`. GTB used to derive the chain itself with a
+  source through `WithProviderCredentialSources`. GTB used to derive the chain itself with a
   denylist that cleared the primary's model and would have carried addressing
   to every member.
 - **Three layers, three owners.** A generated tool's chat configuration is
@@ -69,9 +79,9 @@ framework integration on top:
   are only ever the end user's, in their file or their environment; nothing
   the author records carries one. See spec 0196 and the
   [generate reference](../../../reference/cli/generate.md).
-- **Hardened HTTP + keychain seams.** The adapter injects `pkg/http`'s hardened
-  transport and wires `pkg/credentials.Retrieve` as the keychain lookup, so GTB
-  tools get the framework's security posture; the module core carries neither.
+- **Hardened HTTP seam.** The adapter injects the hardened transport from
+  `go/httpclient`, so GTB tools get the framework's security posture; the
+  module core carries none of it.
 - **No provider registered here.** A provider is a blank import in the binary
   that ships it (spec 0194): `cli/cmd/gtb/providers.go` links every module, and
   a generated tool links the ones its manifest selects. A hand-wired tool adds
