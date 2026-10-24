@@ -214,7 +214,7 @@ func chatLinksWithoutAi(name string, linked []string) CheckResult {
 // one this binary registers, and the fix is the module to import. It replaced
 // the three-key "API keys" count, which the credential resolution check had
 // made redundant (#55).
-func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
+func checkChatProviders(ctx context.Context, props *p.Props) CheckResult {
 	const name = "Chat providers"
 
 	if props == nil {
@@ -263,7 +263,55 @@ func checkChatProviders(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: name, Status: CheckFail, Message: "configured but not linked: " + strings.Join(withImportHints(missing), "; ")}
 	}
 
-	return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(linked, ", ") + " linked"}
+	problems, notes := chatKeyFindings(ctx, props.Config.View(), configured)
+
+	return chatKeyResult(name, linked, len(configured), problems, notes)
+}
+
+// chatKeyResult fails only when every provider in use has a problem, matching
+// the fallback client, which builds while any member does.
+func chatKeyResult(name string, linked []string, inUse int, problems, notes []string) CheckResult {
+	details := strings.Join(notes, "\n       ")
+
+	switch {
+	case len(problems) == inUse:
+		return CheckResult{Name: name, Status: CheckFail, Message: strings.Join(problems, "; "), Details: details}
+	case len(problems) > 0:
+		return CheckResult{Name: name, Status: CheckWarn, Message: strings.Join(problems, "; "), Details: details}
+	default:
+		return CheckResult{Name: name, Status: CheckPass, Message: strings.Join(linked, ", ") + " linked", Details: details}
+	}
+}
+
+// chatKeyFindings reads each provider's key through the walk chat.New reads
+// (#134), so doctor reports what the client will find rather than what a
+// credential root holds.
+func chatKeyFindings(ctx context.Context, cfg config.Reader, providers []gochat.Provider) (problems, notes []string) {
+	for _, provider := range providers {
+		resolved, err := chat.ProviderKeyResolves(ctx, cfg, provider)
+
+		switch {
+		case err != nil:
+			problems = append(problems, fmt.Sprintf("%s: key configured but does not resolve (%v)", provider, err))
+		case resolved:
+		case chat.ProviderKeyOptional(provider):
+			notes = append(notes, fmt.Sprintf("%s: no API key resolves, so requests are sent without one", provider))
+		default:
+			problems = append(problems, fmt.Sprintf("%s: no API key resolves%s", provider, keyHint(provider)))
+		}
+	}
+
+	return problems, notes
+}
+
+// keyHint names where a missing key would come from.
+func keyHint(provider gochat.Provider) string {
+	keys, ok := chat.CredentialKeysFor(provider)
+	if !ok || keys.FallbackEnv == "" {
+		return " (run `init ai`)"
+	}
+
+	return fmt.Sprintf(" (run `init ai`, or export %s)", keys.FallbackEnv)
 }
 
 // chatProvidersInUse is ai.provider followed by the fallback chain, without

@@ -240,7 +240,7 @@ func credentialConfigRoot(provider gochat.Provider) string {
 		return configRootOpenAI
 	case gochat.ProviderClaude:
 		return configRootClaude
-	case gochat.ProviderGemini, gochat.ProviderGeminiVertex:
+	case gochat.ProviderGemini: // not gemini-vertex: ADC, and it refuses a key (chat-gemini spec 0017 D8)
 		return configRootGemini
 	case gochat.ProviderAzureOpenAI:
 		return configRootAzure

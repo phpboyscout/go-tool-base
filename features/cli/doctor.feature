@@ -46,3 +46,18 @@ Feature: CLI Doctor Command
     And stdout contains "GTB_PIPELINE_FLAGS sets pipeline.flags"
     And stdout does not contain "do-not-print"
     And stdout does not contain "GTB_NON_INTERACTIVE sets"
+
+  # #134: the check reads each provider's key the way the chat client does.
+  Scenario: A chat provider with no key fails the chat providers check
+    Given I set environment variable "GTB_AI_PROVIDER" to "gemini"
+    And I set environment variable "GEMINI_API_KEY" to ""
+    When I run gtb with "doctor --ci"
+    Then stdout contains "[FAIL] Chat providers: gemini: no API key resolves"
+
+  Scenario: openai-compatible is not credited with the OpenAI key
+    Given I set environment variable "GTB_AI_PROVIDER" to "openai-compatible"
+    And I set environment variable "OPENAI_API_KEY" to "an-openai-key"
+    When I run gtb with "doctor --ci"
+    Then stdout contains "Chat providers"
+    And stdout contains "openai-compatible: no API key resolves, so requests are sent without one"
+    And stdout does not contain "an-openai-key"

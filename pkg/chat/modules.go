@@ -168,8 +168,9 @@ var fallbackEnvForRoot = map[string]string{
 }
 
 // NeedsCredential reports whether GTB holds a credential for the provider: a
-// local CLI authenticates on its own, and bedrock authenticates through the
-// AWS chain, so neither has a credential root in GTB's config.
+// local CLI authenticates on its own, bedrock through the AWS chain and
+// gemini-vertex through application default credentials, so none of them has
+// a credential root in GTB's config.
 func NeedsCredential(provider gochat.Provider) bool {
 	return credentialConfigRoot(provider) != ""
 }

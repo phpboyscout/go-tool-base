@@ -158,5 +158,59 @@ func TestCheckChatProviders_WithoutAiReportsTheLinksAndJudgesNothing(t *testing.
 	assert.Contains(t, res.Message, "own-use")
 	assert.Contains(t, res.Message, "ai feature off")
 	assert.NotContains(t, res.Message, "ai.provider")
+}
 
+// TestCheckChatProviders_ReportsWhetherEachKeyResolves is #134: the check reads
+// each provider's key through the walk chat.New reads, so doctor and the client
+// agree. It registers real provider names, so it stays last in this file: the
+// tests above assume those providers are absent.
+func TestCheckChatProviders_ReportsWhetherEachKeyResolves(t *testing.T) {
+	factory := func(context.Context, gochat.Settings) (gochat.ChatClient, error) { return nil, nil }
+	for _, provider := range []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible, gochat.ProviderGemini, gochat.ProviderGeminiVertex} {
+		gochat.RegisterProvider(provider, factory)
+	}
+
+	t.Setenv("OPENAI_API_KEY", "an-openai-key")
+	t.Setenv("GEMINI_API_KEY", "")
+
+	ai := p.Tool{Name: "t", Features: p.SetFeatures(p.Enable(p.AiCmd))}
+	check := func(yaml string) CheckResult {
+		return checkChatProviders(context.Background(), &p.Props{Tool: ai, Config: testutil.StoreFromYAML(t, yaml)})
+	}
+
+	t.Run("passes when the key resolves", func(t *testing.T) {
+		res := check("ai:\n  provider: openai\n")
+		assert.Equal(t, CheckPass, res.Status, res.Message)
+	})
+
+	t.Run("fails when the only provider has no key", func(t *testing.T) {
+		res := check("ai:\n  provider: gemini\n")
+		assert.Equal(t, CheckFail, res.Status, res.Message)
+		assert.Contains(t, res.Message, "gemini")
+		assert.Contains(t, res.Message, "no API key")
+	})
+
+	t.Run("warns when a fallback member has no key", func(t *testing.T) {
+		res := check("ai:\n  provider: openai\n  fallback:\n    enabled: true\n    providers: [openai, gemini]\n")
+		assert.Equal(t, CheckWarn, res.Status, res.Message)
+		assert.Contains(t, res.Message, "gemini")
+	})
+
+	t.Run("openai-compatible never reads OPENAI_API_KEY, and runs without a key", func(t *testing.T) {
+		res := check("ai:\n  provider: openai-compatible\n")
+		assert.Equal(t, CheckPass, res.Status, res.Message)
+		assert.Contains(t, res.Details, "openai-compatible")
+		assert.Contains(t, res.Details, "without")
+	})
+
+	t.Run("gemini-vertex needs no key", func(t *testing.T) {
+		res := check("ai:\n  provider: gemini-vertex\n")
+		assert.Equal(t, CheckPass, res.Status, res.Message)
+	})
+
+	t.Run("a broken keychain entry fails with its reason", func(t *testing.T) {
+		res := check("ai:\n  provider: gemini\ngemini:\n  api:\n    keychain: no-slash\n")
+		assert.Equal(t, CheckFail, res.Status, res.Message)
+		assert.Contains(t, res.Message, "does not resolve")
+	})
 }

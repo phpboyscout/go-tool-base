@@ -33,6 +33,7 @@ func chatStoreFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *c
 
 func TestConfigAdapter_LoadsTypedSections(t *testing.T) {
 	t.Setenv("GTB_OPENAI_API_KEY", "env-literal-key")
+	t.Setenv("CUSTOM_OPENAI_TOKEN", "")
 
 	view := chatStoreFromYAML(t, `
 ai:
@@ -47,7 +48,6 @@ openai:
   api:
     key: file-literal-key
     env: CUSTOM_OPENAI_TOKEN
-    keychain: service/account
 `, config.WithEnv("GTB")).View()
 
 	runtime, err := loadRuntimeConfig(view)
@@ -58,9 +58,13 @@ openai:
 	assert.True(t, runtime.Fallback.Enabled)
 	assert.Equal(t, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderClaude}, runtime.Fallback.Providers)
 
-	// CUSTOM_OPENAI_TOKEN is unset and the keychain unreachable, so the
-	// env-overridden literal supplies the key.
 	assert.Equal(t, "env-literal-key", view.GetString(ConfigKeyOpenAIKey))
+
+	source, ok := credentialSources(view)(gochat.ProviderOpenAI)
+	require.True(t, ok)
+	key, err := source(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "env-literal-key", key)
 }
 
 func TestLoadFallbackConfig_TypedSection(t *testing.T) {

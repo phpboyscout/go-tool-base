@@ -144,3 +144,60 @@ func TestSettingsFromProps_LeavesACallersCredentialAlone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, settings.Config.Credential, "a Token beside a Credential is refused, so a caller's Token stands alone")
 }
+
+// TestCredentialSources_RefusesALiteralBelowABrokenKeychain: the secure-store
+// refusal forges already have, reached through the chat walk.
+func TestCredentialSources_RefusesALiteralBelowABrokenKeychain(t *testing.T) {
+	t.Parallel()
+
+	source, ok := credentialSources(chatStoreFromYAML(t, "gemini:\n  api:\n    keychain: no-slash\n    key: literal\n").View())(gochat.ProviderGemini)
+	require.True(t, ok)
+
+	_, err := source(t.Context())
+	require.ErrorIs(t, err, credentialposture.ErrSecureStoreRegressed)
+}
+
+func TestProviderKeyResolves(t *testing.T) {
+	t.Setenv(EnvOpenAIKey, "an-openai-key")
+	t.Setenv(EnvClaudeKey, "")
+
+	view := chatStoreFromYAML(t, "gemini:\n  api:\n    key: literal\nanthropic:\n  api:\n    keychain: no-slash\n").View()
+
+	tests := []struct {
+		provider gochat.Provider
+		want     bool
+		wantErr  error
+	}{
+		{gochat.ProviderOpenAI, true, nil},
+		{gochat.ProviderGemini, true, nil},
+		{gochat.ProviderOpenAICompatible, false, nil}, // never OPENAI_API_KEY
+		{gochat.ProviderAzureOpenAI, false, nil},
+		{gochat.ProviderGeminiVertex, true, nil}, // holds no key, so nothing is missing
+		{gochat.ProviderBedrock, true, nil},
+		{gochat.ProviderClaude, false, credentialposture.ErrMalformedKeychainRef},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.provider), func(t *testing.T) {
+			got, err := ProviderKeyResolves(t.Context(), view, tt.provider)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestProviderKeyOptional(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, ProviderKeyOptional(gochat.ProviderOpenAICompatible))
+
+	for _, provider := range []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderClaude, gochat.ProviderGemini, gochat.ProviderAzureOpenAI} {
+		assert.False(t, ProviderKeyOptional(provider), provider)
+	}
+}

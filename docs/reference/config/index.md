@@ -315,9 +315,9 @@ first entry becomes the primary. If that disagrees with an explicitly configured
 ai.provider` and the fallback list wins.
 
 Provider credentials use the `<provider>.api.*` blocks below: `anthropic` for
-`claude`, `openai` for `openai` and `openai-compatible`, `gemini` for `gemini`
-and `gemini-vertex`, `azure` for `azure-openai`. The local CLIs and `bedrock`
-carry no GTB credential.
+`claude`, `openai` for `openai` and `openai-compatible`, `gemini` for `gemini`, `azure`
+for `azure-openai`. The local CLIs, `bedrock` and `gemini-vertex` (which uses
+Google application default credentials) carry no GTB credential.
 
 ### Keys the framework does not read
 

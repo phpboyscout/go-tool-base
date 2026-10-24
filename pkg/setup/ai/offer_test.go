@@ -80,6 +80,7 @@ func TestProviderKeys_DeriveFromChat(t *testing.T) {
 	assert.Equal(t, chat.EnvAzureKey, providerEnvVar("azure-openai"))
 	assert.Equal(t, chat.ConfigKeyOpenAIKey, providerConfigKey("openai-compatible"))
 	assert.Empty(t, providerConfigKey("claude-local"))
+	assert.Empty(t, providerConfigKey("gemini-vertex"), "Vertex holds no GTB key (#134)")
 	assert.True(t, isValidProvider("claude-local"), "every provider the module table knows is valid")
 	assert.False(t, isValidProvider("anthropic"), "a credential section name is not a provider")
 }

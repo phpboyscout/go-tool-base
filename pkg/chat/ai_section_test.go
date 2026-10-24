@@ -128,7 +128,7 @@ func TestCredentialConfigRoot_CoversEveryAPIProvider(t *testing.T) {
 		gochat.ProviderOpenAICompatible: configRootOpenAI,
 		gochat.ProviderAzureOpenAI:      configRootAzure,
 		gochat.ProviderGemini:           configRootGemini,
-		gochat.ProviderGeminiVertex:     configRootGemini,
+		gochat.ProviderGeminiVertex:     "", // ADC, refuses a key (chat-gemini spec 0017 D8)
 		gochat.ProviderBedrock:          "",
 		gochat.ProviderClaudeLocal:      "",
 		gochat.ProviderCodexLocal:       "",

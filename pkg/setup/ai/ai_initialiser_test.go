@@ -314,6 +314,11 @@ func TestFinaliseAIConfig(t *testing.T) {
 	assert.Empty(t, got.APIKey, "a local CLI carries no credential")
 	assert.Empty(t, got.StorageMode)
 
+	got, err = finaliseAIConfig(&AIConfig{Provider: "gemini-vertex", StorageMode: credentials.ModeLiteral, APIKey: "x"}, view, allLinked)
+	require.NoError(t, err)
+	assert.Empty(t, got.APIKey, "Vertex authenticates with application default credentials (#134)")
+	assert.Empty(t, got.StorageMode)
+
 	got, err = finaliseAIConfig(&AIConfig{Provider: "claude", StorageMode: credentials.ModeLiteral}, view, allLinked)
 	require.NoError(t, err)
 	assert.Equal(t, "sk-existing", got.APIKey, "blank keeps the existing key")
