@@ -266,6 +266,8 @@ All `generate` subcommands also accept these persistent flags:
 
 A model is called when the run passes `--ai`, `--prompt` or `--script`, otherwise when the manifest sets `generator.ai`, otherwise when your config sets `generator.ai` (not read under `--ci`). `ai.provider` never asks. See [when gtb calls a model](../../explanation/components/cli/generator.md#when-gtb-calls-a-model).
 
+`--agentless` was removed in the same change. A script that passed it to keep a run off the model should pass `--no-ai` instead.
+
 ### `generate add-flag`
 
 Add a new flag to an existing command (see [Add Flags](../../how-to/framework-cli/add-flags.md)).
