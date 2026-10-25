@@ -1,5 +1,41 @@
 # Changelog
 
+## [v0.49.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.49.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.48.0...v0.49.0)
+
+### Notes
+
+- gtb no longer calls a model unless asked. Pass `--ai`, set the project's choice with `gtb set generator.ai true`, or answer Yes in `gtb init`; `ai.provider` alone no longer turns on model-written docs, and `--agentless` is removed (use `--no-ai`).
+
+- `doctor`'s Chat providers check now reads each configured provider's API key the way the chat client does. It fails, and `doctor` exits non-zero, when no provider in use (`ai.provider` and its fallback chain) has a key that resolves, so a CI job that runs `doctor` against a tool with no usable provider key will now report it. When only some of them have no key, or a configured key that cannot be read, the check warns instead, because the fallback client still builds. `openai-compatible` is no longer credited with `OPENAI_API_KEY`, and running it without a key is reported as a note. `gemini-vertex` uses Google application default credentials: `init ai` no longer asks for a Gemini key for it, and `doctor` no longer lists it under the Gemini key.
+
+- Chat provider keys now resolve through the same walk `doctor` reports from, so the two agree on every provider, including Azure. A keychain entry that cannot be read now fails with its reason instead of reporting a missing key, and when a plaintext key sits below a broken keychain entry the key is refused rather than used silently. `gemini-vertex` no longer fails when a Gemini key is also configured. A caller passing the deprecated `chat.Config.Credentials` into `NewFromProps` now gets GTB's configured walk instead; pass `Config.Credential` or `Config.Token` to supply your own key. `SettingsFromProps` now always sets `Config.Credential` for `azure-openai`, so a caller that passes the result to `chatazure.New` with `WithTokenCredential` (Entra ID) must first set `Config.Credential` to nil, or construction fails with "both WithTokenCredential and Config.Credential are set".
+
+- `update` can roll back and pin. `update --rollback` installs the release before the running one (or `--rollback=vX.Y.Z`), asks first at a terminal, and pins the tool there; `update --pin` / `--pin=vX.Y.Z` stays on a release, and `update --unpin` resumes updates. A pinned tool's update check stays quiet, even under the `enabled` policy. Behaviour change: at a terminal, `update --version` naming an older release now asks before installing it. Implementations of `update.Updater` gain `ReleaseBefore`; see the migration note.
+
+- On the static release channel a prerelease tag publishes its manifest but no longer moves `latest.json`; a generated tool picks up the script change on `regenerate`.
+
+- `update --version` accepts dotted prerelease tags such as `v1.2.0-rc.1`; `v1`, `v1.2`, build metadata and an unprefixed version are still refused.
+
+- A generated project's README now says to install gtb from a release and run `gtb update --version`, not `go install`; regenerate offers the updated README.
+
+### Features
+
+- **generator**: call a model only when the run, project or person asks ([5e16500](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5e165003542b187480b7c553b93393882dd65dd5))
+- **update**: roll back to an earlier release and pin a tool to one ([72ca4ff](https://gitlab.com/phpboyscout/go-tool-base/-/commit/72ca4ff48c2c7eb86ffd62aa341c5694af7fcf93))
+- **update**: add the update pin marker and honour it in the pre-run check ([2ef6f02](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2ef6f02b2a4150b503b696efb57e7595973d2cfa))
+
+### Bug Fixes
+
+- **deps**: update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.114.4 ([4cfaf63](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4cfaf63d5048ab6f7102d768a043c98d527df2ac))
+- **doctor**: judge each chat provider's key the way the client reads it ([03d48ae](https://gitlab.com/phpboyscout/go-tool-base/-/commit/03d48aef735d9a41e4d459e7abb4126934eb9fea))
+- **chat**: resolve provider keys through the credential walk doctor reports ([8f4d9a6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8f4d9a661a500ca4f1d17d882f2ccd65e84620d0))
+- **update**: report a corrupt pin only when an update check runs ([bf250d7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bf250d79fc10152e09ddcd1febd6d782cceea1d1))
+- **release**: leave latest.json alone when a prerelease is published ([6763414](https://gitlab.com/phpboyscout/go-tool-base/-/commit/67634146a2f308d7c7a633f4aed68e3427fc0373))
+- **update**: accept dotted prerelease tags in update --version ([6e830db](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6e830dbdacf154d50b670f22d5282ef8601be15b))
+- **generator**: stop telling people to go install gtb ([534a117](https://gitlab.com/phpboyscout/go-tool-base/-/commit/534a117a0473160afd0b673e9c0c308b6948b032))
+
 ## [v0.48.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.48.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.47.0...v0.48.0)
