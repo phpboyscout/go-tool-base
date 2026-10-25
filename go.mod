@@ -18,7 +18,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/aws/aws-sdk-go-v2 v1.47.3
 	github.com/aws/aws-sdk-go-v2/config v1.33.9
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.4
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/creack/pty v1.1.24
@@ -119,7 +119,7 @@ require (
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.22 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.23 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.9 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.6 // indirect
