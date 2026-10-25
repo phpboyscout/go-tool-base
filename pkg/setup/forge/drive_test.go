@@ -135,17 +135,15 @@ func dualEnvIO(t *testing.T, userEnv, passEnv string) props.IO {
 	return io
 }
 
-// dualCredentialIO drives the dual-credential wizard for a mode that takes
-// the username and app password themselves, which only the TUI can do (the
-// password field). Paced by time, so a test using it does not call
-// t.Parallel.
+// dualCredentialIO answers the dual-credential wizard at accessible prompts
+// for a mode that takes the username and app password themselves. A piped
+// stdin takes the password as a plain line (setup.SecretEchoMode).
 func dualCredentialIO(t *testing.T, mode credentials.Mode, username, password string) props.IO {
 	t.Helper()
 
-	seqs := modeKeys(t, mode)
-	seqs = append(seqs, username, formtest.Enter, password, formtest.Enter)
+	io, _ := answersIO(modeNumber(t, mode), username, password)
 
-	return formtest.TUI(formtest.Keys(seqs...))
+	return io
 }
 
 // testPassphrase is long enough for the generated key's passphrase rule.
@@ -198,29 +196,12 @@ func sshChoiceKeys(t *testing.T, p *props.Props, choice string) []string {
 	return append(seqs, formtest.Enter)
 }
 
-// sshGenerateScripts drive the SSH stage to generate a key, one script per
-// form it runs: the selector and the passphrase (a password field, so keys
-// not answers), then the upload question. Paced by time, so a test using
-// them does not call t.Parallel.
-func sshGenerateScripts(t *testing.T, p *props.Props, upload bool) []io.Reader {
+// sshGenerateAnswers answer the SSH stage at accessible prompts to generate
+// a key: the selector, the passphrase, then the upload question. The
+// passphrase page shows because the caller starts an agent and links no
+// keychain.
+func sshGenerateAnswers(t *testing.T, p *props.Props, upload bool) []string {
 	t.Helper()
 
-	seqs := sshChoiceKeys(t, p, sshChoiceGenerate)
-	seqs = append(seqs, testPassphrase, formtest.Enter)
-
-	answer := formtest.No
-	if upload {
-		answer = formtest.Yes
-	}
-
-	return []io.Reader{formtest.Keys(seqs...), formtest.Keys(answer)}
-}
-
-// dualEnvKeys drive the dual-credential form for env-var mode with the
-// fallback names: the cursor starts on env-var (the recommended mode) and two
-// blank names take the defaults.
-func dualEnvKeys(t *testing.T) []string {
-	t.Helper()
-
-	return append(modeKeys(t, credentials.ModeEnvVar), formtest.Enter, formtest.Enter)
+	return []string{sshChoiceNumber(t, p, sshChoiceGenerate), testPassphrase, yn(upload)}
 }

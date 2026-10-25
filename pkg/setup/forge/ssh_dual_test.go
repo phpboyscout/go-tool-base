@@ -2,7 +2,6 @@ package forge
 
 import (
 	"context"
-	"io"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -10,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/forge"
 
-	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/sshagenttest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -28,16 +27,15 @@ func keyManager(km forge.KeyManager, kmErr error) InitialiserOption {
 	return withSSHOptions(withKeyManager(keyManagerFactory(km, kmErr)))
 }
 
-// dualEnvThenGenerateIO drives the whole Bitbucket wizard with keys: env-var
-// credentials with the fallback names, then a generated SSH key and the
-// upload answer. Keys rather than answers because the passphrase is a
-// password field. Paced by time, so callers do not call t.Parallel.
+// dualEnvThenGenerateIO answers the whole Bitbucket wizard at accessible
+// prompts: env-var credentials with the fallback names (blank lines), then a
+// generated SSH key and the upload answer.
 func dualEnvThenGenerateIO(t *testing.T, p *props.Props, upload bool) props.IO {
 	t.Helper()
 
-	scripts := append([]io.Reader{formtest.Keys(dualEnvKeys(t)...)}, sshGenerateScripts(t, p, upload)...)
+	io, _ := answersIO(append([]string{modeNumber(t, credentials.ModeEnvVar), "", ""}, sshGenerateAnswers(t, p, upload)...)...)
 
-	return formtest.TUIForms(scripts...)
+	return io
 }
 
 func dualSSHProps(t *testing.T) *props.Props {
@@ -165,7 +163,7 @@ func TestSingleTokenSSHStillRuns(t *testing.T) {
 
 	km := &fakeKeyManager{}
 
-	p.IO = formtest.TUIForms(sshGenerateScripts(t, p, true)...)
+	p.IO, _ = answersIO(sshGenerateAnswers(t, p, true)...)
 	i := New(p, gitHubProfile, keyManager(km, nil))
 	i.SkipLogin = true
 

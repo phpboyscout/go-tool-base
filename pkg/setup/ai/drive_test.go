@@ -19,8 +19,8 @@ import (
 )
 
 // The wizard is driven the way a person drives it (spec 0198 D3): through
-// the real form, on Props.IO. Accessible prompts take option numbers and
-// lines; a masked key needs the TUI route, which takes keys.
+// the real form, on Props.IO, at accessible prompts: option numbers and
+// lines.
 
 // providerNumber is the 1-based position of provider in the select every
 // provider linked (the test binary registers none, so all are offered).
@@ -93,43 +93,19 @@ func envVarIO(t *testing.T, provider, envVar string) props.IO {
 	}
 }
 
-// keyIO drives the wizard for a mode that ends in the masked key input, which
-// accessible mode cannot script, so this is the TUI route: arrow to the
-// provider and the mode, type the key. Paced by time, so a test using it does
-// not call t.Parallel.
+// keyIO answers the wizard at accessible prompts for a mode that ends in the
+// key: provider, mode, key (blank keeps the existing one). A piped stdin takes
+// the key as a plain line (setup.SecretEchoMode), so this needs no TUI and no
+// pacing (#135).
 func keyIO(t *testing.T, provider string, mode credentials.Mode, key string) props.IO {
 	t.Helper()
 
-	var seqs []string
-
-	for i := 1; i < providerNumber(t, provider); i++ {
-		seqs = append(seqs, formtest.Down)
+	return props.StdIO{
+		Stdin:          formtest.Answers(strconv.Itoa(providerNumber(t, provider)), strconv.Itoa(modeNumber(t, mode)), key),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
+		AccessibleMode: true,
 	}
-
-	seqs = append(seqs, formtest.Enter)
-
-	// The mode cursor starts on the recommended mode, not the first, and the
-	// key route is a terminal.
-	modes, def := modeChoices(t, formtest.TUI(strings.NewReader("")))
-	for delta := indexOf(t, modes, mode) - indexOf(t, modes, def); delta != 0; {
-		if delta > 0 {
-			seqs = append(seqs, formtest.Down)
-			delta--
-		} else {
-			seqs = append(seqs, formtest.Up)
-			delta++
-		}
-	}
-
-	seqs = append(seqs, formtest.Enter)
-
-	if key != "" {
-		seqs = append(seqs, key)
-	}
-
-	seqs = append(seqs, formtest.Enter)
-
-	return formtest.TUI(formtest.Keys(seqs...))
 }
 
 // localIO answers for a provider that needs no credential: the wizard ends

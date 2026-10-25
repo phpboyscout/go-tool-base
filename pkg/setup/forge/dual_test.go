@@ -18,6 +18,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/sshagenttest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
@@ -283,8 +284,8 @@ func TestDualForm_RejectsAnInvalidEnvVarName(t *testing.T) {
 	assert.Contains(t, out.String(), "env var name must match")
 }
 
-// The credential page needs the TUI (its password field), and only the TUI
-// honours the hide functions: literal mode skips the env-var page.
+// dualForm is the one form the TUI runs, and only the TUI honours its hide
+// functions there: literal mode skips the env-var page.
 func TestDualForm_LiteralModeTakesTheCredentials(t *testing.T) {
 	t.Setenv("CI", "")
 
@@ -292,7 +293,7 @@ func TestDualForm_LiteralModeTakesTheCredentials(t *testing.T) {
 	defer cancel()
 
 	p := newTestProps(t)
-	p.IO = dualCredentialIO(t, credentials.ModeLiteral, "alice", "s3cret")
+	p.IO = formtest.TUI(formtest.Keys(append(modeKeys(t, credentials.ModeLiteral), "alice", formtest.Enter, "s3cret", formtest.Enter)...))
 
 	cfg := &DualConfig{}
 	require.NoError(t, setup.RunForm(ctx, p, dualForm(ctx, p, bitbucketProfile, cfg)))
