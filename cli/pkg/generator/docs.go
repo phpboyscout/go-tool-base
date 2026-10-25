@@ -21,7 +21,6 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 var ErrInvalidPackageName = errors.NewSentinel("gtb.generator.invalid_package_name", "invalid package name")
@@ -166,12 +165,8 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 
 	sysPrompt, fullCmdName, outputPath := g.getPromptAndOutput(name, relPath, moduleName, isPackage)
 
-	// AI doc-gen is opt-in: only call a provider when one is explicitly
-	// configured and --agentless is not set. Otherwise write deterministic
-	// boilerplate with no API call (quietly), so `generate command` never
-	// reaches out to Anthropic by default.
-	if !g.aiDocsEnabled() {
-		g.props.Logger.Debug("AI docs not enabled (no provider configured or --agentless); writing boilerplate", "name", name)
+	if choice := g.aiChoice(); !choice.wanted {
+		g.props.Logger.Debug("no model asked for (spec 0211); writing boilerplate", "name", name, "decided_by", string(choice.rung))
 
 		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
 	}
@@ -202,35 +197,6 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 	}
 
 	return err
-}
-
-// aiDocsEnabled reports whether AI-assisted documentation generation should
-// run. It is opt-in: a provider must be explicitly configured — via the
-// `--provider` flag (g.config.AIProvider), the `ai.provider` config key, or an
-// injected chat client — and `--agentless` must not be set. When false the
-// generator writes deterministic boilerplate with no network call, so the
-// generator never reaches out to a paid AI API by default.
-func (g *Generator) aiDocsEnabled() bool {
-	if g.config.Agentless {
-		return false
-	}
-
-	if g.chatClient != nil {
-		return true
-	}
-
-	if g.config.AIProvider != "" {
-		return true
-	}
-
-	// A provider that only config names is not consulted under --ci or
-	// CI=true: an unattended run is where a paid call is least wanted, and
-	// --provider is the explicit ask that still wins (#35).
-	if g.ciConfigured() || setup.CIDefault() {
-		return false
-	}
-
-	return g.props.Config != nil && g.props.Config.View().GetString(chat.ConfigKeyAIProvider) != ""
 }
 
 // handleNoAIDocs writes documentation without AI assistance.
@@ -874,14 +840,7 @@ func (g *Generator) diataxisCommandDocPath(m *Manifest, parentParts []string, na
 func (g *Generator) resolveAIConfig() (provider, model string) {
 	view := g.props.Config.View()
 
-	provider = g.config.AIProvider
-	if provider == "" {
-		provider = view.GetString(chat.ConfigKeyAIProvider)
-	}
-
-	if provider == "" {
-		provider = string(gochat.ProviderClaude)
-	}
+	provider = string(g.resolveProvider())
 
 	model = g.config.AIModel
 	if model == "" {

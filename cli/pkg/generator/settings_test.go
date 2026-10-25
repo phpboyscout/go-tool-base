@@ -204,3 +204,32 @@ func TestSetSetting_ToolBridgeOptOut(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, m.Properties.Chat.ToolBridge, "unset returns it to the default rule")
 }
+
+// TestSetSetting_GeneratorAI: generator.ai is the project's recorded choice on
+// gtb calling a model (spec 0211 D7); unset defers to the person's config.
+func TestSetSetting_GeneratorAI(t *testing.T) {
+	t.Parallel()
+
+	const project = "properties:\n  name: mytool\n" +
+		"release_source:\n  type: github\n  backend: github\n  host: github.com\n  owner: org\n  repo: mytool\n" +
+		"version:\n  gtb: v1.0.0\n  go: \"1.26\"\ncommands: []\n"
+
+	g, _, _ := newPerimeterTestProject(t, project)
+
+	require.NoError(t, g.SetSetting(context.Background(), "generator.ai", []string{"true"}))
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	require.NotNil(t, m.Properties.Generator.AI)
+	assert.True(t, *m.Properties.Generator.AI)
+
+	got, err := g.GetSetting("generator.ai")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"true"}, got)
+
+	require.NoError(t, g.UnsetSetting(context.Background(), "generator.ai"))
+
+	m, err = g.loadManifest()
+	require.NoError(t, err)
+	assert.Nil(t, m.Properties.Generator.AI, "unset defers to the person's generator.ai")
+}

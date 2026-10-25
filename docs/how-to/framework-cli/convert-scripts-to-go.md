@@ -66,7 +66,7 @@ You can configure the AI provider and model using CLI flags (recommended) or env
 
 #### 1. Using CLI Flags (Priority)
 
-Flags allow you to switch providers on the fly for a specific command generation.
+Flags allow you to switch providers on the fly for a specific command generation. `--script` and `--prompt` are the ask for a model themselves, so no `--ai` is needed; `--provider` and `--model` only pick which one.
 
 ```bash
 # Use Claude with default model
@@ -100,17 +100,6 @@ mechanism (the tool set and the ReAct loop), see the
 
 !!! important "Autonomous Reliability"
     The agent operates in a **secure, restricted environment**. It cannot execute arbitrary shell commands, but it has everything it needs to ensure your Go code is production-ready.
-
-### Falling Back to Legacy Mode
-
-If you prefer the original, more predictable retry loop over the autonomous agent, you can use the `--agentless` flag:
-
-```bash
-gtb generate command -n "my-cmd" --script "./script.sh" --agentless
-```
-
-!!! tip "When to use Agentless"
-    Legacy mode is useful if the autonomous agent is over-thinking simple fixes or if you want a faster, single-shot retry behavior without the multi-step reasoning loop.
 
 ## AI Troubleshooting
 

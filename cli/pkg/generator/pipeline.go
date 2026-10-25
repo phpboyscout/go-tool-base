@@ -38,7 +38,7 @@ type PipelineOptions struct {
 	SkipRegistration  bool // do not modify the parent cmd.go
 	// BoilerplateDocsOnly writes a missing doc page without consulting a chat
 	// provider: a regenerate is a deterministic rewrite, and its AI pass is
-	// what --update-docs asks for (#35).
+	// what --update-docs or --ai asks for (#35, spec 0211).
 	BoilerplateDocsOnly bool
 }
 

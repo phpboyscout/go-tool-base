@@ -186,7 +186,7 @@ func TestNewCmdDocs_WritesBoilerplateDocs(t *testing.T) {
 		require.NoError(t, fs.Remove(doc))
 
 		cmd := NewCmdDocs(p, &SharedFlags{})
-		cmd.SetArgs([]string{"--command", "deploy", "--path", commandProjectRoot, "--agentless"})
+		cmd.SetArgs([]string{"--command", "deploy", "--path", commandProjectRoot})
 		require.NoError(t, cmd.ExecuteContext(context.Background()))
 
 		content, err := afero.ReadFile(fs, doc)
@@ -202,7 +202,7 @@ func TestNewCmdDocs_WritesBoilerplateDocs(t *testing.T) {
 		require.NoError(t, fs.Remove(doc))
 
 		cmd := NewCmdDocs(p, &SharedFlags{})
-		cmd.SetArgs([]string{"--source", "deploy", "--path", commandProjectRoot, "--agentless"})
+		cmd.SetArgs([]string{"--source", "deploy", "--path", commandProjectRoot})
 		require.NoError(t, cmd.ExecuteContext(context.Background()))
 
 		exists, err := afero.Exists(fs, doc)
@@ -220,7 +220,7 @@ func TestNewCmdDocs_WritesBoilerplateDocs(t *testing.T) {
 		before := docFiles(t, fs)
 
 		cmd := NewCmdDocs(p, &SharedFlags{})
-		cmd.SetArgs([]string{"--package", "pkg/thing", "--path", commandProjectRoot, "--agentless"})
+		cmd.SetArgs([]string{"--package", "pkg/thing", "--path", commandProjectRoot})
 		require.NoError(t, cmd.ExecuteContext(context.Background()))
 
 		assert.Greater(t, len(docFiles(t, fs)), len(before), "a page was written for the package")

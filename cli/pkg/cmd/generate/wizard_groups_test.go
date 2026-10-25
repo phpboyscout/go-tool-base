@@ -315,3 +315,37 @@ func TestChatToolBridgePage(t *testing.T) {
 		assert.False(t, (&SkeletonOptions{Features: []string{string(props.AiCmd)}, ChatProviders: []string{"claude-local"}}).chatToolBridgeHidden())
 	})
 }
+
+// TestGeneratorAIPage pins spec 0211 D13: the page offers "follow my gtb
+// default" (preselected, records nothing), Yes and No, and a revisit starts
+// from what the manifest recorded.
+func TestGeneratorAIPage(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		recorded *bool
+		answer   string
+		want     *bool
+	}{
+		{name: "the default records nothing", answer: "", want: nil},
+		{name: "yes records true", answer: "2", want: new(true)},
+		{name: "no records false", answer: "3", want: new(false)},
+		{name: "a revisit keeps a recorded yes", recorded: new(true), answer: "", want: new(true)},
+		{name: "a revisit can return to the default", recorded: new(false), answer: "1", want: nil},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			o := &SkeletonOptions{GeneratorAI: tc.recorded}
+			o.seedGeneratorAI()
+			runGroupAccessible(t, o.generatorAIGroup(), tc.answer)
+			o.applyGeneratorAI()
+
+			assert.Equal(t, tc.want, o.GeneratorAI)
+			assert.Equal(t, tc.want, o.skeletonConfig(nil).Generator.AI)
+		})
+	}
+}

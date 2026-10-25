@@ -75,6 +75,7 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) {
 	m.Properties.Signing = fresh.Properties.Signing
 	m.Properties.Chat = fresh.Properties.Chat
 	m.Properties.Bootstrap = fresh.Properties.Bootstrap
+	m.Properties.Generator = fresh.Properties.Generator
 	m.Properties.CI.ComponentSource = fresh.Properties.CI.ComponentSource
 	m.Properties.ModulePath = fresh.Properties.ModulePath
 	m.Properties.ForgeCredentials = fresh.Properties.ForgeCredentials

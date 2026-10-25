@@ -530,8 +530,8 @@ func (g *Generator) handleDocumentationGeneration(ctx context.Context, data temp
 // AI call that fails mid-flight falls back to boilerplate quietly rather
 // than failing the generation.
 func (g *Generator) writeDocsWithProvider(ctx context.Context, name, cmdDir string) {
-	if g.aiDocsEnabled() {
-		g.props.Logger.Info("generating documentation with AI", "command", name)
+	if g.aiChoice().wanted {
+		g.props.Logger.Info("generating documentation with AI", "command", name, "asked_by", string(g.aiChoice().rung))
 	} else {
 		g.props.Logger.Debug("generating boilerplate documentation", "command", name)
 	}
@@ -622,12 +622,7 @@ func (g *Generator) convertFlagsToTemplate(flags []CommandFlag) []templates.Comm
 }
 
 func (g *Generator) verifyAndFixProject(ctx context.Context, cmdDir string, data *templates.CommandData, aiClient gochat.ChatClient) error {
-	var v verifier.Verifier
-	if g.config.Agentless {
-		v = verifier.NewLegacy(g.props, g.config.Path)
-	} else {
-		v = verifier.NewAgentVerifier(g.props, !g.config.NonInteractive)
-	}
+	v := verifier.NewAgentVerifier(g.props, !g.config.NonInteractive)
 
 	genFunc := func(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 		return g.GenerateCommandFile(ctx, cmdDir, data)

@@ -237,7 +237,7 @@ Steps:
 | 2 | Register in Parent | Calls `AddCommandToParent` to inject `cmd.AddCommand(...)` into the parent's `cmd.go`. |
 | 3 | Re-register Children | Reads the manifest to find existing child commands and re-injects their `AddCommand` calls. This preserves child registrations when a parent command is overwritten. |
 | 4 | Persist Manifest | Calls `updateManifest` with a `ManifestCommandUpdate` to write hashes and metadata. |
-| 5 | Generate Docs | Invokes the AI documentation helper (or skips if a doc file already exists). |
+| 5 | Generate Docs | Writes the doc page if it is missing: model-written when the run asked for a model (see below), boilerplate otherwise. |
 
 Non-fatal step failures are returned as `StepWarning` values inside `PipelineResult` rather than aborting the pipeline.
 
@@ -474,6 +474,34 @@ Beyond the embedded skeleton, operators can layer **custom template overlays** f
 The consumer manifest's `properties.templates:` block is **provenance + pinning only**: `{name, type, location, ref, resolved, fingerprint, hashes}` per source. Suppression behaviour (`replaces:`) lives with the template set in its `gtb-template.yaml`, not in the consumer manifest. A git source records the resolved commit SHA for byte-stable `regenerate`; a local source records a content fingerprint and `regenerate` warns on drift.
 
 The overlay deliberately steps outside the escape-at-known-sites model. See the threat model in [Template Security](../../../development/template-security.md#custom-template-overlays-a-different-threat-model) and the how-to [Author and Apply Custom Template Overlays](../../../how-to/custom-templates.md).
+
+## When gtb calls a model
+
+gtb spends no money unless someone asked it to
+([spec 0211](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0211-ai-generation-is-an-explicit-choice),
+[#137](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/137)). Each
+generator decides once per run, in this order, and the first rung that answers
+wins:
+
+1. `--no-ai`: no model.
+2. `--ai`, `--prompt`, `--script`, or `regenerate --update-docs`: a model.
+3. `generator.ai` in the project's manifest, when set: the project's recorded
+   choice, written by the project wizard or `gtb set generator.ai`.
+4. `generator.ai` in the person's config (`~/.gtb/config.yaml`), written by
+   `gtb init`. Not read under `--ci` or `CI=true`, so a pipeline never pays on
+   someone's personal default. The manifest is the project's committed choice
+   and is read there.
+5. Otherwise no model.
+
+`ai.provider` is not on the list. `gtb init` writes one for everyone, so it
+cannot mean consent; it, `--provider` and `--model` only pick the model once one
+is wanted. A run that passes `--provider` without asking logs a warning naming
+`--ai`.
+
+`regenerate` keeps the rule from
+[#35](https://gitlab.com/phpboyscout/go-tool-base/-/issues/35): it is a
+deterministic rewrite, so only the run's own `--ai` or `--update-docs` lets it
+near a model.
 
 ## Development Workflows
 

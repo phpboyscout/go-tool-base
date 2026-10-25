@@ -122,6 +122,7 @@ func TestGenerateDocs_LinkedProviderGetsTheProjectTools(t *testing.T) {
 	g, fs := newIssue7Generator(t, root, nil)
 	g.chatClient = nil
 	g.config.AIProvider = string(provider)
+	g.config.AI = true
 
 	require.NoError(t, g.GenerateDocs(context.Background(), "mycmd", false))
 	assert.Contains(t, readDoc(t, fs, root), "From the model.")

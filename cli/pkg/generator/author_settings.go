@@ -23,7 +23,9 @@ type AuthorSetting struct {
 	Field string
 	Kind  SettingKind
 	// Flag is the generate project flag; empty for a run option or a field
-	// the wizard alone sets.
+	// the wizard and gtb set alone write. Generator.AI is the one setting
+	// without a flag, because --ai on generate is the run's own ask (spec
+	// 0211 D5, an exception to spec 0197 D4).
 	Flag string
 	// Wizard is the page key that asks it; empty when the wizard does not.
 	Wizard string
@@ -74,6 +76,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "Bootstrap.AutoInitialise", Kind: KindSetting, Flag: "auto-initialise", Manifest: "properties.bootstrap.auto_initialise"},
 	{Field: "Bootstrap.SkipConfigCheck", Kind: KindSetting, Flag: "skip-config-check", Manifest: "properties.bootstrap.skip_config_check"},
 	{Field: "Bootstrap.AuxiliaryCommands", Kind: KindSetting, Flag: "auxiliary-commands", Manifest: "properties.bootstrap.auxiliary_commands"},
+	{Field: "Generator.AI", Kind: KindSetting, Wizard: "generator-ai", Manifest: "properties.generator.ai"},
 	{Field: "CIComponentSource", Kind: KindSetting, Flag: "ci-component-source", Manifest: "properties.ci.component_source"},
 	{Field: "Templates", Kind: KindSetting, Flag: "template", Manifest: "properties.templates"},
 	{Field: "ModulePath", Kind: KindSetting, Flag: "module", Wizard: "module", Manifest: "properties.module_path"},
@@ -139,6 +142,7 @@ func skeletonConfigFromManifest(m Manifest) SkeletonConfig {
 		Signing:               m.Properties.Signing,
 		Chat:                  m.Properties.Chat,
 		Bootstrap:             m.Properties.Bootstrap,
+		Generator:             m.Properties.Generator,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		MCPMode:               m.Properties.MCP.Mode,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,

@@ -63,6 +63,7 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 		ConfigFormats: []string{"toml", "dotenv"},
 		ConfigFormat:  "toml",
 		ConfigSources: []ManifestConfigSource{{Name: "team", Kind: "consul", Required: new(false)}, {Name: "tokens", Kind: "keychain", Writable: new(false)}},
+		Generator:     ManifestGenerator{AI: new(true)},
 	}
 	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
 
@@ -93,6 +94,11 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	assert.True(t, featureEnabledIn(after.Properties.Features, "keychain"))
 	assert.False(t, featureEnabledIn(after.Properties.Features, "mcp"), "mcp recovered from its artefact's absence")
 	assert.True(t, featureEnabledIn(after.Properties.Features, "update"), "default-on feature inferred")
+
+	// No source file records generator.ai, so a rebuild cannot recover it and it
+	// comes back as "not said" (spec 0211).
+	require.NotNil(t, before.Properties.Generator.AI)
+	assert.Nil(t, after.Properties.Generator.AI)
 }
 
 func readManifest(t *testing.T, fs afero.Fs, path string) Manifest {

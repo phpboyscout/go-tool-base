@@ -47,7 +47,11 @@ gtb get chat.providers                                 # one value per line
 
 ## Settable paths
 
-Every "recorded as" field in the [generate reference](generate.md) is settable.
+Every "recorded as" field in the [generate reference](generate.md) is settable,
+and so is `generator.ai`, which has no generate flag because `--ai` is the
+run's own ask: `true` lets gtb call a model when generating the project, `false`
+refuses, and `gtb unset generator.ai` defers to your `gtb init` choice
+([spec 0211](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0211-ai-generation-is-an-explicit-choice)).
 The list `gtb set` prints on an unknown path is generated from the table and is
 the authority. Spec
 [0197](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0197-author-settings-as-one-surface)

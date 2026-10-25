@@ -621,7 +621,7 @@ func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
 		// no chatClient injected, no provider configured -> AI must not run.
 	}
 
-	require.False(t, g.aiDocsEnabled(), "AI docs must be disabled without a configured provider")
+	require.False(t, g.aiChoice().wanted, "no model without an ask")
 
 	err := g.GenerateDocs(context.Background(), "mycmd", false)
 	require.NoError(t, err)
@@ -629,53 +629,6 @@ func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
 	content, err := afero.ReadFile(fs, filepath.Join(root, "docs/commands/mycmd/index.md"))
 	require.NoError(t, err, "boilerplate docs must still be written when AI is off")
 	assert.Contains(t, string(content), "mycmd")
-}
-
-// TestAIDocsEnabled pins the opt-in gate: a provider must be explicitly
-// configured (flag, config key, or injected client) and --agentless unset.
-// Not parallel: a config-only provider is refused under CI=true (#35), and
-// the pipeline sets that, so the variable is pinned off here.
-func TestAIDocsEnabled(t *testing.T) {
-	t.Setenv("CI", "")
-
-	cases := []struct {
-		name         string
-		agentless    bool
-		cfgProvider  string
-		propProvider string
-		injectClient bool
-		want         bool
-	}{
-		{"nothing configured", false, "", "", false, false},
-		{"flag provider set", false, "claude", "", false, true},
-		{"config ai.provider set", false, "", "openai", false, true},
-		{"injected client", false, "", "", true, true},
-		{"agentless overrides flag provider", true, "claude", "", false, false},
-		{"agentless overrides injected client", true, "", "", true, false},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			fs := afero.NewMemMapFs()
-
-			yaml := "{}\n"
-			if tc.propProvider != "" {
-				yaml = "ai:\n  provider: " + tc.propProvider + "\n"
-			}
-
-			cfgContainer := testutil.StoreFromYAML(t, yaml)
-
-			g := &Generator{
-				props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfgContainer},
-				config: &Config{Agentless: tc.agentless, AIProvider: tc.cfgProvider},
-			}
-			if tc.injectClient {
-				g.chatClient = new(MockChatClient)
-			}
-
-			assert.Equal(t, tc.want, g.aiDocsEnabled())
-		})
-	}
 }
 
 // TestRegenerateMkdocsNav_ZensicalProject is the regression guard for the

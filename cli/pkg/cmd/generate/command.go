@@ -41,7 +41,6 @@ type CommandOptions struct {
 	Aliases              []string
 	ScriptPath           string
 	Prompt               string
-	Agentless            bool
 	MaxSteps             int
 	NonInteractive       bool
 	PersistentPreRun     bool
@@ -125,12 +124,12 @@ Examples:
   gtb generate command -n serve -f "port:int:Port to listen on" --assets
 
   # Generate a command from a script (e.g., bash)
-  # The AI will attempt to convert the script to Go code
-  # The autonomous agent is used by default for verification
+  # A model converts the script to Go code, and an autonomous agent verifies it.
+  # --script and --prompt are themselves the ask, so no --ai is needed.
   gtb generate command -n backup --script ./backup.sh
 
-  # Use the original feedback loop instead of the autonomous agent
-  gtb generate command -n backup --script ./backup.sh --agentless
+  # Write the command's docs with a model as well (spends API credit)
+  gtb generate --ai command -n serve
 
   # Create a protected command (cannot be overwritten by generator)
   gtb generate command -n sensible --protected
@@ -171,7 +170,6 @@ Examples:
 	cmd.Flags().StringArrayVarP(&opts.Flags, "flag", "f", []string{}, "Flags definition (name:type:description:persistent:shorthand:required:default:defaultIsCode)")
 	cmd.Flags().StringVar(&opts.ScriptPath, "script", "", "Path to a script to convert to Go (bash/python/js)")
 	cmd.Flags().StringVar(&opts.Prompt, "prompt", "", "Natural language description or path to a file containing the description")
-	cmd.Flags().BoolVar(&opts.Agentless, "agentless", false, "Use original retry loop instead of autonomous agent")
 	cmd.Flags().IntVar(&opts.MaxSteps, "max-steps", 0, "Max repair-agent reasoning steps (0 = default 20); raise it for complex commands")
 	cmd.Flags().BoolVar(&opts.NonInteractive, "non-interactive", os.Getenv("CI") != "", "Never pause for input: disables the repair agent's query_user tool (defaults true when CI is set)")
 	cmd.Flags().BoolVar(&opts.PersistentPreRun, "persistent-pre-run", false, "Generate a PersistentPreRun hook")
@@ -685,7 +683,6 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		Prompt:               o.Prompt,
 		AIProvider:           o.shared.aiProvider(),
 		AIModel:              o.shared.aiModel(),
-		Agentless:            o.Agentless,
 		MaxSteps:             o.MaxSteps,
 		NonInteractive:       o.NonInteractive || !p.GetIO().Interactive(),
 		PersistentPreRun:     o.PersistentPreRun,
@@ -699,6 +696,12 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 
 	if cfg.Long == "" {
 		cfg.Long = cfg.Short
+	}
+
+	cfg.AI, cfg.NoAI = o.shared.ai()
+
+	if err := generator.CheckAIFlags(cfg); err != nil {
+		return err
 	}
 
 	return generator.New(p, cfg).Generate(ctx)

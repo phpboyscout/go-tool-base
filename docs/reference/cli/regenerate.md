@@ -25,7 +25,14 @@ gtb regenerate <subcommand> [flags]
 | `project` | Regenerate the project from the manifest. |
 | `manifest` | Regenerate the manifest from source code (AST scan). |
 
-A persistent `--dry-run` previews changes without writing files.
+Persistent flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dry-run` | `false` | Preview changes without writing files. |
+| `--ai` | `false` | Let this run call a model for a missing doc page. |
+| `--no-ai` | `false` | Call no model in this run. Cannot be combined with `--ai` or `--update-docs`. |
+| `--provider` | — | Provider to use when the run calls a model. On its own it asks for nothing, and a warning says so. |
 
 ### `regenerate project`
 
@@ -34,7 +41,7 @@ A persistent `--dry-run` previews changes without writing files.
 | `--path, -p` | `.` | Project root. |
 | `--force` | `false` | Overwrite existing `main.go` implementation files. On a flat-layout project, also migrates the docs to the [Diátaxis layout](../../explanation/concepts/documentation-layout.md). |
 | `--overwrite` | `ask` | Conflict handling: `allow`, `deny`, or `ask`. Applies to every generated file: skeleton assets and per-command `cmd.go`/`init.go`/`main_test.go` alike. |
-| `--update-docs` | `false` | Use AI to rewrite the command documentation. Without it a regenerate never consults a chat provider: a missing page gets boilerplate and an existing one is left alone, so an unattended run makes no paid call ([#35](https://gitlab.com/phpboyscout/go-tool-base/-/issues/35)). Under `--ci` or `CI=true` a provider named only in config is not used either; `--provider` on the command line is the explicit ask that still is. |
+| `--update-docs` | `false` | Rewrite the command documentation with a model. It is an explicit ask, so it holds under `--ci` too. Without it or `--ai` a regenerate never consults a chat provider: a missing page gets boilerplate and an existing one is left alone, whatever the manifest or config says ([#35](https://gitlab.com/phpboyscout/go-tool-base/-/issues/35), [spec 0211](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0211-ai-generation-is-an-explicit-choice)). |
 | `--no-verify` | `false` | Skip `go mod tidy` and `golangci-lint` afterwards; exit 0 unverified (see exit codes). |
 | `--dry-run` | `false` | Preview changes without writing. |
 

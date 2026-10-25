@@ -40,7 +40,7 @@ Does not overwrite implementation files (main.go) unless --force is provided.`,
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing main.go implementation files")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
-	cmd.Flags().BoolVar(&opts.UpdateDocs, "update-docs", false, "Use AI to update existing documentation")
+	cmd.Flags().BoolVar(&opts.UpdateDocs, "update-docs", false, "Rewrite existing documentation with a model (spends API credit; implies --ai for the docs step)")
 	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify", false, "Skip go mod tidy and golangci-lint after regeneration (the run exits 0 unverified; without it a failed step exits 3)")
 
 	return cmd
@@ -63,6 +63,12 @@ func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
 		Overwrite:  generator.OverwriteMode(o.Overwrite),
 		UpdateDocs: o.UpdateDocs,
 		NoVerify:   o.NoVerify,
+	}
+
+	o.shared.apply(cfg)
+
+	if err := generator.CheckAIFlags(cfg); err != nil {
+		return err
 	}
 
 	return generator.New(p, cfg).RegenerateProject(ctx)

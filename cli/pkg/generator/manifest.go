@@ -411,6 +411,14 @@ type ManifestChat struct {
 	ToolBridge *bool `yaml:"tool_bridge,omitempty"`
 }
 
+// ManifestGenerator records how gtb itself may work on the project, as
+// opposed to what the generated tool does.
+type ManifestGenerator struct {
+	// AI is the project's recorded choice on gtb calling a model while
+	// generating it. Absent defers to the person's generator.ai (spec 0211).
+	AI *bool `yaml:"ai,omitempty"`
+}
+
 // ManifestChatDefault is the author's default for the tool's chat client: the
 // provider, optionally its model, and the addressing a few providers refuse
 // to construct without. It is rendered into the tool's embedded defaults
@@ -457,6 +465,7 @@ type ManifestProperties struct {
 	// out explicitly (spec 0194 D5, D7).
 	Chat      ManifestChat      `yaml:"chat,omitempty"`
 	Bootstrap ManifestBootstrap `yaml:"bootstrap,omitempty"`
+	Generator ManifestGenerator `yaml:"generator,omitempty"`
 	CI        ManifestCI        `yaml:"ci,omitempty"`
 	// Templates records the custom template-overlay sources applied to the
 	// project, in render (layer) order: embedded base → templates[0] →

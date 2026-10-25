@@ -1,8 +1,11 @@
 package regenerate
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -12,13 +15,25 @@ import (
 // variable: pflag writes to whatever it is given, so a package-level target
 // makes building two command trees a data race.
 type SharedFlags struct {
-	DryRun bool
+	DryRun     bool
+	AI         bool
+	NoAI       bool
+	AIProvider string
 }
 
 // dryRun tolerates a nil receiver, so a zero-value Options struct built directly
 // by a test reads the default rather than panicking.
 func (f *SharedFlags) dryRun() bool {
 	return f != nil && f.DryRun
+}
+
+// apply copies the run's AI answer and provider onto cfg (spec 0211 D4, D11).
+func (f *SharedFlags) apply(cfg *generator.Config) {
+	if f == nil {
+		return
+	}
+
+	cfg.AI, cfg.NoAI, cfg.AIProvider = f.AI, f.NoAI, f.AIProvider
 }
 
 func NewCmdRegenerate(p *props.Props) *setup.Command {
@@ -36,6 +51,9 @@ existing source code.`,
 	}
 
 	cmd.PersistentFlags().BoolVar(&shared.DryRun, "dry-run", false, "preview changes without writing files")
+	cmd.PersistentFlags().BoolVar(&shared.AI, "ai", false, "Let this run call a model for missing doc pages (spends API credit)")
+	cmd.PersistentFlags().BoolVar(&shared.NoAI, "no-ai", false, "Call no model in this run, whatever the manifest or config says")
+	cmd.PersistentFlags().StringVar(&shared.AIProvider, "provider", "", "AI provider to use when the run calls a model ("+strings.Join(generator.KnownChatProviders(), ", ")+")")
 
 	regenerateCmd := setup.Wrap("", cmd)
 	regenerateCmd.Register(

@@ -3,7 +3,6 @@ package verifier
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -19,46 +18,6 @@ import (
 
 func testProps(fs afero.Fs) *props.Props {
 	return &props.Props{Logger: logger.NewNoop(), FS: fs}
-}
-
-// --- LegacyVerifier --------------------------------------------------------
-
-func TestLegacyVerifier_VerifyAndFix_GenErrorPropagates(t *testing.T) {
-	t.Parallel()
-
-	v := NewLegacy(testProps(afero.NewMemMapFs()), t.TempDir())
-
-	wantErr := errors.New("gen boom")
-	gen := func(_ context.Context, _ string, _ *templates.CommandData) error { return wantErr }
-
-	// gen runs before any verification, so this exercises the early-return path
-	// without shelling out to the toolchain.
-	err := v.VerifyAndFix(context.Background(), "/root", "/root/cmd", &templates.CommandData{}, nil, gen)
-	require.ErrorIs(t, err, wantErr)
-}
-
-func TestLegacyVerifier_CleanupForRegeneration(t *testing.T) {
-	t.Parallel()
-
-	fs := afero.NewMemMapFs()
-	cmdDir := "/proj/pkg/cmd/foo"
-
-	for _, name := range []string{"main.go", "main_test.go", "cmd.go"} {
-		require.NoError(t, afero.WriteFile(fs, filepath.Join(cmdDir, name), []byte("package foo"), 0o644))
-	}
-
-	NewLegacy(testProps(fs), "/proj").cleanupForRegeneration(cmdDir)
-
-	for _, removed := range []string{"main.go", "main_test.go"} {
-		exists, err := afero.Exists(fs, filepath.Join(cmdDir, removed))
-		require.NoError(t, err)
-		assert.Falsef(t, exists, "%s should be removed for regeneration", removed)
-	}
-
-	// cmd.go (the registration file) must be preserved.
-	exists, err := afero.Exists(fs, filepath.Join(cmdDir, "cmd.go"))
-	require.NoError(t, err)
-	assert.True(t, exists, "cmd.go must be preserved")
 }
 
 // --- AgentVerifier ---------------------------------------------------------

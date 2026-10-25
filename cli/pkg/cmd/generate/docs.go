@@ -21,7 +21,6 @@ type DocsOptions struct {
 	CommandName     string
 	PackagePath     string
 	LegacySrc       string
-	Agentless       bool
 	PublicAPI       bool
 	NoAIAttribution bool
 }
@@ -34,21 +33,21 @@ func NewCmdDocs(p *props.Props, shared *SharedFlags) *cobra.Command {
 		Short: "Generate Markdown documentation for a command",
 		Long: `Generate Markdown documentation for a Go command.
 
-When an AI provider is configured (via --provider or the ai.provider config
-key) and --agentless is not set, the command source is analysed and the AI
-integration produces rich docs following the docs-site conventions. Otherwise
-GTB writes deterministic boilerplate documentation with no API call — AI
-doc-generation is opt-in.
+With --ai, the command source is analysed and a model writes rich docs
+following the docs-site conventions. Without it, GTB writes deterministic
+boilerplate with no API call, unless the project's manifest sets generator.ai
+or you said yes to AI generation in gtb init. ai.provider in config only picks
+the model; it never asks for one.
 
 Examples:
   # Boilerplate docs (no AI), the default
   gtb generate docs --command mycmd
 
-  # AI-assisted docs (requires a configured provider)
-  gtb generate docs --command mycmd --provider claude
+  # AI-written docs
+  gtb generate --ai docs --command mycmd
 
-  # Force boilerplate even with a provider configured
-  gtb generate docs --command mycmd --agentless
+  # AI-written docs from a named provider
+  gtb generate --ai --provider openai docs --command mycmd
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context(), p)
@@ -61,7 +60,6 @@ Examples:
 	cmd.Flags().StringVar(&opts.Parent, "parent", "", "Parent command name (optional, if not in manifest)")
 	cmd.Flags().StringVar(&opts.CommandName, "command", "", "Name/Path of command to document")
 	cmd.Flags().StringVar(&opts.PackagePath, "package", "", "Path to package to document (relative to project root)")
-	cmd.Flags().BoolVar(&opts.Agentless, "agentless", false, "Skip AI doc-generation and write boilerplate docs only")
 	cmd.Flags().BoolVar(&opts.PublicAPI, "public-api", false, "Module is publicly published: defer package API reference to pkg.go.dev (default: stub to a local 'go doc' hint)")
 	cmd.Flags().BoolVar(&opts.NoAIAttribution, "no-ai-attribution", false, "Do not attribute the AI model in generated doc frontmatter: authors carry the project's human author(s) only (default: AI model appended as an additive co-author)")
 
@@ -88,9 +86,14 @@ func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
 		DryRun:          o.shared.dryRun(),
 		AIProvider:      o.shared.aiProvider(),
 		AIModel:         o.shared.aiModel(),
-		Agentless:       o.Agentless,
 		PublicAPI:       o.PublicAPI,
 		NoAIAttribution: o.NoAIAttribution,
+	}
+
+	cfg.AI, cfg.NoAI = o.shared.ai()
+
+	if err := generator.CheckAIFlags(cfg); err != nil {
+		return err
 	}
 
 	gen := generator.New(p, cfg)

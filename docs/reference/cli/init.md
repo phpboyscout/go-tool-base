@@ -146,6 +146,9 @@ Configures the AI provider and its credential. The provider select offers the pr
 
 If `AI_PROVIDER` is exported, a note says it is read only when `ai.provider` is unset, so the provider chosen here takes effect once written. An end user's choice here overrides the author's default the tool ships with.
 
+!!! note "gtb only: AI generation"
+    `gtb init` also asks whether gtb may call a model when it generates code and docs, in projects whose manifest does not say. The default is No, and either answer is written as `generator.ai`. It is skipped with `--skip-ai` or without a terminal, and a skipped question writes nothing, which reads as No. Tools built on GTB do not ask it. See [when gtb calls a model](../../explanation/components/cli/generator.md#when-gtb-calls-a-model).
+
 ### Init config
 
 ```bash

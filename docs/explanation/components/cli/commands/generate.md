@@ -26,9 +26,11 @@ Available Commands:
   skeleton    Generate a new cli project skeleton
 
 Flags:
+      --ai                Let this run call a model (spends API credit); overrides the manifest's generator.ai
   -h, --help              help for generate
       --model string      AI model to use (per-provider defaults apply when omitted)
-      --provider string   AI provider to use (openai/claude/gemini/claude-local/openai-compatible)
+      --no-ai             Call no model in this run, whatever the manifest or config says
+      --provider string   AI provider to use when the run calls a model
 
 Global Flags:
       --ci                   the tool is running in a CI environment: no prompts, no update check, no telemetry consent
@@ -211,12 +213,12 @@ Examples:
   gtb generate command -n serve -f "port:int:Port to listen on" --assets
 
   # Generate a command from a script (e.g., bash)
-  # The AI will attempt to convert the script to Go code
-  # The autonomous agent is used by default for verification
+  # A model converts the script to Go code, and an autonomous agent verifies it.
+  # --script and --prompt are themselves the ask, so no --ai is needed.
   gtb generate command -n backup --script ./backup.sh
 
-  # Use the original feedback loop instead of the autonomous agent
-  gtb generate command -n backup --script ./backup.sh --agentless
+  # Write the command's docs with a model as well (spends API credit)
+  gtb generate --ai command -n serve
 
   # Create a protected command (cannot be overwritten by generator)
   gtb generate command -n sensible --protected
@@ -236,7 +238,6 @@ Available Commands:
   unprotect   Unprotect a command to allow overwriting
 
 Flags:
-      --agentless            Use original retry loop instead of autonomous agent
       --alias strings        Aliases for the command
       --assets               Include assets directory support
       --flag strings         Flags definition (name:type:description:persistent)
@@ -321,41 +322,42 @@ of corrupting `.gtb/manifest.yaml`.
 
 ### Docs
 
-Generates documentation for a command. **AI doc-generation is opt-in:** it runs
-only when an AI provider is explicitly configured (via `--provider` or the
-`ai.provider` config key) and `--agentless` is not set. Otherwise, and this is
-the default. GTB writes deterministic **boilerplate** documentation from the
-manifest with **no API call**. A configured-but-failing AI call (e.g. no API
-credit) degrades quietly to the same boilerplate rather than erroring loudly.
-The same gate governs the docs step of `generate command`, so scaffolding a new
-command never reaches out to a paid AI API by default.
+Generates documentation for a command. **A model writes the page only when
+something asked for one:** the run's `--ai`, the project's `generator.ai` in its
+manifest, or the person's `generator.ai` from `gtb init`
+([when gtb calls a model](../generator.md#when-gtb-calls-a-model)). Otherwise,
+and this is the default, GTB writes deterministic **boilerplate** documentation
+from the manifest with **no API call**. `ai.provider` only picks the model. A
+model call that fails (e.g. no API credit) degrades quietly to the same
+boilerplate rather than erroring loudly. The same rule governs the docs step of
+`generate command`, so scaffolding a new command never reaches out to a paid AI
+API by default.
 
 **Help (`generate docs --help`):**
 
 ```text
 Generate Markdown documentation for a Go command.
 
-When an AI provider is configured (via --provider or the ai.provider config
-key) and --agentless is not set, the command source is analysed and the AI
-integration produces rich docs following the docs-site conventions. Otherwise
-GTB writes deterministic boilerplate documentation with no API call — AI
-doc-generation is opt-in.
+With --ai, the command source is analysed and a model writes rich docs
+following the docs-site conventions. Without it, GTB writes deterministic
+boilerplate with no API call, unless the project's manifest sets generator.ai
+or you said yes to AI generation in gtb init. ai.provider in config only picks
+the model; it never asks for one.
 
 Examples:
   # Boilerplate docs (no AI), the default
   gtb generate docs --command mycmd
 
-  # AI-assisted docs (requires a configured provider)
-  gtb generate docs --command mycmd --provider claude
+  # AI-written docs
+  gtb generate --ai docs --command mycmd
 
-  # Force boilerplate even with a provider configured
-  gtb generate docs --command mycmd --agentless
+  # AI-written docs from a named provider
+  gtb generate --ai --provider openai docs --command mycmd
 
 Usage:
   gtb generate docs [flags]
 
 Flags:
-      --agentless        Skip AI doc-generation and write boilerplate docs only
       --command string   Name/Path of command to document
   -h, --help             help for docs
   -n, --name string      Command name (optional, inferred from path)

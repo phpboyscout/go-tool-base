@@ -49,6 +49,9 @@ type SkeletonOptions struct {
 	// chatToolBridgeAnswer is the wizard's answer to the tool bridge page,
 	// seeded from ChatToolBridge and turned back into it by afterWizard.
 	chatToolBridgeAnswer bool
+	// generatorAIAnswer is the AI generation page's answer, seeded from
+	// GeneratorAI and turned back into it by afterWizard.
+	generatorAIAnswer string
 
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
@@ -174,6 +177,9 @@ type SkeletonOptions struct {
 	// ChatToolBridge false opts out of linking the tool bridge a local-CLI
 	// provider needs; nil keeps the default rule (#104).
 	ChatToolBridge *bool
+	// GeneratorAI is the project's recorded choice on gtb calling a model
+	// while generating it; nil defers to the person's generator.ai (spec 0211).
+	GeneratorAI *bool
 
 	// Templates carries the custom template-overlay specs (<src>@<ref>)
 	// supplied via --template (repeatable). Each is parsed into a manifest
@@ -970,6 +976,7 @@ func (o *SkeletonOptions) afterWizard() error {
 	o.resolveEnvPrefix()
 	o.applySourceSlots()
 	o.applyChatToolBridge()
+	o.applyGeneratorAI()
 
 	if o.ConfigFormat == "yaml" {
 		o.ConfigFormat = ""
@@ -1139,6 +1146,7 @@ func (o *SkeletonOptions) wizardPages() []formpage.Page {
 	// The confirm is bound positively (spec 0195 D3); the flag is the negative.
 	o.hosted = !o.NoForge
 	o.seedChatToolBridge()
+	o.seedGeneratorAI()
 
 	// The mode select needs a value to sit on; compact is the framework's
 	// default and what an untouched flag path means.
@@ -1170,6 +1178,7 @@ func (o *SkeletonOptions) wizardPages() []formpage.Page {
 		formpage.Deferred(o.signingEnableGroup).HiddenWhen(o.signingEnableHidden),
 		formpage.Deferred(o.signingDetailGroup).HiddenWhen(o.signingDetailHidden),
 		formpage.Deferred(o.signingEnforcementGroup).HiddenWhen(o.signingEnforcementHidden),
+		formpage.Deferred(o.generatorAIGroup),
 		formpage.Deferred(o.summaryGroup),
 	)
 }
@@ -1374,6 +1383,54 @@ func (o *SkeletonOptions) applyChatToolBridge() {
 	}
 
 	o.ChatToolBridge = new(false)
+}
+
+const (
+	generatorAIDefault = "default"
+	generatorAIYes     = "yes"
+	generatorAINo      = "no"
+)
+
+// seedGeneratorAI sets the page's answer from the recorded choice.
+func (o *SkeletonOptions) seedGeneratorAI() {
+	switch {
+	case o.GeneratorAI == nil:
+		o.generatorAIAnswer = generatorAIDefault
+	case *o.GeneratorAI:
+		o.generatorAIAnswer = generatorAIYes
+	default:
+		o.generatorAIAnswer = generatorAINo
+	}
+}
+
+// applyGeneratorAI records the page's answer. Following the person's default
+// records nothing, so their gtb init choice applies (spec 0211 D13).
+func (o *SkeletonOptions) applyGeneratorAI() {
+	switch o.generatorAIAnswer {
+	case generatorAIYes:
+		o.GeneratorAI = new(true)
+	case generatorAINo:
+		o.GeneratorAI = new(false)
+	default:
+		o.GeneratorAI = nil
+	}
+}
+
+// generatorAIGroup asks whether gtb may call a model while generating this
+// project, which is gtb's own behaviour and not the tool's ai feature.
+func (o *SkeletonOptions) generatorAIGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewSelect[string]().Key("generator-ai").
+			Title("May gtb call a model when generating this project?").
+			Description("A model writes richer command docs, and spends API credit each time it does.\n"+
+				"Recorded in the manifest as generator.ai; --ai or --no-ai overrides it for one run.").
+			Options(
+				huh.NewOption("Follow my gtb default (set in gtb init; off unless you said yes)", generatorAIDefault),
+				huh.NewOption("Yes: call a model for this project", generatorAIYes),
+				huh.NewOption("No: never call a model for this project", generatorAINo),
+			).
+			Value(&o.generatorAIAnswer),
+	).Title("AI generation")
 }
 
 // chatToolBridgeGroup asks whether to link the tool bridge claude-local and
@@ -1940,6 +1997,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		TelemetryEndpoint:     o.TelemetryEndpoint,
 		TelemetryOTelEndpoint: o.TelemetryOTelEndpoint,
 		Bootstrap:             o.Bootstrap,
+		Generator:             generator.ManifestGenerator{AI: o.GeneratorAI},
 		ConfigLayers:          o.ConfigLayers,
 		ConfigFormats:         o.ConfigFormats,
 		ConfigFormat:          o.ConfigFormat,

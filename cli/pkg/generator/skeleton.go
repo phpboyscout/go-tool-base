@@ -73,6 +73,7 @@ type SkeletonConfig struct {
 	Signing       ManifestSigning   // self-update signature-verification posture (disabled by default)
 	Chat          ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
 	Bootstrap     ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
+	Generator     ManifestGenerator // how gtb itself may work on the project (spec 0211)
 	// MCPMode is the MCP publication mode: "" or "compact" for the discovery
 	// facade, "direct" for one native tool per command (spec 0201 D3).
 	MCPMode string
@@ -1422,6 +1423,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			Signing:   config.Signing,
 			Chat:      config.Chat,
 			Bootstrap: config.Bootstrap,
+			Generator: config.Generator,
 			CI: ManifestCI{
 				// Persist only an explicit non-default source so the manifest
 				// stays minimal; an absent ci block defaults on render.

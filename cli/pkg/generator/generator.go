@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -61,7 +62,10 @@ type Config struct {
 	// 0 having emitted files it did not verify (spec 0197 D10).
 	NoVerify bool
 
-	Agentless  bool
+	// AI and NoAI are the run's own answer on calling a model (spec 0211 D4);
+	// without either, the manifest and then the person's config decide.
+	AI         bool
+	NoAI       bool
 	AIModel    string
 	AIProvider string
 	// MaxSteps bounds the autonomous repair agent's ReAct loop. Zero uses the
@@ -135,6 +139,8 @@ type Generator struct {
 	props      *props.Props
 	config     *Config
 	chatClient gochat.ChatClient
+	aiOnce     sync.Once
+	ai         aiDecision
 	runCommand func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 	// versions answers the module versions the go.mod seed pins (spec 0200
 	// D4): the running binary's build info unless a test installs a map.

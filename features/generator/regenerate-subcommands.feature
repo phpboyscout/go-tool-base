@@ -10,9 +10,9 @@ Feature: regenerate preserves nested subcommands
 
   Scenario: A Register-wired subcommand survives the regenerate round-trip
     Given a freshly generated gtb project
-    When I run gtb in the project with "generate command --name reel --short reels --agentless"
+    When I run gtb in the project with "generate command --name reel --short reels"
     Then the project exit code is 0
-    When I run gtb in the project with "generate command --name build --parent reel --short build-a-reel --agentless"
+    When I run gtb in the project with "generate command --name build --parent reel --short build-a-reel"
     Then the project exit code is 0
     And the generated "pkg/cmd/reel/cmd.go" file contains "Register(build.NewCmdBuild"
     When I run gtb in the project with "regenerate manifest"

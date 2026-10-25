@@ -23,15 +23,15 @@ Feature: Diátaxis-structured documentation generation
 
   Scenario: a generated leaf command lands in reference/cli, not the flat tree
     Given a freshly generated gtb project
-    When I run gtb in the project with "generate command --name deploy --agentless --short deploy-tool"
+    When I run gtb in the project with "generate command --name deploy --short deploy-tool"
     Then the project exit code is 0
     And the generated "docs/reference/cli/deploy.md" file exists
     And the generated "docs/commands/deploy/index.md" file does not exist
 
   Scenario: a subcommand lands beside its parent under reference/cli
     Given a freshly generated gtb project
-    When I run gtb in the project with "generate command --name deploy --agentless --short deploy-tool"
+    When I run gtb in the project with "generate command --name deploy --short deploy-tool"
     Then the project exit code is 0
-    When I run gtb in the project with "generate command --name start --parent deploy --agentless --short start-it"
+    When I run gtb in the project with "generate command --name start --parent deploy --short start-it"
     Then the project exit code is 0
     And the generated "docs/reference/cli/deploy/start.md" file exists

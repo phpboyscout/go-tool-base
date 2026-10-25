@@ -30,6 +30,9 @@ import (
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
+
+	// gtb's own init question on AI generation (spec 0211 D5).
+	_ "gitlab.com/phpboyscout/go-tool-base/cli/pkg/aigeneration"
 )
 
 //go:embed all:assets

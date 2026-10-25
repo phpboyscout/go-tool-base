@@ -213,13 +213,14 @@ You can use the AI to either convert an existing script (bash, python, etc.) to 
 
 -   `--script string`: Path to a script to convert.
 -   `--prompt string`: Natural language description or path to a file containing the description.
--   `--agentless`: Opt-out of the autonomous repair agent and use the legacy retry loop.
 
 ```bash
 gtb generate command -n convert --script "./my-script.py" --provider gemini
 ```
 
-This feature uses an **Autonomous Agent** to convert your logic into idiomatic Go and runs a self-healing verification loop to ensure the code is production-ready. You can use the `--agentless` flag to opt-out of the autonomous agent and use the legacy retry loop instead.
+`--script` and `--prompt` are themselves the ask for a model, so they need no `--ai`, and the run's docs page is model-written too. They cannot be combined with `--no-ai`.
+
+This feature uses an **Autonomous Agent** to convert your logic into idiomatic Go and runs a self-healing verification loop to ensure the code is production-ready.
 
 Check out the dedicated [AI Script Conversion](convert-scripts-to-go.md) page for more details on how this works!
 
@@ -275,11 +276,12 @@ Common validators include:
 
 ## Documentation Magic
 
-Every time you generate a command, the CLI automatically attempts to generate comprehensive documentation using AI.
+Every time you generate a command, the CLI writes its reference page at `docs/reference/cli/your-command.md` (Diátaxis layout).
 
-- **AI Generation**: The generator reads your `main.go` and uses AI to create a reference page at `docs/reference/cli/your-command.md` (Diátaxis layout).
+- **Boilerplate by default**: the page is deterministic boilerplate and no model is called, unless something asked for one. `ai.provider` in your config only picks the model.
+- **AI Generation**: pass `--ai` (for example `gtb generate --ai command ...`), record `generator.ai: true` in the project's manifest with `gtb set generator.ai true`, or answer Yes in `gtb init` to make it your default. The generator then reads your `main.go` and has the model write the page. `--no-ai` refuses for one run. [When gtb calls a model](../../explanation/components/cli/generator.md#when-gtb-calls-a-model) has the full order.
 - **Fallback**: If AI generation fails (e.g., due to API issues), it falls back to a clean boilerplate.
-- **Updates**: Use the `--update-docs` flag to force a refresh of the documentation using AI.
+- **Updates**: `gtb regenerate project --update-docs` rewrites existing pages with a model. The flag is the ask, so it calls a model even though a plain regenerate does not.
 
 This ensures your users always have up-to-date, high-quality information about your tool's capabilities.
 

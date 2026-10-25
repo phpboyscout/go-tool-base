@@ -1010,6 +1010,13 @@ func TestBuildCommandContext_And_ToConfig(t *testing.T) {
 	assert.Equal(t, "/proj", cfg.Path)
 	assert.True(t, cfg.WithAssets)
 
+	// The run's AI answer reaches every command a regenerate rebuilds (spec 0211).
+	aiCfg := buildCommandContext(&Config{Path: "/proj", AI: true, NoAI: true, AIProvider: "openai", AIModel: "m"}, cmd, nil).ToConfig()
+	assert.True(t, aiCfg.AI)
+	assert.True(t, aiCfg.NoAI)
+	assert.Equal(t, "openai", aiCfg.AIProvider)
+	assert.Equal(t, "m", aiCfg.AIModel)
+
 	// Empty parent path -> "root".
 	rootCtx := buildCommandContext(&Config{Path: "/proj"}, cmd, nil)
 	assert.Equal(t, "root", rootCtx.ToConfig().Parent)

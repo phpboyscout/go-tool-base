@@ -37,7 +37,9 @@ gtb regenerate project
 - `--overwrite`: How to handle a generated file you have modified: `ask` (default, prompts per file), `deny` (keeps every diverged file) or `allow` (re-emits the generator's version).
 - `--force`: **Danger Zone!** Overwrites existing `main.go` implementation files. Use this only if you want to reset a command's logic to the default starter code. On a project still using the legacy flat docs layout, `--force` also **migrates the docs to the Diátaxis layout** (see below).
 - `--no-verify`: Skip `go mod tidy` and `golangci-lint` afterwards; the run exits 0 unverified. Without it a failed step exits 3.
-- `--update-docs`: Use AI to update the existing command documentation.
+- `--update-docs`: Rewrite the existing command documentation with a model. It is an explicit ask, so it calls a model under `--ci` too. Without it (or `--ai`) a regenerate calls no model: a missing page gets boilerplate and an existing one is left alone.
+- `--ai`: Let the run call a model for a missing doc page. `--no-ai` refuses for the run and cannot be combined with `--update-docs`.
+- `--provider`: The provider to use when the run calls a model; on its own it asks for nothing.
 - `--dry-run`: Preview all changes without writing to disk (see below).
 
 ### What it does

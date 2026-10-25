@@ -43,6 +43,10 @@ type CommandContext struct {
 	DryRun      bool
 	Force       bool
 	UpdateDocs  bool
+	AI          bool
+	NoAI        bool
+	AIProvider  string
+	AIModel     string
 	Overwrite   OverwriteMode
 }
 
@@ -70,6 +74,10 @@ func buildCommandContext(cfg *Config, cmd ManifestCommand, parentPath []string) 
 		DryRun:               cfg.DryRun,
 		Force:                cfg.Force,
 		UpdateDocs:           cfg.UpdateDocs,
+		AI:                   cfg.AI,
+		NoAI:                 cfg.NoAI,
+		AIProvider:           cfg.AIProvider,
+		AIModel:              cfg.AIModel,
 		Overwrite:            cfg.Overwrite,
 	}
 }
@@ -102,6 +110,10 @@ func (c CommandContext) ToConfig() *Config {
 		DryRun:               c.DryRun,
 		Force:                c.Force,
 		UpdateDocs:           c.UpdateDocs,
+		AI:                   c.AI,
+		NoAI:                 c.NoAI,
+		AIProvider:           c.AIProvider,
+		AIModel:              c.AIModel,
 		Overwrite:            c.Overwrite,
 	}
 }

@@ -53,6 +53,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		ChatProviders:         cfg.Chat.Providers,
 		ChatDefault:           cfg.Chat.Default,
 		ChatToolBridge:        cfg.Chat.ToolBridge,
+		GeneratorAI:           cfg.Generator.AI,
 		revisit:               true,
 	}
 

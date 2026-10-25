@@ -60,6 +60,7 @@ var probes = map[string]func(c *SkeletonConfig){
 	"Bootstrap.AutoInitialise":          func(c *SkeletonConfig) { c.Bootstrap.AutoInitialise = true },
 	"Bootstrap.SkipConfigCheck":         func(c *SkeletonConfig) { c.Bootstrap.SkipConfigCheck = []string{"version"} },
 	"Bootstrap.AuxiliaryCommands":       func(c *SkeletonConfig) { c.Bootstrap.AuxiliaryCommands = []string{"completion"} },
+	"Generator.AI":                      func(c *SkeletonConfig) { yes := true; c.Generator.AI = &yes },
 	"UpdatePolicy":                      func(c *SkeletonConfig) { c.UpdatePolicy = "prompt" },
 	"MCPMode":                           func(c *SkeletonConfig) { c.MCPMode = "direct" },
 	"UpdateCheckInterval":               func(c *SkeletonConfig) { c.UpdateCheckInterval = "168h" },

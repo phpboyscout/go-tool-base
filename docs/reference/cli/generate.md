@@ -244,7 +244,6 @@ Generate a new command or subcommand (optionally AI-converted from a script).
 | `--assets` | `false` | Include assets-directory support. |
 | `--script` | — | Path to a script (bash/python/js) to convert to Go. Mutually exclusive with `--prompt`. |
 | `--prompt` | — | Natural-language description (or a file path) to generate from. Mutually exclusive with `--script`. |
-| `--agentless` | `false` | Use the original retry loop instead of the autonomous repair agent. |
 | `--max-steps` | `0` (→20) | Max repair-agent reasoning steps. |
 | `--non-interactive` | *(true when `CI` is set)* | Never pause for input: disables the repair agent's `query_user` tool. |
 | `--persistent-pre-run` / `--pre-run` | `false` | Generate the corresponding hook. |
@@ -255,7 +254,17 @@ Generate a new command or subcommand (optionally AI-converted from a script).
 | `--mcp-enabled` | `true` | Expose this command as an MCP tool (tri-state: `--mcp-enabled=false` withholds it from the MCP surface; it stays runnable on the CLI). |
 | `--path, -p` | `.` | Filesystem project root (not a command path). |
 
-All `generate` subcommands also accept these persistent flags (for AI-assisted generation): `--provider` (any chat provider the `gtb` binary links; `gtb generate --help` lists them, and the list is `chat.ProviderModules()`), `--model` (AI model), and `--dry-run` (preview changes without writing files).
+All `generate` subcommands also accept these persistent flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--ai` | `false` | Let this run call a model (spends API credit). Overrides the manifest's `generator.ai` for the run. |
+| `--no-ai` | `false` | Call no model in this run, whatever the manifest or config says. Cannot be combined with `--ai`, `--prompt` or `--script`. |
+| `--provider` | — | Chat provider to use when the run calls a model: any the `gtb` binary links (`gtb generate --help` lists them; the list is `chat.ProviderModules()`). On its own it asks for nothing, and a warning says so. |
+| `--model` | — | Model to use when the run calls a model. |
+| `--dry-run` | `false` | Preview changes without writing files. |
+
+A model is called when the run passes `--ai`, `--prompt` or `--script`, otherwise when the manifest sets `generator.ai`, otherwise when your config sets `generator.ai` (not read under `--ci`). `ai.provider` never asks. See [when gtb calls a model](../../explanation/components/cli/generator.md#when-gtb-calls-a-model).
 
 ### `generate add-flag`
 
@@ -270,7 +279,6 @@ Generate Markdown docs for a command or package.
 | `--command` | — | Name/path of the command to document. |
 | `--package` | — | Package to document (relative to project root). |
 | `--parent` | — | Parent command name (if not in the manifest). |
-| `--agentless` | `false` | Skip AI generation; write boilerplate only. |
 | `--public-api` | `false` | Module is publicly published: defer package API reference to pkg.go.dev (otherwise a local `go doc` hint). Equivalent to `module_published: true` in the manifest. |
 | `--no-ai-attribution` | `false` | Keep AI/model attribution out of the generated frontmatter `authors:`: human author(s) only. Default: the AI model is appended as an additive co-author. |
 | `--path` | `.` | Project root. |

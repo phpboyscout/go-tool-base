@@ -76,31 +76,17 @@ func TestRegenerateProject_UpdateDocsIsTheAsk(t *testing.T) {
 	client.AssertCalled(t, "Chat", mock.Anything, mock.Anything)
 }
 
-// TestAIDocsEnabled_CIEnvDisablesAConfiguredProvider is the CI=true half of
-// the rule below; the variable is what a pipeline sets without --ci.
-func TestAIDocsEnabled_CIEnvDisablesAConfiguredProvider(t *testing.T) {
-	t.Setenv("CI", "true")
-
-	g := &Generator{
-		props:  &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: testutil.StoreFromYAML(t, "ai:\n  provider: openai\n")},
-		config: &Config{},
-	}
-	assert.False(t, g.aiDocsEnabled())
-}
-
-// TestAIDocsEnabled_CIDisablesAConfiguredProvider (#35): under --ci a
-// provider that comes from config alone is not consulted, since an
-// unattended run is where a paid call is least wanted; a --provider flag is
-// an explicit ask and still wins.
-func TestAIDocsEnabled_CIDisablesAConfiguredProvider(t *testing.T) {
+// TestAIChoice_CIConfigKey (#35, spec 0211 D8): under --ci a person's
+// generator.ai is not read, and --ai is still an explicit ask.
+func TestAIChoice_CIConfigKey(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
-	ci := testutil.StoreFromYAML(t, "ci: true\nai:\n  provider: openai\n")
+	ci := testutil.StoreFromYAML(t, "ci: true\ngenerator:\n  ai: true\n")
 
 	fromConfig := &Generator{props: &props.Props{FS: fs, Logger: logger.NewNoop(), Config: ci}, config: &Config{}}
-	assert.False(t, fromConfig.aiDocsEnabled(), "config-only provider under --ci")
+	assert.False(t, fromConfig.aiChoice().wanted, "generator.ai under --ci")
 
-	fromFlag := &Generator{props: &props.Props{FS: fs, Logger: logger.NewNoop(), Config: ci}, config: &Config{AIProvider: "claude"}}
-	assert.True(t, fromFlag.aiDocsEnabled(), "--provider is an explicit ask")
+	fromFlag := &Generator{props: &props.Props{FS: fs, Logger: logger.NewNoop(), Config: ci}, config: &Config{AI: true}}
+	assert.True(t, fromFlag.aiChoice().wanted, "--ai is an explicit ask")
 }
