@@ -47,7 +47,7 @@ const (
 	// zensical-pages, colophon). Mirrors the framework's own pin; kept
 	// current automatically by the Renovate customManager in renovate.json5
 	// (do not hand-bump — let Renovate propose it).
-	CICDComponentVersion = "v0.57.0"
+	CICDComponentVersion = "v0.57.1"
 
 	// ColophonVersion is the colophon release the scaffolded GitHub release
 	// workflow installs. Kept current by the Renovate customManager in
