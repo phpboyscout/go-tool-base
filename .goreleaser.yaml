@@ -83,6 +83,18 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # Modes pinned, because otherwise they come from the CI checkout, whose
+    # umask makes them world-writable (#141).
+    files:
+      - src: README.md
+        info:
+          mode: 0644
+      - src: CHANGELOG.md
+        info:
+          mode: 0644
+      - src: LICENSE
+        info:
+          mode: 0644
 sboms:
   - artifacts: archive
 

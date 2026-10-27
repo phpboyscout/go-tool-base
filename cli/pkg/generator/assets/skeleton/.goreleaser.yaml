@@ -47,6 +47,28 @@ archives:
       {{ "{{" }}- else if eq .Arch "386" {{ "}}" }}i386
       {{ "{{" }}- else {{ "}}" }}{{ "{{" }} .Arch {{ "}}" }}{{ "{{" }} end {{ "}}" }}
       {{ "{{" }}- if .Arm {{ "}}" }}v{{ "{{" }} .Arm {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+    # Modes pinned, because otherwise they come from the CI checkout, whose
+    # umask can make them world-writable. These are goreleaser's default
+    # globs; one that matches nothing is skipped.
+    files:
+      - src: "license*"
+        info:
+          mode: 0644
+      - src: "LICENSE*"
+        info:
+          mode: 0644
+      - src: "readme*"
+        info:
+          mode: 0644
+      - src: "README*"
+        info:
+          mode: 0644
+      - src: "changelog*"
+        info:
+          mode: 0644
+      - src: "CHANGELOG*"
+        info:
+          mode: 0644
 
 {{ if .Hosted -}}
 release:
