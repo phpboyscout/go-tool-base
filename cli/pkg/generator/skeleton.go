@@ -74,6 +74,7 @@ type SkeletonConfig struct {
 	Chat          ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
 	Bootstrap     ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
 	Generator     ManifestGenerator // how gtb itself may work on the project (spec 0211)
+	Homebrew      ManifestHomebrew  // the tap a release publishes its cask to (spec 0212)
 	// MCPMode is the MCP publication mode: "" or "compact" for the discovery
 	// facade, "direct" for one native tool per command (spec 0201 D3).
 	MCPMode string
@@ -640,6 +641,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		ConfigKeyCase:         normaliseKeyCase(config.ConfigKeyCase),
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
+		HomebrewTap:           config.Homebrew.Tap,
 		UpdatePolicy:          config.UpdatePolicy,
 		UpdateCheckInterval:   config.UpdateCheckInterval,
 		MCPMode:               config.MCPMode,
@@ -1130,8 +1132,8 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 
 		// A file that belongs to a release channel the project is not on
 		// is not rendered, and removed if an earlier channel left it.
-		if omittedByChannel(relPath, data) {
-			return g.removeChannelAsset(destPath, relPath)
+		if omittedReleaseAsset(relPath, data) {
+			return g.removeReleaseAsset(destPath, relPath)
 		}
 
 		// A `replaces:` descriptor suppresses this embedded scaffold path
@@ -1168,22 +1170,31 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 	})
 }
 
-// staticChannelAssets are the scaffold files only the static release channel
-// needs (spec 0203 D5): the pointer move the release configuration calls.
-var staticChannelAssets = []string{"scripts/move-pointer.sh"}
-
-// omittedByChannel reports whether relPath is a static-channel file on a
-// project that is not on that channel. Data without a channel (a template
-// contract) omits nothing.
-func omittedByChannel(relPath string, data any) bool {
-	d, ok := data.(skeletonTemplateData)
-
-	return ok && !d.StaticChannel() && slices.Contains(staticChannelAssets, filepath.ToSlash(relPath))
+// releaseAssets are the scaffold scripts a release configuration calls only
+// in some projects, each with the condition that keeps it: the static
+// channel's pointer move (spec 0203 D5) and the tap job's push (spec 0212 D5).
+var releaseAssets = map[string]func(skeletonTemplateData) bool{
+	"scripts/move-pointer.sh":       skeletonTemplateData.StaticChannel,
+	"scripts/push-homebrew-cask.sh": skeletonTemplateData.HomebrewPushedByJob,
 }
 
-// removeChannelAsset deletes a channel-only file an earlier channel left in
-// the project; a file that is not there is nothing to do.
-func (g *Generator) removeChannelAsset(destPath, relPath string) error {
+// omittedReleaseAsset reports whether relPath is a release script the
+// project's release configuration does not call. Data without a release
+// configuration (a template contract) omits nothing.
+func omittedReleaseAsset(relPath string, data any) bool {
+	d, ok := data.(skeletonTemplateData)
+	if !ok {
+		return false
+	}
+
+	keep, conditional := releaseAssets[filepath.ToSlash(relPath)]
+
+	return conditional && !keep(d)
+}
+
+// removeReleaseAsset deletes a release file an earlier release configuration
+// left in the project; a file that is not there is nothing to do.
+func (g *Generator) removeReleaseAsset(destPath, relPath string) error {
 	if err := g.props.FS.Remove(filepath.Join(destPath, relPath)); err != nil && !os.IsNotExist(err) {
 		return errors.Newf("failed to remove %s: %w", relPath, err)
 	}
@@ -1424,6 +1435,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			Chat:      config.Chat,
 			Bootstrap: config.Bootstrap,
 			Generator: config.Generator,
+			Homebrew:  config.Homebrew,
 			CI: ManifestCI{
 				// Persist only an explicit non-default source so the manifest
 				// stays minimal; an absent ci block defaults on render.

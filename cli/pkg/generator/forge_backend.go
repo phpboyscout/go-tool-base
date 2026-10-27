@@ -364,12 +364,7 @@ type ciSkeleton struct {
 // ciSkeletonFor chooses the CI asset set from the backend, falling back to the
 // recorded release provider for a manifest that predates the field.
 func ciSkeletonFor(backend props.FeatureID, releaseProvider string) ciSkeleton {
-	key := string(backend)
-	if key == "" {
-		key = releaseProvider
-	}
-
-	switch key {
+	switch ciForge(backend, releaseProvider) {
 	case "github":
 		return ciSkeleton{root: "assets/skeleton-github"}
 	case "gitlab":
@@ -377,6 +372,16 @@ func ciSkeletonFor(backend props.FeatureID, releaseProvider string) ciSkeleton {
 	default:
 		return ciSkeleton{}
 	}
+}
+
+// ciForge is the forge whose CI runs the project: the backend, or the
+// recorded release provider for a manifest that predates the field.
+func ciForge(backend props.FeatureID, releaseProvider string) string {
+	if backend != "" {
+		return string(backend)
+	}
+
+	return releaseProvider
 }
 
 // moveLegacyConfigLayers moves spec 0183's config_layers into config.layers

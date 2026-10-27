@@ -9,7 +9,12 @@ before:
     - go generate ./...
 
 builds:
+{{- if .HomebrewCask }}
+  - id: {{ .Name }}
+    main: ./cmd/{{ .Name }}
+{{- else }}
   - main: ./cmd/{{ .Name }}
+{{- end }}
     env:
       - CGO_ENABLED=0
     goos:
@@ -38,6 +43,26 @@ builds:
       post:
         - cmd: sh -c 'case "{{ "{{" }} .Os {{ "}}" }}/{{ "{{" }} .Arch {{ "}}" }}" in "{{ "{{" }} .Runtime.Goos {{ "}}" }}/{{ "{{" }} .Runtime.Goarch {{ "}}" }}") "{{ "{{" }} .Path {{ "}}" }}" version --ci >/dev/null ;; esac'
 
+{{ if .HomebrewCask -}}
+# macOS notarisation (go-tool-base spec 0212 D9): a cask's binary that is not
+# notarised can fail to open on macOS. Without APPLE_DEV_CERT the release
+# builds exactly as it would with no cask. The credentials are APPLE_DEV_CERT,
+# APPLE_DEV_CERT_PASSWORD, APPLE_NOTARY_ISSUER_ID, APPLE_NOTARY_KEY_ID and
+# APPLE_NOTARY_KEY.
+notarize:
+  macos:
+    - enabled: '{{ "{{" }} isEnvSet "APPLE_DEV_CERT" {{ "}}" }}'
+      ids:
+        - {{ .Name }}
+      sign:
+        certificate: "{{ "{{" }}.Env.APPLE_DEV_CERT{{ "}}" }}"
+        password: "{{ "{{" }}.Env.APPLE_DEV_CERT_PASSWORD{{ "}}" }}"
+      notarize:
+        issuer_id: "{{ "{{" }}.Env.APPLE_NOTARY_ISSUER_ID{{ "}}" }}"
+        key_id: "{{ "{{" }}.Env.APPLE_NOTARY_KEY_ID{{ "}}" }}"
+        key: "{{ "{{" }}.Env.APPLE_NOTARY_KEY{{ "}}" }}"
+
+{{ end -}}
 archives:
   - formats: [ "tar.gz" ]
     name_template: >-
@@ -124,6 +149,38 @@ changelog:
   # colophon owns the changelog and Release notes.
   disable: true
 
+{{ if .HomebrewCask -}}
+# The Homebrew cask (go-tool-base spec 0212): `brew install --cask {{ .Name }}`
+# once the tap is tapped.
+{{- if .HomebrewPushedByJob }}
+# GoReleaser only renders it into dist/. The homebrew-tap job in
+# .gitlab-ci.yml pushes it with the CI job token, so the tap's job token
+# allowlist must name this project.
+{{- else }}
+# GoReleaser pushes it with HOMEBREW_TAP_TOKEN, a token that can write to the
+# tap and nothing else. A prerelease tag leaves the cask where it was.
+{{- end }}
+homebrew_casks:
+  - name: {{ .Name | escapeYAML }}
+    homepage: {{ .RepositoryURL | escapeYAML }}
+    description: {{ .Description | escapeYAML }}
+{{- if .StaticChannel }}
+    url:
+      template: {{ .HomebrewURLTemplate | escapeYAML }}
+{{- end }}
+{{- if .HomebrewPushedByJob }}
+    skip_upload: true
+{{- else }}
+    skip_upload: auto
+{{- end }}
+    repository:
+      owner: {{ .HomebrewOwner | escapeYAML }}
+      name: {{ .HomebrewName | escapeYAML }}
+{{- if not .HomebrewPushedByJob }}
+      token: "{{ "{{" }} .Env.HOMEBREW_TAP_TOKEN {{ "}}" }}"
+{{- end }}
+
+{{ end -}}
 {{ if .StaticChannel -}}
 # The static release channel (go-tool-base spec 0203 D5). The tool discovers
 # and retrieves its releases from {{ .ReleaseBaseURL }}: a per-tag

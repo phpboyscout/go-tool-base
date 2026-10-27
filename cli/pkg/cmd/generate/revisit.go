@@ -54,6 +54,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		ChatDefault:           cfg.Chat.Default,
 		ChatToolBridge:        cfg.Chat.ToolBridge,
 		GeneratorAI:           cfg.Generator.AI,
+		HomebrewTap:           cfg.Homebrew.Tap,
 		revisit:               true,
 	}
 

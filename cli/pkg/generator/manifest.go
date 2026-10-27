@@ -419,6 +419,12 @@ type ManifestGenerator struct {
 	AI *bool `yaml:"ai,omitempty"`
 }
 
+// ManifestHomebrew is the project's Homebrew publishing. Tap names a
+// repository on the project's own forge; absent publishes nothing (spec 0212).
+type ManifestHomebrew struct {
+	Tap string `yaml:"tap,omitempty"`
+}
+
 // ManifestChatDefault is the author's default for the tool's chat client: the
 // provider, optionally its model, and the addressing a few providers refuse
 // to construct without. It is rendered into the tool's embedded defaults
@@ -466,6 +472,7 @@ type ManifestProperties struct {
 	Chat      ManifestChat      `yaml:"chat,omitempty"`
 	Bootstrap ManifestBootstrap `yaml:"bootstrap,omitempty"`
 	Generator ManifestGenerator `yaml:"generator,omitempty"`
+	Homebrew  ManifestHomebrew  `yaml:"homebrew,omitempty"`
 	CI        ManifestCI        `yaml:"ci,omitempty"`
 	// Templates records the custom template-overlay sources applied to the
 	// project, in render (layer) order: embedded base → templates[0] →

@@ -107,6 +107,26 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `.colophon.yaml` (both forges): a commented starter for colophon's release
     overrides, such as `hold` and `announce`.
 
+#### Homebrew cask (with `homebrew.tap` set)
+A project that names a tap
+([spec 0212](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0212-a-generated-tool-can-publish-to-a-homebrew-tap))
+gets a `homebrew_casks` entry and a `notarize:` block in `.goreleaser.yaml`,
+gated on `APPLE_DEV_CERT`, and the build gains an `id` for that block to name.
+How the cask reaches the tap depends on the forge:
+
+-   **GitLab:** GoReleaser only renders the cask (`skip_upload: true`). The
+    `homebrew-tap` job in `.gitlab-ci.yml` pushes it with the CI job token
+    through `scripts/push-homebrew-cask.sh`, which only a GitLab project with a
+    tap gets. A `goreleaser:` overlay keeps the rendered cask as an artefact
+    for that job. gtb's own release runs the same script.
+-   **GitHub:** GoReleaser pushes the cask itself with `HOMEBREW_TAP_TOKEN`,
+    which the goreleaser workflow passes from a secret. A prerelease tag leaves
+    the cask alone (`skip_upload: auto`).
+
+The cask downloads from the static channel's store on that channel, and from
+the forge release otherwise. A private project off the static channel is
+refused, because Homebrew sends no credentials.
+
 #### Documentation (`docs/`)
 -   `zensical.toml`: Documentation site configuration (Zensical/MkDocs-Material).
 -   `docs/index.md`: Placeholder landing page.

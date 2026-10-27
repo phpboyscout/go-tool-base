@@ -20,6 +20,16 @@
 #     pushed with the job token does not start the tag pipeline that builds
 #     the release. If v* tags are protected, the token must be allowed to
 #     create them.
+{{- if .HomebrewPushedByJob }}
+#   • The Homebrew tap's job token allowlist must name this project: the
+#     homebrew-tap job pushes the cask to {{ .HomebrewTap }} with
+#     CI_JOB_TOKEN. Only a Maintainer of the tap can add it (CI/CD settings,
+#     job token permissions).
+#   • APPLE_DEV_CERT, APPLE_DEV_CERT_PASSWORD, APPLE_NOTARY_ISSUER_ID,
+#     APPLE_NOTARY_KEY_ID and APPLE_NOTARY_KEY, optionally: with them the
+#     macOS binaries the cask installs are notarised; without them macOS may
+#     refuse to open them.
+{{- end }}
 #   • Merge method: fast-forward. colophon resolves the commit that landed
 #     rather than trusting the MR's recorded head, so rebasing on merge is
 #     safe; meaningful commits should survive rather than be squashed.
@@ -94,16 +104,44 @@ workflow:
 variables:
   # colophon + goreleaser walk the full commit history.
   GIT_DEPTH: "0"
-{{- if .StaticChannel }}
-
+{{- if or .StaticChannel .HomebrewPushedByJob }}
+{{ if .StaticChannel }}
 # The static release channel's store (go-tool-base spec 0203 D5). The
 # goreleaser component hands the job the estate store's credentials as
 # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY; these two name the S3 endpoint
 # and bucket .goreleaser.yaml uploads to and moves the pointer on. Change
 # them for a store of your own, and make sure {{ .ReleaseBaseURL }}
 # serves the bucket's "{{ .ReleaseBasePath }}/" prefix.
+{{- end }}
+{{- if .HomebrewPushedByJob }}
+# The component keeps only dist/artifacts.json, which colophon reads, and an
+# overlay replaces that list, so it is restated beside the cask the
+# homebrew-tap job pushes. A component that keeps more needs it added here.
+{{- end }}
 goreleaser:
+{{- if .StaticChannel }}
   variables:
     RELEASE_STORE_ENDPOINT: $R2_RELEASE_ENDPOINT
     RELEASE_STORE_BUCKET: pbs-release-binaries
+{{- end }}
+{{- if .HomebrewPushedByJob }}
+  artifacts:
+    paths:
+      - dist/artifacts.json
+      - dist/**/Casks/{{ .Name }}.rb
+
+# homebrew-tap publishes the cask GoReleaser rendered (go-tool-base spec
+# 0212) to the tap with the CI job token. GoReleaser's own push takes a token
+# only for GitHub. Only a plain release tag moves the cask.
+homebrew-tap:
+  stage: release
+  image: registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4
+  needs:
+    - job: goreleaser
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+  script:
+    - bash scripts/push-homebrew-cask.sh {{ .Name | escapeShellArg }} {{ .HomebrewTap | escapeShellArg }}
+{{- end }}
 {{- end }}

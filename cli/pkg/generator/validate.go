@@ -38,6 +38,7 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 
 	"golang.org/x/net/idna"
 	"golang.org/x/text/unicode/norm"
@@ -610,6 +611,46 @@ func ValidateReleaseBaseURL(baseURL string) error {
 
 	if u, err := url.Parse(baseURL); err != nil || u.RawQuery != "" || u.Fragment != "" {
 		return rejectf("ReleaseBaseURL", "release base URL must carry no query or fragment", baseURL)
+	}
+
+	return nil
+}
+
+// HomebrewForge reports whether a project on backend can publish to a tap:
+// GitLab and GitHub, the forges with a CI skeleton to push from.
+func HomebrewForge(backend props.FeatureID) bool {
+	return backend == forge.GitlabFeature || backend == forge.GithubFeature
+}
+
+// ValidateHomebrewTap accepts a tap on the project's own forge (spec 0212):
+// a GitLab or GitHub project, a path in that forge's namespace class, and a
+// release Homebrew can download without credentials. An empty tap publishes
+// nothing and is always valid.
+func ValidateHomebrewTap(tap string, backend props.FeatureID, private, static bool) error {
+	if tap == "" {
+		return nil
+	}
+
+	if !HomebrewForge(backend) {
+		return rejectf("HomebrewTap", "a Homebrew tap needs a project hosted on GitLab or GitHub", tap)
+	}
+
+	owner, name, err := splitRepoPath(tap)
+	if err != nil {
+		return rejectf("HomebrewTap", "a Homebrew tap is <owner>/<name> on the project's forge", tap)
+	}
+
+	if err := ValidateOrg(owner, string(backend)); err != nil {
+		return err
+	}
+
+	if err := ValidateRepoName(name); err != nil {
+		return err
+	}
+
+	if private && !static {
+		return rejectf("HomebrewTap",
+			"a private project's releases need credentials Homebrew does not send; publish on the static channel to use a tap", tap)
 	}
 
 	return nil
@@ -1271,7 +1312,20 @@ func ValidateManifest(m *Manifest) error {
 		return err
 	}
 
-	return validateManifestReleaseSource(&m.ReleaseSource)
+	return validateManifestRelease(m)
+}
+
+// validateManifestRelease checks the release source and the Homebrew tap that
+// publishes from it (spec 0212 D2, D4).
+func validateManifestRelease(m *Manifest) error {
+	if err := validateManifestReleaseSource(&m.ReleaseSource); err != nil {
+		return err
+	}
+
+	rs := m.ReleaseSource
+
+	return ValidateHomebrewTap(m.Properties.Homebrew.Tap, props.FeatureID(ciForge(rs.Backend, rs.Type)),
+		rs.Private, rs.Type == props.ReleaseSourceStatic)
 }
 
 // validateManifestCommands walks the manifest command tree and validates

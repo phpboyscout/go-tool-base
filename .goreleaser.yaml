@@ -217,9 +217,8 @@ snapshot:
 
 # Homebrew cask published to the GitLab-hosted tap at
 # gitlab.com/phpboyscout/homebrew (mirrored from the previous GitHub
-# tap during the GitLab migration). Auth via HOMEBREW_TAP_GITLAB_TOKEN
-# CI variable scoped to the tap repo only — a separate token from
-# GITLAB_TOKEN so a compromise of one cannot cross to the other.
+# tap during the GitLab migration). The homebrew-tap job pushes it with
+# the CI job token, which the tap's allowlist names go-tool-base for.
 homebrew_casks:
   # binary: is deprecated in favour of binaries:, and is omitted rather than
   # migrated — unset, GoReleaser defaults binaries to [name], which is already

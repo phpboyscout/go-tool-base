@@ -87,6 +87,9 @@ type SkeletonOptions struct {
 	ReleaseChannel string
 	// ReleaseBaseURL is the static channel's location (spec 0203 D1).
 	ReleaseBaseURL string
+	// HomebrewTap is the tap a release publishes its cask to, on the
+	// project's own forge (spec 0212).
+	HomebrewTap string
 
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline (GitLab backend only). Empty uses the
@@ -239,6 +242,8 @@ otherwise supply the flags directly.`,
 		"Release channel for self-update: forge (this project's forge releases, the default when hosted) or static (a pointer and per-tag manifests at --release-base-url, no forge involved)")
 	cmd.Flags().StringVar(&opts.ReleaseBaseURL, "release-base-url", "",
 		"Static release channel: the https location the release publishes under (see docs/reference/static-release-channel.md for the layout)")
+	cmd.Flags().StringVar(&opts.HomebrewTap, "homebrew-tap", "",
+		"Publish a Homebrew cask on release to this tap, <owner>/<name> on the project's own GitLab or GitHub")
 
 	cmd.Flags().StringVar(&opts.Host, "host", "", "Git host (defaults to backend's canonical host)")
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
@@ -481,6 +486,27 @@ func (o *SkeletonOptions) validateReleaseChannel() error {
 	}
 }
 
+// validateHomebrewTap applies the manifest's rule to the options (spec 0212
+// D2, D4): a tap on the project's own GitLab or GitHub, and a release Homebrew
+// can download.
+func (o *SkeletonOptions) validateHomebrewTap(tap string) error {
+	return generator.ValidateHomebrewTap(tap, o.hostingBackend(), o.Private, o.staticChannel())
+}
+
+// hostingBackend is the forge the project is hosted on, empty when it is not.
+func (o *SkeletonOptions) hostingBackend() props.FeatureID {
+	if o.NoForge {
+		return ""
+	}
+
+	return props.FeatureID(o.ForgeBackend)
+}
+
+// staticChannel reports whether the tool will release on the static channel.
+func (o *SkeletonOptions) staticChannel() bool {
+	return o.updateSelected() && o.resolvedReleaseChannel() == generator.ReleaseChannelStatic
+}
+
 // resolvedReleaseChannel is the channel a hosted project defaults to.
 func (o *SkeletonOptions) resolvedReleaseChannel() string {
 	if o.ReleaseChannel == "" && !o.NoForge {
@@ -553,6 +579,10 @@ func (o *SkeletonOptions) validateCoreFields() error {
 	}
 
 	if err := o.validateReleaseChannel(); err != nil {
+		return err
+	}
+
+	if err := o.validateHomebrewTap(o.HomebrewTap); err != nil {
 		return err
 	}
 
@@ -1166,6 +1196,7 @@ func (o *SkeletonOptions) wizardPages() []formpage.Page {
 	return append(pages,
 		formpage.Deferred(o.selfUpdateGroup).HiddenWhen(o.selfUpdateHidden),
 		formpage.Deferred(o.releaseLocationGroup).HiddenWhen(o.releaseLocationHidden),
+		formpage.Deferred(o.homebrewGroup).HiddenWhen(o.homebrewHidden),
 		formpage.Deferred(o.chatProvidersGroup),
 		formpage.Deferred(o.chatToolBridgeGroup).HiddenWhen(o.chatToolBridgeHidden),
 		formpage.Deferred(o.chatDefaultGroup).HiddenWhen(o.chatDefaultHidden),
@@ -1998,6 +2029,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		TelemetryOTelEndpoint: o.TelemetryOTelEndpoint,
 		Bootstrap:             o.Bootstrap,
 		Generator:             generator.ManifestGenerator{AI: o.GeneratorAI},
+		Homebrew:              generator.ManifestHomebrew{Tap: o.HomebrewTap},
 		ConfigLayers:          o.ConfigLayers,
 		ConfigFormats:         o.ConfigFormats,
 		ConfigFormat:          o.ConfigFormat,
@@ -2023,7 +2055,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		}
 	}
 
-	if slices.Contains(o.Features, string(props.UpdateCmd)) {
+	if o.updateSelected() {
 		cfg.ReleaseChannel = o.resolvedReleaseChannel()
 		if cfg.ReleaseChannel == generator.ReleaseChannelStatic {
 			cfg.ReleaseBaseURL = o.ReleaseBaseURL
@@ -2056,6 +2088,28 @@ func (o *SkeletonOptions) releaseLocationGroup() *huh.Group {
 
 func (o *SkeletonOptions) releaseLocationHidden() bool {
 	return !o.updateSelected() || o.ReleaseChannel != generator.ReleaseChannelStatic
+}
+
+// homebrewGroup asks for the tap a release publishes its cask to (spec 0212
+// D7). Its own page, not the self-update one: Homebrew installs a tool whether
+// or not it updates itself. Blank by default and never suggested (D10).
+func (o *SkeletonOptions) homebrewGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Key("homebrew-tap").
+			Title("Homebrew tap").
+			Description("Publish a cask on each release to this tap, <owner>/<name> on the project's own forge, " +
+				"so the tool installs with brew install --cask. Leave blank for none.").
+			Placeholder("acme/homebrew").
+			Value(&o.HomebrewTap).
+			Validate(formpage.ValidateAnswer(&o.HomebrewTap, func(s string) error { return hintedValidation(o.validateHomebrewTap(s)) })),
+	).
+		Title("Homebrew").
+		Description("Where the release publishes its Homebrew cask.\n")
+}
+
+func (o *SkeletonOptions) homebrewHidden() bool {
+	return !generator.HomebrewForge(o.hostingBackend())
 }
 
 // isCIEnv reports whether the tool is running under CI, honouring the `ci`

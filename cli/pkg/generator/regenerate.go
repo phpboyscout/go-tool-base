@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 
 	"github.com/spf13/afero"
 
@@ -612,6 +613,9 @@ type skeletonTemplateData struct {
 	MCPMode               string
 	Signing               ManifestSigning
 	Bootstrap             ManifestBootstrap
+	// HomebrewTap is the tap repository a release publishes its cask to,
+	// empty for none (spec 0212 D1).
+	HomebrewTap string
 	// CIComponentSource is the resolved phpboyscout/cicd include base for
 	// the scaffolded GitLab pipeline (defaulted to DefaultCICDComponentSource
 	// when the manifest carries no override).
@@ -664,6 +668,39 @@ func (d skeletonTemplateData) ReleaseBasePath() string {
 
 	return strings.Trim(u.Path, "/")
 }
+
+// HomebrewCask reports whether a release publishes a cask (spec 0212 D1).
+func (d skeletonTemplateData) HomebrewCask() bool { return d.HomebrewTap != "" }
+
+// HomebrewPushedByJob reports whether the pipeline pushes the cask with the
+// job token rather than GoReleaser pushing it: GitLab's path (spec 0212 D3).
+func (d skeletonTemplateData) HomebrewPushedByJob() bool {
+	return d.HomebrewCask() && ciForge(d.ForgeBackend, d.ReleaseProvider) == string(forge.GitlabFeature)
+}
+
+// HomebrewOwner is the tap's namespace, every segment before its name, so a
+// GitLab subgroup is an owner.
+func (d skeletonTemplateData) HomebrewOwner() string {
+	owner, _, _ := splitRepoPath(d.HomebrewTap)
+
+	return owner
+}
+
+// HomebrewName is the tap repository's own name.
+func (d skeletonTemplateData) HomebrewName() string {
+	_, name, _ := splitRepoPath(d.HomebrewTap)
+
+	return name
+}
+
+// HomebrewURLTemplate is the cask's download URL on the static channel: the
+// tag's objects under the channel's base URL, as the blobs pipe writes them.
+func (d skeletonTemplateData) HomebrewURLTemplate() string {
+	return strings.TrimRight(d.ReleaseBaseURL, "/") + "/{{ .Tag }}/{{ .ArtifactName }}"
+}
+
+// RepositoryURL is the project's page on its forge, the cask's homepage.
+func (d skeletonTemplateData) RepositoryURL() string { return "https://" + d.Host + "/" + d.Repo }
 
 // GetForgeBackend satisfies forgeBackendAccessor for the CI skeleton choice.
 func (d skeletonTemplateData) GetForgeBackend() props.FeatureID { return d.ForgeBackend }
@@ -722,6 +759,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		MCPMode:               m.Properties.MCP.Mode,
 		Signing:               m.Properties.Signing,
 		Bootstrap:             m.Properties.Bootstrap,
+		HomebrewTap:           m.Properties.Homebrew.Tap,
 		CIComponentSource:     resolveCIComponentSource(m.Properties.CI.ComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
 		ColophonVersion:       ColophonVersion,
