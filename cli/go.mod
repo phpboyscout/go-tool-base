@@ -47,7 +47,7 @@ require (
 	gitlab.com/phpboyscout/go/transport v0.6.3
 	gitlab.com/phpboyscout/go/workspace v0.2.2
 	golang.org/x/mod v0.42.0
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
 	google.golang.org/grpc v1.84.0
 	gopkg.in/yaml.v3 v3.0.1
