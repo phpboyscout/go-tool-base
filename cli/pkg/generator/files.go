@@ -28,9 +28,19 @@ func (g *Generator) writeVerb() string {
 
 func (g *Generator) generateAssetFiles(cmdDir string) error {
 	// The init template: written to the user's config file by setup.Initialise.
+	// Seeded as commentary for the same reason as the defaults document below:
+	// a bare section is a null value, which a TOML config file cannot hold
+	// and which reads as already configured to the command's initialiser.
 	if err := g.seedAssetFile(
 		filepath.Join(cmdDir, "assets", "init", "config.yaml"),
-		fmt.Sprintf("%s:\n", g.config.Name),
+		fmt.Sprintf(
+			"# Written into the user's config file by `init`. Keys here are a\n"+
+				"# starting point the user edits; put values that must always apply\n"+
+				"# in ../config.yaml instead.\n"+
+				"# %[1]s:\n"+
+				"#   example_key: value\n",
+			g.config.Name,
+		),
 	); err != nil {
 		return err
 	}

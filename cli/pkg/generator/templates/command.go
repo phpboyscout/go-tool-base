@@ -353,11 +353,17 @@ func CommandInitializer(data CommandData) *jen.File {
 
 	f.Line()
 	f.Func().Id("init").Params().Block(
+		// Under the init feature, because init only applies the
+		// contributions of enabled features and nothing declares one per
+		// command (#145).
 		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Register").Call(
-			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "FeatureID").Call(jen.Lit(data.Name)),
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "InitCmd"),
 			jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "InitialiserProvider").Values(
-				jen.Func().Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props")).Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Initialiser").Block(
-					jen.If(jen.Id("skip"+data.PascalName)).Block(jen.Return(jen.Nil())),
+				jen.Func().Params(
+					jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
+					jen.Id("flags").Op("*").Qual("github.com/spf13/pflag", "FlagSet"),
+				).Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Initialiser").Block(
+					jen.If(jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "FlagSkips").Call(jen.Id("flags"), jen.Lit("skip-"+data.Name)).Index(jen.Lit("skip-"+data.Name))).Block(jen.Return(jen.Nil())),
 					jen.Return(jen.Op("&").Id(data.PascalName+"Initialiser").Block()),
 				),
 			),
@@ -368,8 +374,7 @@ func CommandInitializer(data CommandData) *jen.File {
 			),
 			jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "FeatureFlag").Values(
 				jen.Func().Params(jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command")).Block(
-					jen.Id("cmd").Dot("Flags").Call().Dot("BoolVar").Call(
-						jen.Op("&").Id("skip"+data.PascalName),
+					jen.Id("cmd").Dot("Flags").Call().Dot("Bool").Call(
 						jen.Lit("skip-"+data.Name),
 						jen.False(),
 						jen.Lit("skip initializing "+data.Name+" configuration"),
@@ -378,8 +383,6 @@ func CommandInitializer(data CommandData) *jen.File {
 			),
 		),
 	)
-
-	f.Var().Id("skip" + data.PascalName).Bool()
 
 	f.Line()
 	f.Type().Id(data.PascalName + "Initialiser").Struct()

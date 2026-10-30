@@ -20,43 +20,46 @@ Create a new package or add a file to your feature package that implements `setu
 package myfeature
 
 import (
-	"gitlab.com/phpboyscout/go/config"
+    "context"
+
+    "gitlab.com/phpboyscout/go/config"
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-type MyInitialiser struct {
-    skip bool
-}
+type MyInitialiser struct{}
 
 func (m *MyInitialiser) Name() string { return "My Feature" }
 
 func (m *MyInitialiser) IsConfigured(cfg config.Reader) bool {
-    return m.skip || cfg.GetString("myfeature.key") != ""
+    return cfg.GetString("myfeature.key") != ""
 }
 
-func (m *MyInitialiser) Configure(props *props.Props, cfg setup.Editor) error {
+func (m *MyInitialiser) Configure(ctx context.Context, props *props.Props, cfg setup.Editor) error {
     props.Logger.Info("Configuring My Feature...")
-    // Perform interactive work here (e.g., using huh). Writes go through the
-    // editor, which applies them to the user's config file in place.
+    // Perform interactive work here: build a huh form and run it with
+    // setup.RunForm(ctx, props, form), which honours --accessible and refuses
+    // cleanly when nobody is at a terminal. Writes go through the editor,
+    // which applies them to the user's config file in place.
     return cfg.Set("myfeature.key", "some-value")
 }
 ```
 
 ## Step 2: Set up Flag Registration (Optional)
 
-If your initialiser should be skippable via a CLI flag (e.g., `--skip-myfeature`), define a package-level variable and a flag provider function.
+If your initialiser should be skippable via a CLI flag (e.g., `--skip-myfeature`), write a flag provider that binds it on the `init` command. The flag belongs to that command, so don't bind it to a package-level variable: your provider reads it from the flag set `init` hands it (Step 3).
 
 ```go
-var skipMyFeature bool
-
 func registerFlags(cmd *cobra.Command) {
-    cmd.Flags().BoolVar(&skipMyFeature, "skip-myfeature", false, "Skip setting up my feature")
+    cmd.Flags().Bool("skip-myfeature", false, "Skip setting up my feature")
 }
 ```
 
 ## Step 3: Register your Initialiser
 
 Use the `setup.Register` function in your package's `init()` block. This ensures that when your package is imported, the initialiser becomes available to the framework.
+
+`init` only applies the contributions of **enabled** features, so register under a feature your tool enables. A framework feature registers under its own ID; a command in your own tool registers under `props.InitCmd`, which is what `gtb generate command --with-initializer` emits.
 
 If your feature ships embedded config, an `assets/config.yaml` defaults
 document or an `assets/init/config.yaml` template that `init` should write into
@@ -69,16 +72,22 @@ so a disabled feature's config never leaks in.
 package myfeature
 
 import (
+    "github.com/spf13/cobra"
+    "github.com/spf13/pflag"
+
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
     "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-    "github.com/spf13/cobra"
 )
 
 func init() {
-    setup.Register(props.FeatureID("myfeature"),
+    setup.Register(props.InitCmd,
         []setup.InitialiserProvider{
-            func(p *props.Props) setup.Initialiser {
-                return &MyInitialiser{skip: skipMyFeature}
+            func(p *props.Props, flags *pflag.FlagSet) setup.Initialiser {
+                if setup.FlagSkips(flags, "skip-myfeature")["skip-myfeature"] {
+                    return nil // a nil initialiser is a skipped one
+                }
+
+                return &MyInitialiser{}
             },
 		},
         []setup.SubcommandProvider{
@@ -121,7 +130,7 @@ func NewCmdMyFeature(p *props.Props) *setup.Command {
 ## Best Practices
 
 - **Check Env Vars**: In your `IsConfigured` or `Configure` methods, check for environment variable overrides. If a value is provided via ENV, skip the interactive prompt.
-- **Modular Assets**: If your feature requires default configuration values, place them in `assets/init/config.yaml` within your package's embedded filesystem and mount them in your constructor.
+- **Modular Assets**: Values that must always apply go in `assets/config.yaml` within your package's embedded filesystem; a starting point `init` writes into the user's file goes in `assets/init/config.yaml`. Register the bundle as shown in Step 3.
 - **Standalone Commands**: If users might want to re-configure only your feature later, register a **SubcommandProvider** to add a command like `init myfeature`.
 
 ---

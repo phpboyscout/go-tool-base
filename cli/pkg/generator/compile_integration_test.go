@@ -99,6 +99,15 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	addCmd(t, p, path, "deploy", "root")
 	addCmd(t, p, path, "canary", "deploy")
 
+	// #145: the initialiser, validation and assets scaffolds build as
+	// emitted. Golden strings did not catch init.go drifting from
+	// setup.InitialiserProvider; only a build does.
+	addCmd(t, p, path, "greet", "root", func(c *Config) {
+		c.WithInitializer = true
+		c.WithConfigValidation = true
+		c.WithAssets = true
+	})
+
 	// Spec 0201 D5/D8: an annotated nested command renders, builds, and its
 	// hints reach the MCP export alongside the built-in defaults (D6).
 	require.NoError(t, New(p, &Config{Path: path}).SetMCPHints(context.Background(), "deploy/canary",
@@ -125,6 +134,27 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	assertMCPExportCarriesHints(t, bin)
 	assertLinksOnlyWhatItDeclares(t, bin)
 	assertDoctorReportsTheStack(t, bin)
+	assertInitialiserIsWired(t, bin)
+}
+
+// assertInitialiserIsWired runs the built scaffold (#145): the generated
+// initialiser registers its skip flag on init and its own init subcommand.
+func assertInitialiserIsWired(t *testing.T, bin string) {
+	t.Helper()
+
+	env := []string{"HOME=" + t.TempDir(), "PATH=" + os.Getenv("PATH")}
+
+	initHelp := exec.Command(bin, "init", "--help")
+	initHelp.Env = env
+	out, err := initHelp.CombinedOutput()
+	require.NoErrorf(t, err, "init --help:\n%s", out)
+	assert.Contains(t, string(out), "--skip-greet")
+
+	greetHelp := exec.Command(bin, "init", "greet", "--help")
+	greetHelp.Env = env
+	out, err = greetHelp.CombinedOutput()
+	require.NoErrorf(t, err, "init greet --help:\n%s", out)
+	assert.Contains(t, string(out), "Initialise greet configuration")
 }
 
 // assertLinksOnlyWhatItDeclares reads the built binary's module list (spec

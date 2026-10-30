@@ -63,3 +63,27 @@ func TestCommandInitializer_InitStubTakesContext(t *testing.T) {
 	assert.Contains(t, body, "func InitFoo(ctx context.Context, p *props.Props, cfg setup.Editor) error",
 		"the Init stub must accept the context the Configure call passes it")
 }
+
+// TestCommandInitializer_RegistersUnderInit pins the registration to the
+// current setup.InitialiserProvider and to a feature init applies (#145). The
+// provider gained a flag set when the root took ownership of flag state, and
+// init only consults enabled features, so a provider keyed on the command's
+// own name compiled once fixed and still never ran.
+func TestCommandInitializer_RegistersUnderInit(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	require.NoError(t, CommandInitializer(CommandData{
+		Package:    "foo",
+		Name:       "foo",
+		PascalName: "Foo",
+	}).Render(&buf))
+
+	got := buf.String()
+
+	assert.Contains(t, got, "setup.Register(props.InitCmd,")
+	assert.Contains(t, got, "func(p *props.Props, flags *pflag.FlagSet) setup.Initialiser {")
+	assert.Contains(t, got, `setup.FlagSkips(flags, "skip-foo")["skip-foo"]`)
+	assert.Contains(t, got, `cmd.Flags().Bool("skip-foo", false,`)
+	assert.NotContains(t, got, "var skipFoo", "the skip state is the init command's flag, not a package variable")
+}
