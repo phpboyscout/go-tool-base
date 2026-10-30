@@ -420,15 +420,26 @@ func withReleaseChannel(ch ReleaseChannel) UpdaterOption {
 	return func(s *SelfUpdater) { s.channel = ch }
 }
 
+// WithVerificationFrom applies update.require_checksum and
+// update.require_signature from cfg to an offline updater, which is built
+// without Props and so cannot read them itself (#146).
+func WithVerificationFrom(cfg config.Reader) UpdaterOption {
+	return func(s *SelfUpdater) {
+		s.requireChecksum = resolveRequireChecksum(cfg, s.Tool.Signing.RequireChecksum)
+		s.requireSignature = resolveRequireSignature(cfg)
+	}
+}
+
 // NewOfflineUpdater creates a SelfUpdater configured for file-based updates
 // that do not require a VCS client or network access.
 func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...UpdaterOption) *SelfUpdater {
 	s := &SelfUpdater{
-		logger:       log,
-		Tool:         tool,
-		Fs:           fs,
-		osExecutable: os.Executable,
-		execLookPath: exec.LookPath,
+		logger:          log,
+		Tool:            tool,
+		Fs:              fs,
+		osExecutable:    os.Executable,
+		execLookPath:    exec.LookPath,
+		requireChecksum: resolveRequireChecksum(nil, tool.Signing.RequireChecksum),
 	}
 
 	for _, o := range opts {

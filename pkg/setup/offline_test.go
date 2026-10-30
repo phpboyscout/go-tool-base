@@ -226,3 +226,22 @@ func TestResolveTargetPath_NonInteractiveDiffersUsesExecutable(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/running/test-tool", got)
 }
+
+// #146: a tool author's checksum baseline applies to the offline path even
+// when nothing passes the user's config.
+func TestUpdateFromFile_ToolBaselineRequiresChecksum(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, fs.MkdirAll("/usr/local/bin", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", createTarGz(t, "test-tool", "binary-content"), 0o644))
+
+	u := NewOfflineUpdater(props.Tool{Name: "test-tool", Signing: props.SigningConfig{RequireChecksum: props.BoolPtr(true)}}, logger.NewNoop(), fs,
+		withOsExecutable(func() (string, error) { return "/usr/local/bin/test-tool", nil }),
+		withExecLookPath(func(_ string) (string, error) { return "/usr/local/bin/test-tool", nil }),
+	)
+
+	_, err := u.UpdateFromFile(t.Context(), "/tmp/release.tar.gz")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no checksum sidecar was found")
+}

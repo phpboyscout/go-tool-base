@@ -66,7 +66,12 @@ func (o *updateConfigOptions) resolveUpdaterFactories() {
 
 	if o.newOfflineUpdater == nil {
 		o.newOfflineUpdater = func(props *p.Props) Updater {
-			return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS, setup.WithIO(props.GetIO()))
+			opts := []setup.UpdaterOption{setup.WithIO(props.GetIO())}
+			if props.Config != nil {
+				opts = append(opts, setup.WithVerificationFrom(props.Config.View()))
+			}
+
+			return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS, opts...)
 		}
 	}
 }

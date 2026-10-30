@@ -148,7 +148,7 @@ When `--from-file` is provided, the command bypasses all network calls:
 mytool update --from-file /path/to/mytool_Linux_x86_64.tar.gz
 ```
 
-If a `.sha256` sidecar file exists alongside the tarball (e.g., `mytool_Linux_x86_64.tar.gz.sha256`), the checksum is verified before extraction. If no sidecar is present, a warning is logged and installation proceeds.
+If a `.sha256` sidecar file exists alongside the tarball (e.g., `mytool_Linux_x86_64.tar.gz.sha256`), the checksum is verified before extraction. If no sidecar is present, a warning is logged and installation proceeds, unless `update.require_checksum` is set, when the install is refused. With `update.require_signature` set, the offline path is always refused, because a local archive carries no signature to check.
 
 No VCS client, API token, or network access is required for offline updates.
 

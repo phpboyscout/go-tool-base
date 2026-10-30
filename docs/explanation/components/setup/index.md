@@ -153,11 +153,14 @@ Downloads and installs the target version:
 For environments without network access, `UpdateFromFile` installs a binary from a local `.tar.gz` release archive:
 
 ```go
-updater := setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
+updater := setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS,
+    setup.WithVerificationFrom(props.Config.View()))
 targetPath, err := updater.UpdateFromFile(ctx, "/path/to/tool_Linux_x86_64.tar.gz")
 ```
 
-If a `.sha256` sidecar file exists alongside the tarball (e.g., `tool_Linux_x86_64.tar.gz.sha256`), the checksum is verified automatically before extraction. If no sidecar is present, a warning is logged and installation proceeds.
+If a `.sha256` sidecar file exists alongside the tarball (e.g., `tool_Linux_x86_64.tar.gz.sha256`), the checksum is verified automatically before extraction. If no sidecar is present, a warning is logged and installation proceeds, unless checksums are required.
+
+The offline updater is built without `Props`, so it reads `update.require_checksum` and `update.require_signature` only through `setup.WithVerificationFrom`. Without that option it applies the tool author's `Signing.RequireChecksum` baseline and nothing else. The `update` command always passes it.
 
 **CLI usage:**
 ```bash
