@@ -39,6 +39,18 @@ Each part builds on the `mytool` project from Build your first CLI.
 - [Ship self-updates](ship-self-updates.md): watch the tool replace itself, and
   make it refuse an update it cannot verify. About fifteen minutes.
 
+### The web-service series
+
+Turns the same `mytool` project into a long-running service, one part at a
+time.
+
+- [Run a long-lived service](run-a-long-lived-service.md): a `serve` command
+  that runs a service until it's stopped, shuts down cleanly on a signal, and
+  exits non-zero when the service fails for good. About twenty minutes.
+
+The rest of the series is still on the blog, listed below, while it's carried
+over.
+
 ## Longer series, currently only on the blog
 
 Two multi-part series cover ground this section does not yet. They are
@@ -47,7 +59,7 @@ under `tutorials/`, the post is the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown, gRPC with TLS, REST by hand and by spec, the gateway, generated API docs, observability. |
+| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown (now [here](run-a-long-lived-service.md)), gRPC with TLS, REST by hand and by spec, the gateway, generated API docs, observability. |
 | [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-1/) | 7 | Signing on your laptop, a key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
