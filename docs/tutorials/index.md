@@ -50,6 +50,9 @@ time.
 - [Serve gRPC over TLS](serve-grpc-over-tls.md): a protobuf contract, code
   generated with buf, a gRPC service with health and reflection on the same
   controller, then TLS from config alone. About forty minutes.
+- [Add a REST API](add-a-rest-api.md): JSON over HTTPS beside the gRPC service,
+  by hand on net/http and then from an OpenAPI spec, with health endpoints for
+  both. About thirty-five minutes.
 
 The rest of the series is still on the blog, listed below, while it's carried
 over.
@@ -62,7 +65,7 @@ under `tutorials/`, the post is the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown (now [here](run-a-long-lived-service.md)), gRPC with TLS (now [here](serve-grpc-over-tls.md)), REST by hand and by spec, the gateway, generated API docs, observability. |
+| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown (now [here](run-a-long-lived-service.md)), gRPC with TLS (now [here](serve-grpc-over-tls.md)), REST by hand and by spec (now [here](add-a-rest-api.md)), the gateway, generated API docs, observability. |
 | [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-1/) | 7 | Signing on your laptop, a key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
