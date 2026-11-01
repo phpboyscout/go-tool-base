@@ -333,3 +333,61 @@ func TestDisableSigning_RemovesOnlyGtbInjectedBlock(t *testing.T) {
 			"disable clobbered an author-written signs: block")
 	})
 }
+
+// scaffoldProjectWithAbsentIgnoredGoreleaser leaves .goreleaser.yaml listed in
+// .gtb/ignore but not on disk and not in the manifest: a project that releases
+// some other way, or has not written its release config yet (#148).
+func scaffoldProjectWithAbsentIgnoredGoreleaser(t *testing.T) (*Generator, string, logCapturer) {
+	t.Helper()
+
+	gen, goreleaserPath, buf := scaffoldProjectWithGoreleaser(t, customisedGoreleaser, true)
+	require.NoError(t, os.Remove(goreleaserPath))
+
+	m, err := gen.loadManifest()
+	require.NoError(t, err)
+
+	delete(m.Hashes, goreleaserAssetRelPath)
+	require.NoError(t, gen.writeManifest(m))
+
+	return gen, goreleaserPath, buf
+}
+
+func TestSigning_DoesNotCreateAnAbsentIgnoredGoreleaser(t *testing.T) {
+	t.Parallel()
+
+	t.Run("enable", func(t *testing.T) {
+		t.Parallel()
+
+		gen, goreleaserPath, buf := scaffoldProjectWithAbsentIgnoredGoreleaser(t)
+
+		require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
+			KeyID:     "alias/acme-release-signing-v1",
+			KeySource: "both",
+		}))
+
+		assert.NoFileExists(t, goreleaserPath, "enable signing created a path listed in .gtb/ignore")
+		assert.True(t, buf.Contains("Release config not modified"),
+			"enable signing must still say what it would have added")
+		assertGoreleaserUntracked(t, gen)
+	})
+
+	t.Run("disable", func(t *testing.T) {
+		t.Parallel()
+
+		gen, goreleaserPath, _ := scaffoldProjectWithAbsentIgnoredGoreleaser(t)
+
+		require.NoError(t, gen.DisableSigning(context.Background()))
+
+		assert.NoFileExists(t, goreleaserPath, "disable signing created a path listed in .gtb/ignore")
+		assertGoreleaserUntracked(t, gen)
+	})
+}
+
+func assertGoreleaserUntracked(t *testing.T, gen *Generator) {
+	t.Helper()
+
+	m, err := gen.loadManifest()
+	require.NoError(t, err)
+	assert.NotContains(t, m.Hashes, goreleaserAssetRelPath,
+		"an ignored file the generator never wrote must not be tracked")
+}

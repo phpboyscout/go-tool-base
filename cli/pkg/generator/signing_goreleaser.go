@@ -25,9 +25,10 @@ const goreleaserSignsMarker = "# Release signing: gtb enable signing wired this.
 // The precedence is deliberate and does not depend on the generator's Overwrite
 // mode (an ignored path is protected even under Overwrite: "allow"):
 //
-//  1. Absent file  → render the whole skeleton asset (fresh-scaffold semantics;
+//  1. Ignored path → never write, not even to create it (#148). Advise, and
+//     keep the on-disk hash tracked if there is a file to hash.
+//  2. Absent file  → render the whole skeleton asset (fresh-scaffold semantics;
 //     there is no customisation to lose).
-//  2. Ignored path → never write. Advise, and keep the on-disk hash tracked.
 //  3. Unparseable  → never write. Advise, and keep the on-disk hash tracked.
 //  4. Otherwise    → safe, structure-preserving injection (enable) or removal
 //     (disable) of only the top-level signs: block, leaving all other content
@@ -43,18 +44,23 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	enable := m.Properties.Signing.Enabled && m.Properties.Signing.KeyID != ""
 
 	exists, _ := afero.Exists(g.props.FS, fullPath)
+
+	// .gtb/ignore takes precedence over everything, including Overwrite:"allow".
+	if g.ignoreRules().IsIgnored(relPath) {
+		// Disabling has nothing to remove from a file that is not there.
+		if enable || exists {
+			g.adviseGoreleaserSigns(relPath, m, enable, "it is listed in .gtb/ignore")
+		}
+
+		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
+
+		return nil
+	}
+
 	if !exists {
 		// No file to preserve: render the full skeleton asset. This is the only
 		// path that writes the whole skeleton, and it cannot lose customisation.
 		return g.regenerateGoreleaserAsset(m)
-	}
-
-	// .gtb/ignore takes precedence over everything, including Overwrite:"allow".
-	if g.ignoreRules().IsIgnored(relPath) {
-		g.adviseGoreleaserSigns(relPath, m, enable, "it is listed in .gtb/ignore")
-		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
-
-		return nil
 	}
 
 	content, err := afero.ReadFile(g.props.FS, fullPath)
