@@ -20,7 +20,7 @@ You need an existing controller. If you're starting from scratch, see **[Managin
 
 ## Step 1: Configure the Port
 
-Add gRPC port configuration to your embedded defaults (`assets/config/defaults.yaml`):
+Add gRPC port configuration to the serving command's embedded defaults. For a generated command, that's `pkg/cmd/<name>/assets/config.yaml`, written by `gtb generate command --assets`. Without a port, the server listens on a random free one:
 
 ```yaml
 server:
@@ -103,6 +103,7 @@ func NewCmdServe(p *props.Props) *setup.Command {
 
             controller := controls.NewController(ctx,
                 controls.WithLogger(logger.ToSlog(p.Logger)),
+                controls.WithStopOnGiveUp(),
             )
 
             if err := registerGRPCService(ctx, controller, p); err != nil {
@@ -111,9 +112,14 @@ func NewCmdServe(p *props.Props) *setup.Command {
 
             controller.Start()
 
-            // Block until the controller shuts down. The controller installs
-            // SIGINT/SIGTERM handlers itself and drives a graceful shutdown.
-            controller.Wait()
+            // The root owns SIGINT/SIGTERM and cancels ctx; the controller then
+            // drains and stops the server. Done closes once it has stopped.
+            <-controller.Done()
+
+            outcome, _ := controller.Outcome()
+            if outcome.Cause == controls.CauseGaveUp {
+                return errors.Wrapf(outcome.Err, "service %s gave up", outcome.Service)
+            }
 
             return nil
         },
