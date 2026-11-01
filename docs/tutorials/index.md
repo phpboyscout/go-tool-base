@@ -58,6 +58,9 @@ time.
 - [Put a gateway in front of gRPC](put-a-gateway-in-front.md): REST routes in
   the proto, a generated grpc-gateway, and the hand-written REST layer deleted.
   About thirty minutes.
+- [Serve live API docs](serve-api-docs.md): an OpenAPI document generated from
+  the proto, and an interactive docs site whose console calls the running API.
+  About twenty minutes.
 
 The rest of the series is still on the blog, listed below, while it's carried
 over.
@@ -70,7 +73,7 @@ under `tutorials/`, the post is the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown (now [here](run-a-long-lived-service.md)), gRPC with TLS (now [here](serve-grpc-over-tls.md)), REST by hand and by spec (now [here](add-a-rest-api.md)), the gateway (now [here](put-a-gateway-in-front.md)), generated API docs, observability. |
+| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown (now [here](run-a-long-lived-service.md)), gRPC with TLS (now [here](serve-grpc-over-tls.md)), REST by hand and by spec (now [here](add-a-rest-api.md)), the gateway (now [here](put-a-gateway-in-front.md)), generated API docs (now [here](serve-api-docs.md)), observability. |
 | [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-1/) | 7 | Signing on your laptop, a key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
