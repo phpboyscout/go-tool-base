@@ -272,7 +272,10 @@ with an "allow" overwrite mode. When `.goreleaser.yaml` is ignored (or otherwise
 unsafe to edit), enable signing leaves it byte-for-byte untouched and instead
 prints the exact top-level `signs:` block for you to paste, while still
 scaffolding `internal/trustkeys`, wiring the root command, and updating the
-manifest. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
+manifest. They follow the hashing rule above as well: the recorded hash of
+`.goreleaser.yaml` stays frozen, and when they do edit a file you've changed, your
+changes don't become the new baseline, so the next regenerate still asks before
+overwriting it. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
 
 ## The Generated Commands Index
 

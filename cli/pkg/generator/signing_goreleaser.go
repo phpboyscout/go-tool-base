@@ -25,17 +25,18 @@ const goreleaserSignsMarker = "# Release signing: gtb enable signing wired this.
 // The precedence is deliberate and does not depend on the generator's Overwrite
 // mode (an ignored path is protected even under Overwrite: "allow"):
 //
-//  1. Ignored path → never write, not even to create it (#148). Advise, and
-//     keep the on-disk hash tracked if there is a file to hash.
+//  1. Ignored path → never write, not even to create it (#148). Advise.
 //  2. Absent file  → render the whole skeleton asset (fresh-scaffold semantics;
 //     there is no customisation to lose).
-//  3. Unparseable  → never write. Advise, and keep the on-disk hash tracked.
+//  3. Unparseable  → never write. Advise.
 //  4. Otherwise    → safe, structure-preserving injection (enable) or removal
 //     (disable) of only the top-level signs: block, leaving all other content
 //     byte-for-byte untouched. A signs: block already present (enable) or an
 //     author-written signs: block (disable) degrades to an advisory.
 //
-// It records the resulting on-disk hash on m.Hashes for the caller to persist.
+// A path that writes nothing leaves the stored hash as it was, and an edit moves
+// it only if the file was unmodified (spec 0188 D9, #150). The caller persists
+// m.Hashes.
 // A failure to perform the edit is never fatal — the rest of enable/disable
 // signing (trustkeys scaffold, root-command wiring, manifest update) proceeds.
 func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
@@ -51,8 +52,6 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 		if enable || exists {
 			g.adviseGoreleaserSigns(relPath, m, enable, "it is listed in .gtb/ignore")
 		}
-
-		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
 
 		return nil
 	}
@@ -72,7 +71,6 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	if !ok {
 		// A file we cannot parse as a YAML mapping is not safe to splice.
 		g.adviseGoreleaserSigns(relPath, m, enable, "it is not a parseable YAML mapping")
-		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
 
 		return nil
 	}
@@ -94,7 +92,6 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 func (g *Generator) enableGoreleaserSigns(fullPath, relPath string, content []byte, m *Manifest, hasSigns bool) error {
 	if hasSigns {
 		g.adviseGoreleaserSigns(relPath, m, true, "a signs: block is already present")
-		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
 
 		return nil
 	}
@@ -111,7 +108,7 @@ func (g *Generator) enableGoreleaserSigns(fullPath, relPath string, content []by
 		return errors.Newf("failed to write %s: %w", relPath, err)
 	}
 
-	g.recordGoreleaserHash(relPath, updated, m)
+	g.recordGoreleaserEdit(relPath, content, updated, m)
 	g.props.Logger.Info("Injected the release-signing signs: block into the release config.", "path", relPath)
 
 	return nil
@@ -123,8 +120,6 @@ func (g *Generator) enableGoreleaserSigns(fullPath, relPath string, content []by
 // author-written signs: block is left in place with an advisory.
 func (g *Generator) disableGoreleaserSigns(fullPath, relPath string, content []byte, m *Manifest, hasSigns bool) error {
 	if !hasSigns {
-		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
-
 		return nil
 	}
 
@@ -132,7 +127,6 @@ func (g *Generator) disableGoreleaserSigns(fullPath, relPath string, content []b
 		g.props.Logger.Warn(
 			"Release config not modified: a signs: block is present but was not written by gtb — remove it manually to disable release signing.",
 			"path", relPath)
-		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
 
 		return nil
 	}
@@ -142,7 +136,7 @@ func (g *Generator) disableGoreleaserSigns(fullPath, relPath string, content []b
 		return errors.Newf("failed to write %s: %w", relPath, err)
 	}
 
-	g.recordGoreleaserHash(relPath, updated, m)
+	g.recordGoreleaserEdit(relPath, content, updated, m)
 	g.props.Logger.Info("Removed the release-signing signs: block from the release config.", "path", relPath)
 
 	return nil
@@ -206,26 +200,16 @@ func (g *Generator) renderGoreleaserSignsBlock(m *Manifest) (string, error) {
 	return block, nil
 }
 
-// recordGoreleaserHash records the hash of freshly-written content on the
-// manifest so subsequent runs track the file against what gtb wrote.
-func (g *Generator) recordGoreleaserHash(relPath string, content []byte, m *Manifest) {
-	if m.Hashes == nil {
-		m.Hashes = make(map[string]string)
-	}
-
-	m.Hashes[relPath] = calculateHash(content)
-}
-
-// rehashGoreleaserOnDisk re-records the on-disk hash of an unmodified file so
-// drift stays tracked after an advisory/ignored no-write (mirroring
-// hashIgnoredFile in the full-skeleton walk).
-func (g *Generator) rehashGoreleaserOnDisk(fullPath, relPath string, m *Manifest) {
-	content, err := afero.ReadFile(g.props.FS, fullPath)
-	if err != nil {
+// recordGoreleaserEdit moves the stored hash to gtb's edit only when the file
+// was unmodified before it (stored hash == before). An edited file keeps its
+// old baseline, so the next regenerate still sees the developer's edits and
+// asks rather than overwriting (spec 0188 D9, #150).
+func (g *Generator) recordGoreleaserEdit(relPath string, before, after []byte, m *Manifest) {
+	if m.Hashes == nil || m.Hashes[relPath] != calculateHash(before) {
 		return
 	}
 
-	g.recordGoreleaserHash(relPath, content, m)
+	m.Hashes[relPath] = calculateHash(after)
 }
 
 // parseYAMLMapping decodes content and returns the root mapping node when the
