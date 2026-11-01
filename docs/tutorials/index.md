@@ -61,19 +61,19 @@ time.
 - [Serve live API docs](serve-api-docs.md): an OpenAPI document generated from
   the proto, and an interactive docs site whose console calls the running API.
   About twenty minutes.
+- [Trace a request end to end](trace-a-request.md): OpenTelemetry on both
+  transports and in your own code, and one REST request followed through the
+  gateway, gRPC and the store in Jaeger. About thirty minutes.
 
-The rest of the series is still on the blog, listed below, while it's carried
-over.
 
 ## Longer series, currently only on the blog
 
-Two multi-part series cover ground this section does not yet. They are
-published on the creator's blog and are being migrated here; until a page exists
-under `tutorials/`, the post is the only copy.
+One multi-part series covers ground this section does not yet. It is published
+on the creator's blog and is being migrated here; until a page exists under
+`tutorials/`, the post is the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown (now [here](run-a-long-lived-service.md)), gRPC with TLS (now [here](serve-grpc-over-tls.md)), REST by hand and by spec (now [here](add-a-rest-api.md)), the gateway (now [here](put-a-gateway-in-front.md)), generated API docs (now [here](serve-api-docs.md)), observability. |
 | [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-1/) | 7 | Signing on your laptop, a key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
