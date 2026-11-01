@@ -40,12 +40,12 @@ gtb version
 ```
 
 ```
-Version: v0.35.0
-Build:   c688fc4bd0fea96921011c08eb2c833b6ee99537
-Date:    2026-08-02T13:13:34Z
+Version: v0.50.0
+Build:   9ec6a11ec3329991a55cf963c2eebf1d4aa1a728
+Date:    2026-11-01T02:09:04Z
 ```
 
-Everything below is verified against **v0.35.0**. GTB is pre-1.0 and moving, and
+Everything below is verified against **v0.50.0**. GTB is pre-1.0 and moving, and
 the install script always pulls the latest release, so if something does not line
 up, a newer version is the likeliest reason. Check the
 [migration notes](../reference/migration/index.md).
@@ -98,7 +98,9 @@ It is a complete, releasable project rather than a hello-world:
 
 ```
 mytool/
-├── cmd/mytool/main.go              # entry point (generated)
+├── cmd/mytool/
+│   ├── main.go                     # entry point (generated)
+│   └── forge.go, keychain.go, mcp.go  # one file per linked feature (generated)
 ├── pkg/cmd/root/
 │   ├── cmd.go                      # builds Props, wires the root command (generated)
 │   └── assets/init/config.yaml     # the config template `init` writes
@@ -126,9 +128,12 @@ generated `cmd/mytool/main.go` in full:
 package main
 
 import (
+	"fmt"
 	version "github.com/myorg/mytool/internal/version"
 	root "github.com/myorg/mytool/pkg/cmd/root"
 	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	errorhandling "gitlab.com/phpboyscout/go/errorhandling"
+	"os"
 )
 
 func main() {
@@ -137,13 +142,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(errorhandling.ExitCodeUsage)
 	}
-
 	gtbRoot.Execute(rootCmd, p)
 }
 ```
 
-A construction error is a wiring defect in your root (a feature enabled that no import declares, say) and exits 2 before any command runs. Otherwise two lines of body. `root.NewCmdRoot` (in your own `pkg/cmd/root/cmd.go`) 
-builds the `Props` container that carries the logger, config, filesystem and
+(The generated file also carries a doc comment above `main`, left out here.)
+
+The error branch catches a wiring defect in your root, a feature enabled that
+no import declares, say, and exits 2 before any command runs. `root.NewCmdRoot`
+(in your own `pkg/cmd/root/cmd.go`) builds the `Props` container that carries the logger, config, filesystem and
 version to every command. `gtbRoot.Execute` runs the tree under a signal-aware
 context and routes any failure through one error handler, so there is no
 `os.Exit` scattered about.
@@ -173,11 +180,12 @@ Available Commands:
   doctor      Check environment and configuration health
   help        Help about any command
   init        Initialise configuration and bootstrap subsystems
-  mcp         MCP server management
+  mcp         Manage MCP servers
   update      Update to the latest available version
   version     Print version, commit, and build date
 
 Flags:
+      --accessible           run wizards as line prompts rather than a full-screen form (also GTB_ACCESSIBLE=true)
       --ci                   the tool is running in a CI environment: no prompts, no update check, no telemetry consent
       --config stringArray   config files to use (default [/etc/mytool/config.yaml,/home/you/.mytool/config.yaml])
       --debug                forces debug log output
@@ -190,47 +198,47 @@ None of it is code you wrote.
 
 ## Give it a configuration
 
-Try one of those commands and it stops:
+Ask the tool how it's doing:
 
 ```bash
 ./bin/mytool doctor
 ```
 
 ```
-ERRO failed to load configuration: no config file found  hints="Run 'mytool init' to create a configuration."
+mytool vdev
+
+  [OK] Go version: go1.27.3
+  [SKIP] Configuration: no config file yet
+       Running on embedded defaults; `mytool init` creates one.
+  [OK] Environment variables: every MYTOOL_* variable sets a known key
+  [OK] Config stack: 5 layers, no config sources
+  ...
 ```
 
-That is deliberate. The tool will not guess at a configuration it does not have.
-Give it one:
+Your Go version will differ, and the list runs on past what's shown here. The
+line to look at is `Configuration`. The tool runs on the defaults compiled into
+it, and there's no file of yours yet. Write one:
 
 ```bash
-./bin/mytool init
+./bin/mytool init --skip-login --skip-key
 ```
 
 ```
-INFO Initialising configuration
-INFO configuration initialised path=/home/you/.mytool/config.yaml
+INFO  Initialising configuration
+INFO  configuration initialised path=/home/you/.mytool/config.yaml
 ```
 
-Now the commands run:
+Without those two flags, `init` also walks you through logging in to GitHub
+and setting up an SSH key, because the scaffold links the GitHub integration.
+You don't need either for this tutorial, and `mytool init github` runs that
+setup on its own whenever you do.
 
-```bash
-./bin/mytool doctor
-```
+Run `doctor` again and the `Configuration` line reads `[OK]`, with the path of
+the file it loaded.
 
-```
-mytool vnone
-
-  [OK] Go version: go1.26.5
-  [OK] Configuration: loaded from /home/you/.mytool/config.yaml
-  [OK] Credential storage: no literal credentials in config
-  [OK] Permissions: config dir: /home/you/.mytool (-rwxr-xr-x)
-```
-
-`init` is itself a feature. A tool that should run straight from its built-in
-defaults with no file at all can switch it off, or relax the check per command.
-See [Auto-initialise config](../how-to/auto-initialise-config.md). Leave it on
-for now.
+`init` is itself a feature, and a tool that never needs a file of its own can
+switch it off. See [Auto-initialise config](../how-to/auto-initialise-config.md).
+Leave it on for now.
 
 The file it wrote is `~/.mytool/config.yaml`. Note the leading dot on the
 directory; it is not `~/.config/`. The

@@ -23,22 +23,34 @@ Scaffold a project with the `gtb` generator, build and run it, give it a
 configuration, add a command of your own, and regenerate without losing your
 changes. About twenty minutes.
 
+### The CLI series
+
+Each part builds on the `mytool` project from Build your first CLI.
+
+- [Configure your CLI](configure-your-cli.md): settings with shipped defaults,
+  overrides from the environment and from layered files, validation, and a
+  setup step that asks the user. About twenty-five minutes.
+- [Expose your CLI to AI agents](expose-your-cli-to-ai-agents.md): serve your
+  commands over MCP and see exactly what an agent can reach. About fifteen
+  minutes.
+- [Build an AI-backed command](build-an-ai-command.md): a command that calls a
+  model, with the rules, mechanics and state kept in your code. About thirty
+  minutes, and it needs an API key.
+- [Ship self-updates](ship-self-updates.md): watch the tool replace itself, and
+  make it refuse an update it cannot verify. About fifteen minutes.
+
 ## Longer series, currently only on the blog
 
-Three multi-part series cover ground this section does not yet. They are
+Two multi-part series cover ground this section does not yet. They are
 published on the creator's blog and are being migrated here; until a page exists
 under `tutorials/`, the post is the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Building a CLI with go-tool-base](https://phpboyscout.uk/building-a-cli-with-go-tool-base-part-1/) | 5 | Scaffolding, configuration, exposing the CLI to AI agents, an AI-backed command, self-update. |
 | [Building a web service with go-tool-base](https://phpboyscout.uk/building-a-web-service-with-go-tool-base-part-1/) | 6 | Lifecycle and graceful shutdown, gRPC with TLS, REST by hand and by spec, the gateway, generated API docs, observability. |
 | [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-1/) | 7 | Signing on your laptop, a key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
-Part 1 of the CLI series is the exception: it has been migrated, and
-[Build your first CLI](build-your-first-cli.md) is the current version of it.
-
-Those posts were written against earlier releases, the CLI series against
-v0.6.0, so a step may not match what you see. Check the
-[migration notes](../reference/migration/index.md) when it does not. Where both a
-post and a page under `tutorials/` exist, the page here is canonical.
+Those posts were written against earlier releases, so a step may not match what
+you see. Check the [migration notes](../reference/migration/index.md) when it
+does not. Where both a post and a page under `tutorials/` exist, the page here
+is canonical.
