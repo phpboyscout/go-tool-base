@@ -96,10 +96,10 @@ That's the only gateway-specific code you write.
 
 ## Step 4: Build the gateway and mount it
 
-Use `gateway.New` to build a handler, then mount it on your existing HTTP server's mux:
+Use `gateway.NewFromConfig` to build a handler, then mount it on your existing HTTP server's mux:
 
 ```go
-gwHandler, err := gateway.New(ctx, p.Config,
+gwHandler, err := gateway.NewFromConfig(ctx, p.Config.View(),
     func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
         return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
     })
@@ -127,7 +127,7 @@ Do **not** wrap it in `http.StripPrefix("/v1", gwHandler)`. Stripping the prefix
 
 ## Step 5: Transport security comes for free
 
-You don't dial the gRPC server yourself. `gateway.New` opens the connection internally via `grpc.DialLocal`, which reads the same config the gRPC server started from. The gateway's transport security therefore *matches the server's* automatically:
+You don't dial the gRPC server yourself. `gateway.NewFromConfig` opens the connection internally, the same way `gtbgrpc.DialLocalFromReader` does, which reads the same config the gRPC server started from. The gateway's transport security therefore *matches the server's* automatically:
 
 - gRPC server running plaintext? The gateway dials plaintext.
 - gRPC server running TLS (even a single shared self-signed cert across all transports)? The gateway dials TLS, trusting that same certificate: no extra client setup, no cert pool to assemble by hand.
@@ -159,7 +159,7 @@ If you get a `404` on a path you know is annotated, check Step 4: a stray `http.
 
 ## Alternative: run the gateway as its own server
 
-Mounting on an existing mux (above) is the right call when the REST surface should share an origin with other routes. The OpenAPI docs, say. But the gateway can also stand up as its own controller-managed HTTP server, a peer of the gRPC and HTTP servers. Use `gateway.Register`:
+Mounting on an existing mux (above) is the right call when the REST surface should share an origin with other routes. The OpenAPI docs, say. But the gateway can also stand up as its own controller-managed HTTP server, a peer of the gRPC and HTTP servers. Use `gateway.RegisterFromConfig`:
 
 ```go
 srv, err := gateway.RegisterFromConfig(ctx, "gateway", controller, p.Config.View(), p.Logger,
@@ -183,13 +183,13 @@ server:
     key: /etc/certs/server.key
 ```
 
-Internally `Register` builds the handler with `New`, then hosts it through `pkg/http`, so the prefix-matching behaviour from Step 4 is identical; you just don't write the `mux.Handle` line yourself.
+Internally `RegisterFromConfig` builds the handler with `NewFromConfig`, then hosts it through `pkg/http`, so the prefix-matching behaviour from Step 4 is identical; you just don't write the `mux.Handle` line yourself.
 
 ---
 
 ## Related Documentation
 
-- **[Gateway component](../explanation/components/gateway.md)**: `New`, `Register`, `RegisterFunc`, the options, and the config block
-- **[gRPC component](../explanation/components/grpc.md)**: `NewServer`, `Register`, and `DialLocal` (the in-process dial the gateway uses)
+- **[Gateway component](../explanation/components/gateway.md)**: `NewFromConfig`, `RegisterFromConfig`, `RegisterFunc`, the options, and the config block
+- **[gRPC component](../explanation/components/grpc.md)**: `NewServerFromReader`, `RegisterFromReader`, and `DialLocalFromReader` (the in-process dial the gateway uses)
 - **[Add a gRPC Management Service](add-grpc-service.md)**: register the gRPC server this gateway sits in front of
 - **[Serve API Docs](serve-api-docs.md)**: serve an OpenAPI spec and docs site on the same mux as the gateway
