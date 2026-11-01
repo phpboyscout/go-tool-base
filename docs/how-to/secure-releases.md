@@ -264,7 +264,8 @@ The precedence is:
 Because the release-config edit can degrade to an advisory, always check the
 command output: it states clearly when `.goreleaser.yaml` was **not** modified
 and manual action is required. Only a brand-new (absent) `.goreleaser.yaml` is
-rendered from the full skeleton.
+rendered from the full skeleton, and not if `.gtb/ignore` lists it: an ignored
+path is never created either.
 
 ### Trust model at a glance
 
