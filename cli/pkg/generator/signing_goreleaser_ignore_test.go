@@ -334,13 +334,13 @@ func TestDisableSigning_RemovesOnlyGtbInjectedBlock(t *testing.T) {
 	})
 }
 
-// scaffoldProjectWithAbsentIgnoredGoreleaser leaves .goreleaser.yaml listed in
-// .gtb/ignore but not on disk and not in the manifest: a project that releases
+// scaffoldProjectWithAbsentGoreleaser leaves .goreleaser.yaml off disk and out
+// of the manifest, optionally listed in .gtb/ignore: a project that releases
 // some other way, or has not written its release config yet (#148).
-func scaffoldProjectWithAbsentIgnoredGoreleaser(t *testing.T) (*Generator, string, logCapturer) {
+func scaffoldProjectWithAbsentGoreleaser(t *testing.T, ignore bool) (*Generator, string, logCapturer) {
 	t.Helper()
 
-	gen, goreleaserPath, buf := scaffoldProjectWithGoreleaser(t, customisedGoreleaser, true)
+	gen, goreleaserPath, buf := scaffoldProjectWithGoreleaser(t, customisedGoreleaser, ignore)
 	require.NoError(t, os.Remove(goreleaserPath))
 
 	m, err := gen.loadManifest()
@@ -358,7 +358,7 @@ func TestSigning_DoesNotCreateAnAbsentIgnoredGoreleaser(t *testing.T) {
 	t.Run("enable", func(t *testing.T) {
 		t.Parallel()
 
-		gen, goreleaserPath, buf := scaffoldProjectWithAbsentIgnoredGoreleaser(t)
+		gen, goreleaserPath, buf := scaffoldProjectWithAbsentGoreleaser(t, true)
 
 		require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
 			KeyID:     "alias/acme-release-signing-v1",
@@ -374,13 +374,47 @@ func TestSigning_DoesNotCreateAnAbsentIgnoredGoreleaser(t *testing.T) {
 	t.Run("disable", func(t *testing.T) {
 		t.Parallel()
 
-		gen, goreleaserPath, _ := scaffoldProjectWithAbsentIgnoredGoreleaser(t)
+		gen, goreleaserPath, _ := scaffoldProjectWithAbsentGoreleaser(t, true)
 
 		require.NoError(t, gen.DisableSigning(context.Background()))
 
 		assert.NoFileExists(t, goreleaserPath, "disable signing created a path listed in .gtb/ignore")
 		assertGoreleaserUntracked(t, gen)
 	})
+}
+
+func TestEnableSigning_RendersAnAbsentUnignoredGoreleaser(t *testing.T) {
+	t.Parallel()
+
+	gen, goreleaserPath, _ := scaffoldProjectWithAbsentGoreleaser(t, false)
+
+	require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
+		KeyID:     "alias/acme-release-signing-v1",
+		KeySource: "both",
+	}))
+
+	got, err := os.ReadFile(goreleaserPath)
+	require.NoError(t, err, "an absent, unignored .goreleaser.yaml is rendered from the skeleton")
+	assert.Contains(t, string(got), "signs:")
+
+	m, err := gen.loadManifest()
+	require.NoError(t, err)
+	assert.Equal(t, calculateHash(got), m.Hashes[goreleaserAssetRelPath])
+}
+
+func TestDisableSigning_LeavesAnIgnoredGoreleaserUntouched(t *testing.T) {
+	t.Parallel()
+
+	withGtbBlock := customisedNonIgnoredGoreleaser + "\n" + goreleaserSignsMarker + "\nsigns:\n  - cmd: gtb\n"
+	gen, goreleaserPath, buf := scaffoldProjectWithGoreleaser(t, withGtbBlock, true)
+
+	require.NoError(t, gen.DisableSigning(context.Background()))
+
+	got, err := os.ReadFile(goreleaserPath)
+	require.NoError(t, err)
+	assert.Equal(t, withGtbBlock, string(got), "disable signing removed a block from an ignored file")
+	assert.True(t, buf.Contains("Release config not modified"),
+		"disable signing must say the block is left for the developer to remove")
 }
 
 func assertGoreleaserUntracked(t *testing.T, gen *Generator) {
