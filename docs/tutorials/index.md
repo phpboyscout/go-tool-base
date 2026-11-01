@@ -53,6 +53,8 @@ time.
 - [Add a REST API](add-a-rest-api.md): JSON over HTTPS beside the gRPC service,
   by hand on net/http and then from an OpenAPI spec, with health endpoints for
   both. About thirty-five minutes.
+- [Serve a web page](serve-a-web-page.md): escaped HTML and static files from
+  the same server, embedded in the binary. About fifteen minutes.
 
 The rest of the series is still on the blog, listed below, while it's carried
 over.
