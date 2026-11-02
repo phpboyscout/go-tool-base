@@ -89,19 +89,7 @@ rest need an AWS account, and from the fifth part a gtb-generated tool.
 - [Sign every release with GoReleaser](sign-every-release.md): one command wires KMS
   signing into the release config, so every tag ships a signature. About
   twenty minutes.
+- [Rotate your signing key](rotate-your-signing-key.md): move to a new key without
+  breaking a single installed copy, and the break-glass route when the old key
+  is gone. An afternoon, then weeks of overlap.
 
-
-## Longer series, currently only on the blog
-
-Most of the signing series is still published only on the creator's blog and
-is being migrated here; until a page exists under `tutorials/`, the post is
-the only copy.
-
-| Series | Parts | Covers |
-|---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-7/) | 7 to 7 | Rotation and break-glass. |
-
-Those posts were written against earlier releases, so a step may not match what
-you see. Check the [migration notes](../reference/migration/index.md) when it
-does not. Where both a post and a page under `tutorials/` exist, the page here
-is canonical.
