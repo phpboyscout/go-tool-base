@@ -86,6 +86,9 @@ rest need an AWS account, and from the fifth part a gtb-generated tool.
 - [Require signed updates](require-signed-updates.md): embed the key in a generated tool,
   cross-check it against WKD, and turn on enforcement without locking out
   existing installs. About twenty minutes.
+- [Sign every release with GoReleaser](sign-every-release.md): one command wires KMS
+  signing into the release config, so every tag ships a signature. About
+  twenty minutes.
 
 
 ## Longer series, currently only on the blog
@@ -96,7 +99,7 @@ the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-6/) | 6 to 7 | GoReleaser, rotation and break-glass. |
+| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-7/) | 7 to 7 | Rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
 you see. Check the [migration notes](../reference/migration/index.md) when it
