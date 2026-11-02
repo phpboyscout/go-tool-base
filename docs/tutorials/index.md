@@ -80,6 +80,9 @@ rest need an AWS account, and from the fifth part a gtb-generated tool.
 - [Sign from CI without stored keys](sign-from-ci-without-stored-keys.md): a GitLab or GitHub release job
   assumes the signer role over OIDC, with no AWS key stored anywhere. About
   twenty minutes.
+- [Publish your public key](publish-your-public-key.md): mint the public key out of KMS,
+  make an offline rotation authority, and publish both on WKD away from your
+  release host. About thirty minutes.
 
 
 ## Longer series, currently only on the blog
@@ -90,7 +93,7 @@ the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-4/) | 4 to 7 | Publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
+| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-5/) | 5 to 7 | Requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
 you see. Check the [migration notes](../reference/migration/index.md) when it
