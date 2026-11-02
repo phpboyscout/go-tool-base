@@ -500,8 +500,8 @@ gitlab.com/phpboyscout/go/config-toml v0.3.12 h1:43MbM/If4PIdCQUipkBQ7cLBsoHScfI
 gitlab.com/phpboyscout/go/config-toml v0.3.12/go.mod h1:uH5Fa0CEVU2cLouV5mr5mgcaaPub7yUgyPDDZMwBBVE=
 gitlab.com/phpboyscout/go/config-xml v0.2.12 h1:A38kx0df7kdhfJ8aopKpy8a4hI9ARv490IT2OWmzrRs=
 gitlab.com/phpboyscout/go/config-xml v0.2.12/go.mod h1:o148IsvgCp8Ot0KF3q2OapiVhC4vqtOTj9KfbTOxZQk=
-gitlab.com/phpboyscout/go/controls v0.8.3 h1:gGK/FIiFB0N/dSzjzHDJ90Bu79VOqzEb0PoDr9dJbkg=
-gitlab.com/phpboyscout/go/controls v0.8.3/go.mod h1:67GPT/j8gCQlRR7CoN1PUf//ew43Q1gF+nXoe1F8A+o=
+gitlab.com/phpboyscout/go/controls v0.8.4 h1:LO0DhWVtPKcQLr3zarcsrampTOcrWRM5Prp7vd87G8I=
+gitlab.com/phpboyscout/go/controls v0.8.4/go.mod h1:67GPT/j8gCQlRR7CoN1PUf//ew43Q1gF+nXoe1F8A+o=
 gitlab.com/phpboyscout/go/credentials v0.3.3 h1:TulrCdy0qjXUOxDIaT+4QVGa2hVLYSxay9LB89mfkSk=
 gitlab.com/phpboyscout/go/credentials v0.3.3/go.mod h1:kNIF5k/BoSvPgYxBm2BdngGL1I2TZNYAIZbTSKqR7io=
 gitlab.com/phpboyscout/go/errorhandling v0.5.1 h1:9w40K4aQpZd2Siqu/q/C6bBu/uAfYCb8c02+1JhBbZA=
@@ -546,8 +546,8 @@ gitlab.com/phpboyscout/go/tls v0.2.2 h1:aa2iMM6VVCV+9aR5NEJio53Ec4HWljAo07vhxZ1D
 gitlab.com/phpboyscout/go/tls v0.2.2/go.mod h1:LfkEljS++QkfmLEXwfxu5vGgHd83l+SIFddwf911Ssk=
 gitlab.com/phpboyscout/go/transit v0.2.4 h1:Vwje7kCgIzrq5R+bZfARERdUdTA9AGFlicptwm5HIbs=
 gitlab.com/phpboyscout/go/transit v0.2.4/go.mod h1:4Kxp6Z5eZ781GubfGcCew5OZfQOEqZAlMiYkKjzG5CQ=
-gitlab.com/phpboyscout/go/transport v0.6.3 h1:3p97v/a5rxBpXaKEJrC50wbBULHRvdDSiX3sgGoRL5I=
-gitlab.com/phpboyscout/go/transport v0.6.3/go.mod h1:/v8i7Gqq+elNOEvd6mLlQ2ll9JW0gN/O4YfF/MmaiDs=
+gitlab.com/phpboyscout/go/transport v0.6.4 h1:tmHjAf/EAoczQe1y6TOpwKS9kPVBWMfBUwl1J/Zqy8c=
+gitlab.com/phpboyscout/go/transport v0.6.4/go.mod h1:Z0BwTrIuyZ8qVN/0uFDe/L/HQVxyjKRPV4IBbaSBG1Q=
 gitlab.com/phpboyscout/go/workspace v0.2.2 h1:QoaIGpgM/KOkHIUiaMfu1bPgn1jnyFz/gmmgvVqpc3g=
 gitlab.com/phpboyscout/go/workspace v0.2.2/go.mod h1:ZT37Z+Dn78BBwVsvMOYaEJ6e47D64RTgmkTPqc07ngA=
 gitlab.com/phpboyscout/go/yamldoc v0.7.0 h1:SkYbpBd/qkH7a7uLYOzHypAg4hTX7ejKRePqq4bp4y8=

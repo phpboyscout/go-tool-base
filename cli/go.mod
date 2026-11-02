@@ -29,7 +29,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.0
 	gitlab.com/phpboyscout/go/config v0.21.0
 	gitlab.com/phpboyscout/go/config-toml v0.3.12
-	gitlab.com/phpboyscout/go/controls v0.8.3
+	gitlab.com/phpboyscout/go/controls v0.8.4
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/features v0.1.0
@@ -44,7 +44,7 @@ require (
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.6.1
 	gitlab.com/phpboyscout/go/signing-cli v0.6.1
 	gitlab.com/phpboyscout/go/transit v0.2.4
-	gitlab.com/phpboyscout/go/transport v0.6.3
+	gitlab.com/phpboyscout/go/transport v0.6.4
 	gitlab.com/phpboyscout/go/workspace v0.2.2
 	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.62.0

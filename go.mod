@@ -58,7 +58,7 @@ require (
 	gitlab.com/phpboyscout/go/config-toml v0.3.12
 	gitlab.com/phpboyscout/go/config-vault v0.4.4
 	gitlab.com/phpboyscout/go/config-xml v0.2.12
-	gitlab.com/phpboyscout/go/controls v0.8.3
+	gitlab.com/phpboyscout/go/controls v0.8.4
 	gitlab.com/phpboyscout/go/credentials v0.3.3
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
@@ -75,7 +75,7 @@ require (
 	gitlab.com/phpboyscout/go/signing v0.10.1
 	gitlab.com/phpboyscout/go/tls v0.2.2
 	gitlab.com/phpboyscout/go/transit v0.2.4
-	gitlab.com/phpboyscout/go/transport v0.6.3
+	gitlab.com/phpboyscout/go/transport v0.6.4
 	gitlab.com/phpboyscout/go/vaultclient v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
