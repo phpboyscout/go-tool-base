@@ -83,6 +83,9 @@ rest need an AWS account, and from the fifth part a gtb-generated tool.
 - [Publish your public key](publish-your-public-key.md): mint the public key out of KMS,
   make an offline rotation authority, and publish both on WKD away from your
   release host. About thirty minutes.
+- [Require signed updates](require-signed-updates.md): embed the key in a generated tool,
+  cross-check it against WKD, and turn on enforcement without locking out
+  existing installs. About twenty minutes.
 
 
 ## Longer series, currently only on the blog
@@ -93,7 +96,7 @@ the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-5/) | 5 to 7 | Requiring verification, GoReleaser, rotation and break-glass. |
+| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-6/) | 6 to 7 | GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
 you see. Check the [migration notes](../reference/migration/index.md) when it
