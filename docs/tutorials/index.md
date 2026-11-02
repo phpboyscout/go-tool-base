@@ -77,6 +77,9 @@ rest need an AWS account, and from the fifth part a gtb-generated tool.
 - [Put the signing key in AWS KMS](put-the-signing-key-in-kms.md): a key that
   can never leave KMS, a signer role, and a key policy that keeps managing the
   key apart from signing with it. About twenty minutes.
+- [Sign from CI without stored keys](sign-from-ci-without-stored-keys.md): a GitLab or GitHub release job
+  assumes the signer role over OIDC, with no AWS key stored anywhere. About
+  twenty minutes.
 
 
 ## Longer series, currently only on the blog
@@ -87,7 +90,7 @@ the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-3/) | 3 to 7 | Keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
+| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-4/) | 4 to 7 | Publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
 you see. Check the [migration notes](../reference/migration/index.md) when it
