@@ -65,16 +65,25 @@ time.
   transports and in your own code, and one REST request followed through the
   gateway, gRPC and the store in Jaeger. About thirty minutes.
 
+### The signing series
+
+Signs your releases with a key the release host can't reach, so a tool can
+refuse an update it can't verify. It doesn't need the `mytool` project.
+
+- [Sign and verify on your laptop](sign-and-verify-on-your-laptop.md): make a
+  key, mint the public key you'll publish, sign a checksums file, and verify it
+  with plain `gpg`. About fifteen minutes, with no cloud account.
+
 
 ## Longer series, currently only on the blog
 
-One multi-part series covers ground this section does not yet. It is published
-on the creator's blog and is being migrated here; until a page exists under
-`tutorials/`, the post is the only copy.
+Most of the signing series is still published only on the creator's blog and
+is being migrated here; until a page exists under `tutorials/`, the post is
+the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-1/) | 7 | Signing on your laptop, a key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
+| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-2/) | 2 to 7 | A key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
 you see. Check the [migration notes](../reference/migration/index.md) when it
