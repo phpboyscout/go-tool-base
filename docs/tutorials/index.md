@@ -68,11 +68,15 @@ time.
 ### The signing series
 
 Signs your releases with a key the release host can't reach, so a tool can
-refuse an update it can't verify. It doesn't need the `mytool` project.
+refuse an update it can't verify. The first part needs nothing but `gtb`; the
+rest need an AWS account, and from the fifth part a gtb-generated tool.
 
 - [Sign and verify on your laptop](sign-and-verify-on-your-laptop.md): make a
   key, mint the public key you'll publish, sign a checksums file, and verify it
   with plain `gpg`. About fifteen minutes, with no cloud account.
+- [Put the signing key in AWS KMS](put-the-signing-key-in-kms.md): a key that
+  can never leave KMS, a signer role, and a key policy that keeps managing the
+  key apart from signing with it. About twenty minutes.
 
 
 ## Longer series, currently only on the blog
@@ -83,7 +87,7 @@ the only copy.
 
 | Series | Parts | Covers |
 |---|---|---|
-| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-2/) | 2 to 7 | A key in AWS KMS, keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
+| [Sign your own binaries with go-tool-base](https://phpboyscout.uk/sign-your-own-binaries-with-go-tool-base-part-3/) | 3 to 7 | Keyless CI signing with OIDC, publishing a public key, requiring verification, GoReleaser, rotation and break-glass. |
 
 Those posts were written against earlier releases, so a step may not match what
 you see. Check the [migration notes](../reference/migration/index.md) when it
