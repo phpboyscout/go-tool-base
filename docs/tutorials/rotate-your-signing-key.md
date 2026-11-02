@@ -309,36 +309,23 @@ change is the deliberate acknowledgement it exists to force.
 ## When the old key is gone
 
 Everything above assumes v1 can still sign through the overlap. If it's gone
-(the account closed early, access lost, or you daren't use it again), copies
-that only trust v1 can't verify anything you sign with v2.
+(the account closed early, access lost, or you daren't use it again), there's
+no overlap to run. Mint a fresh release key and follow the same procedure
+from the top: a new identity and a new WKD bucket, the new key set embedded,
+and every release signed with the new key alone.
 
-That's what the rotation authority is for. Every installed copy already has
-it in its trust set, so a release signed with it verifies on all of them.
-That release can carry the new key set and the new WKD identity, and from then
-on v2 takes over.
+Copies that only trust v1 can't verify those releases, so they'll refuse to
+update. Tell your users to reinstall once from the release page. The new
+binary trusts the new key, and self-update works again from there. That's the
+cost of losing a key early, and it's why the overlap matters: never retire v1
+before it has closed.
 
-The rotation authority is an Ed25519 key in OpenPGP form, which `gtb sign`'s
-local backend doesn't read, so sign that one release's `checksums.txt` with
-`gpg`, in a throwaway keyring on a trusted machine:
+Don't sign a release with the rotation authority to bridge the gap. It's
+there to vouch for a new key set, not to sign releases, and gtb's own binary
+already refuses a release signed by it
+([#155](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/155)).
 
-```bash
-export GNUPGHOME="$(mktemp -d)"
-gpg --import rotation-authority.priv.asc
-gpg --armor --detach-sign --local-user <rotation-authority-fingerprint> \
-    --output checksums.txt.sig checksums.txt
-rm -rf "$GNUPGHOME" && unset GNUPGHOME
-```
-
-Attach that `checksums.txt.sig` to the release in place of the pipeline's,
-and put the private half back in storage.
-
-In v0.50.0 this works because a generated tool trusts the rotation authority
-like any signing key. gtb's own binary already refuses a release signed by
-it, and generated tools are due to follow:
-[#155](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/155). Check
-the migration notes before relying on this path in a later release.
-
-Store the private half as
+Store the rotation authority's private half as
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md)
 describes: a `paperkey` printout and an encrypted USB stick, kept apart, and
 the backup typed back in once to prove it reads. A break-glass key you can't

@@ -90,6 +90,6 @@ rest need an AWS account, and from the fifth part a gtb-generated tool.
   signing into the release config, so every tag ships a signature. About
   twenty minutes.
 - [Rotate your signing key](rotate-your-signing-key.md): move to a new key without
-  breaking a single installed copy, and the break-glass route when the old key
-  is gone. An afternoon, then weeks of overlap.
+  breaking a single installed copy, and what to do when the old key is gone.
+  An afternoon, then weeks of overlap.
 
