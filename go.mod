@@ -32,51 +32,51 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
-	gitlab.com/phpboyscout/go/awsclient v0.1.3
-	gitlab.com/phpboyscout/go/azureclient v0.1.3
-	gitlab.com/phpboyscout/go/browser v0.2.2
-	gitlab.com/phpboyscout/go/changelog v0.6.0
-	gitlab.com/phpboyscout/go/chat v0.38.0
+	gitlab.com/phpboyscout/go/awsclient v0.1.4
+	gitlab.com/phpboyscout/go/azureclient v0.1.4
+	gitlab.com/phpboyscout/go/browser v0.2.3
+	gitlab.com/phpboyscout/go/changelog v0.6.1
+	gitlab.com/phpboyscout/go/chat v0.38.1
 	gitlab.com/phpboyscout/go/config v0.21.3
 	gitlab.com/phpboyscout/go/config-afero v0.1.14
-	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.6
-	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.5
-	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.4
+	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.7
+	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.6
+	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.5
 	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.7
 	gitlab.com/phpboyscout/go/config-azure-blob v0.3.5
 	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.7
 	gitlab.com/phpboyscout/go/config-consul v0.3.4
-	gitlab.com/phpboyscout/go/config-dotenv v0.2.13
+	gitlab.com/phpboyscout/go/config-dotenv v0.2.14
 	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.8
 	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.7
 	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.7
 	gitlab.com/phpboyscout/go/config-hcl v0.2.13
-	gitlab.com/phpboyscout/go/config-ini v0.2.13
+	gitlab.com/phpboyscout/go/config-ini v0.2.14
 	gitlab.com/phpboyscout/go/config-json v0.2.13
-	gitlab.com/phpboyscout/go/config-keychain v0.2.11
-	gitlab.com/phpboyscout/go/config-properties v0.2.13
+	gitlab.com/phpboyscout/go/config-keychain v0.2.12
+	gitlab.com/phpboyscout/go/config-properties v0.2.14
 	gitlab.com/phpboyscout/go/config-toml v0.3.13
 	gitlab.com/phpboyscout/go/config-vault v0.4.6
 	gitlab.com/phpboyscout/go/config-xml v0.2.13
-	gitlab.com/phpboyscout/go/controls v0.9.0
-	gitlab.com/phpboyscout/go/credentials v0.3.3
-	gitlab.com/phpboyscout/go/errorhandling v0.5.1
+	gitlab.com/phpboyscout/go/controls v0.9.1
+	gitlab.com/phpboyscout/go/credentials v0.3.4
+	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.0
-	gitlab.com/phpboyscout/go/features v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.38.0
-	gitlab.com/phpboyscout/go/gcpclient v0.1.4
+	gitlab.com/phpboyscout/go/features v0.1.1
+	gitlab.com/phpboyscout/go/forge v0.38.1
+	gitlab.com/phpboyscout/go/gcpclient v0.1.5
 	gitlab.com/phpboyscout/go/httpclient v0.2.5
 	gitlab.com/phpboyscout/go/mcp v0.2.3
-	gitlab.com/phpboyscout/go/observability v0.4.0
-	gitlab.com/phpboyscout/go/output v0.2.4
-	gitlab.com/phpboyscout/go/redact v0.3.2
-	gitlab.com/phpboyscout/go/regexutil v0.2.2
+	gitlab.com/phpboyscout/go/observability v0.4.1
+	gitlab.com/phpboyscout/go/output v0.2.5
+	gitlab.com/phpboyscout/go/redact v0.3.3
+	gitlab.com/phpboyscout/go/regexutil v0.2.3
 	gitlab.com/phpboyscout/go/repo v0.9.0
-	gitlab.com/phpboyscout/go/signing v0.11.1
-	gitlab.com/phpboyscout/go/tls v0.2.2
+	gitlab.com/phpboyscout/go/signing v0.11.2
+	gitlab.com/phpboyscout/go/tls v0.2.3
 	gitlab.com/phpboyscout/go/transit v0.3.1
 	gitlab.com/phpboyscout/go/transport v0.6.5
-	gitlab.com/phpboyscout/go/vaultclient v0.1.2
+	gitlab.com/phpboyscout/go/vaultclient v0.1.3
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.23.0
@@ -129,9 +129,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.12.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.79.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.81.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.39.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6 // indirect

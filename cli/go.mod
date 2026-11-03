@@ -19,33 +19,33 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.50.0
-	gitlab.com/phpboyscout/go/chat v0.38.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.21.0
-	gitlab.com/phpboyscout/go/chat-bedrock v0.8.0
-	gitlab.com/phpboyscout/go/chat-gemini v0.20.0
+	gitlab.com/phpboyscout/go-tool-base v0.50.1
+	gitlab.com/phpboyscout/go/chat v0.38.1
+	gitlab.com/phpboyscout/go/chat-anthropic v0.21.1
+	gitlab.com/phpboyscout/go/chat-bedrock v0.8.1
+	gitlab.com/phpboyscout/go/chat-gemini v0.20.1
 	gitlab.com/phpboyscout/go/chat-mcptools v0.3.0
-	gitlab.com/phpboyscout/go/chat-openai v0.20.1
-	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.2
+	gitlab.com/phpboyscout/go/chat-openai v0.21.0
+	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.3
 	gitlab.com/phpboyscout/go/config v0.21.3
 	gitlab.com/phpboyscout/go/config-toml v0.3.13
-	gitlab.com/phpboyscout/go/controls v0.9.0
-	gitlab.com/phpboyscout/go/errorhandling v0.5.1
+	gitlab.com/phpboyscout/go/controls v0.9.1
+	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.0
-	gitlab.com/phpboyscout/go/features v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.38.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.18.0
+	gitlab.com/phpboyscout/go/features v0.1.1
+	gitlab.com/phpboyscout/go/forge v0.38.1
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.19.0
 	gitlab.com/phpboyscout/go/forge-gitea v0.31.0
-	gitlab.com/phpboyscout/go/forge-github v0.29.0
+	gitlab.com/phpboyscout/go/forge-github v0.30.2
 	gitlab.com/phpboyscout/go/forge-gitlab v0.31.0
-	gitlab.com/phpboyscout/go/redact v0.3.2
+	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.0
-	gitlab.com/phpboyscout/go/signing v0.11.1
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.0
-	gitlab.com/phpboyscout/go/signing-cli v0.6.2
+	gitlab.com/phpboyscout/go/signing v0.11.2
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.1
+	gitlab.com/phpboyscout/go/signing-cli v0.6.3
 	gitlab.com/phpboyscout/go/transit v0.3.1
 	gitlab.com/phpboyscout/go/transport v0.6.5
-	gitlab.com/phpboyscout/go/workspace v0.2.2
+	gitlab.com/phpboyscout/go/workspace v0.2.3
 	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
@@ -63,11 +63,10 @@ require (
 	gitea.dev/sdk v1.5.0 // indirect
 	github.com/42wim/httpsig v1.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.15.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
-	github.com/anthropics/anthropic-sdk-go/v2 v2.3.0 // indirect
+	github.com/anthropics/anthropic-sdk-go/v2 v2.4.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.5 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.25 // indirect
@@ -77,10 +76,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.61.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.62.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.12.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.39.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1 // indirect
@@ -130,7 +129,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/go-github/v92 v92.0.0 // indirect
+	github.com/google/go-github/v93 v93.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/s2a-go v0.1.11 // indirect
@@ -158,7 +157,7 @@ require (
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/openai/openai-go/v3 v3.86.0 // indirect
+	github.com/openai/openai-go/v3 v3.91.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -190,12 +189,6 @@ require (
 	gitlab.com/phpboyscout/go/changelog v0.6.0 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.14 // indirect
-	gitlab.com/phpboyscout/go/config-dotenv v0.2.13 // indirect
-	gitlab.com/phpboyscout/go/config-hcl v0.2.13 // indirect
-	gitlab.com/phpboyscout/go/config-ini v0.2.13 // indirect
-	gitlab.com/phpboyscout/go/config-json v0.2.13 // indirect
-	gitlab.com/phpboyscout/go/config-properties v0.2.13 // indirect
-	gitlab.com/phpboyscout/go/config-xml v0.2.13 // indirect
 	gitlab.com/phpboyscout/go/credentials v0.3.3 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.4 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.5 // indirect
@@ -232,7 +225,7 @@ require (
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/api v0.310.0 // indirect
-	google.golang.org/genai v1.76.0 // indirect
+	google.golang.org/genai v1.77.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
