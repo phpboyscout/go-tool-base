@@ -11,12 +11,14 @@ package repo
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
+	"gitlab.com/phpboyscout/go/forge"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
@@ -73,7 +75,7 @@ func SettingsFromReader(
 	settings := gorepo.Settings{
 		// The release source names the forge unless config overrides it below.
 		Forge:   resolveForge(source.Type),
-		Host:    source.Host,
+		Host:    tokenHost(source.Host, log),
 		Private: source.Private,
 		Logger:  log,
 		FS:      fs,
@@ -154,6 +156,30 @@ func SettingsFromReader(
 	}
 
 	return settings
+}
+
+// tokenHost reduces the release source's host to the bare host[:port] go/repo
+// requires, accepting every form forge.NormalizeHostURL does so git and
+// self-update agree on what a valid host is. An http scheme does not set
+// InsecureHTTP: plain http stays an explicit choice.
+func tokenHost(raw string, log gorepo.Logger) string {
+	if strings.TrimSpace(raw) == "" {
+		return ""
+	}
+
+	origin, err := forge.NormalizeHostURL(raw)
+	if err != nil {
+		log.Warn("release source host is not a host, so no token host is set", "host", raw, "error", err)
+
+		return ""
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return ""
+	}
+
+	return parsed.Host
 }
 
 // keychainPassphrase reads a generated key's passphrase from the keychain

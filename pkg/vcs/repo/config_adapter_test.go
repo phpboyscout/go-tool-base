@@ -108,6 +108,51 @@ func TestSettingsFromReader_TokenHostFromReleaseSource(t *testing.T) {
 	assert.Equal(t, "git.example.com", settings.Host)
 }
 
+// The release source's host is written however forge.NormalizeHostURL accepts
+// it, and go/repo takes only a bare host or host:port.
+func TestSettingsFromReader_TokenHostIsNormalised(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct{ host, want string }{
+		{"https://git.example.com", "git.example.com"},
+		{"https://git.example.com:8443/some/path", "git.example.com:8443"},
+		{"  git.example.com  ", "git.example.com"},
+		{"git.example.com:3000", "git.example.com:3000"},
+		{"   ", ""},
+	} {
+		t.Run(tc.host, func(t *testing.T) {
+			t.Parallel()
+
+			settings := SettingsFromReader(
+				props.ReleaseSource{Type: "gitea", Host: tc.host},
+				repoViewFromYAML(t, `gitea: {auth: {value: gt-tok}}`),
+				logger.NewNoop(),
+				afero.NewMemMapFs(),
+			)
+
+			assert.Equal(t, tc.want, settings.Host)
+		})
+	}
+}
+
+func TestSettingsFromReader_SameForgeProviderKeepsReleaseHost(t *testing.T) {
+	t.Parallel()
+
+	cfg := repoViewFromYAML(t, `
+vcs: {provider: gitea}
+gitea: {auth: {value: gt-tok}}
+`)
+
+	settings := SettingsFromReader(
+		props.ReleaseSource{Type: "gitea", Host: "git.example.com"},
+		cfg,
+		logger.NewNoop(),
+		afero.NewMemMapFs(),
+	)
+
+	assert.Equal(t, "git.example.com", settings.Host)
+}
+
 // The release source's host belongs to its own forge, so a provider override
 // to another forge must not send that forge's token there.
 func TestSettingsFromReader_ProviderOverrideDropsReleaseHost(t *testing.T) {
@@ -142,6 +187,10 @@ func TestNewRepoFromProps_SelfHostedToken(t *testing.T) {
 	}
 
 	r, err := NewRepoFromProps(newProps("git.example.com"))
+	require.NoError(t, err)
+	assert.NotNil(t, r)
+
+	r, err = NewRepoFromProps(newProps("https://git.example.com"))
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 
