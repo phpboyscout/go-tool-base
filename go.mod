@@ -14,7 +14,7 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3
 	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2 v2.3.0
-	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.1
 	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/aws/aws-sdk-go-v2 v1.47.5
 	github.com/aws/aws-sdk-go-v2/config v1.33.13
@@ -32,51 +32,51 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
-	gitlab.com/phpboyscout/go/awsclient v0.1.2
-	gitlab.com/phpboyscout/go/azureclient v0.1.2
+	gitlab.com/phpboyscout/go/awsclient v0.1.3
+	gitlab.com/phpboyscout/go/azureclient v0.1.3
 	gitlab.com/phpboyscout/go/browser v0.2.2
 	gitlab.com/phpboyscout/go/changelog v0.6.0
 	gitlab.com/phpboyscout/go/chat v0.38.0
-	gitlab.com/phpboyscout/go/config v0.21.2
+	gitlab.com/phpboyscout/go/config v0.21.3
 	gitlab.com/phpboyscout/go/config-afero v0.1.14
 	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.6
 	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.5
 	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.4
-	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.6
-	gitlab.com/phpboyscout/go/config-azure-blob v0.3.4
-	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.6
+	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.7
+	gitlab.com/phpboyscout/go/config-azure-blob v0.3.5
+	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.7
 	gitlab.com/phpboyscout/go/config-consul v0.3.4
 	gitlab.com/phpboyscout/go/config-dotenv v0.2.13
-	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.7
-	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.6
-	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.6
+	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.8
+	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.7
+	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.7
 	gitlab.com/phpboyscout/go/config-hcl v0.2.13
 	gitlab.com/phpboyscout/go/config-ini v0.2.13
 	gitlab.com/phpboyscout/go/config-json v0.2.13
 	gitlab.com/phpboyscout/go/config-keychain v0.2.11
 	gitlab.com/phpboyscout/go/config-properties v0.2.13
 	gitlab.com/phpboyscout/go/config-toml v0.3.13
-	gitlab.com/phpboyscout/go/config-vault v0.4.5
+	gitlab.com/phpboyscout/go/config-vault v0.4.6
 	gitlab.com/phpboyscout/go/config-xml v0.2.13
 	gitlab.com/phpboyscout/go/controls v0.9.0
 	gitlab.com/phpboyscout/go/credentials v0.3.3
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
-	gitlab.com/phpboyscout/go/errors v0.3.0
+	gitlab.com/phpboyscout/go/errors v0.4.0
 	gitlab.com/phpboyscout/go/features v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.38.0
-	gitlab.com/phpboyscout/go/gcpclient v0.1.3
-	gitlab.com/phpboyscout/go/httpclient v0.2.4
-	gitlab.com/phpboyscout/go/mcp v0.2.2
-	gitlab.com/phpboyscout/go/observability v0.3.3
-	gitlab.com/phpboyscout/go/output v0.2.3
+	gitlab.com/phpboyscout/go/gcpclient v0.1.4
+	gitlab.com/phpboyscout/go/httpclient v0.2.5
+	gitlab.com/phpboyscout/go/mcp v0.2.3
+	gitlab.com/phpboyscout/go/observability v0.4.0
+	gitlab.com/phpboyscout/go/output v0.2.4
 	gitlab.com/phpboyscout/go/redact v0.3.2
 	gitlab.com/phpboyscout/go/regexutil v0.2.2
 	gitlab.com/phpboyscout/go/repo v0.9.0
-	gitlab.com/phpboyscout/go/signing v0.11.0
+	gitlab.com/phpboyscout/go/signing v0.11.1
 	gitlab.com/phpboyscout/go/tls v0.2.2
-	gitlab.com/phpboyscout/go/transit v0.3.0
-	gitlab.com/phpboyscout/go/transport v0.6.4
-	gitlab.com/phpboyscout/go/vaultclient v0.1.1
+	gitlab.com/phpboyscout/go/transit v0.3.1
+	gitlab.com/phpboyscout/go/transport v0.6.5
+	gitlab.com/phpboyscout/go/vaultclient v0.1.2
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.23.0
@@ -95,12 +95,12 @@ require (
 require (
 	cel.dev/expr v0.25.3 // indirect
 	cloud.google.com/go v0.123.0 // indirect
-	cloud.google.com/go/auth v0.24.1-0.20261001053825-dbc26066f70a // indirect
+	cloud.google.com/go/auth v0.24.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.3.0 // indirect
 	cloud.google.com/go/compute/metadata v0.10.0 // indirect
 	cloud.google.com/go/iam v1.14.0 // indirect
 	cloud.google.com/go/monitoring v1.30.0 // indirect
-	cloud.google.com/go/storage v1.69.0 // indirect
+	cloud.google.com/go/storage v1.70.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.15.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
@@ -299,10 +299,10 @@ require (
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/authn v0.3.0 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
-	gitlab.com/phpboyscout/go/grpcclient v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/yamldoc v0.8.0 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.2.4 // indirect
+	gitlab.com/phpboyscout/go/yamldoc v0.9.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.45.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0 // indirect
@@ -314,7 +314,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
 	golang.org/x/net v0.62.0 // indirect

@@ -27,11 +27,11 @@ require (
 	gitlab.com/phpboyscout/go/chat-mcptools v0.3.0
 	gitlab.com/phpboyscout/go/chat-openai v0.20.1
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.2
-	gitlab.com/phpboyscout/go/config v0.21.2
+	gitlab.com/phpboyscout/go/config v0.21.3
 	gitlab.com/phpboyscout/go/config-toml v0.3.13
 	gitlab.com/phpboyscout/go/controls v0.9.0
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
-	gitlab.com/phpboyscout/go/errors v0.3.0
+	gitlab.com/phpboyscout/go/errors v0.4.0
 	gitlab.com/phpboyscout/go/features v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.38.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.18.0
@@ -40,11 +40,11 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitlab v0.31.0
 	gitlab.com/phpboyscout/go/redact v0.3.2
 	gitlab.com/phpboyscout/go/repo v0.9.0
-	gitlab.com/phpboyscout/go/signing v0.11.0
+	gitlab.com/phpboyscout/go/signing v0.11.1
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.0
 	gitlab.com/phpboyscout/go/signing-cli v0.6.2
-	gitlab.com/phpboyscout/go/transit v0.3.0
-	gitlab.com/phpboyscout/go/transport v0.6.4
+	gitlab.com/phpboyscout/go/transit v0.3.1
+	gitlab.com/phpboyscout/go/transport v0.6.5
 	gitlab.com/phpboyscout/go/workspace v0.2.2
 	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.62.0
@@ -57,7 +57,7 @@ require (
 	charm.land/glamour/v2 v2.0.1 // indirect
 	charm.land/log/v2 v2.0.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect
-	cloud.google.com/go/auth v0.24.1-0.20261001053825-dbc26066f70a // indirect
+	cloud.google.com/go/auth v0.24.1 // indirect
 	cloud.google.com/go/compute/metadata v0.10.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	gitea.dev/sdk v1.5.0 // indirect
@@ -184,8 +184,8 @@ require (
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/gitlab-org/api/client-go/v3 v3.40.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/authn v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/awsclient v0.1.2 // indirect
+	gitlab.com/phpboyscout/go/authn v0.3.0 // indirect
+	gitlab.com/phpboyscout/go/awsclient v0.1.3 // indirect
 	gitlab.com/phpboyscout/go/browser v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/changelog v0.6.0 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
@@ -197,14 +197,14 @@ require (
 	gitlab.com/phpboyscout/go/config-properties v0.2.13 // indirect
 	gitlab.com/phpboyscout/go/config-xml v0.2.13 // indirect
 	gitlab.com/phpboyscout/go/credentials v0.3.3 // indirect
-	gitlab.com/phpboyscout/go/grpcclient v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/httpclient v0.2.4 // indirect
-	gitlab.com/phpboyscout/go/mcp v0.2.2 // indirect
-	gitlab.com/phpboyscout/go/observability v0.3.3 // indirect
-	gitlab.com/phpboyscout/go/output v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.2.4 // indirect
+	gitlab.com/phpboyscout/go/httpclient v0.2.5 // indirect
+	gitlab.com/phpboyscout/go/mcp v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/observability v0.4.0 // indirect
+	gitlab.com/phpboyscout/go/output v0.2.4 // indirect
 	gitlab.com/phpboyscout/go/regexutil v0.2.2 // indirect
 	gitlab.com/phpboyscout/go/tls v0.2.2 // indirect
-	gitlab.com/phpboyscout/go/yamldoc v0.8.0 // indirect
+	gitlab.com/phpboyscout/go/yamldoc v0.9.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0 // indirect
@@ -221,7 +221,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
