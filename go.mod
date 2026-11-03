@@ -37,45 +37,45 @@ require (
 	gitlab.com/phpboyscout/go/browser v0.2.3
 	gitlab.com/phpboyscout/go/changelog v0.6.1
 	gitlab.com/phpboyscout/go/chat v0.38.1
-	gitlab.com/phpboyscout/go/config v0.21.3
-	gitlab.com/phpboyscout/go/config-afero v0.1.14
-	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.7
-	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.6
-	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.5
-	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.7
-	gitlab.com/phpboyscout/go/config-azure-blob v0.3.5
-	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.7
-	gitlab.com/phpboyscout/go/config-consul v0.3.4
-	gitlab.com/phpboyscout/go/config-dotenv v0.2.14
-	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.8
-	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.7
-	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.7
-	gitlab.com/phpboyscout/go/config-hcl v0.2.13
-	gitlab.com/phpboyscout/go/config-ini v0.2.14
-	gitlab.com/phpboyscout/go/config-json v0.2.13
-	gitlab.com/phpboyscout/go/config-keychain v0.2.12
-	gitlab.com/phpboyscout/go/config-properties v0.2.14
-	gitlab.com/phpboyscout/go/config-toml v0.3.13
-	gitlab.com/phpboyscout/go/config-vault v0.4.6
-	gitlab.com/phpboyscout/go/config-xml v0.2.13
+	gitlab.com/phpboyscout/go/config v0.21.4
+	gitlab.com/phpboyscout/go/config-afero v0.1.15
+	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.8
+	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.7
+	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.6
+	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.8
+	gitlab.com/phpboyscout/go/config-azure-blob v0.3.6
+	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.8
+	gitlab.com/phpboyscout/go/config-consul v0.3.5
+	gitlab.com/phpboyscout/go/config-dotenv v0.2.15
+	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.9
+	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.8
+	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.8
+	gitlab.com/phpboyscout/go/config-hcl v0.2.14
+	gitlab.com/phpboyscout/go/config-ini v0.2.15
+	gitlab.com/phpboyscout/go/config-json v0.2.14
+	gitlab.com/phpboyscout/go/config-keychain v0.2.13
+	gitlab.com/phpboyscout/go/config-properties v0.2.15
+	gitlab.com/phpboyscout/go/config-toml v0.3.14
+	gitlab.com/phpboyscout/go/config-vault v0.4.7
+	gitlab.com/phpboyscout/go/config-xml v0.2.14
 	gitlab.com/phpboyscout/go/controls v0.9.1
 	gitlab.com/phpboyscout/go/credentials v0.3.4
 	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.0
 	gitlab.com/phpboyscout/go/features v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.38.1
+	gitlab.com/phpboyscout/go/forge v0.38.2
 	gitlab.com/phpboyscout/go/gcpclient v0.1.5
-	gitlab.com/phpboyscout/go/httpclient v0.2.5
-	gitlab.com/phpboyscout/go/mcp v0.2.3
+	gitlab.com/phpboyscout/go/httpclient v0.2.6
+	gitlab.com/phpboyscout/go/mcp v0.2.4
 	gitlab.com/phpboyscout/go/observability v0.4.1
 	gitlab.com/phpboyscout/go/output v0.2.5
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/regexutil v0.2.3
-	gitlab.com/phpboyscout/go/repo v0.9.0
+	gitlab.com/phpboyscout/go/repo v0.9.1
 	gitlab.com/phpboyscout/go/signing v0.11.2
 	gitlab.com/phpboyscout/go/tls v0.2.3
-	gitlab.com/phpboyscout/go/transit v0.3.1
-	gitlab.com/phpboyscout/go/transport v0.6.5
+	gitlab.com/phpboyscout/go/transit v0.3.2
+	gitlab.com/phpboyscout/go/transport v0.6.6
 	gitlab.com/phpboyscout/go/vaultclient v0.1.3
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
@@ -298,11 +298,11 @@ require (
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
-	gitlab.com/phpboyscout/go/aferobilly v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/authn v0.3.0 // indirect
+	gitlab.com/phpboyscout/go/aferobilly v0.2.4 // indirect
+	gitlab.com/phpboyscout/go/authn v0.3.1 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
-	gitlab.com/phpboyscout/go/grpcclient v0.2.4 // indirect
-	gitlab.com/phpboyscout/go/yamldoc v0.9.0 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.2.5 // indirect
+	gitlab.com/phpboyscout/go/yamldoc v0.9.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.45.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0 // indirect
