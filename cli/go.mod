@@ -21,11 +21,11 @@ require (
 	github.com/stretchr/testify v1.12.1
 	gitlab.com/phpboyscout/go-tool-base v0.50.1
 	gitlab.com/phpboyscout/go/chat v0.38.1
-	gitlab.com/phpboyscout/go/chat-anthropic v0.21.1
-	gitlab.com/phpboyscout/go/chat-bedrock v0.8.1
-	gitlab.com/phpboyscout/go/chat-gemini v0.20.1
-	gitlab.com/phpboyscout/go/chat-mcptools v0.3.0
-	gitlab.com/phpboyscout/go/chat-openai v0.21.0
+	gitlab.com/phpboyscout/go/chat-anthropic v0.21.2
+	gitlab.com/phpboyscout/go/chat-bedrock v0.8.2
+	gitlab.com/phpboyscout/go/chat-gemini v0.20.2
+	gitlab.com/phpboyscout/go/chat-mcptools v0.3.1
+	gitlab.com/phpboyscout/go/chat-openai v0.21.1
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.3
 	gitlab.com/phpboyscout/go/config v0.21.4
 	gitlab.com/phpboyscout/go/config-toml v0.3.14
@@ -34,15 +34,15 @@ require (
 	gitlab.com/phpboyscout/go/errors v0.4.0
 	gitlab.com/phpboyscout/go/features v0.1.1
 	gitlab.com/phpboyscout/go/forge v0.38.2
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.19.0
-	gitlab.com/phpboyscout/go/forge-gitea v0.31.0
-	gitlab.com/phpboyscout/go/forge-github v0.30.2
-	gitlab.com/phpboyscout/go/forge-gitlab v0.31.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.19.1
+	gitlab.com/phpboyscout/go/forge-gitea v0.31.1
+	gitlab.com/phpboyscout/go/forge-github v0.30.3
+	gitlab.com/phpboyscout/go/forge-gitlab v0.31.1
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.1
 	gitlab.com/phpboyscout/go/signing v0.11.2
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.1
-	gitlab.com/phpboyscout/go/signing-cli v0.6.3
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.2
+	gitlab.com/phpboyscout/go/signing-cli v0.6.4
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
 	gitlab.com/phpboyscout/go/workspace v0.2.3
