@@ -184,19 +184,22 @@ require (
 	gitlab.com/gitlab-org/api/client-go/v3 v3.40.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/authn v0.3.0 // indirect
-	gitlab.com/phpboyscout/go/awsclient v0.1.3 // indirect
-	gitlab.com/phpboyscout/go/browser v0.2.2 // indirect
-	gitlab.com/phpboyscout/go/changelog v0.6.0 // indirect
+	gitlab.com/phpboyscout/go/awsclient v0.1.4 // indirect
+	gitlab.com/phpboyscout/go/browser v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/changelog v0.6.1 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.14 // indirect
-	gitlab.com/phpboyscout/go/credentials v0.3.3 // indirect
+	gitlab.com/phpboyscout/go/config-dotenv v0.2.14 // indirect
+	gitlab.com/phpboyscout/go/config-ini v0.2.14 // indirect
+	gitlab.com/phpboyscout/go/config-properties v0.2.14 // indirect
+	gitlab.com/phpboyscout/go/credentials v0.3.4 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.4 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.5 // indirect
 	gitlab.com/phpboyscout/go/mcp v0.2.3 // indirect
-	gitlab.com/phpboyscout/go/observability v0.4.0 // indirect
-	gitlab.com/phpboyscout/go/output v0.2.4 // indirect
-	gitlab.com/phpboyscout/go/regexutil v0.2.2 // indirect
-	gitlab.com/phpboyscout/go/tls v0.2.2 // indirect
+	gitlab.com/phpboyscout/go/observability v0.4.1 // indirect
+	gitlab.com/phpboyscout/go/output v0.2.5 // indirect
+	gitlab.com/phpboyscout/go/regexutil v0.2.3 // indirect
+	gitlab.com/phpboyscout/go/tls v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/yamldoc v0.9.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 // indirect
