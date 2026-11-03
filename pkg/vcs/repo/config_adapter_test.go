@@ -91,6 +91,64 @@ gitlab: {auth: {value: gl-tok-from-config}}
 	assert.Equal(t, "gl-tok-from-config", settings.Token())
 }
 
+// A self-hosted forge has no public default, so go/repo sends a token only to
+// the host the release source names (go/repo spec 0011).
+func TestSettingsFromReader_TokenHostFromReleaseSource(t *testing.T) {
+	t.Parallel()
+
+	cfg := repoViewFromYAML(t, `gitea: {auth: {value: gt-tok}}`)
+
+	settings := SettingsFromReader(
+		props.ReleaseSource{Type: "gitea", Host: "git.example.com"},
+		cfg,
+		logger.NewNoop(),
+		afero.NewMemMapFs(),
+	)
+
+	assert.Equal(t, "git.example.com", settings.Host)
+}
+
+// The release source's host belongs to its own forge, so a provider override
+// to another forge must not send that forge's token there.
+func TestSettingsFromReader_ProviderOverrideDropsReleaseHost(t *testing.T) {
+	t.Parallel()
+
+	cfg := repoViewFromYAML(t, `
+vcs: {provider: gitlab}
+gitlab: {auth: {value: gl-tok}}
+`)
+
+	settings := SettingsFromReader(
+		props.ReleaseSource{Type: "gitea", Host: "git.example.com"},
+		cfg,
+		logger.NewNoop(),
+		afero.NewMemMapFs(),
+	)
+
+	assert.Equal(t, "gitlab", settings.Forge)
+	assert.Empty(t, settings.Host)
+}
+
+func TestNewRepoFromProps_SelfHostedToken(t *testing.T) {
+	t.Parallel()
+
+	newProps := func(host string) *props.Props {
+		return &props.Props{
+			Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "gitea", Host: host}},
+			Logger: logger.NewNoop(),
+			Config: repoStoreFromYAML(t, `gitea: {auth: {value: gt-tok}}`),
+			FS:     afero.NewMemMapFs(),
+		}
+	}
+
+	r, err := NewRepoFromProps(newProps("git.example.com"))
+	require.NoError(t, err)
+	assert.NotNil(t, r)
+
+	_, err = NewRepoFromProps(newProps(""))
+	require.ErrorContains(t, err, "no host is known for the token")
+}
+
 func TestSettingsFromReader_SSHKey(t *testing.T) {
 	t.Parallel()
 

@@ -73,6 +73,7 @@ func SettingsFromReader(
 	settings := gorepo.Settings{
 		// The release source names the forge unless config overrides it below.
 		Forge:   resolveForge(source.Type),
+		Host:    source.Host,
 		Private: source.Private,
 		Logger:  log,
 		FS:      fs,
@@ -86,6 +87,11 @@ func SettingsFromReader(
 
 	if cfg.IsSet(vcs.ConfigKeyProvider) {
 		settings.Forge = resolveForge(cfg.GetString(vcs.ConfigKeyProvider))
+		// The release source's host is its own forge's; another forge's token
+		// must not go there.
+		if settings.Forge != resolveForge(source.Type) {
+			settings.Host = ""
+		}
 	}
 
 	forgeName := settings.Forge
