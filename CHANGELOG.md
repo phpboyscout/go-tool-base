@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.50.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.0...v0.50.1)
+
+### Notes
+
+- Clone, Fetch, Pull and Push now refuse to send a token to any host but the forge's own, with `ErrUntrustedRemote`. With a token configured, a template cloned over HTTPS from a different forge than the release source now fails with that error instead of cloning. The release source's `host` may still be written as a URL (`https://git.example.com`); only its host and port are used.
+
+- A repository token is now sent only to its forge's host, over HTTPS (go/repo v0.9.0). For gitea, a self-hosted GitLab or GitHub Enterprise, set the release source's `host` as a bare `host` or `host:port`, or token authentication fails. Log lines also change: go/redact v0.3.2 masks more provider tokens as `<redacted-token>`, and go/controls v0.9.0 adds a `stack` attribute to its callback-panic lines.
+
+- `gtb enable signing` and `gtb disable signing` no longer record your edits to `.goreleaser.yaml` as gtb's own, so a later `gtb regenerate project` asks before overwriting them instead of doing it silently.
+
+- `gtb enable signing` and `gtb disable signing` no longer write a `.goreleaser.yaml` that `.gtb/ignore` lists but that does not exist yet.
+
+### Bug Fixes
+
+- **deps**: sync the workspace after the aws-sdk-go-v2 bump ([0c5eb92](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0c5eb9264d11bd74dd101801c867a86def82277a))
+- **deps**: update module github.com/aws/aws-sdk-go-v2/config to v1.33.13 ([3396821](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3396821986ed1bc16eff3cbc8f806cce6f81d576))
+- **vcs**: normalise the release source host before go/repo sees it ([0631911](https://gitlab.com/phpboyscout/go-tool-base/-/commit/06319110a7474bda70df8f6971799a60872b9ea2))
+- **vcs**: send a repository token to the release source's host ([23e2c17](https://gitlab.com/phpboyscout/go-tool-base/-/commit/23e2c173b6dd56ca203d2a6e33cbf65dd09477d6))
+- **deps**: sync the workspace after the go modules bump ([bac076b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bac076bc975d808c2e922558c30bcb3df41e0f17))
+- **deps**: update go modules ([ac72c56](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ac72c56326149f0f2345d03252824ec52df4d87b))
+- **deps**: update go/transport to v0.6.4 ([82ce633](https://gitlab.com/phpboyscout/go-tool-base/-/commit/82ce633cfc4897ba145aff868f7fbd7c8b497856))
+- **generator**: signing no longer adopts an edited .goreleaser.yaml as the baseline ([78b13e5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/78b13e52817cb426636ed7b2a1efeead73b80563))
+- **generator**: enable signing no longer creates an ignored .goreleaser.yaml ([501cba1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/501cba1a002beabf55b025a8240b43d4aaa54747))
+
 ## [v0.50.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.49.0...v0.50.0)
