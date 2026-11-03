@@ -1,10 +1,10 @@
 module gitlab.com/phpboyscout/go-tool-base/cli
 
-go 1.27.2
+go 1.27.3
 
 require (
 	charm.land/bubbles/v2 v2.2.1
-	charm.land/bubbletea/v2 v2.1.0
+	charm.land/bubbletea/v2 v2.1.1
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/ProtonMail/go-crypto v1.5.2
@@ -19,37 +19,37 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.46.0
-	gitlab.com/phpboyscout/go/chat v0.36.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.19.1
-	gitlab.com/phpboyscout/go/chat-bedrock v0.6.0
-	gitlab.com/phpboyscout/go/chat-gemini v0.18.0
-	gitlab.com/phpboyscout/go/chat-mcptools v0.2.3
-	gitlab.com/phpboyscout/go/chat-openai v0.19.0
-	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.0
-	gitlab.com/phpboyscout/go/config v0.21.0
-	gitlab.com/phpboyscout/go/config-toml v0.3.12
-	gitlab.com/phpboyscout/go/controls v0.8.4
+	gitlab.com/phpboyscout/go-tool-base v0.50.0
+	gitlab.com/phpboyscout/go/chat v0.38.0
+	gitlab.com/phpboyscout/go/chat-anthropic v0.21.0
+	gitlab.com/phpboyscout/go/chat-bedrock v0.8.0
+	gitlab.com/phpboyscout/go/chat-gemini v0.20.0
+	gitlab.com/phpboyscout/go/chat-mcptools v0.3.0
+	gitlab.com/phpboyscout/go/chat-openai v0.20.1
+	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.2
+	gitlab.com/phpboyscout/go/config v0.21.2
+	gitlab.com/phpboyscout/go/config-toml v0.3.13
+	gitlab.com/phpboyscout/go/controls v0.9.0
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/features v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.31.1
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.17.0
-	gitlab.com/phpboyscout/go/forge-gitea v0.25.0
-	gitlab.com/phpboyscout/go/forge-github v0.25.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.24.0
-	gitlab.com/phpboyscout/go/redact v0.2.3
-	gitlab.com/phpboyscout/go/repo v0.6.0
-	gitlab.com/phpboyscout/go/signing v0.10.1
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.6.1
-	gitlab.com/phpboyscout/go/signing-cli v0.6.1
-	gitlab.com/phpboyscout/go/transit v0.2.4
+	gitlab.com/phpboyscout/go/forge v0.38.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.18.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.31.0
+	gitlab.com/phpboyscout/go/forge-github v0.29.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.31.0
+	gitlab.com/phpboyscout/go/redact v0.3.2
+	gitlab.com/phpboyscout/go/repo v0.9.0
+	gitlab.com/phpboyscout/go/signing v0.11.0
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.0
+	gitlab.com/phpboyscout/go/signing-cli v0.6.2
+	gitlab.com/phpboyscout/go/transit v0.3.0
 	gitlab.com/phpboyscout/go/transport v0.6.4
 	gitlab.com/phpboyscout/go/workspace v0.2.2
 	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -1,16 +1,16 @@
 module gitlab.com/phpboyscout/go-tool-base
 
-go 1.27.2
+go 1.27.3
 
 require (
 	charm.land/bubbles/v2 v2.2.1
-	charm.land/bubbletea/v2 v2.1.0
+	charm.land/bubbletea/v2 v2.1.1
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
 	charm.land/log/v2 v2.0.1
-	cloud.google.com/go/parametermanager v1.1.0
-	cloud.google.com/go/secretmanager v1.22.0
+	cloud.google.com/go/parametermanager v1.2.1
+	cloud.google.com/go/secretmanager v1.23.1
 	dario.cat/mergo v1.0.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3
 	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2 v2.2.0
@@ -24,7 +24,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0
 	github.com/hashicorp/consul/api/v2 v2.0.0
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/spf13/afero v1.15.0
@@ -35,46 +35,46 @@ require (
 	gitlab.com/phpboyscout/go/awsclient v0.1.2
 	gitlab.com/phpboyscout/go/azureclient v0.1.2
 	gitlab.com/phpboyscout/go/browser v0.2.2
-	gitlab.com/phpboyscout/go/changelog v0.4.1
-	gitlab.com/phpboyscout/go/chat v0.36.0
-	gitlab.com/phpboyscout/go/config v0.21.0
-	gitlab.com/phpboyscout/go/config-afero v0.1.13
-	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.5
-	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.4
-	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.3
-	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.4
-	gitlab.com/phpboyscout/go/config-azure-blob v0.3.3
-	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.5
-	gitlab.com/phpboyscout/go/config-consul v0.3.3
-	gitlab.com/phpboyscout/go/config-dotenv v0.2.12
-	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.5
-	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.4
-	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.5
-	gitlab.com/phpboyscout/go/config-hcl v0.2.12
-	gitlab.com/phpboyscout/go/config-ini v0.2.12
-	gitlab.com/phpboyscout/go/config-json v0.2.12
+	gitlab.com/phpboyscout/go/changelog v0.6.0
+	gitlab.com/phpboyscout/go/chat v0.38.0
+	gitlab.com/phpboyscout/go/config v0.21.2
+	gitlab.com/phpboyscout/go/config-afero v0.1.14
+	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.6
+	gitlab.com/phpboyscout/go/config-aws-secrets v0.3.5
+	gitlab.com/phpboyscout/go/config-aws-ssm v0.3.4
+	gitlab.com/phpboyscout/go/config-azure-appconfig v0.3.6
+	gitlab.com/phpboyscout/go/config-azure-blob v0.3.4
+	gitlab.com/phpboyscout/go/config-azure-keyvault v0.3.6
+	gitlab.com/phpboyscout/go/config-consul v0.3.4
+	gitlab.com/phpboyscout/go/config-dotenv v0.2.13
+	gitlab.com/phpboyscout/go/config-gcp-gcs v0.3.7
+	gitlab.com/phpboyscout/go/config-gcp-parameter v0.3.6
+	gitlab.com/phpboyscout/go/config-gcp-secret v0.3.6
+	gitlab.com/phpboyscout/go/config-hcl v0.2.13
+	gitlab.com/phpboyscout/go/config-ini v0.2.13
+	gitlab.com/phpboyscout/go/config-json v0.2.13
 	gitlab.com/phpboyscout/go/config-keychain v0.2.11
-	gitlab.com/phpboyscout/go/config-properties v0.2.12
-	gitlab.com/phpboyscout/go/config-toml v0.3.12
-	gitlab.com/phpboyscout/go/config-vault v0.4.4
-	gitlab.com/phpboyscout/go/config-xml v0.2.12
-	gitlab.com/phpboyscout/go/controls v0.8.4
+	gitlab.com/phpboyscout/go/config-properties v0.2.13
+	gitlab.com/phpboyscout/go/config-toml v0.3.13
+	gitlab.com/phpboyscout/go/config-vault v0.4.5
+	gitlab.com/phpboyscout/go/config-xml v0.2.13
+	gitlab.com/phpboyscout/go/controls v0.9.0
 	gitlab.com/phpboyscout/go/credentials v0.3.3
 	gitlab.com/phpboyscout/go/errorhandling v0.5.1
 	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/features v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.31.1
-	gitlab.com/phpboyscout/go/gcpclient v0.1.2
+	gitlab.com/phpboyscout/go/forge v0.38.0
+	gitlab.com/phpboyscout/go/gcpclient v0.1.3
 	gitlab.com/phpboyscout/go/httpclient v0.2.4
-	gitlab.com/phpboyscout/go/mcp v0.2.1
+	gitlab.com/phpboyscout/go/mcp v0.2.2
 	gitlab.com/phpboyscout/go/observability v0.3.3
 	gitlab.com/phpboyscout/go/output v0.2.3
-	gitlab.com/phpboyscout/go/redact v0.2.3
+	gitlab.com/phpboyscout/go/redact v0.3.2
 	gitlab.com/phpboyscout/go/regexutil v0.2.2
-	gitlab.com/phpboyscout/go/repo v0.6.0
-	gitlab.com/phpboyscout/go/signing v0.10.1
+	gitlab.com/phpboyscout/go/repo v0.9.0
+	gitlab.com/phpboyscout/go/signing v0.11.0
 	gitlab.com/phpboyscout/go/tls v0.2.2
-	gitlab.com/phpboyscout/go/transit v0.2.4
+	gitlab.com/phpboyscout/go/transit v0.3.0
 	gitlab.com/phpboyscout/go/transport v0.6.4
 	gitlab.com/phpboyscout/go/vaultclient v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
@@ -87,8 +87,8 @@ require (
 	golang.org/x/mod v0.42.0
 	golang.org/x/term v0.47.0
 	golang.org/x/text v0.43.0
-	google.golang.org/api v0.301.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/api v0.310.0
+	google.golang.org/grpc v1.85.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -285,7 +285,7 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
-	github.com/vektra/mockery/v3 v3.8.0 // indirect
+	github.com/vektra/mockery/v3 v3.9.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
