@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.50.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.2)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.1...v0.50.2)
+
+### Bug Fixes
+
+- **deps**: update phpboyscout modules ([e1b3201](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e1b3201eb8d91581181fd62e250d67a8c6eb74d1))
+- **deps**: sync the workspace after the go modules update ([73587a3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/73587a38fcf5f79bf539f8fb89d08f4453ffa7dc))
+- **deps**: update go modules ([1a4613f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1a4613f17dcba2ca8f5dc6f94b4e8bbbdc6f2506))
+- **deps**: sync the cli module's go.sum with the workspace ([6e87fea](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6e87fea174176c92e21508d949b2718aad867f0e))
+- **deps**: update phpboyscout modules ([ce691a0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ce691a05668ada8fd555b72b375925b2626452d3))
+
 ## [v0.50.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.0...v0.50.1)
