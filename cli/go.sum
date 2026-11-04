@@ -450,8 +450,8 @@ github.com/zclconf/go-cty v1.19.0 h1:IV8WdqYZc2c5rLX9bEoLNXKojBAp0MZPBHMIrCoa/s4
 github.com/zclconf/go-cty v1.19.0/go.mod h1:12W89jGn3JCOIQi7infWr9m80rOkb5RNYJqXMZcN4c8=
 gitlab.com/gitlab-org/api/client-go/v3 v3.40.0 h1:aWkVhgglUeNPqFVMiYDYv5tmfd8xPqDm7mCwwrsrBKE=
 gitlab.com/gitlab-org/api/client-go/v3 v3.40.0/go.mod h1:jBFhGkTHLKkgeHEdS/A8yA0tQ6UHq96QVsS5muu6flM=
-gitlab.com/phpboyscout/go-tool-base v0.50.1 h1:K3GY4RIfznU7ZvHdKjBZ5Cd1kZ5H/CRZ/BYLdGsjAn0=
-gitlab.com/phpboyscout/go-tool-base v0.50.1/go.mod h1:8ogz5G3iJ3R/InFY5tdaMEKZUhbZTj8N0gxQAdoaopM=
+gitlab.com/phpboyscout/go-tool-base v0.50.2 h1:5YqGnGnrCBkqBMxt0ZeREDSNTX6PkSNW6Jzy7BZOuRM=
+gitlab.com/phpboyscout/go-tool-base v0.50.2/go.mod h1:6dd6rfeoMZ89g7L/7+UbJWBPrJop5xFpYPMZysMjRwY=
 gitlab.com/phpboyscout/go/aferobilly v0.2.4 h1:CGUP14o7OmYLqpXEKEVKSbF33GRdNPsHKHUYbnMbf5g=
 gitlab.com/phpboyscout/go/aferobilly v0.2.4/go.mod h1:EauXLy9eHU2TYaiDdWLJjreFuZS9CrR+oJ3Fxhl1Lg8=
 gitlab.com/phpboyscout/go/authn v0.3.1 h1:i7sAkEZHIDckYec9PF10ytYuVyJIyQE/sDJ/OaZTeNk=

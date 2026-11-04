@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.50.1
+	gitlab.com/phpboyscout/go-tool-base v0.50.2
 	gitlab.com/phpboyscout/go/chat v0.38.1
 	gitlab.com/phpboyscout/go/chat-anthropic v0.21.2
 	gitlab.com/phpboyscout/go/chat-bedrock v0.8.2
@@ -189,12 +189,6 @@ require (
 	gitlab.com/phpboyscout/go/changelog v0.6.1 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.15 // indirect
-	gitlab.com/phpboyscout/go/config-dotenv v0.2.15 // indirect
-	gitlab.com/phpboyscout/go/config-hcl v0.2.14 // indirect
-	gitlab.com/phpboyscout/go/config-ini v0.2.15 // indirect
-	gitlab.com/phpboyscout/go/config-json v0.2.14 // indirect
-	gitlab.com/phpboyscout/go/config-properties v0.2.15 // indirect
-	gitlab.com/phpboyscout/go/config-xml v0.2.14 // indirect
 	gitlab.com/phpboyscout/go/credentials v0.3.4 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.5 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.6 // indirect
