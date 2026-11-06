@@ -136,7 +136,10 @@ is the keys that govern self-update verification and posture
 `update.external_key_email`), telemetry consent (`telemetry.enabled`), and every
 credential subtree (`*.auth.*`, `*.api.*`, `bitbucket.app_password`). When any of
 these is stripped from an untrusted file, the framework logs a WARN naming the
-file and the ignored keys. Never a silent drop.
+file and the ignored keys. Never a silent drop. A protected key matches whatever
+case the file spells it in, at any depth, including inside a list item. The same
+holds in a `KeyCase: exact` tool, where a differently spelt key is dropped with the
+same warning and `config trust` restores it.
 
 One subtree is stripped even from a **trusted** file: `config.sources`, which says
 where configuration comes from (a Consul address, a Vault mount, a bucket).

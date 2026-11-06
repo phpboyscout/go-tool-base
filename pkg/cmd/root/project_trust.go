@@ -1,8 +1,8 @@
 package root
 
 import (
+	"fmt"
 	"slices"
-
 	"sort"
 	"strings"
 
@@ -20,7 +20,7 @@ import (
 // repository must not be able to silently downgrade self-update verification or
 // flip telemetry consent simply by shipping one of these keys — so they are
 // stripped from the project-local layer until the directory is trusted via
-// `<tool> config trust`. Credentials are handled separately by the "auth"/"api"
+// `<tool> config trust`. Credentials are handled separately by the "auth"
 // segment rule in isProtectedProjectKey; these are the exact scalar/section
 // paths reachable by the update and telemetry resolution chains
 // (pkg/setup/update.go, buildTelemetryCollector).
@@ -47,68 +47,86 @@ func protectedProjectKeys() []string {
 	return append(keys, credentialposture.DualCredential("bitbucket").Password)
 }
 
-// isProtectedProjectKey reports whether the dotted path full (whose final
-// segment is segment) is one an untrusted project-local layer must not set.
-// Any segment named "auth" is protected, which covers every provider's
-// credential subtree (github.auth.value, gitlab.auth.env, …) without enrolling
-// each provider by name.
-func isProtectedProjectKey(full, segment string) bool {
-	if segment == "auth" || full == configSourcesKey {
+// isProtectedProjectKey reports whether the dotted path full is one an untrusted
+// project-local layer must not set. Any segment named "auth" is protected, which
+// covers every provider's credential subtree (github.auth.value, gitlab.auth.env,
+// …) without enrolling each provider by name.
+//
+// The comparison folds as the store does, because the store folds a file's keys
+// only after this filter has seen them. It folds in exact mode too: a tool there
+// reads one spelling, and any other it loses is warned about and config trust
+// restores it.
+func isProtectedProjectKey(full string) bool {
+	folded := strings.ToLower(full)
+
+	if folded == configSourcesKey || slices.Contains(strings.Split(folded, "."), "auth") {
 		return true
 	}
 
-	for _, key := range protectedProjectKeys() {
-		if full == key {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(protectedProjectKeys(), func(key string) bool {
+		return folded == strings.ToLower(key)
+	})
 }
 
 // stripProtectedKeys removes every security-sensitive key from a decoded config
 // document in place and returns the dotted paths it removed, sorted for stable
-// reporting. Nested maps are walked so a key set at any depth is caught.
+// reporting.
 func stripProtectedKeys(doc map[string]any) []string {
+	return stripKeys(doc, isProtectedProjectKey)
+}
+
+// stripKeys removes the keys matching protected from every map in a decoded
+// document, and returns their dotted paths as the file spells them, sorted.
+func stripKeys(doc map[string]any, protected func(full string) bool) []string {
 	var removed []string
 
-	stripInto(doc, "", &removed)
+	stripValue(doc, "", protected, &removed)
 	sort.Strings(removed)
 
 	return removed
 }
 
-func stripInto(m map[string]any, prefix string, removed *[]string) {
-	for k, v := range m {
-		full := k
-		if prefix != "" {
-			full = prefix + "." + k
-		}
-
-		if isProtectedProjectKey(full, k) {
-			delete(m, k)
-
-			*removed = append(*removed, full)
-
-			continue
-		}
-
-		switch child := v.(type) {
-		case map[string]any:
-			stripInto(child, full, removed)
-		case map[any]any:
-			// yaml.v3 can decode nested maps with non-string keys; normalise
-			// the string-keyed subset so protected keys there are still caught.
-			norm := make(map[string]any, len(child))
-			for ck, cv := range child {
-				if ks, ok := ck.(string); ok {
-					norm[ks] = cv
-				}
+// stripValue walks each container a codec can produce. yaml.v3 yields map[any]any
+// for a map with any non-string key, and the store accepts that form, so it is
+// stripped in place. Keys render as the store's own stringKey renders them.
+func stripValue(v any, prefix string, protected func(string) bool, removed *[]string) {
+	switch node := v.(type) {
+	case map[string]any:
+		for k, child := range node {
+			if stripEntry(k, child, prefix, protected, removed) {
+				delete(node, k)
 			}
-
-			stripInto(norm, full, removed)
+		}
+	case map[any]any:
+		for k, child := range node {
+			if stripEntry(fmt.Sprint(k), child, prefix, protected, removed) {
+				delete(node, k)
+			}
+		}
+	case []any:
+		for _, item := range node {
+			stripValue(item, prefix, protected, removed)
 		}
 	}
+}
+
+// stripEntry reports whether the key should be deleted, recording it if so and
+// walking its value if not.
+func stripEntry(key string, value any, prefix string, protected func(string) bool, removed *[]string) bool {
+	full := key
+	if prefix != "" {
+		full = prefix + "." + key
+	}
+
+	if protected(full) {
+		*removed = append(*removed, full)
+
+		return true
+	}
+
+	stripValue(value, full, protected, removed)
+
+	return false
 }
 
 // trustFilterCodec is a read-only config codec that decodes exactly like the
@@ -185,18 +203,9 @@ const configSourcesKey = "config.sources"
 // stripSourcePointers removes config.sources from a decoded document and
 // reports it when it was there.
 func stripSourcePointers(doc map[string]any) []string {
-	cfg, ok := doc["config"].(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	if _, present := cfg["sources"]; !present {
-		return nil
-	}
-
-	delete(cfg, "sources")
-
-	return []string{configSourcesKey}
+	return stripKeys(doc, func(full string) bool {
+		return strings.ToLower(full) == configSourcesKey
+	})
 }
 
 // withoutSourcePointers wraps a trusted project file's codec so it drops

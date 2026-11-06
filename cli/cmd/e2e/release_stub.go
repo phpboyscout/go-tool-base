@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/forge"
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
+	"gitlab.com/phpboyscout/go/signing/verify"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	pkgversion "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -53,6 +54,11 @@ func applyReleaseStub(p *props.Props) {
 	scenario := os.Getenv(releaseScenarioEnv)
 	if scenario == "" {
 		return
+	}
+
+	if scenario == "unsigned" {
+		// This binary leaves the default off. A shipped one sets it (cli/pkg/cmd/root/signing.go).
+		verify.DefaultRequireSignature = true
 	}
 
 	provider, keys := buildReleaseScenario(scenario, p.Tool.Name)
@@ -117,6 +123,14 @@ func buildReleaseScenario(scenario, toolName string) (forge.Provider, [][]byte) 
 		))
 
 		return provider, [][]byte{armoredPublicKey(entity)}
+
+	case "unsigned":
+		// A newer release with a good checksums manifest and no signature →
+		// the signature requirement aborts before extract.
+		asset := forgetest.TarGzAsset(toolName, toolName, stubNewBinaryContent)
+
+		return forgetest.New(forgetest.WithRelease(stubNewerVersion,
+			asset, forgetest.ChecksumsAsset(false, asset))), [][]byte{armoredPublicKey(mustStubEntity())}
 
 	default:
 		// "unreachable" and any unknown scenario: a source with no releases

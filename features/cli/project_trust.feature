@@ -104,3 +104,29 @@ Feature: Project-local config trust
     Then the exit code is 0
     And stdout equals "debug"
     And stderr contains "trust does not admit where configuration comes from"
+
+  Scenario: A project file's security keys are ignored in any key case
+    Given a project-local config file with:
+      """
+      Telemetry:
+        ENABLED: true
+      LOG:
+        LEVEL: debug
+      """
+    When I run gtb in the project directory with "config get log.level"
+    Then the exit code is 0
+    And stdout equals "debug"
+    And stderr contains "ignoring security-sensitive keys"
+    And stderr contains "Telemetry.ENABLED"
+
+  Scenario: Self-update stays verified whatever case a project file's keys use
+    Given a project-local config file with:
+      """
+      UPDATE:
+        REQUIRE_SIGNATURE: false
+      """
+    And I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "unsigned"
+    When I run gtb in the project directory with "update"
+    Then the exit code is not 0
+    And stderr contains "ignoring security-sensitive keys"
+    And stderr contains "signature"

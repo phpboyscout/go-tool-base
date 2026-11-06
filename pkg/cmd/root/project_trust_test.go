@@ -149,3 +149,139 @@ func TestStripProtectedKeys(t *testing.T) {
 	lg, _ := doc["log"].(map[string]any)
 	assert.Equal(t, "debug", lg["level"])
 }
+
+// TestProjectLocalTrust_ProtectedKeysMatchInAnyCase pins the strip to the same
+// folding the store applies, so no spelling of a protected key reaches a reader.
+func TestProjectLocalTrust_ProtectedKeysMatchInAnyCase(t *testing.T) {
+	cases := []struct {
+		name, file, key string
+	}{
+		{"upper", "UPDATE:\n  REQUIRE_SIGNATURE: false\n", "update.require_signature"},
+		{"mixed", "Update:\n  Require_Signature: false\n", "update.require_signature"},
+		{"parent only", "UPDATE:\n  require_signature: false\n", "update.require_signature"},
+		{"leaf only", "update:\n  REQUIRE_SIGNATURE: false\n", "update.require_signature"},
+		{"non-ascii folding", "update:\n  Key_source: wkd\n", "update.key_source"},
+		{"telemetry", "TELEMETRY:\n  ENABLED: true\n", "telemetry.enabled"},
+		{"credential segment", "github:\n  AUTH:\n    value: x\n", "github.auth.value"},
+		{"credential root", "Anthropic:\n  API:\n    key: x\n", "anthropic.api.key"},
+		{"dual credential", "BITBUCKET:\n  APP_PASSWORD: x\n", "bitbucket.app_password"},
+		{"config sources", "CONFIG:\n  SOURCES:\n    team:\n      address: x\n", "config.sources.team.address"},
+		{"nested", "tools:\n  deep:\n    Auth:\n      value: x\n", "tools.deep.auth.value"},
+		{"non-string sibling", "github:\n  1: x\n  auth:\n    value: x\n", "github.auth.value"},
+		{"non-string sibling, nested", "tools:\n  1: x\n  deep:\n    AUTH:\n      value: x\n", "tools.deep.auth.value"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+
+			fs := afero.NewOsFs()
+			path := filepath.Join(t.TempDir(), ".mytool.yaml")
+			require.NoError(t, afero.WriteFile(fs, path, []byte(tc.file+"log:\n  level: debug\n"), 0o600))
+
+			log := logger.NewBuffer()
+			view := buildProjectStore(t, fs, log, path).Config.View()
+
+			assert.False(t, view.IsSet(tc.key), "%s must not reach the store", tc.key)
+			assert.Equal(t, "debug", view.GetString("log.level"), "the file's other keys still apply")
+			assert.True(t, log.Contains("ignoring security-sensitive keys"))
+		})
+	}
+}
+
+// TestProjectLocalTrust_ExactKeyCaseStripsEverySpelling covers a tool whose store
+// does not fold: it reads only one spelling, but the strip still takes them all,
+// and a file that is trusted keeps them.
+func TestProjectLocalTrust_ExactKeyCaseStripsEverySpelling(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	fs := afero.NewOsFs()
+	path := filepath.Join(t.TempDir(), ".mytool.yaml")
+	require.NoError(t, afero.WriteFile(fs, path,
+		[]byte("update:\n  require_signature: false\n  Require_Signature: false\nlog:\n  Level: debug\n"), 0o600))
+
+	build := func(log logger.Logger) *p.Props {
+		props := &p.Props{Tool: p.Tool{Name: "mytool", Config: p.ConfigSpec{KeyCase: p.KeyCaseExact}}, Logger: log, FS: fs}
+
+		store, err := buildConfigStore(t.Context(), ConfigLoadOptions{Props: props, AllowEmpty: true, ProjectConfigPath: path})
+		require.NoError(t, err)
+
+		props.Config = store
+
+		return props
+	}
+
+	log := logger.NewBuffer()
+	view := build(log).Config.View()
+
+	assert.False(t, view.IsSet("update.require_signature"))
+	assert.False(t, view.IsSet("update.Require_Signature"))
+	assert.Equal(t, "debug", view.GetString("log.Level"), "an unprotected key keeps its exact spelling")
+	assert.True(t, log.Contains("ignoring security-sensitive keys"))
+
+	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	assert.True(t, build(logger.NewNoop()).Config.View().IsSet("update.Require_Signature"))
+}
+
+// TestProjectLocalTrust_SourcePointersMatchInAnyCase holds a trusted file to the
+// same matching: trust never admits config.sources, however it is spelt.
+func TestProjectLocalTrust_SourcePointersMatchInAnyCase(t *testing.T) {
+	cases := map[string]string{
+		"upper":              "CONFIG:\n  SOURCES:\n    team:\n      address: x\n",
+		"leaf only":          "config:\n  Sources:\n    team:\n      address: x\n",
+		"non-string sibling": "config:\n  1: x\n  sources:\n    team:\n      address: x\n",
+	}
+
+	for name, file := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+
+			fs := afero.NewOsFs()
+			path := filepath.Join(t.TempDir(), ".mytool.yaml")
+			require.NoError(t, afero.WriteFile(fs, path, []byte(file), 0o600))
+			require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+
+			log := logger.NewBuffer()
+			view := buildProjectStore(t, fs, log, path).Config.View()
+
+			assert.False(t, view.IsSet("config.sources.team.address"))
+			assert.True(t, log.Contains("ignoring config.sources"))
+		})
+	}
+}
+
+func TestStripProtectedKeys_WalksEveryContainer(t *testing.T) {
+	t.Parallel()
+
+	nonString := map[any]any{1: "kept", "AUTH": map[string]any{"value": "x"}, "name": "kept"}
+	listed := map[string]any{"Auth": map[string]any{"value": "x"}, "name": "kept"}
+	doc := map[string]any{
+		"github": nonString,
+		"items":  []any{listed, map[any]any{"auth": "x"}, "scalar"},
+	}
+
+	removed := stripProtectedKeys(doc)
+
+	assert.Equal(t, []string{"github.AUTH", "items.Auth", "items.auth"}, removed)
+	assert.NotContains(t, nonString, "AUTH")
+	assert.Equal(t, "kept", nonString[1])
+	assert.Equal(t, "kept", nonString["name"])
+	assert.NotContains(t, listed, "Auth")
+	assert.Equal(t, "kept", listed["name"])
+}
+
+func TestStripProtectedKeys_FlatDottedKeys(t *testing.T) {
+	t.Parallel()
+
+	doc := map[string]any{
+		"UPDATE.REQUIRE_SIGNATURE": false,
+		"github.AUTH.value":        "x",
+		"gitlab":                   map[string]any{"auth.value": "x"},
+		"update.check_interval":    "24h",
+	}
+
+	assert.Equal(t,
+		[]string{"UPDATE.REQUIRE_SIGNATURE", "github.AUTH.value", "gitlab.auth.value"},
+		stripProtectedKeys(doc))
+	assert.Contains(t, doc, "update.check_interval")
+}
