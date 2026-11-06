@@ -238,7 +238,12 @@ func aProjectLocalConfigFileNamed(ctx context.Context, name string, content *god
 		w.projectDir = dir
 	}
 
-	if err := os.WriteFile(filepath.Join(w.projectDir, name), []byte(content.Content), 0o600); err != nil {
+	path := filepath.Join(w.projectDir, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return ctx, fmt.Errorf("failed to create the directory for %s: %w", name, err)
+	}
+
+	if err := os.WriteFile(path, []byte(content.Content), 0o600); err != nil {
 		return ctx, fmt.Errorf("failed to write %s: %w", name, err)
 	}
 

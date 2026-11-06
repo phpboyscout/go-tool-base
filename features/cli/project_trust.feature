@@ -130,3 +130,31 @@ Feature: Project-local config trust
     Then the exit code is not 0
     And stderr contains "ignoring security-sensitive keys"
     And stderr contains "signature"
+
+  Scenario: With no home directory, a config.yaml in the working directory is not read
+    Given I set environment variable "HOME" to ""
+    And a project-local config file named "config.yaml" with:
+      """
+      update:
+        require_signature: false
+      """
+    When I run gtb in the project directory with "config get update.require_signature"
+    Then the exit code is not 0
+    And stderr contains "not found"
+
+  Scenario Outline: A relative home directory is no home directory
+    Given I set environment variable "HOME" to "<home>"
+    And a project-local config file named "<file>" with:
+      """
+      update:
+        require_signature: false
+      """
+    When I run gtb in the project directory with "config get update.require_signature"
+    Then the exit code is not 0
+    And stderr contains "not found"
+
+    Examples:
+      | home | file               |
+      | .    | .gtb/config.yaml   |
+      | sub  | sub/.gtb/config.yaml |
+      | ~    | ~/.gtb/config.yaml |
