@@ -174,7 +174,8 @@ In your tool, replace the embedded keys with the new-identity set and point it
 at the new bucket:
 
 ```bash
-cp signing-key-v1.asc signing-key-v2.asc rotation-authority.asc internal/trustkeys/keys/
+cp signing-key-v1.asc signing-key-v2.asc internal/trustkeys/keys/
+cp rotation-authority.asc internal/trustkeys/authority/
 gtb enable signing --email release-v2@acme.dev
 ```
 
@@ -321,9 +322,8 @@ cost of losing a key early, and it's why the overlap matters: never retire v1
 before it has closed.
 
 Don't sign a release with the rotation authority to bridge the gap. It's
-there to vouch for a new key set, not to sign releases, and gtb's own binary
-already refuses a release signed by it
-([#155](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/155)).
+there to vouch for a new key set, not to sign releases, and your tool refuses a
+release signed by it.
 
 Store the rotation authority's private half as
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md)

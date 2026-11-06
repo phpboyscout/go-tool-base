@@ -27,6 +27,10 @@ const signingGoPath = "pkg/cmd/root/signing.go"
 // minted *.asc files alongside.
 const signingKeysDir = "internal/trustkeys/keys"
 
+// signingAuthorityDir is the author-owned directory for keys that anchor trust
+// but must never sign a release. Its .gitkeep gives the embed a file to match.
+const signingAuthorityDir = "internal/trustkeys/authority"
+
 // Defaults for the release-signing pipeline, applied when a signing key id
 // is recorded so the generated GoReleaser signs block is always complete.
 const (
@@ -98,8 +102,8 @@ func (g *Generator) writeGeneratedGoFile(relPath string, f *jen.File) error {
 
 // syncSigningFiles brings the signing-owned files into line with the
 // manifest's signing posture. When signing is enabled it writes the
-// internal/trustkeys package, the keys/.gitkeep and the generated
-// signing.go; when disabled it removes the generated signing.go but
+// internal/trustkeys package, the .gitkeep in each key directory and the
+// generated signing.go; when disabled it removes the generated signing.go but
 // never deletes the internal/trustkeys directory or any author-added
 // *.asc keys (the generator never deletes author content).
 //
@@ -117,6 +121,10 @@ func (g *Generator) syncSigningFiles(m Manifest) error {
 	}
 
 	if err := g.writeGitkeep(filepath.Join(g.config.Path, signingKeysDir)); err != nil {
+		return err
+	}
+
+	if err := g.writeGitkeep(filepath.Join(g.config.Path, signingAuthorityDir)); err != nil {
 		return err
 	}
 

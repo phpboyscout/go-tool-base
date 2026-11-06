@@ -131,6 +131,7 @@ func TestSkeletonRoot_ToolOptions(t *testing.T) {
 			want: []string{
 				`trustkeys "example.com/acme/widget/internal/trustkeys"`,
 				"EmbeddedKeys:    trustkeys.Keys()",
+				"AnchorOnlyKeys:  trustkeys.AuthorityKeys()",
 				"RequireChecksum: props.BoolPtr(true)",
 			},
 		},

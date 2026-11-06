@@ -6,8 +6,8 @@ import (
 
 // SkeletonTrustKeys generates internal/trustkeys/trustkeys.go for
 // scaffolded projects with signing enabled. It mirrors go-tool-base's
-// own internal/trustkeys/trustkeys.go: a //go:embed of the keys
-// directory plus a Keys() [][]byte accessor that walks keys/*.asc.
+// own trustkeys package: a //go:embed of the keys and authority directories,
+// with Keys and AuthorityKeys accessors that walk their *.asc files.
 //
 // The package is generated and regeneration-protected; the author adds
 // their minted release public key(s) as files under keys/, never by
@@ -24,7 +24,11 @@ func SkeletonTrustKeys() *jen.File {
 	f.PackageComment("directory is embedded at build time and surfaced to the")
 	f.PackageComment("SelfUpdater via props.Tool.Signing.EmbeddedKeys.")
 	f.PackageComment("")
-	f.PackageComment("The directory ships empty (only a .gitkeep): with no keys present")
+	f.PackageComment("A rotation-authority key goes in internal/trustkeys/authority/ instead.")
+	f.PackageComment("It joins the trust set through props.Tool.Signing.AnchorOnlyKeys, which")
+	f.PackageComment("refuses it as a release signer.")
+	f.PackageComment("")
+	f.PackageComment("Both directories ship empty (only a .gitkeep): with no keys present")
 	f.PackageComment("Keys returns nil, so signature verification stays dormant until a")
 	f.PackageComment("real key is added and the rollout flips require_signature.")
 
@@ -34,15 +38,34 @@ func SkeletonTrustKeys() *jen.File {
 	f.Comment("//go:embed all:keys")
 	f.Var().Id("keyFS").Qual("embed", "FS")
 
+	f.Comment("authorityFS embeds the keys that anchor trust but must never sign a")
+	f.Comment("release. They live outside keys/ so Keys cannot return them.")
+	f.Comment("//go:embed all:authority")
+	f.Var().Id("authorityFS").Qual("embed", "FS")
+
 	f.Comment("Keys returns every embedded ASCII-armored public key (the contents of")
 	f.Comment("internal/trustkeys/keys/*.asc). It returns nil when no key files are")
 	f.Comment("present, which leaves the embedded trust anchor unset.")
 	f.Func().Id("Keys").Params().Index().Index().Byte().Block(
+		jen.Return(jen.Id("keysIn").Call(jen.Id("keyFS"), jen.Lit("keys"))),
+	)
+
+	f.Comment("AuthorityKeys returns the embedded rotation-authority public keys (the")
+	f.Comment("contents of internal/trustkeys/authority/*.asc), for")
+	f.Comment("props.Tool.Signing.AnchorOnlyKeys.")
+	f.Func().Id("AuthorityKeys").Params().Index().Index().Byte().Block(
+		jen.Return(jen.Id("keysIn").Call(jen.Id("authorityFS"), jen.Lit("authority"))),
+	)
+
+	f.Func().Id("keysIn").Params(
+		jen.Id("fsys").Qual("embed", "FS"),
+		jen.Id("dir").String(),
+	).Index().Index().Byte().Block(
 		jen.Var().Id("out").Index().Index().Byte(),
 		jen.Line(),
 		jen.Id("_").Op("=").Qual("io/fs", "WalkDir").Call(
-			jen.Id("keyFS"),
-			jen.Lit("keys"),
+			jen.Id("fsys"),
+			jen.Id("dir"),
 			jen.Func().Params(
 				jen.Id("p").String(),
 				jen.Id("d").Qual("io/fs", "DirEntry"),
@@ -56,7 +79,7 @@ func SkeletonTrustKeys() *jen.File {
 					jen.Return(jen.Nil()),
 				),
 				jen.Line(),
-				jen.List(jen.Id("b"), jen.Id("readErr")).Op(":=").Id("keyFS").Dot("ReadFile").Call(jen.Id("p")),
+				jen.List(jen.Id("b"), jen.Id("readErr")).Op(":=").Id("fsys").Dot("ReadFile").Call(jen.Id("p")),
 				jen.If(jen.Id("readErr").Op("!=").Nil()).Block(
 					jen.Return(jen.Id("readErr")),
 				),

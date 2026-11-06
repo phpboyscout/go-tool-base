@@ -75,8 +75,9 @@ type SkeletonRootData struct {
 	// zero value, so every root generated before the field says compact.
 	MCPMode string
 	// SigningEnabled gates the Signing: props.SigningConfig{...} block.
-	// When true the generated tool wires trustkeys.Keys() as its embedded
-	// trust anchor; ModulePath supplies the import path for that package.
+	// When true the generated tool wires trustkeys.Keys() and
+	// trustkeys.AuthorityKeys() as its embedded trust anchors; ModulePath
+	// supplies the import path for that package.
 	SigningEnabled bool
 	ModulePath     string
 	// AutoInitialise wires props.Tool.Bootstrap.AutoInitialise. When true the
@@ -364,6 +365,7 @@ func signingConfigValue(data SkeletonRootData) (jen.Code, bool) {
 
 	if data.SigningEnabled && data.ModulePath != "" {
 		signingDict[jen.Id("EmbeddedKeys")] = jen.Qual(data.ModulePath+"/internal/trustkeys", "Keys").Call()
+		signingDict[jen.Id("AnchorOnlyKeys")] = jen.Qual(data.ModulePath+"/internal/trustkeys", "AuthorityKeys").Call()
 	}
 
 	if data.RequireChecksum {

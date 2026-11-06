@@ -42,7 +42,7 @@ Two files appear in the current directory:
 
 - `rotation-authority.asc`: the **armored OpenPGP public** half. Safe to
   commit. You'll embed this in your tool's
-  `internal/trustkeys/keys/` and publish it alongside your signing
+  `internal/trustkeys/authority/` and publish it alongside your signing
   key via WKD.
 - `rotation-authority.priv.asc`: the **armored OpenPGP secret** half.
   Compatible with `gpg --import` for inspection. **This file is
@@ -171,17 +171,26 @@ backup good.
 
 ## Embed the public half
 
-Drop `rotation-authority.asc` into your tool's `internal/trustkeys/keys/`
-directory alongside the signing key. Go's `//go:embed all:keys`
-directive picks it up; it ships baked into every binary.
+Drop `rotation-authority.asc` into your tool's `internal/trustkeys/authority/`
+directory. Go's `//go:embed all:authority` directive picks it up, and it ships
+baked into every binary. The generated root passes it as
+`props.SigningConfig.AnchorOnlyKeys`, so it joins the trust set but a release
+signed with it fails verification.
+
+Don't put it in `keys/`. Every key there may sign a release.
+
+A project generated before gtb had this directory gets it from
+`gtb regenerate project`. If your rotation-authority key is already in `keys/`,
+move it across and ship a release.
 
 ```
 mytool/
 └── internal/
     └── trustkeys/
-        ├── trustkeys.go            ← uses //go:embed all:keys
-        └── keys/
-            ├── release.asc         ← the signing key
+        ├── trustkeys.go            ← embeds both directories
+        ├── keys/
+        │   └── release.asc         ← the signing key
+        └── authority/
             └── rotation-authority.asc        ← this file
 ```
 

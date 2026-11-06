@@ -89,8 +89,9 @@ When `mytool update` runs, it does this (sketch):
 1. **Download the release artefacts**: the binary plus
    `checksums.txt` plus `checksums.txt.sig`.
 2. **Load the embedded trust set**: parse the OpenPGP keys baked
-   into the running binary at `internal/trustkeys/keys/`. Both the
-   signing key and the rotation-authority key are present.
+   into the running binary. The signing key comes from
+   `internal/trustkeys/keys/`, and the rotation-authority key from
+   `internal/trustkeys/authority/`, which keeps it from signing a release.
 3. **Fetch the WKD-served copy** of the signing key from your
    domain. Verify it matches the embedded copy by fingerprint.
    This is the **cross-check** that catches a compromised release
@@ -158,8 +159,9 @@ gtb keys mint \
     --created 2026-06-08T00:00:00Z
 ```
 
-The end state: `rotation.asc` + `release.asc` are ready to drop into
-`internal/trustkeys/keys/` and publish via WKD. Nothing else is
+The end state: `release.asc` is ready to drop into
+`internal/trustkeys/keys/`, `rotation.asc` into
+`internal/trustkeys/authority/`, and both to publish via WKD. Nothing else is
 needed for verification to work.
 
 For production, step 2 swaps out: instead of generating a local PEM,

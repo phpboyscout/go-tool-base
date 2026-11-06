@@ -84,13 +84,9 @@ beside it for a release or two.
 With no `.asc` file present, `Keys()` returns nothing and verification stays
 dormant. So enabling signing before you have a key breaks nothing.
 
-One limit to know about. Every key in `keys/` is trusted to sign a release,
-the rotation authority included, so a release signed with it would verify.
-gtb's own binary marks that key anchor-only, which keeps it in the trust set
-but refuses it as a signer. A generated tool can't do that yet:
-[#155](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/155). Until it
-can, the protection is that the rotation authority's private half stays
-offline.
+Every key in `keys/` is trusted to sign a release, so the rotation authority
+goes next door in `internal/trustkeys/authority/`. Keys there join the trust
+set, and the updater refuses a release signed by one.
 
 ## Cross-check against WKD
 

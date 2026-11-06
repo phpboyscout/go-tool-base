@@ -78,8 +78,8 @@ func mcpModeFromLiteral(value dst.Expr) string {
 }
 
 // extractSigningLiteral recovers the author baselines a props.SigningConfig
-// literal carries. EmbeddedKeys is a call into the trust-keys package, not a
-// setting, and is skipped.
+// literal carries. EmbeddedKeys and AnchorOnlyKeys are calls into the trust-keys
+// package, not settings, and are skipped.
 func extractSigningLiteral(value dst.Expr, sg *ManifestSigning) {
 	comp, ok := value.(*dst.CompositeLit)
 	if !ok {

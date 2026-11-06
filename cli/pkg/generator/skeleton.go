@@ -963,13 +963,14 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 		return err
 	}
 
-	// When signing is enabled, ensure internal/trustkeys/keys/.gitkeep
-	// exists so the directory ships in git and the `all:keys` embed has a
-	// file to match. Author-added *.asc keys live alongside it and are
-	// never touched.
+	// When signing is enabled, ensure each key directory has a .gitkeep so it
+	// ships in git and its `all:` embed has a file to match. Author-added
+	// *.asc keys live alongside it and are never touched.
 	if data.Signing.Enabled {
-		if err := g.writeGitkeep(filepath.Join(destPath, "internal", "trustkeys", "keys")); err != nil {
-			return err
+		for _, dir := range []string{signingKeysDir, signingAuthorityDir} {
+			if err := g.writeGitkeep(filepath.Join(destPath, dir)); err != nil {
+				return err
+			}
 		}
 	}
 

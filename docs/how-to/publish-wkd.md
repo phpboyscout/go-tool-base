@@ -172,7 +172,7 @@ gpg --auto-key-locate clear,wkd --locate-keys release@phpboyscout.uk
 
 You should see both fingerprints (the rotation-authority and the
 signing-key) printed, matching what `gtb keys mint` reported and what
-you embedded in `internal/trustkeys/keys/`.
+you embedded in `internal/trustkeys/`.
 
 Direct HTTP fetch also works for spot-checking. The hash is logged
 by the `gtb keys wkd` run that produced the file. Copy it from there:
