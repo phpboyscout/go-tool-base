@@ -220,11 +220,19 @@ release config alone while it's hand-edited:
 signs:
   - id: checksums
     cmd: scripts/sign-release.sh
+    env:
+      - "AWS_ACCESS_KEY_ID="
+      - "AWS_SECRET_ACCESS_KEY="
     args: ["${signature}", "${artifact}"]
     artifacts: checksum
     signature: "${artifact}.sig"
     output: true
 ```
+
+Keep the `env:` lines on GitLab, where the generated block has them too. The
+goreleaser component hands the job the release store's keys, and static keys
+outrank the OIDC token, so both signatures would otherwise fail. On GitHub leave
+them out, because the role step supplies its credentials through those variables.
 
 ```bash
 chmod +x scripts/sign-release.sh

@@ -147,7 +147,7 @@ goreleaser:
     AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
 ```
 
-The AWS SDK inside `gtb` exchanges the token for the signer role the first
+The AWS SDK inside `sigillum` exchanges the token for the signer role the first
 time it touches KMS, so there's no `aws` CLI step. The `signs:` block also
 blanks `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for the sign command,
 because the goreleaser component hands the job the release store's keys, and
