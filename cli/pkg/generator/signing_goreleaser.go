@@ -42,7 +42,7 @@ const goreleaserSignsMarker = "# Release signing: gtb enable signing wired this.
 func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	relPath := goreleaserAssetRelPath
 	fullPath := filepath.Join(g.config.Path, relPath)
-	enable := m.Properties.Signing.Enabled && m.Properties.Signing.KeyID != ""
+	enable := m.Properties.Signing.SignsReleases()
 
 	exists, _ := afero.Exists(g.props.FS, fullPath)
 
@@ -59,7 +59,9 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	if !exists {
 		// No file to preserve: render the full skeleton asset. This is the only
 		// path that writes the whole skeleton, and it cannot lose customisation.
-		return g.regenerateGoreleaserAsset(m)
+		g.regenerateGoreleaserAsset(m)
+
+		return nil
 	}
 
 	content, err := afero.ReadFile(g.props.FS, fullPath)
@@ -86,21 +88,18 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 
 // enableGoreleaserSigns injects the top-level signs: block into a parseable,
 // non-ignored .goreleaser.yaml, appending it as a new top-level key and leaving
-// every other block untouched. If a signs: block is already present (author-
-// written or a prior run) it does not touch the file — it advises instead, so
-// an author-tuned block is never clobbered.
+// every other block untouched. A block already present goes to
+// refreshGoreleaserSigns.
 func (g *Generator) enableGoreleaserSigns(fullPath, relPath string, content []byte, m *Manifest, hasSigns bool) error {
-	if hasSigns {
-		g.adviseGoreleaserSigns(relPath, m, true, "a signs: block is already present")
-
-		return nil
-	}
-
 	block, err := g.renderGoreleaserSignsBlock(m)
 	if err != nil {
 		g.adviseGoreleaserSigns(relPath, m, true, "the signs: block could not be rendered")
 
 		return nil //nolint:nilerr // advisory degrade: the edit is non-fatal, the rest of enable proceeds
+	}
+
+	if hasSigns {
+		return g.refreshGoreleaserSigns(fullPath, relPath, content, block, m)
 	}
 
 	updated := appendTopLevelBlock(content, block)
@@ -110,6 +109,32 @@ func (g *Generator) enableGoreleaserSigns(fullPath, relPath string, content []by
 
 	g.recordGoreleaserEdit(relPath, content, updated, m)
 	g.props.Logger.Info("Injected the release-signing signs: block into the release config.", "path", relPath)
+
+	return nil
+}
+
+// refreshGoreleaserSigns brings an existing signs: block up to date when it is
+// still gtb's: it carries the marker and the file is unedited since gtb last
+// wrote it. Any other block gets an advisory, so an author-tuned one is never
+// clobbered.
+func (g *Generator) refreshGoreleaserSigns(fullPath, relPath string, content []byte, block string, m *Manifest) error {
+	if bytes.Contains(content, []byte(block)) {
+		return nil
+	}
+
+	if !bytes.Contains(content, []byte(goreleaserSignsMarker)) || m.Hashes[relPath] != calculateHash(content) {
+		g.adviseGoreleaserSigns(relPath, m, true, "a signs: block is already present")
+
+		return nil
+	}
+
+	updated := appendTopLevelBlock(removeGtbSignsBlock(content), block)
+	if err := afero.WriteFile(g.props.FS, fullPath, updated, DefaultFileMode); err != nil {
+		return errors.Newf("failed to write %s: %w", relPath, err)
+	}
+
+	g.recordGoreleaserEdit(relPath, content, updated, m)
+	g.props.Logger.Info("Updated the release-signing signs: block in the release config.", "path", relPath)
 
 	return nil
 }

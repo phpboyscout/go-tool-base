@@ -26,8 +26,8 @@ Allow about twenty minutes, plus one release to try it.
 - **The KMS key alias and signer role ARN** from
   [Put the signing key in AWS KMS](put-the-signing-key-in-kms.md).
 - **The OIDC trust** from [Sign from CI without stored keys](sign-from-ci-without-stored-keys.md).
-- **The same gtb release.** The commands below are verified against
-  **v0.50.0**.
+- **A gtb newer than v0.50.3.** Earlier releases added the `signs:` block but left
+  the CI side for you to wire by hand.
 
 ## Wire signing into the release config
 
@@ -41,6 +41,7 @@ gtb enable signing --key-id alias/acme-release-signing-v1
 
 ```text
 INFO  Injected the release-signing signs: block into the release config. path=.goreleaser.yaml
+INFO  Set the SIGNER_ROLE_ARN CI variable to the KMS signer role, or the release job can't sign. path=.gitlab-ci.yml
 INFO  Signing enabled.
 ```
 
@@ -98,26 +99,37 @@ untouched.
 `signature: "${artifact}.sig"` names the output `checksums.txt.sig`, which is
 the file your tool fetches on every self-update.
 
-## Put gtb on the release runner
+## What it does to your CI
 
-The signs block calls the `gtb` binary, so the release job needs it on its
-`PATH`. Bake it into your CI image, or download it in the job. For a Linux
-runner, from the release store:
+The same command updates the file that runs GoReleaser: `.gitlab-ci.yml` on
+GitLab, `.github/workflows/goreleaser.yaml` on GitHub. If you've edited that
+file, or listed it in `.gtb/ignore`, gtb leaves it alone and tells you, and the
+sections below are what to bring across by hand.
+
+### gtb on the release runner
+
+The signs block calls the `gtb` binary, so a tag build installs it, pinned to the
+gtb that rendered the file:
 
 ```bash
-curl -fsSL https://pkg.phpboyscout.uk/go-tool-base/v0.50.0/gtb_Linux_x86_64.tar.gz \
-  | tar -xz -C /usr/local/bin gtb
+go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@vX.Y.Z
 ```
 
-On a GitHub-hosted runner, put `sudo` in front of `tar`. Pin the version, as
-you would any other release tool.
+It builds from the module rather than downloading an archive, because this job
+holds your signing role. The Go checksum database vouches for the module, so
+write access to a release store can't swap the code that signs your release.
+Running `gtb regenerate project` moves the pin along with your gtb. A gtb built
+from a branch pins a commit that may not exist remotely, and `gtb enable signing`
+warns you when that's the case.
 
-## Give the job credentials
+### Credentials for the job
 
 `gtb sign` asks KMS to sign, and KMS only obliges a caller with credentials.
-They come from the OIDC exchange you set up earlier, on the release job only.
+They come from the OIDC exchange you set up earlier, on tag builds only. You
+supply one thing: a CI variable called `SIGNER_ROLE_ARN`, holding the role ARN.
 
-On GitLab, add the token and the role to the job that runs GoReleaser:
+On GitLab, set it under **Settings > CI/CD > Variables**. The generated overlay
+on the `goreleaser` job reads it:
 
 ```yaml
 goreleaser:
@@ -125,20 +137,19 @@ goreleaser:
     AWS_WEB_IDENTITY_TOKEN:
       aud: sts.amazonaws.com
   variables:
-    AWS_REGION: eu-west-2
+    AWS_REGION: "eu-west-2"
     AWS_ROLE_ARN: ${SIGNER_ROLE_ARN}
     AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
-  before_script:
-    - echo "$AWS_WEB_IDENTITY_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
 ```
 
 The AWS SDK inside `gtb` exchanges the token for the signer role the first
-time it touches KMS, so there's no `aws` CLI step. `AWS_REGION` is for that
-exchange. The key's region is already in the signs block.
+time it touches KMS, so there's no `aws` CLI step. The `signs:` block also
+blanks `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for the sign command,
+because the goreleaser component hands the job the release store's keys, and
+static keys outrank a web-identity token.
 
-On GitHub, add the credentials step to the generated
-`.github/workflows/goreleaser.yaml`, before GoReleaser runs, and only for
-tags:
+On GitHub, set it under **Settings > Secrets and variables > Actions >
+Variables**. The generated workflow reads it in a step that only runs for tags:
 
 ```yaml
       - name: Assume the signer role
@@ -146,48 +157,38 @@ tags:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.SIGNER_ROLE_ARN }}
-          aws-region: eu-west-2
+          aws-region: "eu-west-2"
           audience: sts.amazonaws.com
 ```
-
-The generated workflow already grants `id-token: write`.
 
 The signer role's trust policy only accepts tag pipelines on your project, so
 even a leaked role ARN gets nobody else a signature.
 
-## Skip signing on builds that aren't releases
+### Builds that aren't releases
 
-A pull request build, or a local `goreleaser release --snapshot`, has no OIDC
-token and shouldn't reach for KMS. GoReleaser still runs the signs block in
-snapshot mode, though, so without credentials the build fails:
-
-```text
-  • signing artifacts
-      │ ERROR constructing signer: kms GetPublicKey: ... get credentials: failed to refresh cached credentials ...
-  ⨯ release failed after 10s
-```
-
-The generated release config says this step is skipped when there are no
-credentials. In v0.50.0 nothing skips it: that's a known bug,
-[#153](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/153). Until
-it's fixed, pass `--skip=sign` yourself.
-
-On GitHub, where the generated workflow builds a snapshot for every pull
-request, change the snapshot line in `.github/workflows/goreleaser.yaml`:
+A pull request build has no OIDC token and shouldn't reach for KMS. GoReleaser
+still runs the signs block in snapshot mode, so the generated GitHub workflow
+adds `--skip=sign` to every build that isn't a tag:
 
 ```yaml
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: echo "flags=--snapshot --skip=sign" >> $GITHUB_ENV
 ```
 
-Then tell gtb to leave the file alone on regeneration:
+On GitLab the GoReleaser job only runs on tags, so merge requests never get
+there. Locally, pass it yourself:
 
 ```bash
-gtb ignore add .github/workflows/goreleaser.yaml
+goreleaser release --snapshot --skip=sign --clean
 ```
 
-On GitLab the GoReleaser job only runs on tags, so pull requests aren't
-affected. Locally, run `goreleaser release --snapshot --skip=sign --clean`.
+Without it, a build with no credentials stops at the signing step:
+
+```text
+  • signing artifacts
+      │ ERROR constructing signer: kms GetPublicKey: ... get credentials: failed to refresh cached credentials ...
+  ⨯ release failed after 10s
+```
 
 ## Cut a release
 

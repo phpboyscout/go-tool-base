@@ -48,3 +48,14 @@ Feature: Enable and disable release-signing verification end-to-end
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "Signing:"
     And the generated "pkg/cmd/root/signing.go" file exists
+
+  Scenario: Naming a signing key wires the release job, and disabling takes it back out
+    Given a freshly generated gtb project
+    When I run gtb in the project with "enable signing --key-id alias/acme-release-signing-v1"
+    Then the project exit code is 0
+    And the generated ".goreleaser.yaml" file contains "signs:"
+    And the generated ".github/workflows/goreleaser.yaml" file contains "--snapshot --skip=sign"
+    And the generated ".github/workflows/goreleaser.yaml" file contains "vars.SIGNER_ROLE_ARN"
+    When I run gtb in the project with "disable signing"
+    Then the project exit code is 0
+    And the generated ".github/workflows/goreleaser.yaml" file does not contain "SIGNER_ROLE_ARN"

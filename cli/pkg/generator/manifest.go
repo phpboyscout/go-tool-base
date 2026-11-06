@@ -379,6 +379,18 @@ type ManifestSigning struct {
 	PublicKey string `yaml:"public_key,omitempty"`
 }
 
+// SignsReleases reports whether the release pipeline signs. A key id is what
+// turns it on.
+func (s ManifestSigning) SignsReleases() bool {
+	return s.Enabled && s.KeyID != ""
+}
+
+// SignsWithKMS reports whether the release job signs through AWS KMS, and so
+// needs an OIDC identity.
+func (s ManifestSigning) SignsWithKMS() bool {
+	return s.SignsReleases() && s.Backend == defaultSigningBackend
+}
+
 // ManifestCI holds CI-pipeline configuration for generated tools. It is the
 // manifest representation of the scaffolded GitLab pipeline's configurable
 // inputs. Currently it carries only the phpboyscout/cicd component source so a

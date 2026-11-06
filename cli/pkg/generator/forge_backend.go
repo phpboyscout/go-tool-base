@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"io/fs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -359,6 +360,10 @@ func deriveMissingChatFields(p *ManifestProperties) bool {
 // has none (spec 0195 D8).
 type ciSkeleton struct {
 	root string
+	fsys fs.FS
+	// releaseFile is the file, relative to root and to the project, that runs
+	// GoReleaser.
+	releaseFile string
 }
 
 // ciSkeletonFor chooses the CI asset set from the backend, falling back to the
@@ -366,9 +371,9 @@ type ciSkeleton struct {
 func ciSkeletonFor(backend props.FeatureID, releaseProvider string) ciSkeleton {
 	switch ciForge(backend, releaseProvider) {
 	case "github":
-		return ciSkeleton{root: "assets/skeleton-github"}
+		return ciSkeleton{root: "assets/skeleton-github", fsys: skeletonGitHubAssets, releaseFile: ".github/workflows/goreleaser.yaml"}
 	case "gitlab":
-		return ciSkeleton{root: "assets/skeleton-gitlab"}
+		return ciSkeleton{root: "assets/skeleton-gitlab", fsys: skeletonGitLabAssets, releaseFile: ".gitlab-ci.yml"}
 	default:
 		return ciSkeleton{}
 	}

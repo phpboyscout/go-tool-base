@@ -35,6 +35,9 @@ const (
 	defaultSigningPublicKey = "internal/trustkeys/keys/signing-key-v1.asc"
 )
 
+// gtbInstallPackage is the gtb main package in its own module.
+const gtbInstallPackage = "gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb"
+
 // goreleaserAssetRelPath is the generated release config (relative to the
 // project root); goreleaserAssetEmbedPath is its source in the embedded
 // skeleton FS.
@@ -226,6 +229,8 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 		return err
 	}
 
+	g.applySigningCI(m)
+
 	if err := g.writeManifest(m); err != nil {
 		return err
 	}
@@ -240,44 +245,109 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 	return nil
 }
 
+// applySigningCI re-renders the file that runs GoReleaser, so the release job
+// gains or loses gtb and its OIDC identity along with the signs block. A file
+// that is ignored, edited or supplied by a template source is left as it is with
+// an advisory, and a deleted file stays deleted. With no key id the release
+// pipeline is not signing, so nothing changes.
+func (g *Generator) applySigningCI(m *Manifest) {
+	if m.Properties.Signing.KeyID == "" {
+		return
+	}
+
+	data := g.buildSkeletonTemplateData(*m)
+
+	ci := ciSkeletonFor(data.ForgeBackend, data.ReleaseProvider)
+	if ci.releaseFile == "" {
+		return
+	}
+
+	fullPath := filepath.Join(g.config.Path, ci.releaseFile)
+	if exists, _ := afero.Exists(g.props.FS, fullPath); !exists {
+		return
+	}
+
+	switch {
+	case g.ignoreRules().IsIgnored(ci.releaseFile):
+		g.adviseSigningCI(ci.releaseFile, "it is listed in .gtb/ignore")
+	case templateSourceSupplies(m, ci.releaseFile):
+		g.adviseSigningCI(ci.releaseFile, "a template source supplies it")
+	default:
+		err := g.renderEmbeddedAsset(m, ci.fsys, ci.root+"/"+ci.releaseFile, ci.releaseFile, data)
+
+		switch {
+		case err != nil:
+			g.adviseSigningCI(ci.releaseFile, err.Error())
+		case g.conflicts.wasKept(ci.releaseFile):
+			g.adviseSigningCI(ci.releaseFile, "it has edits gtb won't overwrite")
+		}
+	}
+
+	g.adviseSigningRelease(*m, data, ci.releaseFile)
+}
+
+// adviseSigningRelease names what still stands between the rendered file and a
+// tag that signs.
+func (g *Generator) adviseSigningRelease(m Manifest, data skeletonTemplateData, path string) {
+	if !isReleasedVersion(data.GoToolBaseVersion) {
+		g.props.Logger.Warn("This gtb isn't a release, so the release job's pinned gtb may not exist. Re-run enable signing with a released gtb before tagging.",
+			"version", data.GoToolBaseVersion, "path", path)
+	}
+
+	if m.Properties.Signing.SignsWithKMS() {
+		g.props.Logger.Info("Set the SIGNER_ROLE_ARN CI variable to the KMS signer role, or the release job can't sign.",
+			"path", path)
+	}
+}
+
+func templateSourceSupplies(m *Manifest, relPath string) bool {
+	for _, source := range m.Properties.Templates {
+		if _, ok := source.Hashes[relPath]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (g *Generator) adviseSigningCI(relPath, reason string) {
+	g.props.Logger.Warn(
+		"CI file not modified: bring its release job into line with release signing by hand (gtb on PATH, OIDC credentials on a tag, --skip=sign otherwise).",
+		"path", relPath, "reason", reason)
+}
+
 // regenerateGoreleaserAsset renders the whole .goreleaser.yaml skeleton asset
 // from the manifest. It is the absent-file fallback for applyGoreleaserSigns:
 // with no file on disk there is no customisation to lose, so a full render is
 // safe and produces a complete release config with (or without) the signs
-// block for the current posture. It records the new hash on the manifest for
-// the caller to persist. It is NOT used when the file already exists — that
-// path goes through the ignore-aware, structure-preserving injection in
+// block for the current posture. It is NOT used when the file already exists,
+// which goes through the ignore-aware, structure-preserving injection in
 // applyGoreleaserSigns so a customised file is never clobbered (issue #4).
-func (g *Generator) regenerateGoreleaserAsset(m *Manifest) error {
-	content, err := fs.ReadFile(skeletonAssets, goreleaserAssetEmbedPath)
+func (g *Generator) regenerateGoreleaserAsset(m *Manifest) {
+	err := g.renderEmbeddedAsset(m, skeletonAssets, goreleaserAssetEmbedPath, goreleaserAssetRelPath, g.buildSkeletonTemplateData(*m))
 	if err != nil {
-		return errors.Newf("failed to read embedded %s: %w", goreleaserAssetEmbedPath, err)
-	}
-
-	storedHashes := m.Hashes
-	if storedHashes == nil {
-		storedHashes = make(map[string]string)
-	}
-
-	hash, err := g.renderAndHashSkeletonTemplate(
-		filepath.Join(g.config.Path, goreleaserAssetRelPath),
-		goreleaserAssetRelPath,
-		string(content),
-		g.buildSkeletonTemplateData(*m),
-		storedHashes,
-	)
-	if err != nil {
-		// Non-fatal: a customised .goreleaser.yaml is left untouched.
 		g.props.Logger.Warn("skipped", "path", goreleaserAssetRelPath, "error", err)
+	}
+}
 
-		return nil
+// renderEmbeddedAsset renders one embedded skeleton file through the usual
+// conflict check and records its hash on the manifest for the caller to persist.
+func (g *Generator) renderEmbeddedAsset(m *Manifest, fsys fs.FS, embedPath, relPath string, data skeletonTemplateData) error {
+	content, err := fs.ReadFile(fsys, embedPath)
+	if err != nil {
+		return errors.Newf("failed to read embedded %s: %w", embedPath, err)
 	}
 
 	if m.Hashes == nil {
 		m.Hashes = make(map[string]string)
 	}
 
-	m.Hashes[goreleaserAssetRelPath] = hash
+	hash, err := g.renderAndHashSkeletonTemplate(filepath.Join(g.config.Path, relPath), relPath, string(content), data, m.Hashes)
+	if err != nil {
+		return err
+	}
+
+	recordSkeletonHash(m.Hashes, relPath, hash)
 
 	return nil
 }

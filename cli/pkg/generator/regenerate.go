@@ -11,6 +11,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 
 	"github.com/spf13/afero"
+	"golang.org/x/mod/semver"
 
 	"gitlab.com/phpboyscout/go/errors"
 
@@ -675,7 +676,7 @@ func (d skeletonTemplateData) HomebrewCask() bool { return d.HomebrewTap != "" }
 // HomebrewPushedByJob reports whether the pipeline pushes the cask with the
 // job token rather than GoReleaser pushing it: GitLab's path (spec 0212 D3).
 func (d skeletonTemplateData) HomebrewPushedByJob() bool {
-	return d.HomebrewCask() && ciForge(d.ForgeBackend, d.ReleaseProvider) == string(forge.GitlabFeature)
+	return d.HomebrewCask() && d.GitLabCI()
 }
 
 // HomebrewOwner is the tap's namespace, every segment before its name, so a
@@ -697,6 +698,31 @@ func (d skeletonTemplateData) HomebrewName() string {
 // tag's objects under the channel's base URL, as the blobs pipe writes them.
 func (d skeletonTemplateData) HomebrewURLTemplate() string {
 	return strings.TrimRight(d.ReleaseBaseURL, "/") + "/{{ .Tag }}/{{ .ArtifactName }}"
+}
+
+// GitLabCI reports whether GitLab CI runs the project's release job.
+func (d skeletonTemplateData) GitLabCI() bool {
+	return ciForge(d.ForgeBackend, d.ReleaseProvider) == string(forge.GitlabFeature)
+}
+
+// GTBInstallPackage is what a release job passes to go install to get the gtb it
+// signs with, pinned to the gtb that rendered the file. A signing job builds from
+// the module rather than downloading an archive so the checksum database vouches
+// for the code holding the signer role, whoever can write to the release store.
+func (d skeletonTemplateData) GTBInstallPackage() string {
+	return gtbInstallPackage + "@" + gtbVersionTag(d.GoToolBaseVersion)
+}
+
+func gtbVersionTag(version string) string {
+	return "v" + strings.TrimPrefix(version, "v")
+}
+
+// isReleasedVersion reports whether version names a tag rather than a branch or
+// dirty build, which a release job can't be relied on to find.
+func isReleasedVersion(version string) bool {
+	tag := gtbVersionTag(version)
+
+	return semver.IsValid(tag) && semver.Prerelease(tag) == "" && semver.Build(tag) == ""
 }
 
 // RepositoryURL is the project's page on its forge, the cask's homepage.

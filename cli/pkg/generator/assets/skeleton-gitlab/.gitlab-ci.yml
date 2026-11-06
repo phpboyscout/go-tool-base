@@ -30,6 +30,11 @@
 #     macOS binaries the cask installs are notarised; without them macOS may
 #     refuse to open them.
 {{- end }}
+{{- if .Signing.SignsWithKMS }}
+#   • SIGNER_ROLE_ARN: the KMS signer role the goreleaser job assumes over OIDC,
+#     set as a CI/CD variable. The role's trust policy must accept this project's
+#     tag pipelines with the audience sts.amazonaws.com.
+{{- end }}
 #   • Merge method: fast-forward. colophon resolves the commit that landed
 #     rather than trusting the MR's recorded head, so rebasing on merge is
 #     safe; meaningful commits should survive rather than be squashed.
@@ -104,7 +109,7 @@ workflow:
 variables:
   # colophon + goreleaser walk the full commit history.
   GIT_DEPTH: "0"
-{{- if or .StaticChannel .HomebrewPushedByJob }}
+{{- if or .StaticChannel .HomebrewPushedByJob .Signing.SignsReleases }}
 {{ if .StaticChannel }}
 # The static release channel's store (go-tool-base spec 0203 D5). The
 # goreleaser component hands the job the estate store's credentials as
@@ -119,10 +124,31 @@ variables:
 # homebrew-tap job pushes. A component that keeps more needs it added here.
 {{- end }}
 goreleaser:
-{{- if .StaticChannel }}
+{{- if .Signing.SignsWithKMS }}
+  # The AWS SDK inside gtb exchanges this token for the signer role.
+  id_tokens:
+    AWS_WEB_IDENTITY_TOKEN:
+      aud: sts.amazonaws.com
+{{- end }}
+{{- if or .StaticChannel .Signing.SignsWithKMS }}
   variables:
+{{- end }}
+{{- if .StaticChannel }}
     RELEASE_STORE_ENDPOINT: $R2_RELEASE_ENDPOINT
     RELEASE_STORE_BUCKET: pbs-release-binaries
+{{- end }}
+{{- if .Signing.SignsWithKMS }}
+    AWS_REGION: {{ .Signing.KMSRegion | escapeYAML }}
+    AWS_ROLE_ARN: ${SIGNER_ROLE_ARN}
+    AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
+{{- end }}
+{{- if .Signing.SignsReleases }}
+  # The signs block in .goreleaser.yaml calls gtb, so the job installs it.
+  before_script:
+{{- if .Signing.SignsWithKMS }}
+    - echo "$AWS_WEB_IDENTITY_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+{{- end }}
+    - GOBIN=/usr/local/bin go install {{ .GTBInstallPackage }}
 {{- end }}
 {{- if .HomebrewPushedByJob }}
   artifacts:

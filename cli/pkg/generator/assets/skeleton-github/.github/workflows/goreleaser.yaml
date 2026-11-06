@@ -36,7 +36,25 @@ jobs:
       - name: Install documentation tools
         run: pip install zensical
       - if: ${{ "{{" }} !startsWith(github.ref, 'refs/tags/v') {{ "}}" }}
-        run: echo "flags=--snapshot" >> $GITHUB_ENV
+        run: echo "flags=--snapshot{{ if .Signing.SignsReleases }} --skip=sign{{ end }}" >> $GITHUB_ENV
+{{- if .Signing.SignsReleases }}
+
+      # The signs block in .goreleaser.yaml calls gtb. Only a release signs.
+      - name: Install gtb
+        if: ${{ "{{" }} startsWith(github.ref, 'refs/tags/v') {{ "}}" }}
+        run: go install {{ .GTBInstallPackage }}
+{{- end }}
+{{- if .Signing.SignsWithKMS }}
+
+      # SIGNER_ROLE_ARN is a repository variable naming the KMS signer role.
+      - name: Assume the signer role
+        if: ${{ "{{" }} startsWith(github.ref, 'refs/tags/v') {{ "}}" }}
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ "{{" }} vars.SIGNER_ROLE_ARN {{ "}}" }}
+          aws-region: {{ .Signing.KMSRegion | escapeYAML }}
+          audience: sts.amazonaws.com
+{{- end }}
 
       - name: Run GoReleaser ${{ "{{" }} env.flags {{ "}}" }}
         uses: goreleaser/goreleaser-action@v7

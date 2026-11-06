@@ -1092,12 +1092,7 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 
 	// Walk the CI assets the backend has, if any (spec 0195 D8).
 	if ci := ciSkeletonFor(extractForgeBackend(data), releaseProvider); ci.root != "" {
-		providerFS := skeletonGitHubAssets
-		if ci.root == "assets/skeleton-gitlab" {
-			providerFS = skeletonGitLabAssets
-		}
-
-		if err := g.walkSkeletonAssets(providerFS, ci.root, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
+		if err := g.walkSkeletonAssets(ci.fsys, ci.root, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
 			return nil, nil, err
 		}
 	} else {
