@@ -15,6 +15,11 @@ you implement a `signing.Backend`, register it from your own `main`
 package, and `gtb keys mint --backend <name>` / `gtb sign --backend
 <name>` picks it up.
 
+A generated release job signs with `sigillum`, which links only `aws-kms` and
+`local`. To release with your own backend, point the `signs:` block in
+`.goreleaser.yaml` at the binary that registers it, install that binary in the
+release job, and list both files in `.gtb/ignore`.
+
 !!! info "Canonical guide lives in the signing module"
     The backend registry was extracted from go-tool-base into the
     standalone **signing** module (`gitlab.com/phpboyscout/go/signing`,

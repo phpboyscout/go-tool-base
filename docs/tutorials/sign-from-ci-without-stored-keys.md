@@ -114,7 +114,7 @@ assume the role.
 export doesn't survive to the next one.
 
 The AWS SDK sees `AWS_ROLE_ARN` and `AWS_WEB_IDENTITY_TOKEN_FILE` together and
-assumes the role itself. `gtb sign --backend aws-kms` uses that SDK, so it
+assumes the role itself. `sigillum sign --backend aws-kms` uses that SDK, so it
 needs no extra step either. Push a `v` tag and the job prints the assumed
 signer role:
 

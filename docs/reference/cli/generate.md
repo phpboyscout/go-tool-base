@@ -220,7 +220,7 @@ the end user's, captured by `init ai` or supplied through the environment.
 | `--signing-key-source` | `both` | Trust-anchor source: `embedded`, `external`, or `both`. |
 | `--signing-require-external-crosscheck` | `false` | Fail signing closed when the external (WKD) resolver is unreachable. |
 | `--signing-key-id` | — | Signing key id/ARN/alias (or PEM path for `local`) the release pipeline signs with; wires the GoReleaser signs block. Refused without `--signing` or `--signing-email`, since only the signing path renders it. |
-| `--signing-backend` | *(aws-kms when `--signing-key-id` set)* | `gtb sign` backend for the release pipeline. |
+| `--signing-backend` | *(aws-kms when `--signing-key-id` set)* | Signing backend for the release pipeline: `aws-kms` or `local`, the two `sigillum` links. |
 | `--signing-kms-region` | *(eu-west-2)* | AWS region for the `aws-kms` backend. |
 | `--signing-public-key` | *(internal/trustkeys/keys/signing-key-v1.asc)* | Path to the embedded public key the signature identifies. |
 

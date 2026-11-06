@@ -237,6 +237,6 @@ one ever goes bad, without locking users out.
 
 ## What to read next
 
-- [Sign release artefacts](../how-to/sign-releases.md): every `gtb sign` flag.
+- [Sign release artefacts](../how-to/sign-releases.md): every `sign` flag.
 - [Release-binary signing](../explanation/concepts/release-binary-signing.md):
   how the signature, the trust anchors and the update fit together.

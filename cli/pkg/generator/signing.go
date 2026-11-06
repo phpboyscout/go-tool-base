@@ -306,7 +306,7 @@ func templateSourceSupplies(m *Manifest, relPath string) bool {
 
 func (g *Generator) adviseSigningCI(relPath, reason string) {
 	g.props.Logger.Warn(
-		"CI file not modified: bring its release job into line with release signing by hand (gtb on PATH, OIDC credentials on a tag, --skip=sign otherwise).",
+		"CI file not modified: bring its release job into line with release signing by hand (sigillum on PATH, OIDC credentials on a tag, --skip=sign otherwise).",
 		"path", relPath, "reason", reason)
 }
 

@@ -70,7 +70,7 @@ paste.
 | `--require-signature` | `false` | Fail updates closed when no valid signature is present (flip only once a signed release has shipped). |
 | `--require-external-crosscheck` | `false` | Fail closed when the external (WKD) resolver is unreachable. |
 | `--key-id` | — | Signing key id/ARN/alias (or PEM path) the release pipeline signs with. |
-| `--backend` | *(aws-kms when `--key-id` set)* | `gtb sign` backend for the release pipeline. |
+| `--backend` | *(aws-kms when `--key-id` set)* | Signing backend for the release pipeline: `aws-kms` or `local`, the two `sigillum` links. |
 | `--kms-region` | `eu-west-2` | AWS region for the `aws-kms` backend. |
 | `--public-key` | *(embedded signing-key)* | Path to the embedded public key the signature identifies. |
 

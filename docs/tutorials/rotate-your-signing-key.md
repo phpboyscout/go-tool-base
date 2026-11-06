@@ -190,10 +190,10 @@ they need to be able to verify the release that brings them v2.
 
 For the overlap window, every release carries two signatures in one
 `checksums.txt.sig`: one from v1 for the installed copies, one from v2 for the
-new ones. `gtb sign --append` adds a second signature packet to an existing
+new ones. `sigillum sign --append` adds a second signature packet to an existing
 signature file, and verifiers skip a packet whose key they don't have.
 
-The generated signs block calls `gtb sign` once and can't name a second key
+The generated signs block calls `sigillum sign` once and can't name a second key
 yet ([#156](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/156)).
 For the window, replace it with a script, `scripts/sign-release.sh`:
 
@@ -203,12 +203,12 @@ For the window, replace it with a script, `scripts/sign-release.sh`:
 set -eu
 sig=$1 artifact=$2
 
-gtb --ci sign --backend "$SIGN_BACKEND" --key-id "$SIGN_KEY_ID" \
+sigillum --ci sign --backend "$SIGN_BACKEND" --key-id "$SIGN_KEY_ID" \
   --public-key "$SIGN_PUBLIC_KEY" --output "$sig" "$artifact"
 
 if [ -n "${SIGN_KEY_ID_2:-}" ]; then
   AWS_ROLE_ARN="${AWS_ROLE_ARN_2:-${AWS_ROLE_ARN:-}}" \
-    gtb --ci sign --append --backend "$SIGN_BACKEND" --key-id "$SIGN_KEY_ID_2" \
+    sigillum --ci sign --append --backend "$SIGN_BACKEND" --key-id "$SIGN_KEY_ID_2" \
     --public-key "$SIGN_PUBLIC_KEY_2" --output "$sig" "$artifact"
 fi
 ```
@@ -245,7 +245,7 @@ In the release job, set the first key to v1 and the second to v2:
 ```
 
 The same OIDC token works for both roles, because both trust your project's
-tag pipelines. `gtb sign` reads the key's region from `--kms-region`, which
+tag pipelines. `sigillum sign` reads the key's region from `--kms-region`, which
 defaults to `eu-west-2`; add it to both commands in the script if yours
 differs.
 
@@ -347,4 +347,4 @@ it changes without stranding anyone.
 - [Generate the rotation-authority key](../how-to/generate-rotation-key.md):
   storage and recovery for the break-glass key.
 - [Sign release artefacts](../how-to/sign-releases.md): `--append` and every
-  other `gtb sign` flag.
+  other `sign` flag.

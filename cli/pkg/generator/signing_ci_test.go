@@ -356,6 +356,7 @@ func TestEnableSigning_ProtectsACIFileGtbDoesNotOwn(t *testing.T) {
 			assert.Equal(t, edited, readGenerated(t, fs, "/work/"+githubReleaseWorkflow))
 			assert.True(t, buf.Contains("CI file not modified"), "the author is told what to bring across")
 			assert.True(t, loggedReason(buf, tt.reason), "the advisory says why")
+			assert.True(t, buf.Contains("sigillum on PATH"), "the signs block calls sigillum, so that's what to install")
 		})
 	}
 }

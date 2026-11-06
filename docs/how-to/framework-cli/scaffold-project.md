@@ -359,7 +359,7 @@ also asks whether to require a signature.
 | `--signing-key-source` | | Signing trust-anchor source (`embedded`, `external`, or `both`) | `both` |
 | `--signing-require-external-crosscheck` | | Fail signing closed when the external (WKD) resolver is unreachable | `false` |
 | `--signing-key-id` | | Signing key id/ARN/alias (or PEM path for local) the release pipeline signs with; wires the GoReleaser `signs` block | — |
-| `--signing-backend` | | `gtb sign` backend for the release pipeline | `aws-kms` (when `--signing-key-id` is set) |
+| `--signing-backend` | | Signing backend for the release pipeline: `aws-kms` or `local`, the two `sigillum` links | `aws-kms` (when `--signing-key-id` is set) |
 | `--signing-kms-region` | | AWS region for the `aws-kms` backend | `eu-west-2` |
 | `--signing-public-key` | | Path to the embedded public key the signature identifies | `internal/trustkeys/keys/signing-key-v1.asc` |
 | `--template` | | Custom template overlay source `<src>@<ref>` (local path or forge repo); repeatable, layered in order | — |

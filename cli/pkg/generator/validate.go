@@ -77,7 +77,7 @@ var (
 	// components are separated by "/"; a leading domain component may
 	// contain ":" when a port is appended.
 	repoSegmentRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._~-]*$`)
-	// signingBackendRe matches registered `gtb sign` backend names
+	// signingBackendRe matches registered `sigillum sign` backend names
 	// (e.g. "aws-kms", "local"): lowercase alphanumeric with hyphens.
 	signingBackendRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 	// kmsRegionRe matches AWS region identifiers (e.g. "eu-west-2",
