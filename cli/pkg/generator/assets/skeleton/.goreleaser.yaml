@@ -116,13 +116,14 @@ checksum:
 {{ if .Signing.SignsReleases -}}
 # Release signing: gtb enable signing wired this. The signature over
 # checksums.txt is what the self-updater's embedded trust anchor verifies.
-# gtb is called directly (no shim), and the generated release job installs it
-# and, for aws-kms, supplies credentials from the CI OIDC context. GoReleaser
+# sigillum signs it: the GitLab goreleaser image carries it, the GitHub workflow
+# installs it, and for aws-kms the job supplies credentials from the CI OIDC
+# context. GoReleaser
 # signs snapshots too, so anything else runs with --skip=sign, as the generated
 # GitHub workflow does for a pull request.
 signs:
   - id: checksums
-    cmd: gtb
+    cmd: sigillum
     {{- if and .GitLabCI .Signing.SignsWithKMS }}
     # The goreleaser component's release store keys outrank the job's OIDC
     # identity in the AWS SDK's chain, so the signer doesn't get them.

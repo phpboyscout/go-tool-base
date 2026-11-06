@@ -58,12 +58,12 @@ signing:
   public_key: internal/trustkeys/keys/signing-key-v1.asc
 ```
 
-And it adds a `signs:` block to `.goreleaser.yaml` that calls `gtb sign`:
+And it adds a `signs:` block to `.goreleaser.yaml` that calls `sigillum sign`:
 
 ```yaml
 signs:
   - id: checksums
-    cmd: gtb
+    cmd: sigillum
     args:
       - "--ci"
       - "sign"
@@ -106,25 +106,30 @@ GitLab, `.github/workflows/goreleaser.yaml` on GitHub. If you've edited that
 file, or listed it in `.gtb/ignore`, gtb leaves it alone and tells you, and the
 sections below are what to bring across by hand.
 
-### gtb on the release runner
+### sigillum on the release runner
 
-The signs block calls the `gtb` binary, so a tag build installs it, pinned to the
-gtb that rendered the file:
+The signs block calls [sigillum](https://gitlab.com/phpboyscout/sigillum), a
+standalone signer with the same `sign` command as gtb, so the job needs no gtb.
+
+On GitLab there's nothing to install, because the goreleaser component's image
+carries sigillum. If you mirror the components with `ci.component_source`, or
+override the component's `image` input, your image has to carry it too. The image
+is what sets the version here.
+
+On GitHub a tag build installs it, at a version gtb pins:
 
 ```bash
-go install gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@vX.Y.Z
+go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@vX.Y.Z
 ```
 
 It builds from the module rather than downloading an archive, because this job
 holds your signing role. The Go checksum database vouches for the module, so
 write access to a release store can't swap the code that signs your release.
-Running `gtb regenerate project` moves the pin along with your gtb. A gtb built
-from a branch pins a commit that may not exist remotely, and `gtb enable signing`
-warns you when that's the case.
+Running `gtb regenerate project` moves the pin along with your gtb.
 
 ### Credentials for the job
 
-`gtb sign` asks KMS to sign, and KMS only obliges a caller with credentials.
+`sigillum sign` asks KMS to sign, and KMS only obliges a caller with credentials.
 They come from the OIDC exchange you set up earlier, on tag builds only. You
 supply one thing: a CI variable called `SIGNER_ROLE_ARN`, holding the role ARN.
 
@@ -203,7 +208,7 @@ If your project releases through colophon, as generated projects do, merging
 the release merge request pushes the tag for you.
 
 The tag pipeline builds the binaries, writes `checksums.txt`, and calls
-`gtb sign`, which signs through KMS over the job's OIDC credentials.
+`sigillum sign`, which signs through KMS over the job's OIDC credentials.
 `checksums.txt.sig` is attached to the release beside the checksums. No
 private key was anywhere near the runner.
 

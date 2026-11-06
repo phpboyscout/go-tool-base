@@ -55,7 +55,7 @@ than printing state.
 `enable signing` wires consumer-side release-signature verification; `disable
 signing` removes it. With `--key-id` it also wires the release pipeline: the
 GoReleaser `signs:` block, and in the file that runs GoReleaser
-(`.gitlab-ci.yml` or `.github/workflows/goreleaser.yaml`) the `gtb` install, the
+(`.gitlab-ci.yml` or `.github/workflows/goreleaser.yaml`) the `sigillum` install on GitHub, the
 `aws-kms` OIDC credentials, and `--skip=sign` on GitHub builds that aren't tags.
 The `aws-kms` backend reads the signer role from a `SIGNER_ROLE_ARN` CI variable,
 which you set. A CI file you've edited, listed in `.gtb/ignore`, or take from a

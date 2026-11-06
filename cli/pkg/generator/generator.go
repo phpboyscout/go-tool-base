@@ -53,6 +53,11 @@ const (
 	// workflow installs. Kept current by the Renovate customManager in
 	// renovate.json5.
 	ColophonVersion = "v0.21.2"
+
+	// SigillumVersion is the signer the scaffolded GitHub release workflow
+	// installs. On GitLab the goreleaser component's image carries it. Kept
+	// current by the Renovate customManager in renovate.json5.
+	SigillumVersion = "v0.5.8"
 )
 
 type Config struct {

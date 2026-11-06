@@ -74,7 +74,7 @@ flag to do so.`,
 	cmd.Flags().BoolVar(&opts.RequireSignature, "require-signature", false, "Fail updates closed when no valid signature is present (only flip once a signed release has shipped)")
 	cmd.Flags().BoolVar(&opts.RequireExternalCrosscheck, "require-external-crosscheck", false, "Fail closed when the external (WKD) resolver is unreachable")
 	cmd.Flags().StringVar(&opts.KeyID, "key-id", "", "Signing key id/ARN/alias (or PEM path for the local backend) the release pipeline signs with; recording it wires the GoReleaser signs block")
-	cmd.Flags().StringVar(&opts.Backend, "backend", "", "gtb sign backend for the release pipeline (default aws-kms when --key-id is set)")
+	cmd.Flags().StringVar(&opts.Backend, "backend", "", "Signing backend for the release pipeline (default aws-kms when --key-id is set)")
 	cmd.Flags().StringVar(&opts.KMSRegion, "kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
 	cmd.Flags().StringVar(&opts.PublicKey, "public-key", "", "Path to the embedded public key the signature identifies (default internal/trustkeys/keys/signing-key-v1.asc)")
 

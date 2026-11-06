@@ -239,7 +239,7 @@ func TestEnableSigning_InjectsIntoCustomisedNonIgnoredGoreleaser(t *testing.T) {
 	// The signs: block was added, complete, with the concrete manifest values.
 	assert.Contains(t, string(got), "signs:")
 	assert.Contains(t, string(got), goreleaserSignsMarker)
-	assert.Contains(t, string(got), "cmd: gtb")
+	assert.Contains(t, string(got), "cmd: sigillum")
 	assert.Contains(t, string(got), `- "alias/acme-release-signing-v1"`)
 
 	// Everything before the appended block is byte-for-byte the original.
@@ -293,7 +293,7 @@ func TestEnableSigning_AdvisesWhenSignsBlockPresent(t *testing.T) {
 	// A fail-loud advisory was emitted, with the exact block to paste.
 	assert.True(t, buf.Contains("Release config not modified"),
 		"expected a fail-loud advisory when a signs: block is already present")
-	assert.True(t, buf.Contains("cmd: gtb"),
+	assert.True(t, buf.Contains("cmd: sigillum"),
 		"advisory must print the exact signs: block for the user to paste")
 
 	// The rest of enable signing still proceeded.

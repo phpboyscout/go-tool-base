@@ -298,7 +298,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().BoolVar(&opts.SigningRequireSignature, "signing-require-signature", false, "Fail a self-update closed without a valid signature; not before your first signed release")
 	cmd.Flags().BoolVar(&opts.SigningRequireChecksum, "signing-require-checksum", false, "Fail a self-update closed without a verified checksum")
 	cmd.Flags().StringVar(&opts.SigningKeyID, "signing-key-id", "", "Signing key id/ARN/alias (or PEM path for local) the release pipeline signs with; wires the GoReleaser signs block")
-	cmd.Flags().StringVar(&opts.SigningBackend, "signing-backend", "", "gtb sign backend for the release pipeline (default aws-kms when --signing-key-id is set)")
+	cmd.Flags().StringVar(&opts.SigningBackend, "signing-backend", "", "Signing backend for the release pipeline (default aws-kms when --signing-key-id is set)")
 	cmd.Flags().StringVar(&opts.SigningKMSRegion, "signing-kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
 	cmd.Flags().StringVar(&opts.SigningPublicKey, "signing-public-key", "", "Path to the embedded public key the signature identifies (default internal/trustkeys/keys/signing-key-v1.asc)")
 	cmd.Flags().BoolVar(&opts.NoGit, "no-git", false, "Skip the post-generation git init and initial commit (init+commit is on by default)")

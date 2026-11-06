@@ -39,10 +39,10 @@ jobs:
         run: echo "flags=--snapshot{{ if .Signing.SignsReleases }} --skip=sign{{ end }}" >> $GITHUB_ENV
 {{- if .Signing.SignsReleases }}
 
-      # The signs block in .goreleaser.yaml calls gtb. Only a release signs.
-      - name: Install gtb
+      # The signs block in .goreleaser.yaml calls sigillum. Only a release signs.
+      - name: Install sigillum
         if: ${{ "{{" }} startsWith(github.ref, 'refs/tags/v') {{ "}}" }}
-        run: go install {{ .GTBInstallPackage }}
+        run: go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@{{ .SigillumVersion }}
 {{- end }}
 {{- if .Signing.SignsWithKMS }}
 

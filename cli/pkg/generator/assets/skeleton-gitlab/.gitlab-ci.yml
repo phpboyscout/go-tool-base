@@ -109,7 +109,7 @@ workflow:
 variables:
   # colophon + goreleaser walk the full commit history.
   GIT_DEPTH: "0"
-{{- if or .StaticChannel .HomebrewPushedByJob .Signing.SignsReleases }}
+{{- if or .StaticChannel .HomebrewPushedByJob .Signing.SignsWithKMS }}
 {{ if .StaticChannel }}
 # The static release channel's store (go-tool-base spec 0203 D5). The
 # goreleaser component hands the job the estate store's credentials as
@@ -125,7 +125,7 @@ variables:
 {{- end }}
 goreleaser:
 {{- if .Signing.SignsWithKMS }}
-  # The AWS SDK inside gtb exchanges this token for the signer role.
+  # The AWS SDK inside sigillum exchanges this token for the signer role.
   id_tokens:
     AWS_WEB_IDENTITY_TOKEN:
       aud: sts.amazonaws.com
@@ -142,13 +142,9 @@ goreleaser:
     AWS_ROLE_ARN: ${SIGNER_ROLE_ARN}
     AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
 {{- end }}
-{{- if .Signing.SignsReleases }}
-  # The signs block in .goreleaser.yaml calls gtb, so the job installs it.
-  before_script:
 {{- if .Signing.SignsWithKMS }}
+  before_script:
     - echo "$AWS_WEB_IDENTITY_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
-{{- end }}
-    - GOBIN=/usr/local/bin go install {{ .GTBInstallPackage }}
 {{- end }}
 {{- if .HomebrewPushedByJob }}
   artifacts:

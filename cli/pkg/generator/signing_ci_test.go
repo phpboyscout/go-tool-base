@@ -37,6 +37,8 @@ var localSigning = ManifestSigning{
 	PublicKey: "internal/trustkeys/keys/signing-key-v1.asc",
 }
 
+const sigillumInstall = "go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@" + SigillumVersion
+
 func signingCIConfig(backend props.FeatureID, path string, signing ManifestSigning) SkeletonConfig {
 	return SkeletonConfig{
 		Name: "acme", Repo: "acme/acme-cli", Host: string(backend) + ".com", ForgeBackend: backend,
@@ -126,25 +128,25 @@ func TestGitHubWorkflow_TagReleaseGetsRoleAndGtb(t *testing.T) {
 	assert.Equal(t, "us-east-1", role.With["aws-region"])
 	assert.Equal(t, "sts.amazonaws.com", role.With["audience"])
 
-	install := byName["Install gtb"]
+	install := byName["Install sigillum"]
 	assert.Equal(t, tagOnly, install.If)
-	assert.Contains(t, install.Run, "go install "+gtbInstallPackage+"@")
+	assert.Equal(t, sigillumInstall, install.Run)
 
 	run := "Run GoReleaser ${{ env.flags }}"
 	require.Contains(t, position, run)
 	assert.Less(t, position["Assume the signer role"], position[run])
-	assert.Less(t, position["Install gtb"], position[run])
+	assert.Less(t, position["Install sigillum"], position[run])
 }
 
-// A local-key backend has no role to assume, but still calls gtb.
-func TestGitHubWorkflow_LocalBackendInstallsGtbWithoutARole(t *testing.T) {
+// A local-key backend has no role to assume, but still calls sigillum.
+func TestGitHubWorkflow_LocalBackendInstallsSigillumWithoutARole(t *testing.T) {
 	t.Parallel()
 
 	_, fs := generateSigningCI(t, forge.GithubFeature, localSigning)
 	wf := readGenerated(t, fs, "/work/"+githubReleaseWorkflow)
 
 	assert.Contains(t, wf, "--skip=sign")
-	assert.Contains(t, wf, "go install "+gtbInstallPackage+"@")
+	assert.Contains(t, wf, sigillumInstall)
 	assert.NotContains(t, wf, "SIGNER_ROLE_ARN")
 }
 
@@ -170,9 +172,8 @@ func TestGitLabPipeline_TagJobGetsOIDCAndGtb(t *testing.T) {
 
 	before, ok := job["before_script"].([]any)
 	require.True(t, ok)
-	require.Len(t, before, 2)
+	require.Len(t, before, 1)
 	assert.Contains(t, before[0], "AWS_WEB_IDENTITY_TOKEN_FILE")
-	assert.Contains(t, before[1], "go install "+gtbInstallPackage+"@")
 }
 
 func TestGitLabPipeline_UnsignedProjectHasNoOverlay(t *testing.T) {
@@ -184,21 +185,14 @@ func TestGitLabPipeline_UnsignedProjectHasNoOverlay(t *testing.T) {
 	assert.NotContains(t, doc, "goreleaser")
 }
 
-func TestGitLabPipeline_LocalBackendInstallsGtbWithoutOIDC(t *testing.T) {
+// A bare job key is an invalid pipeline, so with nothing to overlay there's no key.
+func TestGitLabPipeline_LocalBackendNeedsNoOverlay(t *testing.T) {
 	t.Parallel()
 
 	_, fs := generateSigningCI(t, forge.GitlabFeature, localSigning)
 	doc := decodeYAMLMap(t, readGenerated(t, fs, "/work/"+gitlabPipeline))
 
-	job, ok := doc["goreleaser"].(map[string]any)
-	require.True(t, ok)
-	assert.NotContains(t, job, "id_tokens")
-	assert.NotContains(t, job, "variables")
-
-	before, ok := job["before_script"].([]any)
-	require.True(t, ok)
-	require.Len(t, before, 1)
-	assert.Contains(t, before[0], "go install "+gtbInstallPackage+"@")
+	assert.NotContains(t, doc, "goreleaser", "the goreleaser image carries sigillum")
 }
 
 // The GitLab goreleaser component hands the job the release store's keys, and
@@ -236,31 +230,6 @@ func TestGoreleaserSigns_BlanksStoreKeysOnlyOnGitLabKMS(t *testing.T) {
 
 			assert.NotContains(t, gr, "AWS_ACCESS_KEY_ID")
 		})
-	}
-}
-
-// The manifest records "0.50.3"; go install needs the tag, "v0.50.3".
-func TestGTBInstallPackage_UsesTheReleaseTag(t *testing.T) {
-	t.Parallel()
-
-	const want = "gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb@v0.50.3"
-
-	assert.Equal(t, want, skeletonTemplateData{GoToolBaseVersion: "0.50.3"}.GTBInstallPackage())
-	assert.Equal(t, want, skeletonTemplateData{GoToolBaseVersion: "v0.50.3"}.GTBInstallPackage())
-}
-
-func TestIsReleasedVersion(t *testing.T) {
-	t.Parallel()
-
-	for version, want := range map[string]bool{
-		"0.50.3":                                true,
-		"v0.50.3":                               true,
-		"v0.50.4-0.20261106181352-7f881953587b": false,
-		"v0.50.3+dirty":                         false,
-		"dev":                                   false,
-		"":                                      false,
-	} {
-		assert.Equal(t, want, isReleasedVersion(version), version)
 	}
 }
 
@@ -402,6 +371,31 @@ func TestEnableSigning_RendersCIBesideAnUnrelatedTemplateSource(t *testing.T) {
 	require.NoError(t, g.EnableSigning(context.Background(), kmsSigning))
 
 	assert.Contains(t, readGenerated(t, fs, "/work/"+githubReleaseWorkflow), signerRoleVariable)
+}
+
+// A project that enabled signing when gtb signed has to move to sigillum on the
+// next enable, along with the install step its CI file no longer needs.
+func TestEnableSigning_MovesAnExistingBlockFromGtbToSigillum(t *testing.T) {
+	t.Parallel()
+
+	const path = "/work/.goreleaser.yaml"
+
+	_, fs := generateSigningCI(t, forge.GitlabFeature, kmsSigning)
+	g, _ := signingCIGenerator(t, fs, "deny")
+
+	old := strings.Replace(readGenerated(t, fs, path), "cmd: sigillum", "cmd: gtb", 1)
+	require.NoError(t, afero.WriteFile(fs, path, []byte(old), 0o644))
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	m.Hashes[goreleaserAssetRelPath] = calculateHash([]byte(old))
+	require.NoError(t, g.writeManifest(m))
+
+	require.NoError(t, g.EnableSigning(context.Background(), kmsSigning))
+
+	got := readGenerated(t, fs, path)
+	assert.Contains(t, got, "cmd: sigillum")
+	assert.NotContains(t, got, "cmd: gtb")
 }
 
 // A GitLab project that enabled signing before the store keys were blanked has

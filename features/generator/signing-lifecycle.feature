@@ -55,7 +55,8 @@ Feature: Enable and disable release-signing verification end-to-end
     Given a freshly generated gtb project
     When I run gtb in the project with "enable signing --key-id alias/acme-release-signing-v1"
     Then the project exit code is 0
-    And the generated ".goreleaser.yaml" file contains "signs:"
+    And the generated ".goreleaser.yaml" file contains "cmd: sigillum"
+    And the generated ".github/workflows/goreleaser.yaml" file contains "cmd/sigillum@"
     And the generated ".github/workflows/goreleaser.yaml" file contains "--snapshot --skip=sign"
     And the generated ".github/workflows/goreleaser.yaml" file contains "vars.SIGNER_ROLE_ARN"
     When I run gtb in the project with "disable signing"

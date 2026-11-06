@@ -648,6 +648,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		CIComponentSource:     resolveCIComponentSource(config.CIComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
 		ColophonVersion:       ColophonVersion,
+		SigillumVersion:       SigillumVersion,
 		CIEnableE2E:           false,
 	}
 

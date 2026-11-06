@@ -112,7 +112,7 @@ func TestGenerateSkeleton_SignsBlock_AWSKMS(t *testing.T) {
 	}))
 
 	assert.Contains(t, out, "signs:")
-	assert.Contains(t, out, "cmd: gtb")
+	assert.Contains(t, out, "cmd: sigillum")
 	assert.Contains(t, out, `- "aws-kms"`)
 	assert.Contains(t, out, `- "--kms-region"`)
 	assert.Contains(t, out, `- "eu-west-2"`)

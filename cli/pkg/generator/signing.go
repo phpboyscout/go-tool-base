@@ -39,9 +39,6 @@ const (
 	defaultSigningPublicKey = "internal/trustkeys/keys/signing-key-v1.asc"
 )
 
-// gtbInstallPackage is the gtb main package in its own module.
-const gtbInstallPackage = "gitlab.com/phpboyscout/go-tool-base/cli/cmd/gtb"
-
 // goreleaserAssetRelPath is the generated release config (relative to the
 // project root); goreleaserAssetEmbedPath is its source in the embedded
 // skeleton FS.
@@ -254,7 +251,7 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 }
 
 // applySigningCI re-renders the file that runs GoReleaser, so the release job
-// gains or loses gtb and its OIDC identity along with the signs block. A file
+// gains or loses its signer and OIDC identity along with the signs block. A file
 // that is ignored, edited or supplied by a template source is left as it is with
 // an advisory, and a deleted file stays deleted. With no key id the release
 // pipeline is not signing, so nothing changes.
@@ -291,20 +288,9 @@ func (g *Generator) applySigningCI(m *Manifest) {
 		}
 	}
 
-	g.adviseSigningRelease(*m, data, ci.releaseFile)
-}
-
-// adviseSigningRelease names what still stands between the rendered file and a
-// tag that signs.
-func (g *Generator) adviseSigningRelease(m Manifest, data skeletonTemplateData, path string) {
-	if !isReleasedVersion(data.GoToolBaseVersion) {
-		g.props.Logger.Warn("This gtb isn't a release, so the release job's pinned gtb may not exist. Re-run enable signing with a released gtb before tagging.",
-			"version", data.GoToolBaseVersion, "path", path)
-	}
-
 	if m.Properties.Signing.SignsWithKMS() {
 		g.props.Logger.Info("Set the SIGNER_ROLE_ARN CI variable to the KMS signer role, or the release job can't sign.",
-			"path", path)
+			"path", ci.releaseFile)
 	}
 }
 

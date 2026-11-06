@@ -11,7 +11,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 
 	"github.com/spf13/afero"
-	"golang.org/x/mod/semver"
 
 	"gitlab.com/phpboyscout/go/errors"
 
@@ -627,6 +626,8 @@ type skeletonTemplateData struct {
 	CICDComponentVersion string
 	// ColophonVersion is the colophon the GitHub release workflow installs.
 	ColophonVersion string
+	// SigillumVersion is the signer the GitHub release workflow installs.
+	SigillumVersion string
 	// CIEnableE2E controls the go-test component's enable_e2e input. A freshly
 	// generated tool has no E2E suite, so this is false.
 	CIEnableE2E bool
@@ -705,26 +706,6 @@ func (d skeletonTemplateData) GitLabCI() bool {
 	return ciForge(d.ForgeBackend, d.ReleaseProvider) == string(forge.GitlabFeature)
 }
 
-// GTBInstallPackage is what a release job passes to go install to get the gtb it
-// signs with, pinned to the gtb that rendered the file. A signing job builds from
-// the module rather than downloading an archive so the checksum database vouches
-// for the code holding the signer role, whoever can write to the release store.
-func (d skeletonTemplateData) GTBInstallPackage() string {
-	return gtbInstallPackage + "@" + gtbVersionTag(d.GoToolBaseVersion)
-}
-
-func gtbVersionTag(version string) string {
-	return "v" + strings.TrimPrefix(version, "v")
-}
-
-// isReleasedVersion reports whether version names a tag rather than a branch or
-// dirty build, which a release job can't be relied on to find.
-func isReleasedVersion(version string) bool {
-	tag := gtbVersionTag(version)
-
-	return semver.IsValid(tag) && semver.Prerelease(tag) == "" && semver.Build(tag) == ""
-}
-
 // RepositoryURL is the project's page on its forge, the cask's homepage.
 func (d skeletonTemplateData) RepositoryURL() string { return "https://" + d.Host + "/" + d.Repo }
 
@@ -789,6 +770,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		CIComponentSource:     resolveCIComponentSource(m.Properties.CI.ComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
 		ColophonVersion:       ColophonVersion,
+		SigillumVersion:       SigillumVersion,
 		CIEnableE2E:           false,
 	}
 }
