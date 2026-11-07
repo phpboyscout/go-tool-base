@@ -1,5 +1,34 @@
 # Changelog
 
+## [v0.50.4](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.4)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.3...v0.50.4)
+
+### Notes
+
+- Correcting the note on HOME in this release: with HOME unset, empty, relative or naming no existing directory, a tool uses the home directory of the user's account, so its config and `config set` keep working. It uses the /etc file alone only when there is no usable home at all.
+
+- With HOME unset, empty or relative, a tool no longer reads a config file from under the working directory, and `config set` targets the /etc file instead.
+
+- The project-local config filter now matches protected keys in any case, at any depth.
+
+- A generated tool's release job now signs with sigillum rather than gtb. Re-run `gtb enable signing --key-id <key>` to move an existing project across. On GitLab a mirrored component source or an overridden goreleaser image has to carry sigillum.
+
+- Generated tools gain internal/trustkeys/authority/ on regenerate. If your rotation-authority key is in internal/trustkeys/keys/, move it there and ship a release, or a release signed with it still verifies.
+
+- A generated tool with release signing now builds and signs in CI without hand-wiring: set the SIGNER_ROLE_ARN CI variable, then re-run `gtb enable signing --key-id <key>` or `gtb regenerate project` on an existing project.
+
+### Bug Fixes
+
+- **config**: find the home directory from the account when HOME can't say ([b083833](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b08383336a05365044c44185ce94381459649e57))
+- **config**: read no user config file without an absolute home directory ([6db9763](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6db97631e1ae5bc9e0a4d97191e10144e8b0989a))
+- **config**: compare protected project keys case-insensitively ([584fa45](https://gitlab.com/phpboyscout/go-tool-base/-/commit/584fa456e2e3375b6eeff5e3fce3b8fcb1c99cb2))
+- **generator**: point the remaining signing guidance at sigillum ([981e480](https://gitlab.com/phpboyscout/go-tool-base/-/commit/981e48007f25b1ed7d80ca859dc51221bf0047e6))
+- **generator**: sign a generated tool's releases with sigillum ([888784d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/888784d98ba448c0b25af09984ca02e9ee4bc0f8))
+- **generator**: keep a generated tool's rotation authority from signing ([50db773](https://gitlab.com/phpboyscout/go-tool-base/-/commit/50db7730f6494f3affb4b4429288132078789dbd))
+- **generator**: wire the release job when a tool signs its releases ([3baf15d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3baf15d97938fa0c5fb02674e66acd6d099af9dd))
+- **deps**: take klauspost/compress v1.20.3 for GO-2026-6865 ([a211056](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a211056ff7d99131794188bb2c6cce4a56c55ef3))
+
 ## [v0.50.3](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.3)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.2...v0.50.3)
