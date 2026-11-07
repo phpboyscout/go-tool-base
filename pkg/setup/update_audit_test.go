@@ -105,12 +105,11 @@ func TestSetTimeSinceLast_EmptyConfigDirIsNoOp(t *testing.T) {
 
 // TestGetDefaultConfigDir_EmptyHomeReturnsEmpty pins the contract that an
 // unresolved/empty HOME yields an empty path (so callers skip writes).
-func TestGetDefaultConfigDir_EmptyHomeReturnsEmpty(t *testing.T) {
-	t.Setenv("HOME", "")
+func TestConfigDirUnder_NoHomeReturnsEmpty(t *testing.T) {
+	t.Parallel()
 
-	got := GetDefaultConfigDir(afero.NewMemMapFs(), "test-tool")
-	assert.Empty(t, got,
-		"empty HOME must yield an empty config dir, not a relative path")
+	assert.Empty(t, configDirUnder("", "test-tool"),
+		"no home must yield an empty config dir, not a relative path")
 }
 
 // TestUpdate_AlreadyCurrentIsSaidSo (#95): a binary that is already at the

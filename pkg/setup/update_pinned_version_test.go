@@ -67,20 +67,3 @@ func TestPinnedVersion_CorruptMarkerReadsAsUnpinned(t *testing.T) {
 	assert.Contains(t, err.Error(), marker, "the error names the file")
 	assert.Empty(t, pinned)
 }
-
-func TestPinnedVersion_NoHomeIsANoOp(t *testing.T) {
-	t.Setenv("HOME", "")
-
-	fs := afero.NewMemMapFs()
-	const name = "pinned-nohome-tool"
-
-	require.NoError(t, setup.SetPinnedVersion(fs, name, "v1.0.0"))
-
-	pinned, err := setup.GetPinnedVersion(fs, name)
-	require.NoError(t, err)
-	assert.Empty(t, pinned)
-
-	entries, err := afero.ReadDir(fs, ".")
-	require.NoError(t, err)
-	assert.Empty(t, entries, "nothing lands in the working directory")
-}

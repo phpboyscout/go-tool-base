@@ -103,7 +103,10 @@ func projectConfigNames(toolName string, codecs []ConfigCodec) []string {
 // trustStorePath returns the absolute path of the per-user trust store for the
 // named tool, or "" when the home directory cannot be resolved.
 func trustStorePath(fs afero.Fs, toolName string) string {
-	dir := GetDefaultConfigDir(fs, toolName)
+	return trustStorePathUnder(GetDefaultConfigDir(fs, toolName))
+}
+
+func trustStorePathUnder(dir string) string {
 	if dir == "" {
 		return ""
 	}
@@ -145,7 +148,7 @@ func loadTrustStore(fs afero.Fs, toolName string) (*trustStore, error) {
 func saveTrustStore(fs afero.Fs, toolName string, store *trustStore) error {
 	path := trustStorePath(fs, toolName)
 	if path == "" {
-		return errors.New("cannot resolve config directory for trust store (is HOME set?)")
+		return errors.New("cannot resolve config directory for trust store (no home directory from HOME or the user's account)")
 	}
 
 	if err := fs.MkdirAll(filepath.Dir(path), dirPermTrust); err != nil {

@@ -21,15 +21,17 @@ var ownConfigFormats = []string{"yaml", "toml", "json", "hcl"}
 
 // DefaultConfigPaths are where a tool looks for its own config file when
 // --config names none, lowest precedence first: the system-wide file, then
-// the user's. With no absolute home directory there is no user's file: joining
-// onto the empty directory would read one from wherever the tool was run.
+// the user's. With no home directory there is no user's file: joining onto the
+// empty directory would read one from wherever the tool was run.
 func DefaultConfigPaths(p *props.Props) []string {
-	name := p.Tool.ConfigFilename()
+	return configPathsUnder(GetDefaultConfigDir(p.FS, p.Tool.Name), p.Tool.Name, p.Tool.ConfigFilename())
+}
 
-	paths := []string{fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", p.Tool.Name, name))}
+func configPathsUnder(userDir, toolName, filename string) []string {
+	paths := []string{fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", toolName, filename))}
 
-	if dir := GetDefaultConfigDir(p.FS, p.Tool.Name); dir != "" {
-		paths = append(paths, filepath.Join(dir, name))
+	if userDir != "" {
+		paths = append(paths, filepath.Join(userDir, filename))
 	}
 
 	return paths

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/afero"
+
 	gochat "gitlab.com/phpboyscout/go/chat"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -403,12 +405,15 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 }
 
 func checkPermissions(_ context.Context, props *p.Props) CheckResult {
-	configDir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	return checkPermissionsOf(props.FS, setup.GetDefaultConfigDir(props.FS, props.Tool.Name))
+}
+
+func checkPermissionsOf(fs afero.Fs, configDir string) CheckResult {
 	if configDir == "" {
 		return CheckResult{Name: "Permissions", Status: CheckWarn, Message: "unable to determine config directory"}
 	}
 
-	info, err := props.FS.Stat(configDir)
+	info, err := fs.Stat(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return CheckResult{Name: "Permissions", Status: CheckSkip, Message: fmt.Sprintf("config directory not created yet: %s", configDir)}

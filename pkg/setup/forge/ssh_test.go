@@ -28,7 +28,7 @@ import (
 func TestDiscoverSSHKeys_Coverage(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
-	homeDir := "/home/testuser"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 
 	p := &props.Props{
@@ -46,7 +46,7 @@ func TestDiscoverSSHKeys_Coverage(t *testing.T) {
 }
 
 func TestDiscoverSSHKeys_CreatesMissingDir(t *testing.T) {
-	homeDir := "/home/freshuser"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 
 	fs := afero.NewMemMapFs()
@@ -65,7 +65,7 @@ func TestDiscoverSSHKeys_CreatesMissingDir(t *testing.T) {
 }
 
 func TestDiscoverSSHKeys_FindsKey(t *testing.T) {
-	homeDir := "/home/keyuser"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 
 	fs := afero.NewMemMapFs()
@@ -95,7 +95,7 @@ func TestDiscoverSSHKeys_FindsKey(t *testing.T) {
 }
 
 func TestDiscoverSSHKeys_MkdirError(t *testing.T) {
-	homeDir := "/home/rohome"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 
 	roFS := afero.NewReadOnlyFs(afero.NewMemMapFs())
@@ -119,7 +119,7 @@ func noUpload() *configureSSHKeyConfig {
 
 func TestGenerateAndDiscoverKey(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	homeDir := "/home/testuser"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 
 	p := &props.Props{
@@ -158,7 +158,7 @@ func TestGenerateAndDiscoverKey(t *testing.T) {
 
 func TestGenerateKey_Upload(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	homeDir := "/home/testuser"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 
 	p := &props.Props{
@@ -181,7 +181,7 @@ func TestGenerateKey_Upload(t *testing.T) {
 }
 
 func TestGenerateKey_UploadError(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
@@ -202,7 +202,7 @@ func TestGenerateKey_UploadError(t *testing.T) {
 // A passphrase the form did not collect (accessible mode with no terminal
 // leaves it blank) is refused before any key is written.
 func TestGenerateKey_RefusesAShortPassphrase(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
@@ -216,7 +216,7 @@ func TestGenerateKey_RefusesAShortPassphrase(t *testing.T) {
 }
 
 func TestGenerateKey_UploadFormRefusesANonInteractiveRun(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	p.IO = nonInteractiveIO()
@@ -242,7 +242,7 @@ func TestWithKeyManager(t *testing.T) {
 // Only the TUI honours a hide function, so the pages are proved with keys:
 // "other" opens the path page and nothing else.
 func TestSSHForm_OtherAsksForThePath(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -269,7 +269,7 @@ func TestSSHForm_OtherAsksForThePath(t *testing.T) {
 }
 
 func TestSSHForm_AgentAtAccessiblePrompts(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	options := []huh.Option[string]{
@@ -443,7 +443,7 @@ func TestHandleSSHKeySelection_Other_InvalidKeyContent(t *testing.T) {
 }
 
 func TestHandleSSHKeySelection_Generate(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	p.IO, _ = answersIO("n")
@@ -458,7 +458,7 @@ func TestHandleSSHKeySelection_Generate(t *testing.T) {
 }
 
 func TestHandleSSHKeySelection_Generate_Error(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	p.FS = afero.NewReadOnlyFs(afero.NewMemMapFs())
@@ -473,7 +473,7 @@ func TestHandleSSHKeySelection_Generate_Error(t *testing.T) {
 // --- ConfigureSSHKey ---
 
 func TestConfigureSSHKey_Agent(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	p.IO, _ = answersIO(sshChoiceNumber(t, p, sshChoiceAgent), "")
@@ -487,24 +487,27 @@ func TestConfigureSSHKey_Agent(t *testing.T) {
 
 // A recorded key is the selector's default: a blank answer keeps it.
 func TestConfigureSSHKey_ExistingPath(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	keyPath := filepath.Join(home, ".ssh", "id_existing")
 
 	p := newTestProps(t)
 	keyPEM := generateUnencryptedKeyPEM(t)
-	require.NoError(t, p.FS.MkdirAll("/home/testuser/.ssh", 0o700))
-	require.NoError(t, afero.WriteFile(p.FS, "/home/testuser/.ssh/id_existing", keyPEM, 0o600))
+	require.NoError(t, p.FS.MkdirAll(filepath.Dir(keyPath), 0o700))
+	require.NoError(t, afero.WriteFile(p.FS, keyPath, keyPEM, 0o600))
 
 	p.IO, _ = answersIO("", "")
-	cfg := testutil.ViewFromYAML(t, "github:\n  ssh:\n    key:\n      path: /home/testuser/.ssh/id_existing\n")
+	cfg := testutil.ViewFromYAML(t, "github:\n  ssh:\n    key:\n      path: "+keyPath+"\n")
 
 	key, err := ConfigureSSHKey(t.Context(), gitHubProfile, p, cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "file", key.Type)
-	assert.Equal(t, "/home/testuser/.ssh/id_existing", key.Path)
+	assert.Equal(t, keyPath, key.Path)
 }
 
 func TestConfigureSSHKey_RefusesANonInteractiveRun(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	p.IO = nonInteractiveIO()
@@ -515,7 +518,7 @@ func TestConfigureSSHKey_RefusesANonInteractiveRun(t *testing.T) {
 }
 
 func TestConfigureSSHKey_DiscoverError(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	// A read-only FS makes MkdirAll of ~/.ssh fail in discoverSSHKeys.
@@ -546,7 +549,7 @@ func TestUploadSSHKey_UploadError(t *testing.T) {
 // happens first, so the question is never asked — and the key is still
 // generated and saved, because that stands on its own.
 func TestGenerateKey_NotSupported_SkipsTheUploadPrompt(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
@@ -570,7 +573,7 @@ func TestGenerateKey_NotSupported_SkipsTheUploadPrompt(t *testing.T) {
 // TestGenerateKey_KeyManagerError_IsFatal separates a real resolution failure
 // from the ErrNotSupported degradation above: anything else must surface.
 func TestGenerateKey_KeyManagerError_IsFatal(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
@@ -591,7 +594,7 @@ func TestGenerateKey_KeyManagerError_IsFatal(t *testing.T) {
 // manager resolved for the capability check is the one used for the upload,
 // rather than being constructed a second time.
 func TestGenerateKey_ResolvesTheKeyManagerOnce(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
@@ -677,7 +680,7 @@ func TestGenerateAndSaveSSHKey_Success(t *testing.T) {
 
 // On a pipe the new key's passphrase is read as a plain line (#108).
 func TestSSHForm_GenerateOnAPipeReadsThePassphrase(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	options := []huh.Option[string]{

@@ -187,7 +187,7 @@ func TestCmdEdit_NilConfig(t *testing.T) {
 func TestCmdEdit_SeedsNewFile(t *testing.T) {
 	// Not parallel: pins HOME so the default writable path is deterministic
 	// and every write lands on the memmap FS, never a real home directory.
-	t.Setenv("HOME", "/home/edithome")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 	p := &props.Props{

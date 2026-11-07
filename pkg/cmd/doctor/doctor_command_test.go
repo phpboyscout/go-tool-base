@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 
 	gtbconfig "gitlab.com/phpboyscout/go/config"
@@ -145,21 +144,9 @@ func TestRunChecks_NoVersion(t *testing.T) {
 // TestCheckPermissions_NoConfigDir covers the branch where the config dir
 // cannot be determined (os.UserHomeDir fails because HOME is empty).
 func TestCheckPermissions_NoConfigDir(t *testing.T) {
-	// Not parallel: mutates HOME via t.Setenv to force os.UserHomeDir to fail.
-	t.Setenv("HOME", "")
+	t.Parallel()
 
-	// On some platforms UserHomeDir consults other variables; only assert the
-	// targeted branch when it actually returned empty.
-	if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
-		t.Skip("UserHomeDir still resolved a home directory; cannot exercise empty-dir branch")
-	}
-
-	props := &p.Props{
-		Tool: p.Tool{Name: "no-home-tool"},
-		FS:   afero.NewMemMapFs(),
-	}
-
-	result := checkPermissions(context.Background(), props)
+	result := checkPermissionsOf(afero.NewMemMapFs(), "")
 	assert.Equal(t, "Permissions", result.Name)
 	assert.Equal(t, CheckWarn, result.Status)
 	assert.Contains(t, result.Message, "unable to determine config directory")

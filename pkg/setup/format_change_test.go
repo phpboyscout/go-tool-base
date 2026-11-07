@@ -79,9 +79,8 @@ func TestDefaultConfigPaths(t *testing.T) {
 	assert.Equal(t, filepath.Join(setup.GetDefaultConfigDir(p.FS, "mytool"), "config.toml"), paths[1])
 }
 
-// With no home directory there is no user file, and the path must not fall back
-// to one relative to the working directory, which anyone can write to.
-func TestDefaultConfigPaths_NoHomeHasNoUserFile(t *testing.T) {
+// A path relative to the working directory is one anyone can write to.
+func TestDefaultConfigPaths_NeverRelative(t *testing.T) {
 	for _, home := range []string{"", ".", "sub", "~"} {
 		t.Run("HOME="+home, func(t *testing.T) {
 			t.Setenv("HOME", home)
@@ -89,11 +88,9 @@ func TestDefaultConfigPaths_NoHomeHasNoUserFile(t *testing.T) {
 
 			p := &props.Props{Tool: props.Tool{Name: "mytool"}}
 
-			assert.Empty(t, setup.GetDefaultConfigDir(p.FS, "mytool"))
-
-			paths := setup.DefaultConfigPaths(p)
-			require.Len(t, paths, 1)
-			assert.True(t, filepath.IsAbs(paths[0]), "got %q", paths[0])
+			for _, path := range setup.DefaultConfigPaths(p) {
+				assert.True(t, filepath.IsAbs(path), "got %q", path)
+			}
 		})
 	}
 }

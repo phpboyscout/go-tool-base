@@ -77,7 +77,7 @@ func TestNewCmdInit(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	// Mock HOME for default config dir
-	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("HOME", t.TempDir())
 
 	props := &p.Props{
 		Tool:         testTool(),
@@ -107,7 +107,7 @@ func TestNewCmdInit(t *testing.T) {
 }
 
 func TestNewCmdInit_FlagCombinations(t *testing.T) {
-	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("HOME", t.TempDir())
 
 	tests := []struct {
 		name  string
@@ -166,7 +166,7 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 }
 
 func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
-	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 
@@ -199,7 +199,7 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 }
 
 func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
-	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 
@@ -233,7 +233,7 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 }
 
 func TestNewCmdInit_CustomDir(t *testing.T) {
-	t.Setenv("HOME", "/tmp/home")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 

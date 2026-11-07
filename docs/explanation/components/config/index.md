@@ -53,9 +53,10 @@ variables under the tool's `EnvPrefix`; the project-local `.<tool>.yaml`; the
 config files (`--config` paths if given, otherwise `~/.<tool>/config.yaml` then
 `/etc/<tool>/config.yaml`); the tool's `ConfigPaths` embedded assets; and the
 merged `assets/config.yaml` embedded defaults, which always apply. The per-user
-config outranks the system `/etc` file, the Unix convention. With no absolute home
-directory (`HOME` unset, empty or relative) there is no per-user file, and the tool reads only
-the `/etc` one.
+config outranks the system `/etc` file, the Unix convention. The per-user file sits
+under `HOME` when that names an existing directory, and under the home directory of the user's
+account otherwise. A relative path never counts. With neither there is no per-user file: the tool
+reads only the `/etc` one, and `config set` targets it, with a hint if that fails.
 
 That is the default. A tool can declare its own stack in
 `props.Tool.Config.Layers`, lowest precedence first, by the names `defaults`,

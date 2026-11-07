@@ -39,7 +39,7 @@ func TestGitHubInitialiser_Name(t *testing.T) {
 // --- Initialiser flows ---
 
 func TestGitHubInitialiser(t *testing.T) {
-	homeDir := "/home/testuser"
+	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	// Ensure env-var-mode detection does not short-circuit the OAuth path; this
 	// test exercises the legacy literal-write behaviour and must not inherit
@@ -144,7 +144,7 @@ func TestConfigure_BothAlreadyConfigured(t *testing.T) {
 }
 
 func TestConfigure_SSHRunsAndErrors(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_TOKEN", "")
 
@@ -157,7 +157,7 @@ func TestConfigure_SSHRunsAndErrors(t *testing.T) {
 }
 
 func TestConfigureSSH_FormError(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 
 	p := newTestProps(t)
 	cfg := newTestEditor(t, p, "")
@@ -496,7 +496,7 @@ func TestConfigure_RefusesANonInteractiveRun(t *testing.T) {
 // --- RunGitHubInit / command wiring ---
 
 func TestRunGitHubInit_AuthShortCircuitThenSSHError(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_TOKEN", "already-here")
 
@@ -522,7 +522,7 @@ func TestNewCmdInitGitHub(t *testing.T) {
 }
 
 func TestNewCmdInitGitHub_RunE_Error(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_TOKEN", "already-here")
 
@@ -542,7 +542,7 @@ func TestNewCmdInitGitHub_RunE_Error(t *testing.T) {
 }
 
 func TestRunInitCmd_ExistingConfigFile(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_TOKEN", "already-here")
 

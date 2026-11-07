@@ -162,7 +162,7 @@ type InitOptions struct {
 
 // GetDefaultConfigDir returns the default config directory for the named
 // tool (~/.toolname/). It returns an empty string when the user home
-// directory cannot be resolved (HOME is unset, empty or relative) — callers
+// directory cannot be resolved (see [UserHomeDir]) — callers
 // must treat an empty result as "no config dir" and skip any read/write
 // rather than joining it with a filename, which would otherwise resolve to
 // a relative path under the current working directory.
@@ -176,8 +176,11 @@ type InitOptions struct {
 // its parent at write time. The fs parameter is retained for API
 // compatibility and is unused.
 func GetDefaultConfigDir(_ afero.Fs, name string) string {
-	homeDir, err := os.UserHomeDir()
-	if err != nil || !filepath.IsAbs(homeDir) {
+	return configDirUnder(UserHomeDir(), name)
+}
+
+func configDirUnder(homeDir, name string) string {
+	if homeDir == "" {
 		return ""
 	}
 

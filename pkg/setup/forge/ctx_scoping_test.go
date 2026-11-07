@@ -46,7 +46,7 @@ func ctxCapturingProviderFactory(token string, invoked, hasDeadline *bool) func(
 // human device flow takes minutes; any stage-wide 5s deadline kills it before
 // the user can act and silently degrades every login to manual token entry.
 func TestConfigureAuth_LoginNotBoundByKeychainTimeout(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("CI", "")
 
@@ -155,7 +155,7 @@ func swapBackend(t *testing.T, b credentials.Backend) {
 // store call site, from the caller's context — not inherit a stage-wide clock
 // that started before the human-paced forms.
 func TestConfigureAuth_KeychainStoreScopedPerOperation(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("CI", "")
 

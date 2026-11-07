@@ -343,6 +343,21 @@ generated-project-builds:
   script:
     - go test ./cli/pkg/generator/ -run 'TestGenerated.*Compiles$' -count=1 -v
 
+# home-resolution — where a release build finds the user's home. The matrix
+# compiles its own probe with CGO_ENABLED=0, matching .goreleaser.yaml, and swaps
+# /etc/passwd in a chroot. It fails rather than skips under CI.
+home-resolution:
+  stage: test
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.7
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GOTOOLCHAIN: auto
+    INT_TEST_HOME: "1"
+  script:
+    - go test ./pkg/setup/ -run '^TestUserHomeDir_Matrix$' -count=1 -v
+
 # go-work-sync — go.work.sum must be committed as the workspace wants it.
 # Renovate tidies each go.mod in its own directory and looks for go.work.sum
 # beside that go.mod, so a root go.work.sum change caused by tidying cli/ is

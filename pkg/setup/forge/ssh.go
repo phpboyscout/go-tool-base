@@ -252,9 +252,9 @@ func ConfigureSSHKey(ctx context.Context, profile Profile, p *props.Props, cfg c
 func discoverSSHKeys(props *props.Props) ([]huh.Option[string], error) {
 	potentialKeys := []huh.Option[string]{}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, errors.WithStack(err)
+	homeDir := setup.UserHomeDir()
+	if homeDir == "" {
+		return nil, errors.WithStack(setup.ErrNoHomeDir)
 	}
 
 	targetDir := filepath.Join(homeDir, ".ssh")
@@ -268,7 +268,7 @@ func discoverSSHKeys(props *props.Props) ([]huh.Option[string], error) {
 
 	sshDir := targetDir
 
-	err = afero.Walk(props.FS, sshDir, func(path string, info os.FileInfo, err error) error {
+	err := afero.Walk(props.FS, sshDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -470,9 +470,9 @@ func generateKey(ctx context.Context, profile Profile, p *props.Props, cfg confi
 	now := time.Now()
 	keyname := fmt.Sprintf("id_%s_%s", p.Tool.Name, now.Format("20060102150405"))
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return keyname, errors.WithStack(err)
+	homeDir := setup.UserHomeDir()
+	if homeDir == "" {
+		return keyname, errors.WithStack(setup.ErrNoHomeDir)
 	}
 
 	keypath := filepath.Join(homeDir, ".ssh", keyname)

@@ -44,6 +44,7 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | :--- | :--- |
 | `INT_TEST=1` | Enables **all** integration tests |
 | `INT_TEST_VCS=1` | Enables only tests tagged `"vcs"` |
+| `INT_TEST_HOME=1` | Enables only tests tagged `"home"`, which need Linux and root, as in the `home-resolution` CI job |
 | `INT_TEST_CONTROLS=1` | Enables only tests tagged `"controls"` |
 | `INT_TEST_GENERATOR=1` | Enables only tests tagged `"generator"` |
 | `INT_TEST_GENERATOR_BUILD=1` | Enables only tests tagged `"generator_build"`: the toolchain-backed generator tests that scaffold a project and run `go build`/`go test`/`golangci-lint` against it (also enabled by `INT_TEST_GENERATOR`) |

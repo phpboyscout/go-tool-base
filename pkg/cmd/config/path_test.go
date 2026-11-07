@@ -80,7 +80,7 @@ func TestCmdPath_MultiFileMergeOrder(t *testing.T) {
 func TestCmdPath_NoFile(t *testing.T) {
 	// Not parallel: pins HOME so the default writable path is deterministic
 	// (and any accidental write would land on the memmap FS, not a real home).
-	t.Setenv("HOME", "/home/pathtest")
+	t.Setenv("HOME", t.TempDir())
 
 	fs := afero.NewMemMapFs()
 	p := &props.Props{

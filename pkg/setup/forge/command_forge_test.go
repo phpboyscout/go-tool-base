@@ -120,7 +120,7 @@ func TestSSHShortSuffix(t *testing.T) {
 // error names the forge — the generic builder must not report every forge's
 // failure under one label.
 func TestNewCmdInitForge_RunE_WrapsTheFailureWithTheForgeLabel(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 
 	p := &props.Props{
@@ -143,7 +143,7 @@ func TestNewCmdInitForge_RunE_WrapsTheFailureWithTheForgeLabel(t *testing.T) {
 // before the wizard runs: an unopenable config directory must fail rather than
 // proceed against a nil editor.
 func TestRunForgeInitCmd_SurfacesAConfigEditorFailure(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("CI", "")
 
 	p := &props.Props{

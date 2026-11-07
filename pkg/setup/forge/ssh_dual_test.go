@@ -41,7 +41,7 @@ func dualEnvThenGenerateIO(t *testing.T, p *props.Props, upload bool) props.IO {
 func dualSSHProps(t *testing.T) *props.Props {
 	t.Helper()
 	t.Setenv("CI", "")
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	// A generated key needs something to open it (spec 0210 D4). With no
 	// keychain linked, that is the agent.
 	sshagenttest.Start(t)

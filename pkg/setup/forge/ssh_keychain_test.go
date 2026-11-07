@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,7 +28,6 @@ import (
 // of them runs in parallel.
 
 const (
-	sshTestHome       = "/home/testuser"
 	sshTestPassphrase = "a passphrase long enough"
 	sshKeychainRef    = "testtool/github.ssh.passphrase"
 )
@@ -39,6 +39,10 @@ type countingKeychain struct {
 
 	stores, retrieves int
 }
+
+// sshTestHome must exist on the real filesystem for setup.UserHomeDir to accept
+// it. The keys themselves live on the test's in-memory one.
+var sshTestHome = os.TempDir()
 
 func (k *countingKeychain) Store(ctx context.Context, service, account, secret string) error {
 	if account == gitHubProfile.sshPassphraseAccount() {

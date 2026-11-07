@@ -215,8 +215,7 @@ func TestPreRun_SkipConfigCheck_TakesPrecedenceOverAutoInitialise(t *testing.T) 
 // TestAutoInitialiseConfig_NoHomeDir covers the guard when the config dir cannot
 // be resolved (HOME unset).
 func TestAutoInitialiseConfig_NoHomeDir(t *testing.T) {
-	t.Setenv("HOME", "")
-	t.Setenv("USERPROFILE", "") // windows
+	t.Parallel()
 
 	props := &p.Props{
 		Logger: logger.NewNoop(),
@@ -225,7 +224,7 @@ func TestAutoInitialiseConfig_NoHomeDir(t *testing.T) {
 		Tool:   p.Tool{Name: "nohome-tool"},
 	}
 
-	_, err := autoInitialiseConfig(t.Context(), props, ConfigLoadOptions{Props: props})
+	_, err := autoInitialiseConfigIn(t.Context(), "", props, ConfigLoadOptions{Props: props})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "config directory")
 }

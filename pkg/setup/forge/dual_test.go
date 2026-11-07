@@ -549,7 +549,7 @@ func TestNewCmdInitBitbucket(t *testing.T) {
 // --- RunBitbucketInit / RunBitbucketInitCmd ---
 
 func TestRunBitbucketInit_Success(t *testing.T) {
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	sshagenttest.None(t)
 
 	p := newDualTestProps(t)
@@ -583,7 +583,7 @@ func TestRunBitbucketInit_FormError(t *testing.T) {
 
 func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	t.Setenv("CI", "")
-	t.Setenv("HOME", "/home/testuser")
+	t.Setenv("HOME", t.TempDir())
 	sshagenttest.None(t)
 
 	fs := afero.NewMemMapFs()

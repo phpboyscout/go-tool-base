@@ -113,7 +113,7 @@ func TestCmdEdit_InvalidOwnFormatAborts(t *testing.T) {
 // is a valid empty document rather than a comment JSON cannot carry.
 func TestCmdEdit_SeedsTheOwnFormat(t *testing.T) {
 	// Not parallel: pins HOME so the default writable path is deterministic.
-	t.Setenv("HOME", "/home/edithome")
+	t.Setenv("HOME", t.TempDir())
 
 	p, fs, _ := ownFormatProps(t, "json", "")
 

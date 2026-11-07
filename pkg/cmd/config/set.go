@@ -63,7 +63,7 @@ their native types; everything else is stored as a string.`,
 			}
 
 			if err := applyAndHarden(cmd.Context(), props, change); err != nil {
-				return errors.Wrap(err, "persisting config value")
+				return persistError(err, setup.GetDefaultConfigDir(props.FS, props.Tool.Name))
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "set %s = %s\n", key, rawVal)
@@ -261,6 +261,18 @@ func resolveWritableConfigPath(props *p.Props, fs afero.Fs) string {
 	}
 
 	return filepath.Join(dir, props.Tool.ConfigFilename())
+}
+
+// persistError says why a write fell through to the system-wide file, which an
+// ordinary user usually cannot write, when there is no per-user one.
+func persistError(err error, configDir string) error {
+	wrapped := errors.Wrap(err, "persisting config value")
+	if configDir != "" {
+		return wrapped
+	}
+
+	return errors.WithHint(wrapped, "No home directory was found, from HOME or the user's account, so there is no "+
+		"per-user config file. Set HOME to an existing directory, or name a file with --config.")
 }
 
 // writableFS returns props.FS, defaulting to the real OS filesystem.

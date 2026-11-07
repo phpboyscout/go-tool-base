@@ -558,9 +558,12 @@ func loadUnattendedWithoutConfig(ctx context.Context, props *p.Props, opts Confi
 // AllowEmpty:false so a genuinely broken init surfaces an error rather than
 // silently masking it with embedded defaults.
 func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOptions) (*config.Store, error) {
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	return autoInitialiseConfigIn(ctx, setup.GetDefaultConfigDir(props.FS, props.Tool.Name), props, opts)
+}
+
+func autoInitialiseConfigIn(ctx context.Context, dir string, props *p.Props, opts ConfigLoadOptions) (*config.Store, error) {
 	if dir == "" {
-		return nil, errors.New("auto-initialise: cannot resolve config directory (is HOME set?)")
+		return nil, errors.New("auto-initialise: cannot resolve config directory (no home directory from HOME or the user's account)")
 	}
 
 	props.Logger.Debug("No config file found; auto-initialising default configuration")

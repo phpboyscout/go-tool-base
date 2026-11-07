@@ -295,7 +295,10 @@ var ErrInvalidPinnedVersion = errors.NewSentinel("gtb.setup.invalid_pinned_versi
 // check moves it. An empty version clears the pin. Like the other markers it is
 // a no-op when the config directory cannot be resolved.
 func SetPinnedVersion(fs afero.Fs, name, version string) error {
-	dir := GetDefaultConfigDir(fs, name)
+	return setPinnedVersionIn(fs, GetDefaultConfigDir(fs, name), version)
+}
+
+func setPinnedVersionIn(fs afero.Fs, dir, version string) error {
 	if dir == "" {
 		return nil
 	}
@@ -321,7 +324,10 @@ func SetPinnedVersion(fs afero.Fs, name, version string) error {
 // returns an error naming the file, so a corrupt marker can never wedge the
 // tool.
 func GetPinnedVersion(fs afero.Fs, name string) (string, error) {
-	dir := GetDefaultConfigDir(fs, name)
+	return getPinnedVersionIn(fs, GetDefaultConfigDir(fs, name))
+}
+
+func getPinnedVersionIn(fs afero.Fs, dir string) (string, error) {
 	if dir == "" {
 		return "", nil
 	}
