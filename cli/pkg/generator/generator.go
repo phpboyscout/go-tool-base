@@ -52,7 +52,7 @@ const (
 	// ColophonVersion is the colophon release the scaffolded GitHub release
 	// workflow installs. Kept current by the Renovate customManager in
 	// renovate.json5.
-	ColophonVersion = "v0.21.2"
+	ColophonVersion = "v0.21.3"
 
 	// SigillumVersion is the signer the scaffolded GitHub release workflow
 	// installs. On GitLab the goreleaser component's image carries it. Kept
