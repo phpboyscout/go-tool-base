@@ -106,4 +106,20 @@
       depNameTemplate: 'python',
     },
   ],
+  // This is a Go workspace, and Renovate tidies cli/ on its own, so a bump
+  // the root module and cli/ share left cli/ on the old pins and
+  // go-work-sync failed (!726, !730, !731, !732). These are the job's own
+  // pair; go mod tidy ignores go.work, so no GOWORK=off is needed. The bot
+  // allows exactly these two commands (phpboyscout-private/renovate).
+  packageRules: [
+    {
+      matchManagers: ['gomod'],
+      postUpgradeTasks: {
+        commands: ['go work sync', 'go -C cli mod tidy'],
+        fileFilters: ['go.mod', 'go.sum', 'go.work', 'go.work.sum', 'cli/go.mod', 'cli/go.sum'],
+        executionMode: 'branch',
+        installTools: { golang: {} },
+      },
+    },
+  ],
 }
