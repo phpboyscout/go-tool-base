@@ -1,12 +1,12 @@
 module gitlab.com/phpboyscout/go-tool-base/cli
 
-go 1.27.3
+go 1.27.4
 
 require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.0
 	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/cucumber/godog v0.16.0
 	github.com/dave/dst v0.28.0
@@ -40,13 +40,13 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitlab v0.31.1
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.2
-	gitlab.com/phpboyscout/go/signing v0.11.3
+	gitlab.com/phpboyscout/go/signing v0.11.4
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.2
-	gitlab.com/phpboyscout/go/signing-cli v0.6.6
+	gitlab.com/phpboyscout/go/signing-cli v0.7.0
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
 	gitlab.com/phpboyscout/go/workspace v0.2.3
-	golang.org/x/mod v0.42.0
+	golang.org/x/mod v0.43.0
 	golang.org/x/net v0.62.0
 	golang.org/x/text v0.44.0
 	google.golang.org/grpc v1.85.0
@@ -135,7 +135,7 @@ require (
 	github.com/google/s2a-go v0.1.11 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.24 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.25 // indirect
 	github.com/googleapis/gax-go/v2 v2.27.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
@@ -218,16 +218,16 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/api v0.311.0 // indirect
+	google.golang.org/api v0.312.0 // indirect
 	google.golang.org/genai v1.77.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
