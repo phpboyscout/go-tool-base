@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.51.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.51.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.4...v0.51.0)
+
+### Notes
+
+- go-tool-base, and so every tool built on it, now needs Go 1.27.4. `gtb sign` (go/signing-cli v0.7.0) refuses a flag belonging to the other format whenever it is set, even to an empty value or false, and refuses an explicit empty `--format ""`; omitting `--format` still signs OpenPGP.
+
+- Correction to the go/observability v0.6.0 note: a stray telemetry.<signal>.exporter key is refused only by telemetry.ObserveSettingsFromConfig; the settings telemetry.SetupFromProps resolves through ObservabilitySettingsFromProps still ignore it.
+
+- go/observability v0.6.0 moves the OTLP endpoint fields off otelcore.Settings onto otelcore.Collector, so a tool that builds telemetry.ObservabilitySettings by hand sets Exporter instead, and a stray telemetry.<signal>.exporter config key now fails to bind rather than being ignored (see the migration note).
+
+### Features
+
+- **telemetry**: take go/observability v0.6.0 ([b87f8fb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b87f8fb2a29123a3d4c1e729a665d66f24958d27))
+
+### Bug Fixes
+
+- **deps**: update go modules ([7a81f8f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7a81f8ff1dd00f132051084147b5ac0701c4a797))
+- **deps**: update aws-sdk-go-v2 monorepo ([52543d2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/52543d2cb75434268e4352e8f1eeee811638a44f))
+- **deps**: update module golang.org/x/crypto to v0.59.0 [security] ([5cb73c7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5cb73c72b179a9ebc954eb371f1ddd9b1e5a2668))
+- **deps**: update aws-sdk-go-v2 monorepo ([8147a14](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8147a144b938514ee59b3c1a5dddf4cbb3ad1943))
+- **deps**: update go modules ([1c0dac0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1c0dac01072ea641cb3e919c73cbbbc12a58bb78))
+- **deps**: update aws-sdk-go-v2 monorepo ([a3e159a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a3e159ad53062c5ce1cacb79da1566febbc5f452))
+- **deps**: update aws-sdk-go-v2 monorepo ([3c25c29](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3c25c2911f4e7a763b6bdf9db399cf95835360f1))
+
 ## [v0.50.4](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.4)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.3...v0.50.4)
