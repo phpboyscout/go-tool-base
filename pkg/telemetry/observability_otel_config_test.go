@@ -253,3 +253,21 @@ func collectorOf(t *testing.T, s otelcore.Settings) otelcore.Collector {
 
 	return c
 }
+
+func TestStrayExporterKeyFailsOnlyTheObservedSection(t *testing.T) {
+	t.Parallel()
+
+	store := otelStoreFrom(t, `
+telemetry:
+  tracing:
+    enabled: true
+    endpoint: https://tracing:4318
+    exporter: bogus
+`)
+
+	_, err := ObserveSettingsFromConfig(store, otelcore.SignalTracing)
+	require.ErrorContains(t, err, "binding telemetry.tracing")
+
+	resolved := resolveOTLPSettings(store.View(), otelcore.SignalTracing)
+	assert.Equal(t, "https://tracing:4318", collectorOf(t, resolved).Endpoint)
+}
