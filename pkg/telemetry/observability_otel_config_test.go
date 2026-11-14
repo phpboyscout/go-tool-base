@@ -75,8 +75,8 @@ telemetry:
 	s := resolveOTLPSettings(cfg, otelcore.SignalTracing)
 
 	assert.True(t, s.Enabled)
-	assert.Equal(t, "https://collector:4318", s.Endpoint)
-	assert.True(t, s.Insecure)
+	assert.Equal(t, "https://collector:4318", collectorOf(t, s).Endpoint)
+	assert.True(t, collectorOf(t, s).Insecure)
 }
 
 func TestResolvePerSignalEndpointOverride(t *testing.T) {
@@ -92,7 +92,7 @@ telemetry:
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalMetrics)
 
-	assert.Equal(t, "https://metrics:4318", s.Endpoint)
+	assert.Equal(t, "https://metrics:4318", collectorOf(t, s).Endpoint)
 }
 
 func TestResolvePreservesEnvAwareSectionUnmarshal(t *testing.T) {
@@ -107,8 +107,8 @@ func TestResolvePreservesEnvAwareSectionUnmarshal(t *testing.T) {
 	s := resolveOTLPSettings(cfg, otelcore.SignalTracing)
 
 	assert.True(t, s.Enabled)
-	assert.Equal(t, "https://env-tracing:4318", s.Endpoint)
-	assert.True(t, s.Insecure)
+	assert.Equal(t, "https://env-tracing:4318", collectorOf(t, s).Endpoint)
+	assert.True(t, collectorOf(t, s).Insecure)
 }
 
 func TestResolvePerSignalInsecureOverride(t *testing.T) {
@@ -122,8 +122,8 @@ telemetry:
     enabled: true
 `).View()
 
-	assert.True(t, resolveOTLPSettings(cfg, otelcore.SignalLogs).Insecure)
-	assert.False(t, resolveOTLPSettings(cfg, otelcore.SignalTracing).Insecure)
+	assert.True(t, collectorOf(t, resolveOTLPSettings(cfg, otelcore.SignalLogs)).Insecure)
+	assert.False(t, collectorOf(t, resolveOTLPSettings(cfg, otelcore.SignalTracing)).Insecure)
 }
 
 func TestResolveEnabledIsPerSignal(t *testing.T) {
@@ -143,7 +143,7 @@ func TestResolveEmptyEndpointFallsBackToEnv(t *testing.T) {
 	s := resolveOTLPSettings(cfg, otelcore.SignalLogs)
 
 	assert.True(t, s.Enabled)
-	assert.Empty(t, s.Endpoint, "an empty endpoint lets the SDK read OTEL_* env vars")
+	assert.Empty(t, collectorOf(t, s).Endpoint, "an empty endpoint lets the SDK read OTEL_* env vars")
 }
 
 func TestResolveHeaders(t *testing.T) {
@@ -159,7 +159,7 @@ telemetry:
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalTracing)
 
-	assert.Equal(t, "Bearer token", s.Headers["authorization"])
+	assert.Equal(t, "Bearer token", collectorOf(t, s).Headers["authorization"])
 }
 
 func TestObserveSettingsFromConfigInitialSnapshot(t *testing.T) {
@@ -170,7 +170,7 @@ func TestObserveSettingsFromConfigInitialSnapshot(t *testing.T) {
 	settings, err := ObserveSettingsFromConfig(cfg, otelcore.SignalTracing)
 	require.NoError(t, err)
 
-	assert.Equal(t, otelcore.Settings{Enabled: true, Endpoint: "https://shared:4318", Insecure: true}, settings.Value())
+	assert.Equal(t, otelcore.Settings{Enabled: true, Exporter: otelcore.Collector{Endpoint: "https://shared:4318", Insecure: true}}, settings.Value())
 	assert.True(t, settings.Exists())
 	assert.Equal(t, uint64(1), settings.Version())
 }
@@ -195,11 +195,11 @@ func TestObserveSettingsFromConfigRehydratesSharedDefaults(t *testing.T) {
 	src.set("telemetry:\n  endpoint: https://changed:4318\n  tracing:\n    enabled: true\n")
 	require.NoError(t, cfg.Reload(t.Context()))
 
-	assert.Equal(t, "https://changed:4318", settings.Value().Endpoint)
+	assert.Equal(t, "https://changed:4318", collectorOf(t, settings.Value()).Endpoint)
 	assert.Equal(t, uint64(2), settings.Version())
 	require.Len(t, changes, 1)
-	assert.Equal(t, "https://shared:4318", changes[0].Previous.Value.Endpoint)
-	assert.Equal(t, "https://changed:4318", changes[0].Current.Value.Endpoint)
+	assert.Equal(t, "https://shared:4318", collectorOf(t, changes[0].Previous.Value).Endpoint)
+	assert.Equal(t, "https://changed:4318", collectorOf(t, changes[0].Current.Value).Endpoint)
 }
 
 func TestObserveSettingsFromConfigRehydratesSignalOverrides(t *testing.T) {
@@ -213,7 +213,7 @@ func TestObserveSettingsFromConfigRehydratesSignalOverrides(t *testing.T) {
 	src.set("telemetry:\n  endpoint: https://shared:4318\n  metrics:\n    enabled: true\n    endpoint: https://metrics:4318\n")
 	require.NoError(t, cfg.Reload(t.Context()))
 
-	assert.Equal(t, otelcore.Settings{Enabled: true, Endpoint: "https://metrics:4318"}, settings.Value())
+	assert.Equal(t, otelcore.Settings{Enabled: true, Exporter: otelcore.Collector{Endpoint: "https://metrics:4318"}}, settings.Value())
 	assert.Equal(t, uint64(2), settings.Version())
 }
 
@@ -228,7 +228,7 @@ func TestObserveSettingsFromConfigUnchangedReloadDoesNotIncrementVersion(t *test
 	src.set("telemetry:\n  endpoint: https://shared:4318\n  logs:\n    enabled: true\nunrelated:\n  value: changed\n")
 	require.NoError(t, cfg.Reload(t.Context()))
 
-	assert.Equal(t, otelcore.Settings{Enabled: true, Endpoint: "https://shared:4318"}, settings.Value())
+	assert.Equal(t, otelcore.Settings{Enabled: true, Exporter: otelcore.Collector{Endpoint: "https://shared:4318"}}, settings.Value())
 	assert.Equal(t, uint64(1), settings.Version())
 }
 
@@ -243,4 +243,13 @@ func TestObservedSettingsSatisfiesSource(t *testing.T) {
 	require.NotNil(t, source.Current())
 	assert.True(t, source.Current().Enabled)
 	assert.Equal(t, uint64(1), source.Version())
+}
+
+func collectorOf(t *testing.T, s otelcore.Settings) otelcore.Collector {
+	t.Helper()
+
+	c, ok := s.Exporter.(otelcore.Collector)
+	require.Truef(t, ok, "Exporter is %T, want otelcore.Collector", s.Exporter)
+
+	return c
 }

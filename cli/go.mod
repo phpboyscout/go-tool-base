@@ -193,7 +193,7 @@ require (
 	gitlab.com/phpboyscout/go/grpcclient v0.2.5 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.6 // indirect
 	gitlab.com/phpboyscout/go/mcp v0.2.4 // indirect
-	gitlab.com/phpboyscout/go/observability v0.5.0 // indirect
+	gitlab.com/phpboyscout/go/observability v0.6.0 // indirect
 	gitlab.com/phpboyscout/go/output v0.2.5 // indirect
 	gitlab.com/phpboyscout/go/regexutil v0.2.3 // indirect
 	gitlab.com/phpboyscout/go/tls v0.2.3 // indirect

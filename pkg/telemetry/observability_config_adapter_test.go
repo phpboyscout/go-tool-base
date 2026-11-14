@@ -44,14 +44,14 @@ telemetry:
 
 	assert.Equal(t, "macguffinsvc", settings.ServiceName)
 	assert.Equal(t, "v1.2.3", settings.Version)
-	assert.Equal(t, "http://traces:4318", settings.Tracing.OTLP.Endpoint)
+	assert.Equal(t, "http://traces:4318", collectorOf(t, settings.Tracing.OTLP).Endpoint)
 	assert.True(t, settings.Tracing.OTLP.Enabled)
-	assert.True(t, settings.Tracing.OTLP.Insecure)
+	assert.True(t, collectorOf(t, settings.Tracing.OTLP).Insecure)
 	assert.True(t, settings.Tracing.SamplingSet)
 	assert.InEpsilon(t, 0.25, settings.Tracing.Sampling, 0.001)
 	assert.True(t, settings.Metrics.IntervalSet)
 	assert.Equal(t, 3*time.Second, settings.Metrics.Interval)
-	assert.Equal(t, "http://shared:4318", settings.Metrics.OTLP.Endpoint)
+	assert.Equal(t, "http://shared:4318", collectorOf(t, settings.Metrics.OTLP).Endpoint)
 	assert.True(t, settings.Logs.OTLP.Enabled)
 }
 

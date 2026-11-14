@@ -92,7 +92,7 @@ func TestObservabilityE2E(t *testing.T) {
 	endpoint := fmt.Sprintf("http://%s:%s", host, port.Port())
 
 	// Enable all three signals, pointed at the collector, sampling everything.
-	otlp := otelcore.Settings{Enabled: true, Endpoint: endpoint, Insecure: true}
+	otlp := otelcore.Settings{Enabled: true, Exporter: otelcore.Collector{Endpoint: endpoint, Insecure: true}}
 	shutdown, err := telemetry.Setup(ctx, telemetry.ObservabilitySettings{
 		ServiceName: "macguffinsvc",
 		Version:     "v1.2.3",

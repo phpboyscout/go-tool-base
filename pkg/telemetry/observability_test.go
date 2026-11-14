@@ -119,8 +119,7 @@ func TestSetupTracingEnabled(t *testing.T) {
 	sh, err := Setup(context.Background(), testObservabilitySettings(
 		withTracing(otelcore.Settings{
 			Enabled:  true,
-			Endpoint: "http://localhost:4318",
-			Insecure: true,
+			Exporter: otelcore.Collector{Endpoint: "http://localhost:4318", Insecure: true},
 		}),
 	), nil)
 	require.NoError(t, err)
@@ -135,8 +134,7 @@ func TestSetupMetricsEnabled(t *testing.T) {
 	sh, err := Setup(context.Background(), testObservabilitySettings(
 		withMetrics(otelcore.Settings{
 			Enabled:  true,
-			Endpoint: "http://localhost:4318",
-			Insecure: true,
+			Exporter: otelcore.Collector{Endpoint: "http://localhost:4318", Insecure: true},
 		}, time.Second),
 	), nil)
 	require.NoError(t, err)
@@ -151,8 +149,7 @@ func TestSetupLogsEnabled(t *testing.T) {
 	sh, err := Setup(context.Background(), testObservabilitySettings(
 		withLogs(otelcore.Settings{
 			Enabled:  true,
-			Endpoint: "http://localhost:4318",
-			Insecure: true,
+			Exporter: otelcore.Collector{Endpoint: "http://localhost:4318", Insecure: true},
 		}),
 	), nil)
 	require.NoError(t, err)
@@ -167,7 +164,7 @@ func TestSetupAllEnabledRegistersControllerShutdown(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 
-	otlp := otelcore.Settings{Enabled: true, Endpoint: "http://localhost:4318", Insecure: true}
+	otlp := otelcore.Settings{Enabled: true, Exporter: otelcore.Collector{Endpoint: "http://localhost:4318", Insecure: true}}
 	sh, err := Setup(context.Background(), testObservabilitySettings(
 		withTracing(otlp),
 		withMetrics(otlp, 0),

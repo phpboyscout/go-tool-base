@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/observability/otelcore"
 
 	gtbconfig "gitlab.com/phpboyscout/go/config"
@@ -51,7 +52,12 @@ func ObserveSettingsFromConfig(
 	}, mergeResolvedSettings))
 	bindingOpts = append(bindingOpts, opts...)
 
-	return gtbconfig.ObserveSection[otelcore.Settings](cfg, key, bindingOpts...)
+	section, err := gtbconfig.ObserveSection[otelcore.Settings](cfg, key, bindingOpts...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "binding %s", key)
+	}
+
+	return section, nil
 }
 
 // mergeResolvedSettings intentionally ignores the unmarshalled overlay: a signal's

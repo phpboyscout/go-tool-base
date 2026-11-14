@@ -742,8 +742,8 @@ gitlab.com/phpboyscout/go/httpclient v0.2.6 h1:98Im8qLbUW6xIJSQ/xLCvUr1ghsl33FPu
 gitlab.com/phpboyscout/go/httpclient v0.2.6/go.mod h1:JQmD0poWTNMr0VKcDWmggmPkMTltobmjxLkow2/CJ9g=
 gitlab.com/phpboyscout/go/mcp v0.2.4 h1:gfANVvz2NDxVrnFSzdpKthllILhFnP9zY/AHdpchKoQ=
 gitlab.com/phpboyscout/go/mcp v0.2.4/go.mod h1:UjCUg+AWp/0vvOMNk00amWeCv+0kw8gJR61tyCSqI3M=
-gitlab.com/phpboyscout/go/observability v0.5.0 h1:d00Z6O/vI4CkN8A0GU7tRB7OZ+jhtMoSYNVhP/X3kWs=
-gitlab.com/phpboyscout/go/observability v0.5.0/go.mod h1:5qEBfDoerP5ULfwyvwBJuFPcHTPFV9HwOB1Ie1wek3s=
+gitlab.com/phpboyscout/go/observability v0.6.0 h1:Ht//x8AR3Njc3uS+hmia38D7WxgkmU9PyMXHF7Mq3QE=
+gitlab.com/phpboyscout/go/observability v0.6.0/go.mod h1:jtknQBE5EF7DB6ycP3MuAKgtk8Co1W9JzPAOQUoYUxI=
 gitlab.com/phpboyscout/go/output v0.2.5 h1:fDkt7aKXB++5VpfHiRwvxNgro9fkDnHp1MXziKRuXCo=
 gitlab.com/phpboyscout/go/output v0.2.5/go.mod h1:VaN8ABSX1aF+yGf73s4AIZF+J4D2lKA3aQfDQ+/C2lU=
 gitlab.com/phpboyscout/go/redact v0.3.3 h1:KjNgqXQ3voUxBgmtWuwWkTK/8ZUsdWUn0Y+F0eVo7Rk=
