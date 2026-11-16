@@ -62,7 +62,7 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	gitea.dev/sdk v1.5.1 // indirect
 	github.com/42wim/httpsig v1.3.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.24.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
