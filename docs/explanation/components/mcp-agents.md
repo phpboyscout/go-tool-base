@@ -123,6 +123,45 @@ is the same `enable mcp`/`disable mcp` call.
 
 A protected command is refused by `enable/disable mcp`, unprotect it first.
 
+### Built-in and attached commands
+
+The per-command decision lives in a generated command's own `cmd.go`, so it
+cannot reach a command gtb did not generate: a built-in such as `update` or
+`config trust`, or one a module attaches such as `sign`. Those are withheld by
+path:
+
+```bash
+gtb disable mcp sign config/trust update
+```
+
+Each path goes on `properties.mcp.withhold` in the manifest, and the root is
+re-rendered with the list in `props.Tool.MCP`. From the next build those
+commands, and everything beneath them, are not MCP operations. They still run
+on the CLI. `gtb enable mcp <path>` takes a path off again.
+
+The list differs from the per-command marker in three ways:
+
+- **Nothing overrules it.** A module that stamps `setup.IncludeInMCP` on its
+  own command does not get a say over the author of the binary, and neither
+  does a marker on a descendant. A path under a listed command cannot be
+  exposed on its own: `gtb enable mcp keys/publish` under a listed `keys` is
+  refused and names `keys`.
+- **gtb cannot check the path.** A built-in or attached command is not visible
+  from the project, so `gtb disable mcp` accepts any well-formed path and tells
+  you to confirm with `<tool> mcp tools` after the build. The built tool checks
+  instead: if a listed path names no command, `mcp start`, `mcp stream` and
+  `mcp tools` refuse to run and name it, so a typo guarding `sign` fails your
+  first run and never ships. A path whose first command is a feature that is
+  off (`update` with the update feature off) is let through. A deeper command
+  a feature adds is not: `docs/ask` with ai off stops the server. Keep that
+  path and turn the feature on, because taking it off would expose `docs ask`
+  once ai is on.
+- **It outlives the mcp feature.** `gtb disable mcp` with no path leaves the
+  list alone, so turning MCP back on re-exposes nothing.
+
+Only those two verbs write the list. `gtb set mcp.withhold` is refused, and the
+wizard's MCP page lists generated commands only and never writes the list.
+
 ### How it works
 
 GTB stamps a `setup.ExcludeFromMCP(cmd)` or `setup.IncludeInMCP(cmd)` marker
@@ -131,6 +170,11 @@ hands `setup.IsExposedToMCP` (the nearest-ancestor walk) to the go/mcp Cobra
 binding as its exposure policy, so a command resolving to excluded is never
 bound. The marker round-trips through both `regenerate project` (manifest → code)
 and `regenerate manifest` (code → manifest), so the gating is never silently lost.
+
+The withhold list is a second test on the same binding. `pkg/mcp.BindingOptions`
+drops a command when its path, or an ancestor's, is on
+`props.Tool.MCP.Withhold`, whatever `IsExposedToMCP` says, and the list
+round-trips through both regenerate directions as well.
 
 See the [generated command exposure
 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating) for the
@@ -222,6 +266,9 @@ applied once, so a tool built on GTB gets them without saying anything:
   the same thing in every GTB tool.
 - **The publication mode** comes from `props.Tool.MCP`, rendered from
   `properties.mcp.mode` in the manifest. The binary never reads the manifest.
+- **The withhold list** is the same field's `Withhold`, rendered from
+  `properties.mcp.withhold`: commands kept off the surface by path, for the
+  ones a marker cannot reach.
 - **Logs go to stderr** at the level the root's `--debug` and config reload
   already move (`Props.LogLevel`); stdout carries the protocol, so the command
   is stamped `setup.MarkProtocolStdout` and the root renders no prompt under it.
@@ -274,7 +321,7 @@ That records `properties.mcp.mode: direct`, renders `MCP:
 props.MCPConfig{Mode: props.MCPDirect}` into the generated root, and takes
 effect on the next build. `gtb set mcp.mode compact` returns to the default.
 The mode is project-level publication configuration: `gtb disable mcp` still
-wins, and per-command `mcp_enabled` still gates exposure.
+wins, and per-command `mcp_enabled` and the withhold list still gate exposure.
 
 ### Execution
 

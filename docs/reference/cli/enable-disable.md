@@ -83,4 +83,38 @@ See [Secure Releases](../../how-to/secure-releases.md).
 arguments to scope to individual commands. See
 [Expose an MCP Server](../../how-to/framework-cli/expose-mcp-server.md).
 
+What a path does depends on where its command comes from:
+
+| The path names | `disable mcp <path>` | `enable mcp <path>` |
+|---|---|---|
+| A command gtb generated | Records `mcp_enabled: false` and re-renders its `cmd.go` with `setup.ExcludeFromMCP`. | Records `mcp_enabled: true` and re-renders its `cmd.go` with `setup.IncludeInMCP`. |
+| Anything else: a built-in such as `config/trust`, or an attached command such as `sign` | Puts the path on `properties.mcp.withhold` and re-renders the root. | Takes the path off the list. |
+
+```bash
+gtb disable mcp sign config/trust   # withheld by path, from the next build
+gtb enable mcp sign                 # back on the surface
+```
+
+For a path on the list:
+
+- It covers the command and everything beneath it, and no marker overrules it.
+- `enable mcp` on a path under a listed command is refused and names that
+  command. Expose the listed command instead.
+- `enable mcp` on a path that is neither generated nor listed changes nothing
+  and says so: the command is already exposed.
+- gtb cannot see a built-in or attached command from the project, so it does
+  not check that the path exists. `disable mcp` names the paths it listed and
+  tells you to confirm with `<tool> mcp tools` after the build. A listed path
+  that names no command stops the built tool's `mcp start`, `mcp stream` and
+  `mcp tools`.
+- A path is command names separated by `/`, each of lowercase letters, digits,
+  `-` or `_` and starting with a letter. Anything else is refused and nothing
+  is written.
+- Several paths in one call are all checked before any is written. A failure
+  while re-rendering a generated command can still leave the paths before it
+  changed, so run the command again once the cause is fixed.
+- The list survives `gtb disable mcp` with no path, a regenerate and a wizard
+  revisit. `gtb set` and `gtb unset` refuse `mcp.withhold`; read the list in
+  `.gtb/manifest.yaml`.
+
 > Run any command with `--help` for the complete, authoritative flag set.

@@ -47,6 +47,10 @@ gtb set mcp.mode compact
 so you can tick which stay on the surface; an unticked command is
 `gtb disable mcp <path>`.
 
+A built-in or attached command is not on that page. `gtb disable mcp <path>`
+withholds it by path, on a list (`mcp.withhold`) that `gtb set` refuses and
+only that verb and `gtb enable mcp <path>` write.
+
 ```sh
 ```
 

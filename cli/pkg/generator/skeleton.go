@@ -78,6 +78,9 @@ type SkeletonConfig struct {
 	// MCPMode is the MCP publication mode: "" or "compact" for the discovery
 	// facade, "direct" for one native tool per command (spec 0201 D3).
 	MCPMode string
+	// MCPWithhold is the command paths the tool never publishes over MCP. It
+	// has no flag or wizard page: gtb disable mcp <path> writes it (spec 0213).
+	MCPWithhold []string
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
 	// default (disabled) applies; wired into the generated root command's
@@ -645,6 +648,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		UpdatePolicy:          config.UpdatePolicy,
 		UpdateCheckInterval:   config.UpdateCheckInterval,
 		MCPMode:               config.MCPMode,
+		MCPWithhold:           config.MCPWithhold,
 		CIComponentSource:     resolveCIComponentSource(config.CIComponentSource),
 		CICDComponentVersion:  CICDComponentVersion,
 		ColophonVersion:       ColophonVersion,
@@ -912,6 +916,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			MCPMode:               data.MCPMode,
+			MCPWithhold:           data.MCPWithhold,
 			SigningEnabled:        data.Signing.Enabled,
 			ModulePath:            data.ModulePath,
 			AutoInitialise:        data.Bootstrap.AutoInitialise,
@@ -1415,7 +1420,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			},
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
-			MCP:                 ManifestMCP{Mode: config.MCPMode},
+			MCP:                 ManifestMCP{Mode: config.MCPMode, Withhold: config.MCPWithhold},
 			DocsLayout:          DocsLayoutDiataxis,
 			Help: ManifestHelp{
 				Type:         config.HelpType,

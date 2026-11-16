@@ -902,6 +902,33 @@ func ValidateMCPMode(mode string) error {
 	}
 }
 
+// ValidateMCPWithholdPath accepts a slash-separated command path for
+// properties.mcp.withhold. Reserved words pass: the path may name a built-in
+// or attached command, which gtb's own naming rules never bound. The built
+// tool accepts more (props.MCPConfig refuses only an empty or spaced segment),
+// so a command named outside this rule cannot be listed through gtb.
+func ValidateMCPWithholdPath(path string) error {
+	const rule = "a withheld MCP path is command names separated by /, each lowercase letters, digits, - or _ and starting with a letter"
+
+	for _, segment := range strings.Split(path, "/") {
+		if !commandNameRe.MatchString(segment) {
+			return rejectf("MCPWithhold", rule, path)
+		}
+	}
+
+	return nil
+}
+
+func validateMCPWithholdPaths(paths []string) error {
+	for _, path := range paths {
+		if err := ValidateMCPWithholdPath(path); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ValidateFeatureName rejects any name that is not one of the toggleable
 // built-in features (see ToggleableFeatures). Used by `gtb enable <feature>` /
 // `gtb disable <feature>` so an unknown name fails fast with the valid set
@@ -1445,7 +1472,7 @@ func validateManifestProperties(p *ManifestProperties) error {
 		return err
 	}
 
-	if err := ValidateMCPMode(p.MCP.Mode); err != nil {
+	if err := validateManifestMCP(p.MCP); err != nil {
 		return err
 	}
 
@@ -1466,6 +1493,14 @@ func validateManifestProperties(p *ManifestProperties) error {
 	}
 
 	return validateManifestEndpoints(p)
+}
+
+func validateManifestMCP(mcp ManifestMCP) error {
+	if err := ValidateMCPMode(mcp.Mode); err != nil {
+		return err
+	}
+
+	return validateMCPWithholdPaths(mcp.Withhold)
 }
 
 // validateManifestEndpoints validates the outbound endpoints a manifest may

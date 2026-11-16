@@ -35,3 +35,17 @@ func TestNew_RejectsAnUnknownMCPMode(t *testing.T) {
 		require.NoError(t, err, string(mode))
 	}
 }
+
+func TestNew_ChecksEachWithheldMCPPath(t *testing.T) {
+	t.Parallel()
+
+	for _, path := range []string{"", "/sign", "sign/", "config//trust", "config /trust", "si\tgn"} {
+		_, err := props.New(props.Tool{Name: "t", MCP: props.MCPConfig{Withhold: []string{"config/trust", path}}}, logger.NewNoop(), afero.NewMemMapFs())
+		require.Error(t, err, "%q", path)
+		assert.Contains(t, err.Error(), "Withhold", "%q", path)
+	}
+
+	p, err := props.New(props.Tool{Name: "t", MCP: props.MCPConfig{Withhold: []string{"sign", "config/trust", "keys/wkd/publish"}}}, logger.NewNoop(), afero.NewMemMapFs())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"sign", "config/trust", "keys/wkd/publish"}, p.Tool.MCP.Withhold)
+}

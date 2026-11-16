@@ -269,6 +269,14 @@ func writeCommandManifest(t *testing.T, fs afero.Fs) {
 	require.NoError(t, afero.WriteFile(fs, projectRoot+"/.gtb/manifest.yaml", []byte(manifest), 0o644))
 }
 
+func disableMCP(p *props.Props, paths ...string) error {
+	return RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, paths, false)
+}
+
+func enableMCP(p *props.Props, paths ...string) error {
+	return RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, paths, true)
+}
+
 func TestRunMCPCommand(t *testing.T) {
 	t.Parallel()
 
@@ -278,7 +286,7 @@ func TestRunMCPCommand(t *testing.T) {
 		p, log := newSkeletonProps(t)
 		require.True(t, featureOn(t, p, "mcp"))
 
-		require.NoError(t, RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, nil, false))
+		require.NoError(t, disableMCP(p))
 
 		assert.False(t, featureOn(t, p, "mcp"))
 		assert.True(t, log.Contains(`Feature "mcp" disabled.`))
@@ -292,14 +300,14 @@ func TestRunMCPCommand(t *testing.T) {
 		p := &props.Props{FS: fs, Logger: buf}
 		writeCommandManifest(t, fs)
 
-		require.NoError(t, RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, []string{"post"}, false))
+		require.NoError(t, disableMCP(p, "post"))
 
 		cmdGo, err := afero.ReadFile(fs, projectRoot+"/pkg/cmd/post/cmd.go")
 		require.NoError(t, err)
 		assert.Contains(t, string(cmdGo), "setup.ExcludeFromMCP(cmd)")
 		assert.True(t, buf.Contains("1 command(s) withheld from the MCP tool surface"))
 
-		require.NoError(t, RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, []string{"post"}, true))
+		require.NoError(t, enableMCP(p, "post"))
 
 		cmdGo, err = afero.ReadFile(fs, projectRoot+"/pkg/cmd/post/cmd.go")
 		require.NoError(t, err)
@@ -307,16 +315,132 @@ func TestRunMCPCommand(t *testing.T) {
 		assert.True(t, buf.Contains("1 command(s) exposed on the MCP tool surface"))
 	})
 
-	t.Run("unknown command path fails", func(t *testing.T) {
+	t.Run("a path gtb did not generate goes on the withhold list", func(t *testing.T) {
+		t.Parallel()
+
+		p, log := newSkeletonProps(t)
+
+		require.NoError(t, disableMCP(p, "sign", "config/trust"))
+
+		assert.Equal(t, []string{"config/trust", "sign"}, withheldPaths(t, p))
+		assert.True(t, log.Contains("2 command(s) withheld from the MCP tool surface"))
+		assert.True(t, log.Contains("Withheld by path: sign, config/trust."))
+		assert.True(t, log.Contains("`mytool mcp tools`"), "the author is told where to confirm it")
+
+		root, err := afero.ReadFile(p.FS, projectRoot+"/pkg/cmd/root/cmd.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(root), `Withhold: []string{"config/trust", "sign"}`)
+
+		require.NoError(t, disableMCP(p, "sign"))
+		assert.True(t, log.Contains("Already withheld: sign."))
+
+		require.NoError(t, enableMCP(p, "sign"))
+
+		assert.Equal(t, []string{"config/trust"}, withheldPaths(t, p))
+		assert.True(t, log.Contains("1 command(s) exposed on the MCP tool surface"))
+	})
+
+	t.Run("the withhold list outlives the mcp feature", func(t *testing.T) {
+		t.Parallel()
+
+		p, _ := newSkeletonProps(t)
+
+		require.NoError(t, disableMCP(p, "sign"))
+		require.NoError(t, disableMCP(p))
+		require.False(t, featureOn(t, p, "mcp"))
+		require.NoError(t, enableMCP(p))
+
+		assert.Equal(t, []string{"sign"}, withheldPaths(t, p), "turning MCP back on must not re-expose sign")
+
+		root, err := afero.ReadFile(p.FS, projectRoot+"/pkg/cmd/root/cmd.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(root), `Withhold: []string{"sign"}`)
+	})
+
+	t.Run("exposing a path that is neither generated nor listed says so and changes nothing", func(t *testing.T) {
+		t.Parallel()
+
+		p, log := newSkeletonProps(t)
+
+		before, err := afero.ReadFile(p.FS, projectRoot+"/.gtb/manifest.yaml")
+		require.NoError(t, err)
+
+		require.NoError(t, enableMCP(p, "missing"))
+
+		after, err := afero.ReadFile(p.FS, projectRoot+"/.gtb/manifest.yaml")
+		require.NoError(t, err)
+		assert.Equal(t, string(before), string(after))
+		assert.True(t, log.Contains("Already exposed, nothing to change: missing."))
+		assert.False(t, log.Contains("command(s) exposed on"), "nothing changed, so nothing is counted")
+	})
+
+	t.Run("a path under a withheld command is refused on enable", func(t *testing.T) {
+		t.Parallel()
+
+		p, _ := newSkeletonProps(t)
+
+		require.NoError(t, disableMCP(p, "keys"))
+
+		err := enableMCP(p, "keys/publish")
+		require.ErrorIs(t, err, generator.ErrMCPPathStillWithheld)
+		assert.Equal(t, []string{"keys"}, withheldPaths(t, p))
+	})
+
+	t.Run("a malformed path is refused before anything is written", func(t *testing.T) {
+		t.Parallel()
+
+		p, _ := newSkeletonProps(t)
+
+		err := disableMCP(p, "sign", "Config/Trust")
+		require.ErrorIs(t, err, generator.ErrInvalidInput)
+		assert.Empty(t, withheldPaths(t, p))
+	})
+
+	// The several-paths call hud made (#167), at the overwrite mode the
+	// command really uses.
+	t.Run("a kept cmd.go does not cost later commands their children", func(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		p := &props.Props{FS: fs, Logger: logger.NewNoop()}
-		writeCommandManifest(t, fs)
+		p := &props.Props{FS: fs, Logger: logger.NewNoop(), IO: nobodyTyping()}
 
-		err := RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, []string{"missing"}, true)
-		require.Error(t, err)
+		require.NoError(t, fs.MkdirAll(projectRoot+"/.gtb", 0o755))
+		require.NoError(t, afero.WriteFile(fs, projectRoot+"/go.mod", []byte("module example.com/tool\n\ngo 1.27\n"), 0o644))
+
+		manifest := "commands:\n" +
+			"  - name: hook\n" +
+			"    description: hooks\n" +
+			"  - name: worklist\n" +
+			"    description: worklists\n" +
+			"    commands:\n" +
+			"      - name: list\n" +
+			"        description: list them\n"
+		require.NoError(t, afero.WriteFile(fs, projectRoot+"/.gtb/manifest.yaml", []byte(manifest), 0o644))
+
+		handEdited := "package hook\n\n// registers a child by hand\n"
+		require.NoError(t, fs.MkdirAll(projectRoot+"/pkg/cmd/hook", 0o755))
+		require.NoError(t, afero.WriteFile(fs, projectRoot+"/pkg/cmd/hook/cmd.go", []byte(handEdited), 0o644))
+
+		require.NoError(t, RunMCPCommand(newToggleCmd(context.Background(), true), p, projectRoot, []string{"hook", "worklist"}, false))
+
+		kept, err := afero.ReadFile(fs, projectRoot+"/pkg/cmd/hook/cmd.go")
+		require.NoError(t, err)
+		assert.Equal(t, handEdited, string(kept))
+
+		worklist, err := afero.ReadFile(fs, projectRoot+"/pkg/cmd/worklist/cmd.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(worklist), "setup.ExcludeFromMCP(cmd)")
+		assert.Contains(t, string(worklist), "list.NewCmdList(")
 	})
+}
+
+func withheldPaths(t *testing.T, p *props.Props) []string {
+	t.Helper()
+
+	m, err := generator.New(p, &generator.Config{Path: projectRoot}).LoadManifest()
+	require.NoError(t, err)
+
+	return m.Properties.MCP.Withhold
 }
 
 func TestConfirmRemoteTemplate_SkipsThePrompt(t *testing.T) {

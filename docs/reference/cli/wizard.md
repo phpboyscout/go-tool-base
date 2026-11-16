@@ -28,7 +28,7 @@ line in the same run.
 | Asks the destination path | Does not: the project is where it is. |
 | Signing page asks "require a verified checksum" | Asks that and "require a valid signature", because a signed release may have shipped by now. The description says not before it has. |
 | Ends on *Ready to generate*: every answer, then *Generate now* or *Cancel* | Ends on *Ready to apply*: *Apply now* or *Cancel*. Cancel writes nothing, like ctrl+c. |
-| MCP page asks the publication mode | Asks that and which commands stay on the MCP surface, pre-ticked from each command's `mcp_enabled`. A changed tick is the same write as `gtb enable mcp <path>` / `gtb disable mcp <path>`; a protected command is not listed. `--dry-run` names each change as `mcp surface: <path> exposed` or `withheld`. |
+| MCP page asks the publication mode | Asks that and which commands stay on the MCP surface, pre-ticked from each command's `mcp_enabled`. A changed tick is the same write as `gtb enable mcp <path>` / `gtb disable mcp <path>`; a protected command is not listed. `--dry-run` names each change as `mcp surface: <path> exposed` or `withheld`. Built-in and attached commands are not on the page: `gtb disable mcp <path>` withholds those, and a revisit keeps that list. |
 
 ## Flags
 

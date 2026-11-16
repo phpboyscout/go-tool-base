@@ -64,6 +64,7 @@ var probes = map[string]func(c *SkeletonConfig){
 	"Homebrew.Tap":                      func(c *SkeletonConfig) { c.Homebrew.Tap = "org/homebrew" },
 	"UpdatePolicy":                      func(c *SkeletonConfig) { c.UpdatePolicy = "prompt" },
 	"MCPMode":                           func(c *SkeletonConfig) { c.MCPMode = "direct" },
+	"MCPWithhold":                       func(c *SkeletonConfig) { c.MCPWithhold = []string{"sign"} },
 	"UpdateCheckInterval":               func(c *SkeletonConfig) { c.UpdateCheckInterval = "168h" },
 	"CIComponentSource":                 func(c *SkeletonConfig) { c.CIComponentSource = "gitlab.example.com/mirror/cicd" },
 	"Templates": func(c *SkeletonConfig) {

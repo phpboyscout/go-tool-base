@@ -50,17 +50,17 @@ func init() {
 var globalFlags = map[string]bool{"config": true, "debug": true, "ci": true, "accessible": true}
 
 // NewCmdMCP builds the `mcp` command for a tool: exposure from the command
-// tree's own markers, the framework's global flags withheld, operations
-// grouped by feature, the publication mode from props.Tool.MCP, the tool's
-// identity, and logs on the invocation's error stream at the level the root's
-// --debug also moves (stdout carries the protocol).
-// extra options come last, so a host or a test can add or override.
+// tree's own markers less the author's withhold list, the framework's global
+// flags withheld, operations grouped by feature, the publication mode from
+// props.Tool.MCP, the tool's identity, and logs on the invocation's error
+// stream at the level the root's --debug also moves (stdout carries the
+// protocol). extra options come last, so a host or a test can add or override.
 func NewCmdMCP(p *props.Props, level *slog.LevelVar, extra ...cli.Option) *setup.Command {
 	options := make([]cli.Option, 0, 5+len(extra)) //nolint:mnd // the five conventions below
 	options = append(options,
 		cli.WithLogLevel(level),
 		cli.WithLogger(slog.New(slog.NewTextHandler(p.GetIO().Err(), &slog.HandlerOptions{Level: level}))),
-		cli.WithBinding(BindingOptions()...),
+		cli.WithBinding(BindingOptions(p)...),
 		cli.WithServer(ServerOptions(p)...),
 		cli.WithServerName(p.Tool.Name),
 	)
@@ -73,15 +73,25 @@ func NewCmdMCP(p *props.Props, level *slog.LevelVar, extra ...cli.Option) *setup
 	setup.MarkSkipUpdateCheck(cmd)
 	setup.MarkProtocolStdout(cmd)
 
+	// The exposure policy cannot fail and the tree is whole only once a
+	// command runs, so the list is checked where serving starts (spec 0213 D7).
+	for _, sub := range cmd.Commands() {
+		if servingCommands[sub.Name()] {
+			guardServing(p, sub)
+		}
+	}
+
 	return setup.Wrap(props.McpCmd, cmd)
 }
 
 // BindingOptions are GTB's conventions for the Cobra binding: exposure by the
-// tree's own markers (spec 0089), the global flags withheld, and the wrapper's
-// feature as the search group.
-func BindingOptions() []mcpcobra.BindingOption {
+// tree's own markers (spec 0089) less the tool's withhold list (spec 0213),
+// the global flags withheld, and the wrapper's feature as the search group.
+func BindingOptions(p *props.Props) []mcpcobra.BindingOption {
+	withheld := withholding(p.Tool.MCP.Withhold)
+
 	return []mcpcobra.BindingOption{
-		mcpcobra.WithExposure(exposed),
+		mcpcobra.WithExposure(func(cmd *cobra.Command) bool { return exposed(cmd) && !withheld(cmd) }),
 		mcpcobra.WithFlagFilter(func(_ *cobra.Command, flag *pflag.Flag) bool { return !globalFlags[flag.Name] }),
 		mcpcobra.WithGroup(featureGroup),
 	}

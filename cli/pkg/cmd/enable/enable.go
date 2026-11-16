@@ -54,8 +54,7 @@ Capabilities with their own configuration are scoped subcommands:
             internal/trustkeys, wire props.Signing, and emit the enforcement
             defaults (run 'gtb enable signing --help').
   mcp       With no argument, turn on the mcp feature. With one or more command
-            paths, put those commands back on the MCP tool surface — records
-            mcp_enabled: true and re-renders their cmd.go (run
+            paths, put those commands back on the MCP tool surface (run
             'gtb enable mcp --help').`,
 		Example: `  gtb enable ai                       # turn on the AI feature
   gtb enable ai config telemetry      # turn on several at once

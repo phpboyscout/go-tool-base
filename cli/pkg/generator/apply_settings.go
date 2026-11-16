@@ -68,7 +68,8 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) {
 	m.Properties.EnvPrefix = fresh.Properties.EnvPrefix
 	m.Properties.Config = fresh.Properties.Config
 	m.Properties.UpdatePolicy = fresh.Properties.UpdatePolicy
-	m.Properties.MCP = fresh.Properties.MCP
+	// The withhold list is not the caller's to set (spec 0213 D6).
+	m.Properties.MCP.Mode = fresh.Properties.MCP.Mode
 	m.Properties.UpdateCheckInterval = fresh.Properties.UpdateCheckInterval
 	m.Properties.Help = fresh.Properties.Help
 	m.Properties.Telemetry = fresh.Properties.Telemetry

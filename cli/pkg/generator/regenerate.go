@@ -439,6 +439,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,
+		MCPWithhold:           m.Properties.MCP.Withhold,
 		SigningEnabled:        m.Properties.Signing.Enabled,
 		ModulePath:            manifestModulePath(m),
 		AutoInitialise:        m.Properties.Bootstrap.AutoInitialise,
@@ -611,6 +612,7 @@ type skeletonTemplateData struct {
 	UpdatePolicy          string
 	UpdateCheckInterval   string
 	MCPMode               string
+	MCPWithhold           []string
 	Signing               ManifestSigning
 	Bootstrap             ManifestBootstrap
 	// HomebrewTap is the tap repository a release publishes its cask to,
@@ -764,6 +766,7 @@ func buildSkeletonTemplateDataFrom(m Manifest) skeletonTemplateData {
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		MCPMode:               m.Properties.MCP.Mode,
+		MCPWithhold:           m.Properties.MCP.Withhold,
 		Signing:               m.Properties.Signing,
 		Bootstrap:             m.Properties.Bootstrap,
 		HomebrewTap:           m.Properties.Homebrew.Tap,

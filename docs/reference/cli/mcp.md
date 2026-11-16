@@ -119,11 +119,37 @@ Omitting the flag leaves the decision unset (inherit); `--mcp-enabled=true`
 records an explicit exposure, which is how you re-expose one subcommand of an
 excluded parent.
 
+### Withholding a built-in or attached command
+
+A command the project did not generate has no `cmd.go` to mark. Name it by its
+path from the root in `props.Tool.MCP.Withhold`:
+
+```go
+Tool: props.Tool{
+    MCP: props.MCPConfig{Withhold: []string{"config/trust", "sign"}},
+},
+```
+
+A listed path covers its whole subtree and wins over every marker,
+`setup.IncludeInMCP` included. A generated project writes the list with
+`gtb disable mcp <path>` and `gtb enable mcp <path>`, which record it as
+`properties.mcp.withhold` and re-render the root; see
+[enable and disable](enable-disable.md#mcp).
+
+A listed path that names no command stops `mcp start`, `mcp stream` and
+`mcp tools` with an error naming it (`mcp.ErrWithheldPathNotFound`), because a
+path that names nothing withholds nothing. The one exception is a path whose
+first segment is a feature the tool has turned off: that command is absent on
+purpose. A deeper command a feature adds, such as `docs/ask` while ai is off,
+is still reported, because it cannot be told from a typo. Keep such a path on
+the list and turn the feature on.
+
 ### Exposure is build-time only
 
 There is no configuration key or flag that changes the MCP surface at runtime.
-The decision is baked into the binary as a cobra annotation
-(`gtb.mcp.exposure`), so the surface a shipped binary presents is fixed and
+The decision is baked into the binary, as a cobra annotation
+(`gtb.mcp.exposure`) or the compiled-in withhold list, so the surface a shipped
+binary presents is fixed and
 auditable. An operator cannot widen it, and a compromised config file cannot
 either.
 

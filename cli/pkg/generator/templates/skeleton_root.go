@@ -74,6 +74,8 @@ type SkeletonRootData struct {
 	// MCPMode wires props.Tool.MCP. Only "direct" emits a field: compact is the
 	// zero value, so every root generated before the field says compact.
 	MCPMode string
+	// MCPWithhold wires props.Tool.MCP.Withhold (spec 0213).
+	MCPWithhold []string
 	// SigningEnabled gates the Signing: props.SigningConfig{...} block.
 	// When true the generated tool wires trustkeys.Keys() and
 	// trustkeys.AuthorityKeys() as its embedded trust anchors; ModulePath
@@ -266,10 +268,8 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		toolDict[jen.Id("UpdateCheckInterval")] = code
 	}
 
-	if data.MCPMode == "direct" {
-		toolDict[jen.Id("MCP")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "MCPConfig").Values(jen.Dict{
-			jen.Id("Mode"): jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "MCPDirect"),
-		})
+	if code, ok := mcpConfigCode(data); ok {
+		toolDict[jen.Id("MCP")] = code
 	}
 
 	switch data.HelpType {
@@ -377,6 +377,28 @@ func signingConfigValue(data SkeletonRootData) (jen.Code, bool) {
 	}
 
 	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SigningConfig").Values(signingDict), true
+}
+
+// mcpConfigCode is the props.MCPConfig literal, or false when the tool is
+// compact with nothing withheld, which is the zero value.
+func mcpConfigCode(data SkeletonRootData) (jen.Code, bool) {
+	const propsPkg = "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
+	fields := jen.Dict{}
+
+	if data.MCPMode == "direct" {
+		fields[jen.Id("Mode")] = jen.Qual(propsPkg, "MCPDirect")
+	}
+
+	if len(data.MCPWithhold) > 0 {
+		fields[jen.Id("Withhold")] = stringSliceLit(data.MCPWithhold)
+	}
+
+	if len(fields) == 0 {
+		return nil, false
+	}
+
+	return jen.Qual(propsPkg, "MCPConfig").Values(fields), true
 }
 
 func stringSliceLit(values []string) jen.Code {
