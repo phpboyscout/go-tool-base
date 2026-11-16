@@ -23,9 +23,10 @@ type AuthorSetting struct {
 	Field string
 	Kind  SettingKind
 	// Flag is the generate project flag; empty for a run option or a field
-	// the wizard and gtb set alone write. Generator.AI is the one setting
-	// without a flag, because --ai on generate is the run's own ask (spec
-	// 0211 D5, an exception to spec 0197 D4).
+	// the wizard and gtb set alone write. Two settings have no flag, both
+	// exceptions to spec 0197 D4: Generator.AI, because --ai on generate is
+	// the run's own ask (spec 0211 D5), and MCPWithhold, which only gtb
+	// disable mcp and gtb enable mcp write (spec 0213 D6).
 	Flag string
 	// Wizard is the page key that asks it; empty when the wizard does not.
 	Wizard string
@@ -47,6 +48,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "ConfigKeyCase", Kind: KindSetting, Flag: "config-key-case", Wizard: "config-key-case", Manifest: "properties.config.key_case"},
 	{Field: "UpdatePolicy", Kind: KindSetting, Flag: "update-policy", Wizard: "update-policy", Manifest: "properties.update_policy"},
 	{Field: "MCPMode", Kind: KindSetting, Flag: "mcp-mode", Wizard: "mcp-mode", Manifest: "properties.mcp.mode"},
+	{Field: "MCPWithhold", Kind: KindSetting, Manifest: "properties.mcp.withhold"},
 	{Field: "UpdateCheckInterval", Kind: KindSetting, Flag: "update-check-interval", Wizard: "update-check-interval", Manifest: "properties.update_check_interval"},
 	{Field: "HelpType", Kind: KindSetting, Flag: "help-type", Wizard: "help-type", Manifest: "properties.help.type"},
 	{Field: "SlackChannel", Kind: KindSetting, Flag: "slack-channel", Wizard: "slack-channel", Manifest: "properties.help.slack_channel"},
@@ -147,6 +149,7 @@ func skeletonConfigFromManifest(m Manifest) SkeletonConfig {
 		Homebrew:              m.Properties.Homebrew,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		MCPMode:               m.Properties.MCP.Mode,
+		MCPWithhold:           m.Properties.MCP.Withhold,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		CIComponentSource:     m.Properties.CI.ComponentSource,
 		Templates:             m.Properties.Templates,

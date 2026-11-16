@@ -32,8 +32,14 @@ import (
 func tool(t *testing.T, mode props.MCPMode, extra ...cli.Option) (*cobra.Command, *slog.LevelVar) {
 	t.Helper()
 
+	return toolFor(t, props.Tool{Name: "tool", MCP: props.MCPConfig{Mode: mode}}, extra...)
+}
+
+func toolFor(t *testing.T, author props.Tool, extra ...cli.Option) (*cobra.Command, *slog.LevelVar) {
+	t.Helper()
+
 	p := &props.Props{
-		Tool:    props.Tool{Name: "tool", MCP: props.MCPConfig{Mode: mode}},
+		Tool:    author,
 		Logger:  logger.NewNoop(),
 		Version: version.Info{Version: "1.2.3"},
 	}

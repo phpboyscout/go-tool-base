@@ -118,6 +118,27 @@ The wizard asks the same on its MCP page (`gtb generate project` in a terminal,
 or `gtb wizard` on an existing project, where the page also lists which
 commands stay on the surface).
 
+## Keeping a command away from assistants
+
+A command that publishes, spends or handles secrets can stay runnable on the
+CLI and off the MCP surface:
+
+```bash
+gtb disable mcp deploy              # a command you generated
+gtb disable mcp sign config/trust   # an attached and a built-in command
+```
+
+Rebuild, then check what the binary really publishes:
+
+```bash
+mytool mcp tools
+```
+
+That listing is the audit. gtb cannot see a built-in or attached command from
+the project, so it takes the path on trust; if the path names no command, the
+built tool refuses to serve MCP and tells you which one. The rules are in
+[enable and disable](../../reference/cli/enable-disable.md#mcp).
+
 ## Shipping without MCP
 
 The feature is a link: a generated project has it while `cmd/<name>/mcp.go`

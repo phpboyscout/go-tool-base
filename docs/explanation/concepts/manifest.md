@@ -135,7 +135,8 @@ the generated Go source does not fully encode:
 
 Per-command, the manifest also records **`mcp_enabled`**, whether a command is
 exposed over MCP, so that gating round-trips through both regeneration
-directions.
+directions. Commands gtb did not generate are gated project-wide instead, by
+path, in **`properties.mcp.withhold`**.
 
 ### The rule: the manifest owns every author setting
 

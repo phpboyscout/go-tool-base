@@ -53,14 +53,15 @@ Capabilities with their own configuration are scoped subcommands:
             enforcement defaults. Keeps internal/trustkeys and any *.asc keys
             (run 'gtb disable signing --help').
   mcp       With no argument, turn off the mcp feature. With one or more command
-            paths, withhold those commands from the MCP tool surface — records
-            mcp_enabled: false and re-renders their cmd.go; they stay runnable on
-            the CLI (run 'gtb disable mcp --help').`,
+            paths, withhold those commands from the MCP tool surface, built-in
+            and attached commands included; they stay runnable on the CLI (run
+            'gtb disable mcp --help').`,
 		Example: `  gtb disable doctor                  # turn off the doctor feature
   gtb disable doctor docs             # turn off several at once
   gtb disable                         # pick features interactively
   gtb disable signing
-  gtb disable mcp post                # withhold the 'post' command from MCP`,
+  gtb disable mcp post                # withhold the 'post' command from MCP
+  gtb disable mcp sign config/trust   # withhold an attached and a built-in command`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return icmd.RunFeatureToggle(cmd, p, path, args, false)

@@ -560,6 +560,9 @@ type ManifestConfig struct {
 // ManifestMCP is the properties.mcp block.
 type ManifestMCP struct {
 	Mode string `yaml:"mode,omitempty"`
+	// Withhold lists the command paths the built tool never publishes as MCP
+	// operations, for commands gtb did not generate (spec 0213).
+	Withhold []string `yaml:"withhold,omitempty"`
 }
 
 // Documentation tree layouts recorded in [ManifestProperties.DocsLayout].

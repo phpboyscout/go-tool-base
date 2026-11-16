@@ -31,7 +31,7 @@ func applyLiteralToolField(mp *ManifestProperties, fieldName string, value dst.E
 			mp.UpdateCheckInterval = d.String()
 		}
 	case "MCP":
-		mp.MCP.Mode = mcpModeFromLiteral(value)
+		extractMCPLiteral(value, &mp.MCP)
 	case "Config":
 		extractConfigSpecLiteral(value, &mp.Config)
 	default:
@@ -53,12 +53,12 @@ func applyBlockToolField(mp *ManifestProperties, fieldName string, value dst.Exp
 	}
 }
 
-// mcpModeFromLiteral reads props.MCPConfig{Mode: props.MCPDirect}; anything
-// else is the compact default and records nothing.
-func mcpModeFromLiteral(value dst.Expr) string {
+// extractMCPLiteral reads a props.MCPConfig literal. Mode is recorded only as
+// direct; anything else is the compact default.
+func extractMCPLiteral(value dst.Expr, mcp *ManifestMCP) {
 	comp, ok := value.(*dst.CompositeLit)
 	if !ok {
-		return ""
+		return
 	}
 
 	for _, elt := range comp.Elts {
@@ -67,14 +67,20 @@ func mcpModeFromLiteral(value dst.Expr) string {
 			continue
 		}
 
-		if key, ok := kv.Key.(*dst.Ident); ok && key.Name == "Mode" {
+		key, ok := kv.Key.(*dst.Ident)
+		if !ok {
+			continue
+		}
+
+		switch key.Name {
+		case "Mode":
 			if sel, ok := kv.Value.(*dst.SelectorExpr); ok && sel.Sel.Name == "MCPDirect" {
-				return "direct"
+				mcp.Mode = "direct"
 			}
+		case "Withhold":
+			mcp.Withhold = stringSliceLitValue(kv.Value)
 		}
 	}
-
-	return ""
 }
 
 // extractSigningLiteral recovers the author baselines a props.SigningConfig

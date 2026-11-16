@@ -15,9 +15,10 @@ type enableMCPOptions struct {
 // NewCmdEnableMCP returns the dual-purpose `gtb enable mcp` subcommand. With no
 // arguments it turns the mcp feature on (the MCP server subsystem). With one or
 // more slash-separated command paths it puts those commands back on the MCP
-// tool surface — recording mcp_enabled: true (a deliberate, auditable
-// re-enablement) and re-rendering each command's cmd.go with the
-// setup.IncludeInMCP marker, which also overrides an excluded ancestor.
+// tool surface. A generated command gets mcp_enabled: true (a deliberate,
+// auditable re-enablement) and the setup.IncludeInMCP marker in its cmd.go,
+// which overrides an excluded ancestor; any other path comes off
+// properties.mcp.withhold (spec 0213).
 func NewCmdEnableMCP(p *props.Props) *setup.Command {
 	opts := enableMCPOptions{}
 
@@ -29,10 +30,16 @@ func NewCmdEnableMCP(p *props.Props) *setup.Command {
 With no arguments, turn on the mcp feature (the MCP server subsystem), exactly
 like 'gtb enable mcp' as a feature toggle.
 
-With one or more slash-separated command paths (e.g. 'post' or 'post/due'), mark
-those commands exposed on the MCP tool surface: records mcp_enabled: true and
-re-renders each command's cmd.go to carry setup.IncludeInMCP. A protected
-command is refused; unprotect it first.`,
+With one or more slash-separated command paths (e.g. 'post' or 'post/due'), put
+those commands back on the MCP tool surface.
+
+A command gtb generated records mcp_enabled: true and has its cmd.go re-rendered
+to carry setup.IncludeInMCP. A protected command is refused; unprotect it first.
+
+Any other path is taken off properties.mcp.withhold. A path under a command that
+is still on that list is refused, because the list covers everything beneath a
+command: expose the listed command instead. A path that is neither generated nor
+listed is already exposed, and nothing changes.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return icmd.RunMCPCommand(cmd, p, opts.Path, args, true)
