@@ -48,7 +48,7 @@ Feature: CLI Doctor Command
     And stdout does not contain "GTB_NON_INTERACTIVE sets"
 
   # #172: only the scheme and host are shown, and the check never gates.
-  Scenario: A URL set by the environment is listed with its layer, and does not fail the run
+  Scenario: A plaintext URL set by the environment is listed with its layer, warned about, and does not fail the run
     Given I set environment variable "GTB_MIRROR_ENDPOINT" to "http://user:do-not-print@mirror.internal:8080/v1?token=do-not-print"
     And I set environment variable "GTB_NON_INTERACTIVE" to "true"
     When I run gtb with "doctor --ci"
@@ -64,6 +64,14 @@ Feature: CLI Doctor Command
     Then the exit code is 0
     And stdout contains "mirror.endpoint is https://(host withheld) from env:GTB_MIRROR_ENDPOINT"
     And stdout does not contain "do-not-print"
+
+  Scenario: An https URL is listed without a warning
+    Given I set environment variable "GTB_MIRROR_ENDPOINT" to "https://mirror.internal/v1"
+    And I set environment variable "GTB_NON_INTERACTIVE" to "true"
+    When I run gtb with "doctor --ci"
+    Then the exit code is 0
+    And stdout contains "[OK] Config URLs"
+    And stdout contains "mirror.endpoint is https://mirror.internal from env:GTB_MIRROR_ENDPOINT"
 
   # #134: the check reads each provider's key the way the chat client does.
   Scenario: A chat provider with no key fails the chat providers check

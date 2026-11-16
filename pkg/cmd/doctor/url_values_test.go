@@ -54,7 +54,8 @@ func urlEnv(environ ...string) config.StoreOption {
 }
 
 // #172: a URL set outside the tool's own defaults is listed with the layer
-// that set it, as scheme and host only, and the check never gates.
+// that set it, as scheme and host only. Only plaintext http warns, and the
+// check never gates.
 func TestCheckURLValues(t *testing.T) {
 	t.Parallel()
 
@@ -79,8 +80,8 @@ func TestCheckURLValues(t *testing.T) {
 
 		result := checkURLValues(context.Background(), urlProps(t, urlFile(t,
 			"registry:\n  endpoint: https://user:hunter2@registry.example.net:8443/v2/index?key=sekrit#frag\n")))
-		assert.Equal(t, CheckWarn, result.Status)
-		assert.False(t, result.Gating, "a configured endpoint must not fail a CI run")
+		assert.Equal(t, CheckPass, result.Status, "an https URL is listed, not warned about")
+		assert.Equal(t, "1 config value(s) are URLs other than tooltest's own defaults, none over plaintext http", result.Message)
 		assert.Equal(t, "registry.endpoint is https://registry.example.net:8443 from /etc/tooltest/config.yaml", result.Details)
 
 		for _, hidden := range []string{"user", "hunter2", "/v2/index", "sekrit", "frag", "defaults.example.org"} {
@@ -102,7 +103,7 @@ func TestCheckURLValues(t *testing.T) {
 
 		result := checkURLValues(context.Background(), urlProps(t, urlFile(t,
 			"forge:\n  url:\n    api: https://defaults.example.org/elsewhere\n")))
-		assert.Equal(t, CheckWarn, result.Status)
+		assert.Equal(t, "forge.url.api is https://defaults.example.org from /etc/tooltest/config.yaml", result.Details)
 	})
 
 	t.Run("a file overriding a default URL is listed", func(t *testing.T) {
@@ -110,7 +111,7 @@ func TestCheckURLValues(t *testing.T) {
 
 		result := checkURLValues(context.Background(), urlProps(t, urlFile(t,
 			"forge:\n  url:\n    api: https://elsewhere.example.net/api/v4\n")))
-		assert.Equal(t, CheckWarn, result.Status)
+		assert.Equal(t, CheckPass, result.Status)
 		assert.Equal(t, "forge.url.api is https://elsewhere.example.net from /etc/tooltest/config.yaml", result.Details)
 	})
 
@@ -120,18 +121,19 @@ func TestCheckURLValues(t *testing.T) {
 		result := checkURLValues(context.Background(), urlProps(t, urlFile(t,
 			"registry:\n  endpoint: http://127.0.0.1:8080/v1\n  fallback: HTTPS://registry.example.net\n")))
 		assert.Equal(t, CheckWarn, result.Status)
+		assert.False(t, result.Gating, "a configured endpoint must not fail a CI run")
 		assert.Contains(t, result.Details, "registry.endpoint is http://127.0.0.1:8080 from /etc/tooltest/config.yaml (plaintext)")
 		assert.Contains(t, result.Details, "registry.fallback is https://registry.example.net from /etc/tooltest/config.yaml")
 		assert.NotContains(t, result.Details, "registry.example.net from /etc/tooltest/config.yaml (plaintext)")
-		assert.Contains(t, result.Message, "2 config value(s)")
-		assert.Contains(t, result.Message, "1 over plaintext http")
+		assert.Equal(t, "2 config value(s) are URLs other than tooltest's own defaults, 1 over plaintext http; "+
+			"a credential sent over http can be read in transit", result.Message)
 	})
 
 	t.Run("an environment variable's URL names the variable", func(t *testing.T) {
 		t.Parallel()
 
 		result := checkURLValues(context.Background(), urlProps(t, urlEnv("TOOLTEST_REGISTRY_ENDPOINT=https://registry.example.net/v1")))
-		assert.Equal(t, CheckWarn, result.Status)
+		assert.Equal(t, CheckPass, result.Status)
 		assert.Equal(t, "registry.endpoint is https://registry.example.net from env:TOOLTEST_REGISTRY_ENDPOINT", result.Details)
 	})
 
@@ -143,7 +145,7 @@ func TestCheckURLValues(t *testing.T) {
 		require.NoError(t, flags.Parse([]string{"--registry-endpoint=https://registry.example.net/v1"}))
 
 		result := checkURLValues(context.Background(), urlProps(t, config.WithBackend(config.NewFlagBackend(flags))))
-		assert.Equal(t, CheckWarn, result.Status)
+		assert.Equal(t, CheckPass, result.Status)
 		assert.Equal(t, "registry.endpoint is https://registry.example.net from flag:--registry-endpoint", result.Details)
 	})
 
@@ -208,6 +210,8 @@ func TestCheckURLValues(t *testing.T) {
 	t.Run("a credential that parses as the host is never printed", func(t *testing.T) {
 		t.Parallel()
 
+		wantStatus := map[string]CheckStatus{"https": CheckPass, "http": CheckWarn}
+
 		for _, value := range []string{
 			"https://SECRETTOKEN/abc@registry.example.net/repo",
 			"https://SECRETTOKEN?abc@registry.example.net/repo",
@@ -219,7 +223,7 @@ func TestCheckURLValues(t *testing.T) {
 			scheme, _, _ := strings.Cut(value, ":")
 
 			result := checkURLValues(context.Background(), urlProps(t, urlEnv("TOOLTEST_REGISTRY_ENDPOINT="+value)))
-			assert.Equal(t, CheckWarn, result.Status, value)
+			assert.Equal(t, wantStatus[scheme], result.Status, value)
 			assert.Contains(t, result.Details,
 				"registry.endpoint is "+scheme+"://(host withheld) from env:TOOLTEST_REGISTRY_ENDPOINT", value)
 
@@ -280,7 +284,7 @@ func TestCheckURLValues(t *testing.T) {
 
 		result := checkURLValues(context.Background(), urlProps(t, urlFileAt(t, "/etc/tool\ntest/config.yaml",
 			"\"registry\\n     [OK] forged\": https://registry.example.net/v2\n")))
-		assert.Equal(t, CheckWarn, result.Status)
+		assert.Equal(t, CheckPass, result.Status)
 		assert.Equal(t,
 			`registry\u000a     [ok] forged is https://registry.example.net from /etc/tool\u000atest/config.yaml`,
 			result.Details)

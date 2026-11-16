@@ -59,7 +59,7 @@ Tool-author responsibility: never interpolate a credential value into a `CheckRe
 
 **Chat provider endpoints** are validated through `chat.ValidateBaseURL`: HTTPS-only, no URL userinfo, rejected placeholder hosts. `chat.New` logs the endpoint hostname at INFO, never the path or query. The `AllowInsecureBaseURL: true` escape hatch is `json:"-"` so it cannot be enabled via config file: only in-process by a caller with a signed reason.
 
-**Endpoints read from config** are not vetted when config is loaded. A tool reads whichever config files, variables and flags the person running it supplies, and a file from somewhere else is theirs to check. The guard belongs where the request is made: code that attaches a credential decides there whether the endpoint may have it. `doctor`'s **Config URLs** check makes those endpoints visible, listing every URL-valued key that is not the tool's own default, the layer that set it and its scheme and host, and marking `http` as plaintext.
+**Endpoints read from config** are not vetted when config is loaded. A tool reads whichever config files, variables and flags the person running it supplies, and a file from somewhere else is theirs to check. The guard belongs where the request is made: code that attaches a credential decides there whether the endpoint may have it. `doctor`'s **Config URLs** check makes those endpoints visible, listing every URL-valued key that is not the tool's own default, the layer that set it and its scheme and host. It warns only about one over `http`, which it marks `(plaintext)`.
 
 **Regex compilation** for caller-supplied patterns (Bitbucket `filename_pattern`, docs search) routes through `pkg/regexutil.CompileBoundedTimeout`: 1 KiB length cap, 100 ms compile timeout. Mitigates ReDoS for patterns that originate outside the binary. Literal patterns in source still use `regexp.MustCompile`.
 
@@ -88,7 +88,7 @@ Tool-author responsibility: never interpolate a credential value into a `CheckRe
 
 - **Prefer env-var references for shared workstations and CI.** Your shell profile or CI platform secret store becomes the single source of truth.
 - **Run `doctor` after `init`.** The `credentials.no-literal` check catches any lingering plaintext credentials from historical configs or copy-paste mishaps.
-- **Read the Config URLs check before running a tool against config you did not write.** It lists every endpoint that is not the tool's own default and the file, variable or flag that set it. One marked `(plaintext)` sends whatever the tool attaches over `http`.
+- **Read the Config URLs check before running a tool against config you did not write.** It lists every endpoint that is not the tool's own default and the file, variable or flag that set it. The check warns only about one marked `(plaintext)`, which sends whatever the tool attaches over `http`. An `https` endpoint you do not recognise is listed without a warning, so read the list and not only the status.
 - **Use `config migrate-credentials` to upgrade.** The command is idempotent (running it twice is safe) and has a `--dry-run` preview if you want to see the plan first. CI/CD pipelines use `--yes` to migrate silently.
 
 ### GTB contributors

@@ -16,10 +16,10 @@ import (
 
 // checkURLValues lists the config values that are URLs and the layer that set
 // each, so an endpoint from a file the user did not write is seen before a
-// credential is sent to it. Advisory: the request is guarded by the code that
-// sends it, not here. A value the tool ships as its own default for that key
-// is the author's choice and is not listed, whichever layer repeats it: init
-// writes the defaults into the user's file.
+// credential is sent to it. Only plaintext http warns. Advisory: the request
+// is guarded by the code that sends it, not here. A value the tool ships as
+// its own default for that key is the author's choice and is not listed,
+// whichever layer repeats it: init writes the defaults into the user's file.
 func checkURLValues(_ context.Context, props *p.Props) CheckResult {
 	const name = "Config URLs"
 
@@ -61,14 +61,21 @@ func checkURLValues(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: name, Status: CheckPass, Message: "no URLs set other than " + props.Tool.Name + "'s own defaults"}
 	}
 
-	return CheckResult{
-		Name:   name,
-		Status: CheckWarn,
-		Message: fmt.Sprintf("%d config value(s) are URLs other than %s's own defaults, %d over plaintext http; "+
-			"a credential sent to one goes wherever it points, so check each is an endpoint you trust",
-			len(lines), props.Tool.Name, plaintext),
+	count := fmt.Sprintf("%d config value(s) are URLs other than %s's own defaults", len(lines), props.Tool.Name)
+
+	result := CheckResult{
+		Name:    name,
+		Status:  CheckPass,
+		Message: count + ", none over plaintext http",
 		Details: strings.Join(lines, "\n"),
 	}
+
+	if plaintext > 0 {
+		result.Status = CheckWarn
+		result.Message = fmt.Sprintf("%s, %d over plaintext http; a credential sent over http can be read in transit", count, plaintext)
+	}
+
+	return result
 }
 
 // shippedValues returns, per key, the strings the tool's compiled-in defaults
