@@ -22,3 +22,17 @@ Feature: MCP command exposure gating
     Then the project exit code is 0
     And the generated "pkg/cmd/post/cmd.go" file contains "setup.IncludeInMCP(cmd)"
     And the project manifest contains "mcp_enabled: true"
+
+  Scenario: a hand-edited command named first does not cost a later one its subcommands
+    # Issue #167: given several paths, the first cmd.go kept as hand-edited
+    # left every later parent re-rendered without its subcommands.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name hook --short hooks"
+    And I run gtb in the project with "generate command --name worklist --short worklists"
+    And I run gtb in the project with "generate command --name list --parent worklist --short list-them"
+    And I hand-edit the generated "pkg/cmd/hook/cmd.go" file
+    And I run gtb in the project with "disable mcp hook worklist"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/hook/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/worklist/cmd.go" file contains "setup.ExcludeFromMCP(cmd)"
+    And the generated "pkg/cmd/worklist/cmd.go" file contains "Register(list.NewCmdList"

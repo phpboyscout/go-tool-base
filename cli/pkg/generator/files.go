@@ -161,11 +161,16 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 	content := buf.Bytes()
 	newHash := calculateHash(content)
 
-	if decision := g.resolveCommandFileConflict(cmdPath, content); !decision.Write() {
+	decision := g.resolveCommandFileConflict(cmdPath, content)
+
+	// Assigned on every render, because one generator renders many commands
+	// and a kept file must not read as kept for the next (#167).
+	g.registrationKept = !decision.Write()
+
+	if g.registrationKept {
 		// Kept or ignored: leave the file alone and carry on. The recorded
 		// hash is the resolver's, not this render's — see D3/D4 of spec 0187.
 		g.props.Logger.Info(fmt.Sprintf("Keeping registration file: %s", cmdPath))
-		g.registrationKept = true
 
 		return decision.RecordHash, nil
 	}

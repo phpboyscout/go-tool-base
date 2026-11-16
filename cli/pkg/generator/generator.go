@@ -167,9 +167,10 @@ type Generator struct {
 	// end-of-run summary. Reset at the start of each regeneration.
 	conflicts conflictLog
 
-	// registrationKept records that this command's cmd.go was kept rather than
-	// written (a conflict under --overwrite deny, or an ignore rule), so the
-	// child re-registration leaves the file and its recorded hash alone.
+	// registrationKept records that the command last rendered had its cmd.go
+	// kept rather than written (a conflict under --overwrite deny, or an ignore
+	// rule), so the child re-registration leaves the file and its recorded hash
+	// alone.
 	registrationKept bool
 
 	// parentWasPristine records whether the parent command's cmd.go matched
