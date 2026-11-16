@@ -20,7 +20,7 @@ require (
 	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
 	gitlab.com/phpboyscout/go-tool-base v0.50.4
-	gitlab.com/phpboyscout/go/chat v0.38.1
+	gitlab.com/phpboyscout/go/chat v0.39.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.22.0
 	gitlab.com/phpboyscout/go/chat-bedrock v0.9.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.21.0
@@ -224,7 +224,7 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/api v0.312.0 // indirect
+	google.golang.org/api v0.314.0 // indirect
 	google.golang.org/genai v1.77.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect

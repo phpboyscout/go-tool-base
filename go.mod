@@ -36,7 +36,7 @@ require (
 	gitlab.com/phpboyscout/go/azureclient v0.1.4
 	gitlab.com/phpboyscout/go/browser v0.2.3
 	gitlab.com/phpboyscout/go/changelog v0.6.1
-	gitlab.com/phpboyscout/go/chat v0.38.1
+	gitlab.com/phpboyscout/go/chat v0.39.0
 	gitlab.com/phpboyscout/go/config v0.21.4
 	gitlab.com/phpboyscout/go/config-afero v0.1.15
 	gitlab.com/phpboyscout/go/config-aws-s3 v0.3.8
@@ -87,7 +87,7 @@ require (
 	golang.org/x/mod v0.43.0
 	golang.org/x/term v0.48.0
 	golang.org/x/text v0.44.0
-	google.golang.org/api v0.312.0
+	google.golang.org/api v0.314.0
 	google.golang.org/grpc v1.85.0
 	gopkg.in/yaml.v3 v3.0.1
 )
