@@ -2,6 +2,9 @@ package mcp
 
 import (
 	"log/slog"
+	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -15,25 +18,54 @@ import (
 // go/mcp has no hook that runs before a binding is served, so the stale-path
 // check is attached to its subcommands by name. A go/mcp release that adds one
 // which binds the tree must fail here, not serve unchecked (spec 0213 D8).
-func TestServingCommandsAreEveryRunnableChildOfMCP(t *testing.T) {
+func TestEveryRunnableMCPCommandIsGuardedOrKnownNotToServe(t *testing.T) {
 	t.Parallel()
 
 	p := &props.Props{Tool: props.Tool{Name: "tool"}, Logger: logger.NewNoop()}
 
 	var unaccounted []string
 
-	for _, leaf := range runnableLeaves(NewCmdMCP(p, &slog.LevelVar{}).Command, "") {
-		if !servingCommands[leaf] && !editsAClientConfig[leaf] {
-			unaccounted = append(unaccounted, leaf)
+	mcpCmd := NewCmdMCP(p, &slog.LevelVar{}).Command
+	runnable := runnableCommands(mcpCmd, "")
+
+	for _, path := range runnable {
+		if !servingCommands[path] && !editsAClientConfig[path] && !printsUsage[path] {
+			unaccounted = append(unaccounted, path)
 		}
 	}
 
 	assert.Empty(t, unaccounted, "a new go/mcp command must be guarded, or recorded here as not serving")
 
-	leaves := runnableLeaves(NewCmdMCP(p, &slog.LevelVar{}).Command, "")
 	for name := range servingCommands {
-		assert.Contains(t, leaves, name, "a guarded name that is not a runnable leaf guards nothing")
+		assert.Contains(t, runnable, name, "a guarded name that is not runnable guards nothing")
 	}
+
+	for path := range printsUsage {
+		assert.Equal(t, groupRunE, funcName(commandAt(t, mcpCmd, path).RunE), "%q must still only print usage", path)
+	}
+}
+
+const groupRunE = "gitlab.com/phpboyscout/go/mcp/cli.groupRunE"
+
+func funcName(fn func(*cobra.Command, []string) error) string {
+	if fn == nil {
+		return ""
+	}
+
+	return runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+}
+
+func commandAt(t *testing.T, cmd *cobra.Command, path string) *cobra.Command {
+	t.Helper()
+
+	if path == "" {
+		return cmd
+	}
+
+	found, _, err := cmd.Find(strings.Split(path, "/"))
+	require.NoError(t, err)
+
+	return found
 }
 
 // editsAClientConfig are go/mcp's per-client commands, which write a client's
@@ -44,22 +76,30 @@ var editsAClientConfig = map[string]bool{
 	"vscode/enable": true, "vscode/disable": true, "vscode/list": true,
 }
 
-// runnableLeaves names every runnable leaf under cmd by its path from cmd, so a
-// nested serving command shows as "serve/http" and matches no guarded name.
-func runnableLeaves(cmd *cobra.Command, prefix string) []string {
-	var leaves []string
+// printsUsage are the mcp command itself ("") and go/mcp's per-client groups,
+// whose RunE prints usage (groupRunE, go/mcp v0.2.4 cli/command.go:109).
+var printsUsage = map[string]bool{"": true, "claude": true, "cursor": true, "vscode": true}
 
-	for _, sub := range cmd.Commands() {
-		path := prefix + sub.Name()
+// runnableCommands names every runnable command from cmd down by its path from
+// cmd, groups and cmd itself included ("" is cmd), so a nested serving command
+// shows as "serve/http" and matches no guarded name.
+func runnableCommands(cmd *cobra.Command, path string) []string {
+	var found []string
 
-		if sub.HasSubCommands() {
-			leaves = append(leaves, runnableLeaves(sub, path+"/")...)
-		} else if sub.Runnable() {
-			leaves = append(leaves, path)
-		}
+	if cmd.Runnable() {
+		found = append(found, path)
 	}
 
-	return leaves
+	for _, sub := range cmd.Commands() {
+		child := sub.Name()
+		if path != "" {
+			child = path + "/" + child
+		}
+
+		found = append(found, runnableCommands(sub, child)...)
+	}
+
+	return found
 }
 
 func TestGuardServing_LeavesACommandWithNothingToRunAlone(t *testing.T) {
