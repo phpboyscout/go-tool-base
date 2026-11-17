@@ -155,18 +155,29 @@ D5.
 
 Trust is **direnv-style**. `<tool> config trust` records the file's absolute path
 and the SHA-256 of its exact current content in a per-user store
-(`~/.<tool>/trusted-projects.yaml`, owner-only, never inside a repository).
+(`~/.<tool>/trusted-projects.yaml`, owner-only, and ignored when it is inside a
+git checkout).
 Editing a trusted file (or a fresh clone swapping it out) changes the hash and
 revokes trust until you run the command again. Use `config trust --list` to see
 what is trusted and `config trust --forget` to revoke. Until a file is trusted it
 is also **read-only**: `config set` in an untrusted repository routes the write to
 your own config, not the repository file.
 
+**A home directory inside a git checkout** is treated as repository content, as a
+CI job's home often is. Your own config file there (`~/.<tool>/config.<ext>`) goes
+through the same filter as an untrusted project file, with a WARN naming the keys,
+and it stays writable. The trust store there counts for nothing, and
+`config trust` refuses to write one, because the repository could have shipped
+it. Set security-sensitive keys through environment variables or flags instead.
+The test is a `.git` file or directory in the config directory or any directory
+above it.
+
 An explicit `--config` suppresses the project-local layer entirely (naming a file
 means "use this one"), so this trust gate only applies to the implicitly
-discovered `.<tool>.yaml`. CI runs untrusted by default, a pipeline that
-legitimately depends on project-local security keys should trust the file in a
-provisioning step or supply those values through the user config or environment.
+discovered `.<tool>.yaml`. CI runs untrusted by default. A pipeline that
+legitimately depends on project-local security keys should supply those values
+through the environment or flags. A provisioning step that runs `config trust`
+works only where the tool's config directory is outside the checkout.
 See [`config trust`](../../../reference/cli/config.md) and the
 [security-decisions record](../../../development/security-decisions.md#m-2-project-local-toolyaml-could-downgrade-security-posture).
 

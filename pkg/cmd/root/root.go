@@ -304,9 +304,7 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 	// to land and can create the file. It never triggers the missing-file
 	// re-read that other absent layers would, because it is the written
 	// backend (staged, not reloaded).
-	for _, path := range declaredConfigPaths(existing, opts.CfgPaths) {
-		byLayer[p.LayerFiles] = append(byLayer[p.LayerFiles], config.WithBackend(config.NewCodecBackend(fsys, path, fileCodecs[path])))
-	}
+	byLayer[p.LayerFiles] = append(byLayer[p.LayerFiles], userFileBackends(fsys, opts.Props, declaredConfigPaths(existing, opts.CfgPaths), fileCodecs)...)
 
 	// The project-local layer is subject to the trust filter: an untrusted
 	// file has its security-sensitive keys stripped and is read-only (writes
@@ -321,6 +319,24 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 	}
 
 	return nil
+}
+
+// userFileBackends layers the user's config files, filtering any that sit in a
+// config directory inside a git checkout (checkoutHomeFilter).
+func userFileBackends(fsys config.FS, props *p.Props, paths []string, codecs map[string]config.Codec) []config.StoreOption {
+	inCheckout := userConfigInCheckout(props)
+	out := make([]config.StoreOption, 0, len(paths))
+
+	for _, path := range paths {
+		codec := codecs[path]
+		if inCheckout(path) {
+			codec = checkoutHomeFilter(codec, props.Logger)
+		}
+
+		out = append(out, config.WithBackend(config.NewCodecBackend(fsys, path, codec)))
+	}
+
+	return out
 }
 
 // codecsFor picks every declared path's codec before anything is read,

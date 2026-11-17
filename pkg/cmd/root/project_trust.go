@@ -2,6 +2,7 @@ package root
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -131,15 +132,15 @@ func stripEntry(key string, value any, prefix string, protected func(string) boo
 
 // trustFilterCodec is a read-only config codec that decodes exactly like the
 // codec the file's extension chose (spec 0204 D17) but strips the security-sensitive keys an untrusted
-// project-local layer is not permitted to set, warning once per decode about
-// what it ignored. It deliberately does NOT implement EditingCodec, so the
-// backend built from it is not a write target: writes to a project-local file
-// that the user has not trusted route to the user's own config instead of the
-// repository file.
+// file is not permitted to set, warning once per decode about what it ignored.
+// It deliberately does NOT implement EditingCodec, so the backend built from it
+// is not a write target: writes to a project-local file that the user has not
+// trusted route to the user's own config instead of the repository file.
 type trustFilterCodec struct {
-	base config.Codec
-	log  logger.Logger
-	tool string
+	base    config.Codec
+	log     logger.Logger
+	warning string
+	hint    string
 }
 
 // Decode implements config.Codec.
@@ -161,15 +162,51 @@ func (c trustFilterCodec) Decode(path string, src []byte) ([]map[string]any, err
 
 	if len(ignored) > 0 && c.log != nil {
 		sort.Strings(ignored)
-		c.log.Warn(
-			"ignoring security-sensitive keys from an untrusted project-local config file",
-			"file", path,
-			"keys", strings.Join(ignored, ", "),
-			"hint", "run '"+c.tool+" config trust' to trust this file if you authored it",
-		)
+		c.log.Warn(c.warning, "file", path, "keys", strings.Join(ignored, ", "), "hint", c.hint)
 	}
 
 	return docs, nil
+}
+
+// untrustedProjectFilter is the filter for a project-local file nobody has
+// trusted.
+func untrustedProjectFilter(codec config.Codec, log logger.Logger, tool string) trustFilterCodec {
+	return trustFilterCodec{
+		base:    codec,
+		log:     log,
+		warning: "ignoring security-sensitive keys from an untrusted project-local config file",
+		hint:    "run '" + tool + " config trust' to trust this file if you authored it",
+	}
+}
+
+// checkoutHomeFilter wraps the codec of a user config file whose directory is
+// inside a git checkout. The file may have come from the repository, so
+// its security-sensitive keys are stripped as an untrusted project file's are.
+// Unlike that file it stays a write target, because it is still the user's own
+// config: an edit applies to the source bytes, so the stripped keys survive it.
+func checkoutHomeFilter(codec config.Codec, log logger.Logger) config.Codec {
+	filter := trustFilterCodec{
+		base:    codec,
+		log:     log,
+		warning: "ignoring security-sensitive keys from a user config file inside a git checkout",
+		hint:    "the file may have come from the repository; set these keys through environment variables or flags",
+	}
+
+	if editing, ok := codec.(config.EditingCodec); ok {
+		return editingTrustFilter{EditingCodec: editing, filter: filter}
+	}
+
+	return filter
+}
+
+type editingTrustFilter struct {
+	config.EditingCodec
+	filter trustFilterCodec
+}
+
+// Decode implements config.Codec.
+func (f editingTrustFilter) Decode(path string, src []byte) ([]map[string]any, error) {
+	return f.filter.Decode(path, src)
 }
 
 // projectLayerBackend builds the store backend for a discovered project-local
@@ -189,11 +226,7 @@ func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string, cod
 		return config.NewCodecBackend(fsys, projectPath, withoutSourcePointers(codec, props.Logger, projectPath))
 	}
 
-	return config.NewCodecBackend(fsys, projectPath, trustFilterCodec{
-		base: codec,
-		log:  props.Logger,
-		tool: props.Tool.Name,
-	})
+	return config.NewCodecBackend(fsys, projectPath, untrustedProjectFilter(codec, props.Logger, props.Tool.Name))
 }
 
 // configSourcesKey is the subtree that says where configuration comes from
@@ -254,4 +287,24 @@ type editingSourcePointerFilter struct {
 // Decode implements config.Codec.
 func (f editingSourcePointerFilter) Decode(path string, src []byte) ([]map[string]any, error) {
 	return f.filter.Decode(path, src)
+}
+
+// userConfigInCheckout returns a test for whether a config path is in the
+// user's config directory while that directory is inside a git checkout, as it
+// is when the home directory is a CI job's working tree.
+func userConfigInCheckout(props *p.Props) func(path string) bool {
+	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	if !setup.DirInCheckout(props.FS, dir) {
+		return func(string) bool { return false }
+	}
+
+	return func(path string) bool {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+
+		rel, err := filepath.Rel(dir, path)
+
+		return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	}
 }
