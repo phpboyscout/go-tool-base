@@ -63,7 +63,7 @@ require (
 	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.0
 	gitlab.com/phpboyscout/go/features v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.38.2
+	gitlab.com/phpboyscout/go/forge v0.39.0
 	gitlab.com/phpboyscout/go/gcpclient v0.1.5
 	gitlab.com/phpboyscout/go/httpclient v0.2.6
 	gitlab.com/phpboyscout/go/mcp v0.2.4
@@ -72,7 +72,7 @@ require (
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/regexutil v0.2.3
 	gitlab.com/phpboyscout/go/repo v0.9.2
-	gitlab.com/phpboyscout/go/signing v0.11.4
+	gitlab.com/phpboyscout/go/signing v0.12.0
 	gitlab.com/phpboyscout/go/tls v0.2.3
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
@@ -87,7 +87,7 @@ require (
 	golang.org/x/mod v0.43.0
 	golang.org/x/term v0.48.0
 	golang.org/x/text v0.44.0
-	google.golang.org/api v0.314.0
+	google.golang.org/api v0.315.0
 	google.golang.org/grpc v1.85.0
 	gopkg.in/yaml.v3 v3.0.1
 )

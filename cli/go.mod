@@ -33,15 +33,15 @@ require (
 	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.0
 	gitlab.com/phpboyscout/go/features v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.38.2
+	gitlab.com/phpboyscout/go/forge v0.39.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.19.1
-	gitlab.com/phpboyscout/go/forge-gitea v0.31.2
-	gitlab.com/phpboyscout/go/forge-github v0.30.3
-	gitlab.com/phpboyscout/go/forge-gitlab v0.31.1
+	gitlab.com/phpboyscout/go/forge-gitea v0.32.0
+	gitlab.com/phpboyscout/go/forge-github v0.31.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.32.0
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.2
-	gitlab.com/phpboyscout/go/signing v0.11.4
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.7.2
+	gitlab.com/phpboyscout/go/signing v0.12.0
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.8.0
 	gitlab.com/phpboyscout/go/signing-cli v0.7.0
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
@@ -79,7 +79,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.62.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.62.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.39.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.5 // indirect
@@ -182,7 +182,7 @@ require (
 	github.com/yuin/goldmark v1.8.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v3 v3.40.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v3 v3.48.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.4 // indirect
 	gitlab.com/phpboyscout/go/authn v0.3.1 // indirect
 	gitlab.com/phpboyscout/go/awsclient v0.1.4 // indirect
@@ -225,7 +225,7 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/api v0.314.0 // indirect
+	google.golang.org/api v0.315.0 // indirect
 	google.golang.org/genai v1.77.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect
