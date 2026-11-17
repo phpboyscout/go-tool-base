@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
@@ -16,9 +17,14 @@ import (
 
 // trustStoreFilename is the per-user record of project-local config files the
 // user has explicitly trusted. It lives beside the tool's own config in the
-// default config directory, never in a repository, so a clone cannot pre-seed
-// its own trust.
+// default config directory. When that directory is inside a git checkout the
+// store is ignored and never written, so a clone cannot pre-seed its own trust.
 const trustStoreFilename = "trusted-projects.yaml"
+
+// ErrTrustStoreInCheckout is returned when trust would be recorded in a config
+// directory that is inside a git checkout.
+var ErrTrustStoreInCheckout = errors.NewSentinel("gtb.setup.trust_store_in_checkout",
+	"the config directory is inside a git checkout")
 
 // dirPermTrust is the owner-only mode for the trust store directory. The store
 // gates whether a repository file may change security posture, so it must not
@@ -114,13 +120,76 @@ func trustStorePathUnder(dir string) string {
 	return filepath.Join(dir, trustStoreFilename)
 }
 
+// DirInCheckout reports whether dir is in a git working tree: a .git file or
+// directory in dir or any directory above it, on the path as given or, on the
+// OS filesystem, with symbolic links resolved. A file there may have come from
+// the repository rather than from the user. A .git that cannot be stat'ed for
+// any reason but absence counts as present.
+func DirInCheckout(fs afero.Fs, dir string) bool {
+	if dir == "" {
+		return false
+	}
+
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+
+	if gitAtOrAbove(fs, dir) {
+		return true
+	}
+
+	if _, ok := fs.(*afero.OsFs); !ok {
+		return false
+	}
+
+	resolved := resolveExisting(dir)
+
+	return resolved != dir && gitAtOrAbove(fs, resolved)
+}
+
+func gitAtOrAbove(fs afero.Fs, dir string) bool {
+	for {
+		_, err := fs.Stat(filepath.Join(dir, ".git"))
+		if err == nil || (!errors.Is(err, iofs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR)) {
+			return true
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+
+		dir = parent
+	}
+}
+
+// resolveExisting resolves the symbolic links in dir's deepest existing
+// ancestor, since the config directory itself may not exist yet.
+func resolveExisting(dir string) string {
+	for rest := ""; ; {
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			return filepath.Join(resolved, rest)
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return filepath.Join(dir, rest)
+		}
+
+		rest = filepath.Join(filepath.Base(dir), rest)
+		dir = parent
+	}
+}
+
 // loadTrustStore reads the tool's trust store. A missing store is not an error —
 // it is an empty store, the default state before the user has trusted anything.
+// So is a store inside a git checkout, whose records the repository could have
+// written.
 func loadTrustStore(fs afero.Fs, toolName string) (*trustStore, error) {
 	store := &trustStore{Trusted: map[string]string{}}
 
 	path := trustStorePath(fs, toolName)
-	if path == "" {
+	if path == "" || DirInCheckout(fs, filepath.Dir(path)) {
 		return store, nil
 	}
 
@@ -149,6 +218,12 @@ func saveTrustStore(fs afero.Fs, toolName string, store *trustStore) error {
 	path := trustStorePath(fs, toolName)
 	if path == "" {
 		return errors.New("cannot resolve config directory for trust store (no home directory from HOME or the user's account)")
+	}
+
+	if DirInCheckout(fs, filepath.Dir(path)) {
+		return errors.WithHintf(errors.Wrapf(ErrTrustStoreInCheckout, "%s", filepath.Dir(path)),
+			"A trust record there could have come from the repository, so %s does not keep one. "+
+				"Set security-sensitive keys through environment variables or flags instead.", toolName)
 	}
 
 	if err := fs.MkdirAll(filepath.Dir(path), dirPermTrust); err != nil {

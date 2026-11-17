@@ -182,16 +182,28 @@ WARN ignoring security-sensitive keys from an untrusted project-local config fil
 
 Trust is direnv-style. `<tool> config trust` records the file's absolute path and
 the SHA-256 of its exact content in `~/.<tool>/trusted-projects.yaml` (owner-only,
-never inside a repository). Editing a trusted file, or a fresh clone swapping it
+and ignored when it is inside a git checkout). Editing a trusted file, or a fresh clone swapping it
 out, changes the hash and revokes trust until you run the command again.
 
 An untrusted project file is also **read-only**: `config set` in an untrusted
 repository routes the write to your own config rather than the repository file.
 
+When the tool's config directory is inside a git checkout, which happens when the
+home directory is a CI job's working tree, the user file there is filtered in the
+same way and logs:
+
+```text
+WARN ignoring security-sensitive keys from a user config file inside a git checkout
+  hint="the file may have come from the repository; set these keys through environment variables or flags"
+```
+
+The file stays writable. The trust store in that directory is ignored, and
+`config trust` refuses to write it.
+
 CI runs untrusted by default, which is the safe direction. A pipeline that
-legitimately depends on project-local security keys should either trust the file
-in a provisioning step or supply those values through the user config or the
-environment.
+legitimately depends on project-local security keys should supply those values
+through the environment or flags. A provisioning step that runs `config trust`
+works only where the tool's config directory is outside the checkout.
 
 See [`config trust`](../cli/config.md#config-trust) and the
 [Configuration component](../../explanation/components/config/index.md#project-local-trust-security-keys-are-ignored-until-you-trust-the-file).

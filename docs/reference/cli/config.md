@@ -216,6 +216,12 @@ you run `config trust` again. An untrusted project-local file is read-only, so
 `config set` in an untrusted repository writes to your own config rather than the
 committed file. CI runs untrusted by default.
 
+When the tool's config directory is inside a git checkout, no record in that
+directory counts, because the repository could have shipped one. `config trust`
+exits non-zero with a hint, `--list` shows nothing, and `--forget` has nothing to
+revoke. Set the security-sensitive keys through environment variables or flags
+instead.
+
 `config trust` never admits `config.sources`, the keys that say where
 configuration comes from: a project file cannot set them, trusted or not.
 

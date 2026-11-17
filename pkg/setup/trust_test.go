@@ -1,6 +1,7 @@
 package setup_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -157,4 +158,35 @@ func TestIsProjectConfigTrusted_MalformedStore(t *testing.T) {
 
 	_, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
 	require.Error(t, err, "a corrupt trust store must not silently resolve to trusted")
+}
+
+func TestDirInCheckout(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, fs.MkdirAll("/repo/.git", 0o700))
+	require.NoError(t, fs.MkdirAll("/repo/home/.mytool", 0o700))
+	require.NoError(t, afero.WriteFile(fs, "/worktree/.git", []byte("gitdir: /repo/.git/worktrees/w\n"), 0o600))
+	require.NoError(t, fs.MkdirAll("/plain/.mytool", 0o700))
+
+	assert.True(t, setup.DirInCheckout(fs, "/repo"), "a checkout's root")
+	assert.True(t, setup.DirInCheckout(fs, "/repo/home/.mytool"), "a directory nested in a checkout")
+	assert.True(t, setup.DirInCheckout(fs, "/worktree"), "a linked worktree has a .git file")
+	assert.False(t, setup.DirInCheckout(fs, "/plain/.mytool"))
+	assert.False(t, setup.DirInCheckout(fs, ""))
+}
+
+func TestTrustProjectConfig_RefusesAStoreInACheckout(t *testing.T) {
+	fs, path := writeProjectFile(t, "update:\n  require_signature: false\n")
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	require.NoError(t, fs.MkdirAll(filepath.Join(home, ".git"), 0o700))
+
+	err = setup.TrustProjectConfig(fs, "mytool", path)
+	require.ErrorIs(t, err, setup.ErrTrustStoreInCheckout)
+
+	trusted, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
+	require.NoError(t, err)
+	assert.False(t, trusted)
 }
