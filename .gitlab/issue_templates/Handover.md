@@ -40,5 +40,5 @@ Where the scope could plausibly run away, and where the boundary is. Omit this
 section if nothing is at risk of creeping.
 
 <!-- Leave out: a proposed API, a suggested patch, an implementation plan, an
-     estimate, or a priority you are not entitled to set. No @-mentions — bare
-     @tokens notify real people on every reference. -->
+     estimate, or a priority you are not entitled to set. No `@-mentions` — bare
+     `@tokens` notify real people on every reference. -->
