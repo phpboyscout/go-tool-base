@@ -31,8 +31,9 @@ type MCPExposureReport struct {
 // or exposes them again. A generated command keeps its own mcp_enabled entry;
 // any other path goes on properties.mcp.withhold, which the root renders into
 // props.Tool.MCP (spec 0213 D3). Every path is checked before anything is
-// written, but each generated command is re-rendered on its own, so a render
-// failure can leave earlier paths changed.
+// written. The whole withhold list is then written before any generated
+// command is re-rendered, so a render failure leaves the list and the earlier
+// commands changed.
 func (g *Generator) SetMCPExposure(ctx context.Context, paths []string, exposed bool) (MCPExposureReport, error) {
 	if err := validateMCPWithholdPaths(paths); err != nil {
 		return MCPExposureReport{}, err

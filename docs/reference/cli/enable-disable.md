@@ -110,9 +110,10 @@ For a path on the list:
 - A path is command names separated by `/`, each of lowercase letters, digits,
   `-` or `_` and starting with a letter. Anything else is refused and nothing
   is written.
-- Several paths in one call are all checked before any is written. A failure
-  while re-rendering a generated command can still leave the paths before it
-  changed, so run the command again once the cause is fixed.
+- Several paths in one call are all checked before any is written. The whole
+  withhold list is then written before any generated command is re-rendered, so
+  a failure while re-rendering leaves the list and the commands before it
+  changed. Run the command again once the cause is fixed.
 - The list survives `gtb disable mcp` with no path, a regenerate and a wizard
   revisit. `gtb set` and `gtb unset` refuse `mcp.withhold`; read the list in
   `.gtb/manifest.yaml`.
