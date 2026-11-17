@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"log/slog"
-	"maps"
-	"slices"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -22,17 +20,57 @@ func TestServingCommandsAreEveryRunnableChildOfMCP(t *testing.T) {
 
 	p := &props.Props{Tool: props.Tool{Name: "tool"}, Logger: logger.NewNoop()}
 
-	var runnable []string
+	var unaccounted []string
 
-	for _, sub := range NewCmdMCP(p, &slog.LevelVar{}).Commands() {
-		if sub.Runnable() && !sub.HasSubCommands() {
-			runnable = append(runnable, sub.Name())
+	for _, leaf := range runnableLeaves(NewCmdMCP(p, &slog.LevelVar{}).Command, "") {
+		if !servingCommands[leaf] && !editsAClientConfig[leaf] {
+			unaccounted = append(unaccounted, leaf)
 		}
 	}
 
-	slices.Sort(runnable)
+	assert.Empty(t, unaccounted, "a new go/mcp command must be guarded, or recorded here as not serving")
 
-	assert.Equal(t, slices.Sorted(maps.Keys(servingCommands)), runnable)
+	leaves := runnableLeaves(NewCmdMCP(p, &slog.LevelVar{}).Command, "")
+	for name := range servingCommands {
+		assert.Contains(t, leaves, name, "a guarded name that is not a runnable leaf guards nothing")
+	}
+}
+
+// editsAClientConfig are go/mcp's per-client commands, which write a client's
+// config file and never bind the tree.
+var editsAClientConfig = map[string]bool{
+	"claude/enable": true, "claude/disable": true, "claude/list": true,
+	"cursor/enable": true, "cursor/disable": true, "cursor/list": true,
+	"vscode/enable": true, "vscode/disable": true, "vscode/list": true,
+}
+
+// runnableLeaves names every runnable leaf under cmd by its path from cmd, so a
+// nested serving command shows as "serve/http" and matches no guarded name.
+func runnableLeaves(cmd *cobra.Command, prefix string) []string {
+	var leaves []string
+
+	for _, sub := range cmd.Commands() {
+		path := prefix + sub.Name()
+
+		if sub.HasSubCommands() {
+			leaves = append(leaves, runnableLeaves(sub, path+"/")...)
+		} else if sub.Runnable() {
+			leaves = append(leaves, path)
+		}
+	}
+
+	return leaves
+}
+
+func TestGuardServing_LeavesACommandWithNothingToRunAlone(t *testing.T) {
+	t.Parallel()
+
+	serving := &cobra.Command{Use: "start"}
+
+	guardServing(&props.Props{Tool: props.Tool{Name: "tool"}}, serving)
+
+	assert.Nil(t, serving.RunE, "wrapping nothing would make it runnable and panic when run")
+	assert.False(t, serving.Runnable())
 }
 
 func TestGuardServing_CoversARunOnlyCommand(t *testing.T) {
