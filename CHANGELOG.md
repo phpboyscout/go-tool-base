@@ -1,5 +1,56 @@
 # Changelog
 
+## [v0.51.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.51.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.4...v0.51.0)
+
+### Notes
+
+- When a tool's config directory is inside a git checkout, update ignores a pin found there, and update --pin and update --rollback exit non-zero before installing anything. Use update --version to install a specific release there.
+
+- When a tool's config directory is inside a git checkout, as a CI job's home directory often is, security-sensitive keys in the user config file are ignored and config trust exits non-zero instead of recording trust there, so a CI step that runs config trust in such a home now fails. Set those keys through environment variables or flags instead.
+
+- The fix for subcommand registrations lost when several command paths are changed in one run also covers the wizard's MCP page on a revisit, which made the same writes.
+
+- A tool built on gtb can now keep any command off its MCP surface, including a built-in such as `update` or `config trust` and a command attached from a module such as `sign`. Run `gtb disable mcp sign config/trust update` in the project: each path goes on `properties.mcp.withhold` in the manifest and is compiled into the tool, a listed path covers everything beneath it, and nothing a module stamps on its own command overrules it. `gtb enable mcp <path>` takes it off again. A listed path that names no command stops the tool's `mcp start`, `mcp stream` and `mcp tools`, which name it, so a typo is caught on the first run; confirm the surface with `<tool> mcp tools`. Behaviour change: `gtb disable mcp` and `gtb enable mcp` no longer refuse a path that is not a generated command, so a mistyped name of a generated command is put on the list and surfaces at the first `mcp tools`. Breaking for code that calls the framework directly: `pkg/mcp.BindingOptions` now takes the tool's `*props.Props`, and `props.MCPConfig` and the generator's `ManifestMCP` can no longer be compared with `==`; see the migration note `v0.x-mcp-withhold-list`.
+
+- doctor's Config URLs check warns only when a listed URL is over plaintext http. Any other URL is listed and the check passes.
+
+- doctor's new Config URLs check lists each config value that is a URL, the layer that set it and its scheme and host, and marks http as plaintext. It never fails a run.
+
+- gtb enable mcp and gtb disable mcp given several command paths no longer drop subcommand registrations from parents named after a hand-edited command. A project already affected recovers by re-running the verb on each such parent, one path per call.
+
+- go-tool-base, and so every tool built on it, now needs Go 1.27.4. `gtb sign` (go/signing-cli v0.7.0) refuses a flag belonging to the other format whenever it is set, even to an empty value or false, and refuses an explicit empty `--format ""`; omitting `--format` still signs OpenPGP.
+
+- Correction to the go/observability v0.6.0 note: a stray telemetry.<signal>.exporter key is refused only by telemetry.ObserveSettingsFromConfig; the settings telemetry.SetupFromProps resolves through ObservabilitySettingsFromProps still ignore it.
+
+- go/observability v0.6.0 moves the OTLP endpoint fields off otelcore.Settings onto otelcore.Collector, so a tool that builds telemetry.ObservabilitySettings by hand sets Exporter instead, and a stray telemetry.<signal>.exporter config key now fails to bind rather than being ignored (see the migration note).
+
+### Features
+
+- **mcp**: let a tool withhold any command from MCP by path ([95565bb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/95565bb9bb0ee671c680c5f13f7eb97e78319d6f))
+- **doctor**: warn about a config URL only when it is plaintext http ([ae1c708](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ae1c7088af3a59ceeb0c0f906b2052356d596ab1))
+- **doctor**: list the config values that are URLs ([63b7465](https://gitlab.com/phpboyscout/go-tool-base/-/commit/63b7465a9bb9f46023f2b6f667a82f07eada84b6))
+- **telemetry**: take go/observability v0.6.0 ([b87f8fb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b87f8fb2a29123a3d4c1e729a665d66f24958d27))
+
+### Bug Fixes
+
+- **update**: keep no pin in a config directory inside a git checkout ([1e6eb18](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1e6eb18126b6e668126b2705675b29bba2e4c959))
+- **config**: treat a config directory inside a git checkout as repository content ([caf017c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/caf017cf5d42fec139c764570bee7866c17376ba))
+- **deps**: update go modules ([32bf69b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/32bf69b899b386158fcd8a4ee83667c365533a60))
+- **deps**: update go modules ([6a521fa](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6a521fa6ff3ae54e91ac994f1f7f0f765a64914c))
+- **deps**: update module github.com/testcontainers/testcontainers-go to v0.45.0 ([a9e82c4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a9e82c4e1d4b4ccf4226e326ac61d452428a21cb))
+- **generator**: keep subcommands when one run re-renders several commands ([2aa3fc8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2aa3fc85ac57b7325ec75d739838cd7bab67fbf8))
+- **deps**: update go modules ([c3e108c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c3e108cfbb92d6b171c6c764dfa81e431da122f3))
+- **deps**: update module github.com/azure/azure-sdk-for-go/sdk/azcore to v1.24.0 ([cb90680](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cb90680676e2d111e4e239f11701900d0361a63a))
+- **deps**: update go modules ([7a81f8f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7a81f8ff1dd00f132051084147b5ac0701c4a797))
+- **deps**: update aws-sdk-go-v2 monorepo ([52543d2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/52543d2cb75434268e4352e8f1eeee811638a44f))
+- **deps**: update module golang.org/x/crypto to v0.59.0 [security] ([5cb73c7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5cb73c72b179a9ebc954eb371f1ddd9b1e5a2668))
+- **deps**: update aws-sdk-go-v2 monorepo ([8147a14](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8147a144b938514ee59b3c1a5dddf4cbb3ad1943))
+- **deps**: update go modules ([1c0dac0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1c0dac01072ea641cb3e919c73cbbbc12a58bb78))
+- **deps**: update aws-sdk-go-v2 monorepo ([a3e159a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a3e159ad53062c5ce1cacb79da1566febbc5f452))
+- **deps**: update aws-sdk-go-v2 monorepo ([3c25c29](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3c25c2911f4e7a763b6bdf9db399cf95835360f1))
+
 ## [v0.50.4](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.50.4)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.50.3...v0.50.4)
