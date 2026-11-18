@@ -190,3 +190,22 @@ func TestTrustProjectConfig_RefusesAStoreInACheckout(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, trusted)
 }
+
+// statRefusingFs refuses to stat any .git, as a directory the user cannot
+// search would.
+type statRefusingFs struct{ afero.Fs }
+
+func (f statRefusingFs) Stat(name string) (os.FileInfo, error) {
+	if filepath.Base(name) == ".git" {
+		return nil, &os.PathError{Op: "stat", Path: name, Err: os.ErrPermission}
+	}
+
+	return f.Fs.Stat(name)
+}
+
+func TestDirInCheckout_AnUnstattableGitCountsAsACheckout(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, setup.DirInCheckout(statRefusingFs{afero.NewMemMapFs()}, "/home/someone/.mytool"),
+		"a .git that cannot be checked fails closed")
+}

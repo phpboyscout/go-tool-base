@@ -95,6 +95,11 @@ with `--from-file`.
 A binary older than the release that introduced pins does not read the pin. Rolling back to one leaves a pin its
 update check ignores.
 
+When the tool's config directory is inside a git checkout, as a CI job's home directory often is, no pin is kept or
+read there, because the repository could have supplied it. `--pin` and `--rollback` exit non-zero with a hint before
+installing anything, a pin file found there is ignored with a warning, and `--unpin` has nothing to clear and leaves
+any pin file there in place. Name the version with `--version` instead.
+
 ## Downgrade behaviour
 
 If the release source reports a "latest" version that is **older** than the

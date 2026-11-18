@@ -3,6 +3,7 @@ package update_test
 import (
 	"context"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -401,4 +402,70 @@ func TestUpdate_APinThatCannotMoveStaysAndSaysSo(t *testing.T) {
 	assert.Equal(t, "v1.2.0", result.Pinned)
 	assert.Equal(t, "v1.2.0", pinned(t, props))
 	assert.True(t, props.Logger.(interface{ Contains(string) bool }).Contains("could not pin"))
+}
+
+// checkoutHome makes the tool's config directory sit inside a git checkout on
+// props' filesystem.
+func checkoutHome(t *testing.T, props *p.Props) {
+	t.Helper()
+
+	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	require.NoError(t, props.FS.MkdirAll(filepath.Join(filepath.Dir(dir), ".git"), 0o700))
+}
+
+func TestPin_InACheckoutHomeInstallsNothing(t *testing.T) {
+	t.Parallel()
+
+	props := rollbackProps(unattended())
+	checkoutHome(t, props)
+	r := &rollbackUpdater{}
+
+	_, err := update.Pin(context.Background(), props, "v1.3.0", false, io.Discard, r.factory(), noRefresh())
+
+	require.ErrorIs(t, err, setup.ErrPinInCheckout)
+	assert.False(t, r.replaced, "nothing is installed that could not be pinned")
+}
+
+func TestRollback_InACheckoutHomeInstallsNothing(t *testing.T) {
+	t.Parallel()
+
+	props := rollbackProps(unattended())
+	checkoutHome(t, props)
+	r := &rollbackUpdater{}
+
+	_, err := update.Rollback(context.Background(), props, "v1.1.0", true, io.Discard, r.factory(), noRefresh())
+
+	require.ErrorIs(t, err, setup.ErrPinInCheckout)
+	assert.False(t, r.replaced)
+}
+
+func TestUpdate_AShippedPinInACheckoutHomeIsIgnored(t *testing.T) {
+	t.Setenv("CI", "")
+
+	props := rollbackProps(unattended())
+	checkoutHome(t, props)
+
+	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	require.NoError(t, props.FS.MkdirAll(dir, 0o700))
+	require.NoError(t, afero.WriteFile(props.FS, filepath.Join(dir, "pinned_version"), []byte("v1.2.0\n"), 0o600))
+
+	r := &rollbackUpdater{latest: "v1.3.0"}
+
+	result, err := update.Update(context.Background(), props, "", false, io.Discard, r.factory(), noRefresh())
+
+	require.NoError(t, err)
+	assert.True(t, r.replaced, "a pin in a checkout home does not hold the tool back")
+	assert.Empty(t, result.Pinned)
+}
+
+func TestUnpin_InACheckoutHomeSaysThereIsNothingToClear(t *testing.T) {
+	t.Parallel()
+
+	props := rollbackProps(unattended())
+	checkoutHome(t, props)
+
+	_, err := update.Unpin(props)
+
+	require.NoError(t, err)
+	assert.True(t, props.Logger.(interface{ Contains(string) bool }).Contains("nothing to clear"))
 }

@@ -63,7 +63,11 @@ func Unpin(props *p.Props) (*UpdateResult, error) {
 		return nil, err
 	}
 
-	props.Logger.Info("unpinned; updates resume")
+	if setup.CanPin(props.FS, props.Tool.Name) != nil {
+		props.Logger.Info("no pin is kept in a config directory inside a git checkout; nothing to clear, and a pin file left there is ignored")
+	} else {
+		props.Logger.Info("unpinned; updates resume")
+	}
 
 	current := runningVersion(props)
 
@@ -72,6 +76,13 @@ func Unpin(props *p.Props) (*UpdateResult, error) {
 
 func install(ctx context.Context, props *p.Props, req request, out io.Writer, opts ...UpdateConfigOption) (*UpdateResult, error) {
 	o := newUpdateOptions(opts)
+
+	if req.pin || req.rollback {
+		if err := setup.CanPin(props.FS, props.Tool.Name); err != nil {
+			return nil, err
+		}
+	}
+
 	current := runningVersion(props)
 	pin := currentPin(props)
 

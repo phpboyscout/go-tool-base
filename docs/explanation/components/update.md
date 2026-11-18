@@ -104,6 +104,11 @@ It is operational state for one installation: it survives `init`, it never shows
 owner-only like the other markers. A marker that does not hold a release tag is ignored with a warning, so a corrupt
 file cannot wedge the tool.
 
+A config directory inside a git checkout holds no pin. The repository could have shipped one, and a shipped pin would
+stop `update` doing anything, so a pin there is ignored and `--pin` and `--rollback` refuse before installing. The
+`last_checked` markers are kept as usual. They throttle the update check, its reminder and the warning that the update
+policy is not enforced without a terminal. None of those installs anything or changes how an update is verified.
+
 The release before the running one is chosen by version, not by publish order. On the static channel each manifest
 names the tag published before it, but a patch to an older line published after a newer release would make that
 pointer name the newer release. The updater lists the newest releases and takes the highest version below the running

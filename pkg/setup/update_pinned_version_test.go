@@ -67,3 +67,27 @@ func TestPinnedVersion_CorruptMarkerReadsAsUnpinned(t *testing.T) {
 	assert.Contains(t, err.Error(), marker, "the error names the file")
 	assert.Empty(t, pinned)
 }
+
+func TestPinnedVersion_InACheckoutIsRefusedAndIgnored(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	const name = "checkout-pin-tool"
+
+	dir := setup.GetDefaultConfigDir(fs, name)
+	require.NoError(t, fs.MkdirAll(filepath.Join(filepath.Dir(dir), ".git"), 0o700))
+	shipped := filepath.Join(dir, "pinned_version")
+	require.NoError(t, fs.MkdirAll(dir, 0o700))
+	require.NoError(t, afero.WriteFile(fs, shipped, []byte("v1.0.0\n"), 0o600))
+
+	pinned, err := setup.GetPinnedVersion(fs, name)
+	require.ErrorIs(t, err, setup.ErrPinInCheckout, "a pin there is reported as ignored")
+	assert.Empty(t, pinned, "and reads as unpinned")
+
+	require.ErrorIs(t, setup.SetPinnedVersion(fs, name, "v1.2.0"), setup.ErrPinInCheckout)
+	require.ErrorIs(t, setup.CanPin(fs, name), setup.ErrPinInCheckout)
+
+	require.NoError(t, setup.SetPinnedVersion(fs, name, ""), "clearing is a no-op")
+	_, err = fs.Stat(shipped)
+	require.NoError(t, err, "and writes nothing into the checkout")
+}

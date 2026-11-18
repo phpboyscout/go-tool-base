@@ -217,6 +217,8 @@ The project-local `.<tool>.yaml` layer (a repo-root config file, discovered by w
 
 **Extended 2026-11-17: a home directory inside a git checkout is repository content.** A CI job's home directory is often its working tree. The user config file and the trust store both live under the tool's config directory there, so the repository can supply either. When that directory has a `.git` file or directory in it or any directory above it, the user file is filtered as an untrusted project file is (and stays writable), the trust store is ignored, and `config trust` refuses to write one. Environment variables and flags are the way to set security-sensitive keys there. Someone who keeps their home directory as a git checkout on purpose gets the same filter, which is the accepted cost: the tool cannot tell their checkout from a CI job's.
 
+**Extended 2026-11-18: the update pin too.** The update pin is a file in the same directory, and a shipped one would stop `update` moving the tool. In a config directory inside a git checkout the pin is ignored with a warning, and `update --pin` and `--rollback` refuse before installing. The `last_checked` markers are left alone. They throttle the update check, its reminder and the no-terminal policy warning, none of which installs anything or changes verification, and ignoring them would put a network probe on every command for a person whose home is a checkout.
+
 Spec: [`0162-gtb-framework-followups`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0162-gtb-framework-followups) §2.1.1; [`0204-the-config-stack-a-project-declares-and-orders`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders) D5 for source pointers.
 
 ---

@@ -291,9 +291,31 @@ const pinnedVersionFile = "pinned_version"
 // ErrInvalidPinnedVersion is a pin that does not name a release tag.
 var ErrInvalidPinnedVersion = errors.NewSentinel("gtb.setup.invalid_pinned_version", "the pinned version is not a release tag")
 
+// ErrPinInCheckout is a pin that cannot be kept because the config directory
+// is inside a git checkout, where the repository could have supplied it.
+var ErrPinInCheckout = errors.NewSentinel("gtb.setup.pin_in_checkout", "the config directory is inside a git checkout")
+
+// CanPin reports why a pin cannot be recorded for the named tool, or nil when
+// it can. A command that would install and then pin asks first, so it does not
+// install a release it cannot keep the tool on.
+func CanPin(fs afero.Fs, name string) error {
+	return canPinIn(fs, GetDefaultConfigDir(fs, name))
+}
+
+func canPinIn(fs afero.Fs, dir string) error {
+	if !DirInCheckout(fs, dir) {
+		return nil
+	}
+
+	return errors.WithHint(errors.Wrapf(ErrPinInCheckout, "%s", dir),
+		"A pin there could have come from the repository, so it is never kept or read. "+
+			"Install the version you need with 'update --version' instead.")
+}
+
 // SetPinnedVersion pins the tool to version, so neither update nor the pre-run
 // check moves it. An empty version clears the pin. Like the other markers it is
-// a no-op when the config directory cannot be resolved.
+// a no-op when the config directory cannot be resolved. In a config directory
+// inside a git checkout a pin is refused and clearing one is a no-op.
 func SetPinnedVersion(fs afero.Fs, name, version string) error {
 	return setPinnedVersionIn(fs, GetDefaultConfigDir(fs, name), version)
 }
@@ -304,6 +326,15 @@ func setPinnedVersionIn(fs afero.Fs, dir, version string) error {
 	}
 
 	version = strings.TrimSpace(version)
+
+	if err := canPinIn(fs, dir); err != nil {
+		if version == "" {
+			return nil
+		}
+
+		return err
+	}
+
 	if version == "" {
 		if err := fs.Remove(filepath.Join(dir, pinnedVersionFile)); err != nil && !os.IsNotExist(err) {
 			return errors.Wrap(err, "failed to clear the pin")
@@ -323,6 +354,8 @@ func setPinnedVersionIn(fs afero.Fs, dir, version string) error {
 // not pinned. A marker that does not hold a release tag reads as unpinned and
 // returns an error naming the file, so a corrupt marker can never wedge the
 // tool.
+// A marker in a config directory inside a git checkout reads as unpinned the
+// same way.
 func GetPinnedVersion(fs afero.Fs, name string) (string, error) {
 	return getPinnedVersionIn(fs, GetDefaultConfigDir(fs, name))
 }
@@ -348,6 +381,8 @@ func getPinnedVersionIn(fs afero.Fs, dir string) (string, error) {
 	switch {
 	case version == "":
 		return "", nil
+	case canPinIn(fs, dir) != nil:
+		return "", errors.Wrapf(ErrPinInCheckout, "%s", path)
 	case !ver.IsReleaseTag(version):
 		return "", errors.Wrapf(ErrInvalidPinnedVersion, "%s", path)
 	default:
