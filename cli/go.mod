@@ -40,8 +40,8 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitlab v0.32.0
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.2
-	gitlab.com/phpboyscout/go/signing v0.12.0
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.8.0
+	gitlab.com/phpboyscout/go/signing v0.13.0
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.9.0
 	gitlab.com/phpboyscout/go/signing-cli v0.7.0
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6

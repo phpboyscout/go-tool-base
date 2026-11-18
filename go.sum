@@ -756,8 +756,8 @@ gitlab.com/phpboyscout/go/regexutil v0.2.3 h1:fv/h9aylY+0CA/iRHpR8mTMgGXEd4lWidI
 gitlab.com/phpboyscout/go/regexutil v0.2.3/go.mod h1:rlldCLPk3gU0Fpg8NzPx++2YK29i2GhBTNtzd+zuyQw=
 gitlab.com/phpboyscout/go/repo v0.9.2 h1:iT6NoY7mrR7FpVJvXigvVwLfAH8Ddzbmdr9ByRpfdXc=
 gitlab.com/phpboyscout/go/repo v0.9.2/go.mod h1:IO21fQidVhAU/mYrxbMuf2FEk4NwKyVmG3Oxe9wdnaQ=
-gitlab.com/phpboyscout/go/signing v0.12.0 h1:o2cf8gn6qvboNc6hdChHSdDX1w9E93cvr0ZDL+27IZw=
-gitlab.com/phpboyscout/go/signing v0.12.0/go.mod h1:dTsQdmdvOUZWoCuU4X0T5YaEK1IaFBbfMhNZ8zZvDRQ=
+gitlab.com/phpboyscout/go/signing v0.13.0 h1:0ajCX6cuE4gHpjVySzTC+J2HaCibvXbpvcyITelkRdw=
+gitlab.com/phpboyscout/go/signing v0.13.0/go.mod h1:dTsQdmdvOUZWoCuU4X0T5YaEK1IaFBbfMhNZ8zZvDRQ=
 gitlab.com/phpboyscout/go/tls v0.2.3 h1:oe/7cf4C4h8KJU+KhrNQJStkTTXzp8nI5bZYh4dDlkI=
 gitlab.com/phpboyscout/go/tls v0.2.3/go.mod h1:jBZ4k48s8pcCumGxT0rZSj6btjEf0MO90+pL/KcWlTg=
 gitlab.com/phpboyscout/go/transit v0.3.2 h1:aaH2z/8SQxNYJ5Ptwjz0tb8hslV4JHlRRxX+IG9rWNA=
