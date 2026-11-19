@@ -7,7 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.1.0
+	charm.land/lipgloss/v2 v2.1.1
 	charm.land/log/v2 v2.0.1
 	cloud.google.com/go/parametermanager v1.2.1
 	cloud.google.com/go/secretmanager v1.24.0
@@ -72,7 +72,7 @@ require (
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/regexutil v0.2.3
 	gitlab.com/phpboyscout/go/repo v0.9.2
-	gitlab.com/phpboyscout/go/signing v0.13.0
+	gitlab.com/phpboyscout/go/signing v0.15.0
 	gitlab.com/phpboyscout/go/tls v0.2.3
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6

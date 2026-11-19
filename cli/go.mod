@@ -6,7 +6,7 @@ require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.1.0
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/cucumber/godog v0.16.0
 	github.com/dave/dst v0.28.0
@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.50.4
+	gitlab.com/phpboyscout/go-tool-base v0.51.0
 	gitlab.com/phpboyscout/go/chat v0.39.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.22.0
 	gitlab.com/phpboyscout/go/chat-bedrock v0.9.0
@@ -40,8 +40,8 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitlab v0.32.0
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.2
-	gitlab.com/phpboyscout/go/signing v0.13.0
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.9.0
+	gitlab.com/phpboyscout/go/signing v0.15.0
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.9.1
 	gitlab.com/phpboyscout/go/signing-cli v0.7.0
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
@@ -171,7 +171,6 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	github.com/testcontainers/testcontainers-go v0.45.0 // indirect
 	github.com/tidwall/gjson v1.20.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.2 // indirect
