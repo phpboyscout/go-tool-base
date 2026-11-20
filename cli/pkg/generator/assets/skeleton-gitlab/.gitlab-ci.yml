@@ -157,7 +157,7 @@ goreleaser:
 # only for GitHub. Only a plain release tag moves the cask.
 homebrew-tap:
   stage: release
-  image: registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4
+  image: registry.gitlab.com/phpboyscout/images/ci-base:v0.3.5
   needs:
     - job: goreleaser
       artifacts: true
