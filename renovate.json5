@@ -24,26 +24,9 @@
   // stale until its own Renovate first runs. These trackers keep the template
   // pins current the same way the fleet keeps live projects current.
   //
-  // NOTE: Renovate REPLACES the customManagers array from an extended preset
-  // rather than concatenating it, so the first entry re-declares the base
-  // preset's .gitlab-ci.yml component tracker (from gitlab>phpboyscout/cicd
-  // default.json) that this repo's OWN pipeline relies on. Keep it in sync
-  // with the preset if that ever changes.
+  // The base preset's .gitlab-ci.yml trackers (cicd components, phpboyscout
+  // images) apply here too: Renovate concatenates customManagers arrays.
   customManagers: [
-    {
-      customType: 'regex',
-      description: "Bump pinned phpboyscout/cicd component versions in this repo's own .gitlab-ci.yml (mirrored from the gitlab>phpboyscout/cicd base preset, which this file's customManagers array would otherwise override).",
-      managerFilePatterns: [
-        '/\\.gitlab-ci\\.ya?ml$/',
-      ],
-      matchStrings: [
-        'component:\\s*gitlab\\.com/phpboyscout/cicd/[\\w-]+@(?<currentValue>v[\\d.]+)',
-      ],
-      datasourceTemplate: 'gitlab-tags',
-      depNameTemplate: 'phpboyscout/cicd',
-      registryUrlTemplate: 'https://gitlab.com',
-      extractVersionTemplate: '^(?<version>v[\\d.]+)$',
-    },
     {
       customType: 'regex',
       description: 'Track the colophon release the project generator bakes into every scaffolded GitHub release workflow (ColophonVersion constant).',
@@ -67,17 +50,6 @@
       ],
       datasourceTemplate: 'go',
       depNameTemplate: 'gitlab.com/phpboyscout/sigillum',
-    },
-    {
-      customType: 'regex',
-      description: "Bump a phpboyscout image pinned as a COMPONENT INPUT in this repo's own .gitlab-ci.yml (mirrored from the gitlab>phpboyscout/cicd base preset, which this file's customManagers array would otherwise override). An image passed as `inputs: image:` is not a job-level `image:`, so the native gitlabci manager never extracts it — this repo's goreleaser include sat on dev-tools v0.2.0 for five releases while the same image was bumped normally everywhere it appears job-level. See https://gitlab.com/phpboyscout/cicd/-/wikis/specs/0065-renovate-untracked-pin-families (D3, D4).",
-      managerFilePatterns: [
-        '/\\.gitlab-ci\\.ya?ml$/',
-      ],
-      matchStrings: [
-        'image:\\s*["\']?(?<depName>registry\\.gitlab\\.com/phpboyscout/images/[\\w-]+):(?<currentValue>v[\\d.]+)["\']?',
-      ],
-      datasourceTemplate: 'docker',
     },
     {
       customType: 'regex',
