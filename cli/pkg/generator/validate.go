@@ -1002,6 +1002,10 @@ func validateManifestConfig(p *ManifestProperties) error {
 		return err
 	}
 
+	if err := props.ValidateConfigSpec(props.ConfigSpec{FileOnly: p.Config.FileOnly}); err != nil {
+		return err
+	}
+
 	return ValidateConfigLayers(canonicalConfigLayers(p.LegacyConfigLayers))
 }
 

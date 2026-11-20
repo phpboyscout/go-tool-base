@@ -70,11 +70,13 @@ type SkeletonConfig struct {
 	ConfigSources []ManifestConfigSource
 	// ConfigKeyCase is the config stack's key mode, folded or exact (spec 0209).
 	ConfigKeyCase string
-	Signing       ManifestSigning   // self-update signature-verification posture (disabled by default)
-	Chat          ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
-	Bootstrap     ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
-	Generator     ManifestGenerator // how gtb itself may work on the project (spec 0211)
-	Homebrew      ManifestHomebrew  // the tap a release publishes its cask to (spec 0212)
+	// ConfigFileOnly are the keys no prefixed environment variable may set (spec 0214).
+	ConfigFileOnly []string
+	Signing        ManifestSigning   // self-update signature-verification posture (disabled by default)
+	Chat           ManifestChat      // chat providers the tool links (cmd/<name>/chat.go)
+	Bootstrap      ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
+	Generator      ManifestGenerator // how gtb itself may work on the project (spec 0211)
+	Homebrew       ManifestHomebrew  // the tap a release publishes its cask to (spec 0212)
 	// MCPMode is the MCP publication mode: "" or "compact" for the discovery
 	// facade, "direct" for one native tool per command (spec 0201 D3).
 	MCPMode string
@@ -642,6 +644,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		ConfigFormatModules:   configLinkModules(config.ConfigFormats, config.ConfigSources),
 		ConfigSources:         sourceTemplateData(config.ConfigSources),
 		ConfigKeyCase:         normaliseKeyCase(config.ConfigKeyCase),
+		ConfigFileOnly:        config.ConfigFileOnly,
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
 		HomebrewTap:           config.Homebrew.Tap,
@@ -913,6 +916,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			ConfigFormat:          data.ConfigFormat,
 			ConfigSources:         data.ConfigSources,
 			ConfigKeyCase:         data.ConfigKeyCase,
+			ConfigFileOnly:        data.ConfigFileOnly,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			MCPMode:               data.MCPMode,
@@ -1412,11 +1416,12 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 			Features:    normaliseManifestFeatures(config.Features),
 			EnvPrefix:   config.EnvPrefix,
 			Config: ManifestConfig{
-				Layers:  config.ConfigLayers,
-				Formats: normaliseConfigFormats(config.ConfigFormats),
-				Format:  normaliseOwnFormat(config.ConfigFormat),
-				Sources: config.ConfigSources,
-				KeyCase: normaliseKeyCase(config.ConfigKeyCase),
+				Layers:   config.ConfigLayers,
+				Formats:  normaliseConfigFormats(config.ConfigFormats),
+				Format:   normaliseOwnFormat(config.ConfigFormat),
+				Sources:  config.ConfigSources,
+				KeyCase:  normaliseKeyCase(config.ConfigKeyCase),
+				FileOnly: config.ConfigFileOnly,
 			},
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,

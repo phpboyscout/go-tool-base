@@ -358,6 +358,8 @@ func readConfigSpecField(name string, value dst.Expr, c *ManifestConfig) {
 		if sel, ok := value.(*dst.SelectorExpr); ok && sel.Sel.Name == "KeyCaseExact" {
 			c.KeyCase = "exact"
 		}
+	case "FileOnly":
+		c.FileOnly = stringSliceLitValue(value)
 	}
 }
 

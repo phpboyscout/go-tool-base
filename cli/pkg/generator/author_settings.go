@@ -23,10 +23,11 @@ type AuthorSetting struct {
 	Field string
 	Kind  SettingKind
 	// Flag is the generate project flag; empty for a run option or a field
-	// the wizard and gtb set alone write. Two settings have no flag, both
-	// exceptions to spec 0197 D4: Generator.AI, because --ai on generate is
-	// the run's own ask (spec 0211 D5), and MCPWithhold, which only gtb
-	// disable mcp and gtb enable mcp write (spec 0213 D6).
+	// the wizard and gtb set alone write. Three settings have no flag, each
+	// an exception to spec 0197 D4: Generator.AI, because --ai on generate is
+	// the run's own ask (spec 0211 D5), MCPWithhold, which only gtb disable
+	// mcp and gtb enable mcp write (spec 0213 D6), and ConfigFileOnly, which
+	// is edited in the manifest alone (spec 0214 D9).
 	Flag string
 	// Wizard is the page key that asks it; empty when the wizard does not.
 	Wizard string
@@ -46,6 +47,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "ConfigFormat", Kind: KindSetting, Flag: "config-format", Manifest: "properties.config.format"},
 	{Field: "ConfigSources", Kind: KindSetting, Flag: "config-source", Manifest: "properties.config.sources"},
 	{Field: "ConfigKeyCase", Kind: KindSetting, Flag: "config-key-case", Wizard: "config-key-case", Manifest: "properties.config.key_case"},
+	{Field: "ConfigFileOnly", Kind: KindSetting, Manifest: "properties.config.file_only"},
 	{Field: "UpdatePolicy", Kind: KindSetting, Flag: "update-policy", Wizard: "update-policy", Manifest: "properties.update_policy"},
 	{Field: "MCPMode", Kind: KindSetting, Flag: "mcp-mode", Wizard: "mcp-mode", Manifest: "properties.mcp.mode"},
 	{Field: "MCPWithhold", Kind: KindSetting, Manifest: "properties.mcp.withhold"},
@@ -142,6 +144,7 @@ func skeletonConfigFromManifest(m Manifest) SkeletonConfig {
 		ConfigFormat:          m.Properties.Config.Format,
 		ConfigSources:         m.Properties.Config.Sources,
 		ConfigKeyCase:         m.Properties.Config.KeyCase,
+		ConfigFileOnly:        m.Properties.Config.FileOnly,
 		Signing:               m.Properties.Signing,
 		Chat:                  m.Properties.Chat,
 		Bootstrap:             m.Properties.Bootstrap,

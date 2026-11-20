@@ -65,6 +65,7 @@ var probes = map[string]func(c *SkeletonConfig){
 	"UpdatePolicy":                      func(c *SkeletonConfig) { c.UpdatePolicy = "prompt" },
 	"MCPMode":                           func(c *SkeletonConfig) { c.MCPMode = "direct" },
 	"MCPWithhold":                       func(c *SkeletonConfig) { c.MCPWithhold = []string{"sign"} },
+	"ConfigFileOnly":                    func(c *SkeletonConfig) { c.ConfigFileOnly = []string{"update.**"} },
 	"UpdateCheckInterval":               func(c *SkeletonConfig) { c.UpdateCheckInterval = "168h" },
 	"CIComponentSource":                 func(c *SkeletonConfig) { c.CIComponentSource = "gitlab.example.com/mirror/cicd" },
 	"Templates": func(c *SkeletonConfig) {
