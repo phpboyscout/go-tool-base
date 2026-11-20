@@ -180,3 +180,35 @@ func TestFileOnly_TheBootstrapPassIsFiltered(t *testing.T) {
 
 	assert.Equal(t, "https://vault.internal", store.View().GetString("config.sources.vault.address"))
 }
+
+type keyCaseBackend struct {
+	config.Backend
+
+	bound []bool
+}
+
+func (b *keyCaseBackend) BindKeyCase(caseSensitive bool) error {
+	b.bound = append(b.bound, caseSensitive)
+
+	return nil
+}
+
+// The filter binds key case through the recorder, so the env backend must
+// still learn it, or an exact tool's variables would map to folded keys.
+func TestEnvRecorder_ForwardsKeyCase(t *testing.T) {
+	t.Parallel()
+
+	inner := &keyCaseBackend{Backend: config.NewEnvBackend("MYTOOL")}
+	rec := &envRecorder{inner: inner}
+
+	require.NoError(t, rec.BindKeyCase(true))
+	assert.Equal(t, []bool{true}, inner.bound)
+}
+
+func TestEnvRecorder_KeyCaseIsANoOpWhenTheInnerCannotBind(t *testing.T) {
+	t.Parallel()
+
+	rec := &envRecorder{inner: plainBackend{}}
+
+	assert.NoError(t, rec.BindKeyCase(true))
+}

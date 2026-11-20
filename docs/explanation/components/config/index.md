@@ -468,8 +468,10 @@ security setting the tool's config file holds, and refusing a list of variable
 names cannot close every spelling.
 
 A tool that needs some keys out of the environment layer's reach declares them
-as go/config filter patterns, where `*` is one segment and a final `**` is
-everything below:
+as go/config filter patterns, where `*` is one whole segment and a final `**`
+is everything below. A pattern with `*` inside a segment, such as
+`update.require_*`, or with a space in it is refused, because go/config would
+match it literally and it would protect nothing:
 
 ```go
 props.Tool{

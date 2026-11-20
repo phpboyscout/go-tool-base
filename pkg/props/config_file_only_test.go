@@ -1,6 +1,7 @@
 package props_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,10 +17,11 @@ func TestValidateConfigSpec_FileOnlyPatterns(t *testing.T) {
 		require.NoError(t, props.ValidateConfigSpec(props.ConfigSpec{FileOnly: []string{pattern}}), pattern)
 	}
 
-	for _, pattern := range []string{"", ".", "a..b", ".a", "a.", "a.**.b", "**.a", "a.**.**"} {
+	for _, pattern := range []string{"", ".", "a..b", ".a", "a.", "a.**.b", "**.a", "a.**.**",
+		"update.require_*", "up*date.channel", "a.***", " update.**", "update. channel", "update.channel ", "a\tb"} {
 		err := props.ValidateConfigSpec(props.ConfigSpec{FileOnly: []string{pattern}})
 		require.ErrorIs(t, err, props.ErrConfigFileOnly, "%q", pattern)
-		assert.Contains(t, err.Error(), `"`+pattern+`"`)
+		assert.Contains(t, err.Error(), strconv.Quote(pattern))
 	}
 }
 
