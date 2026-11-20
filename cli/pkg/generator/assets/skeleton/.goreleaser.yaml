@@ -216,7 +216,7 @@ homebrew_casks:
 # The layout a reader expects: docs/reference/static-release-channel.md in
 # go-tool-base.
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }}
+  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }} --changelog CHANGELOG.md
     artifacts: [checksum]
     output: true
 

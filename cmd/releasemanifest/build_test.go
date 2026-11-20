@@ -77,7 +77,7 @@ func TestBuild_GoldenManifest(t *testing.T) {
 
 	dist := fixtureDist(t)
 
-	m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", "")
+	m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", nil)
 	require.NoError(t, err)
 	require.NoError(t, m.Validate(base), "what we write is what a reader accepts")
 	require.NoError(t, p.Validate(base))
@@ -93,7 +93,7 @@ func TestBuild_GoldenManifest(t *testing.T) {
 func TestBuild_Shape(t *testing.T) {
 	t.Parallel()
 
-	m, p, err := fixtureBuilder().build(fixtureDist(t), base, "v1.1.0", "")
+	m, p, err := fixtureBuilder().build(fixtureDist(t), base, "v1.1.0", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, static.SchemaVersion, m.Schema)
@@ -138,7 +138,7 @@ func TestBuild_Refusals(t *testing.T) {
 		dist := fixtureDist(t)
 		dropChecksumLine(t, dist, "fixtool_Linux_arm64.tar.gz")
 
-		_, _, err := fixtureBuilder().build(dist, base, "", "")
+		_, _, err := fixtureBuilder().build(dist, base, "", nil)
 		require.ErrorIs(t, err, errNoChecksum)
 		assert.Contains(t, err.Error(), "fixtool_Linux_arm64.tar.gz")
 	})
@@ -149,7 +149,7 @@ func TestBuild_Refusals(t *testing.T) {
 		dist := fixtureDist(t)
 		require.NoError(t, os.Remove(filepath.Join(dist, "checksums.txt.sig")))
 
-		m, _, err := fixtureBuilder().build(dist, base, "", "")
+		m, _, err := fixtureBuilder().build(dist, base, "", nil)
 		require.NoError(t, err)
 		assert.Empty(t, m.Signature)
 		require.NoError(t, m.Validate(base))
@@ -161,7 +161,7 @@ func TestBuild_Refusals(t *testing.T) {
 		dist := fixtureDist(t)
 		require.NoError(t, os.Remove(filepath.Join(dist, "checksums.txt")))
 
-		_, _, err := fixtureBuilder().build(dist, base, "", "")
+		_, _, err := fixtureBuilder().build(dist, base, "", nil)
 		require.ErrorIs(t, err, errNoChecksum)
 	})
 
@@ -172,7 +172,7 @@ func TestBuild_Refusals(t *testing.T) {
 		b := fixtureBuilder()
 		b.platform = func(string) (string, string, error) { return "linux", "amd64", nil }
 
-		_, _, err := b.build(dist, base, "", "")
+		_, _, err := b.build(dist, base, "", nil)
 		require.ErrorIs(t, err, errDuplicatePlatform)
 		assert.Contains(t, err.Error(), "linux/amd64")
 	})
@@ -190,7 +190,7 @@ func TestBuild_Refusals(t *testing.T) {
 			return fixturePlatform(path)
 		}
 
-		_, _, err := b.build(dist, base, "", "")
+		_, _, err := b.build(dist, base, "", nil)
 		require.ErrorIs(t, err, errNoPlatform)
 		assert.Contains(t, err.Error(), "fixtool_Windows_arm64.tar.gz")
 	})
@@ -202,7 +202,7 @@ func TestBuild_Refusals(t *testing.T) {
 		notes := filepath.Join(t.TempDir(), "notes.md")
 		require.NoError(t, os.WriteFile(notes, []byte("## v1.2.0\n\n- a thing\n"), 0o600))
 
-		m, _, err := fixtureBuilder().build(dist, base, "", notes)
+		m, _, err := fixtureBuilder().build(dist, base, "", notesFromFile(notes))
 		require.NoError(t, err)
 		assert.Equal(t, "## v1.2.0\n\n- a thing\n", m.Notes)
 		assert.Empty(t, m.Previous, "no previous given and no pointer fetched: the chain starts here")
@@ -279,7 +279,7 @@ func TestWriteDocuments_PrereleaseLeavesThePointer(t *testing.T) {
 			dist := fixtureDist(t)
 			setFixtureTag(t, dist, tt.tag)
 
-			m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", "")
+			m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", nil)
 			require.NoError(t, err)
 
 			wrote, err := writeDocuments(dist, m, p)

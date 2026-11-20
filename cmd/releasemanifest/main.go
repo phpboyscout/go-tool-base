@@ -8,12 +8,15 @@
 // prerelease tag writes no latest.json, so the pointer stays on the last stable
 // release (spec 0104 D12).
 //
-//	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md]
+//	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md | --changelog CHANGELOG.md]
 //
 // --previous names the tag the manifest chains to. When omitted the current
 // pointer at the base URL is read and its tag used; with no pointer the chain
 // starts here. It refuses a dist whose archives are not all in checksums.txt:
 // a manifest that cannot be verified is not published.
+//
+// --changelog takes the notes from the tag's section of a changelog, the one
+// colophon commits before it tags. --notes takes them from a file instead.
 package main
 
 import (
@@ -44,16 +47,18 @@ const (
 
 func main() {
 	var (
-		dist     string
-		baseURL  string
-		previous string
-		notes    string
+		dist      string
+		baseURL   string
+		previous  string
+		notes     string
+		changelog string
 	)
 
 	flag.StringVar(&dist, "dist", "dist", "goreleaser's dist directory")
 	flag.StringVar(&baseURL, "base-url", "", "the channel's base URL, where the pointer and manifests live (required)")
 	flag.StringVar(&previous, "previous", "", "the tag this release follows; read from the current pointer when omitted")
 	flag.StringVar(&notes, "notes", "", "a file whose text becomes the manifest's notes")
+	flag.StringVar(&changelog, "changelog", "", "a changelog whose section for the tag becomes the manifest's notes")
 	flag.Parse()
 
 	if baseURL == "" {
@@ -61,13 +66,19 @@ func main() {
 		os.Exit(exitUsage)
 	}
 
-	if err := run(dist, baseURL, previous, notes); err != nil {
+	source, err := notesFlags(notes, changelog, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "releasemanifest: %v\n", err)
+		os.Exit(exitUsage)
+	}
+
+	if err := run(dist, baseURL, previous, source); err != nil {
 		fmt.Fprintf(os.Stderr, "releasemanifest: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(dist, baseURL, previous, notes string) error {
+func run(dist, baseURL, previous string, notes notesSource) error {
 	if previous == "" {
 		tag, err := currentTag(context.Background(), baseURL)
 		if err != nil {

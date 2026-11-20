@@ -451,6 +451,20 @@ func TestFilterReleaseNotes(t *testing.T) {
 			expectedCount: 1, // Only v1.1.0
 			expectedTags:  []string{"v1.1.0"},
 		},
+		{
+			// Any release published without notes printed a bare heading;
+			// static-channel releases all did (#136).
+			name: "a release with no notes is left out",
+			from: "v1.0.0",
+			to:   "v1.2.0",
+			releases: []forge.Release{
+				createTestRelease(t, "v1.2.0", "Second", false),
+				createTestRelease(t, "v1.1.0", " \n", false),
+				createTestRelease(t, "v1.0.0", "From", false),
+			},
+			expectedCount: 1,
+			expectedTags:  []string{"v1.2.0"},
+		},
 	}
 
 	for _, tt := range tests {

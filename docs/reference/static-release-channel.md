@@ -78,7 +78,7 @@ The examples use `https://pkg.example.com/acme/mytool` as the **base URL**, whic
 | `previous` | string | yes, may be empty | The tag of the release published before this one, or `""` for the first. A tag, never a URL: the chain cannot leave the base. |
 | `checksums` | string | yes | Absolute URL of `checksums.txt`, under the base. |
 | `signature` | string | no | Absolute URL of the detached signature over `checksums.txt`, under the base. Omit the key for an unsigned release. |
-| `notes` | string | no | Release notes as text. Omit or leave empty when there are none. |
+| `notes` | string | no | Release notes as markdown, without the release's own heading. Omit or leave empty when there are none, and `update` shows no entry for that release. |
 | `downloads` | array | yes, at least one | One entry per archive. |
 
 Each download:
@@ -123,7 +123,7 @@ The framework ships a tool that writes both documents from a GoReleaser `dist/`,
 
 ```yaml
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/mytool
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/mytool --changelog CHANGELOG.md
     artifacts: [checksum]   # the checksum artifact is one object, so the hook runs once
 
 blobs:
@@ -144,7 +144,7 @@ publishers:
     cmd: bash scripts/move-pointer.sh dist/latest.json {{ .Env.RELEASE_STORE_ENDPOINT }}/{{ .Env.RELEASE_STORE_BUCKET }}/acme/mytool/latest.json
 ```
 
-1. **`releasemanifest`** (`go tool releasemanifest`, declared in the framework's `go.mod` `tool` block) reads `dist/metadata.json` for the tool name, tag and date, `dist/checksums.txt` for the archives and their digests, and each archive itself: its size from the file and its `os` and `arch` from the build info of the Go binary inside, so the archive's name never matters. It reads the current pointer at the base URL to fill `previous` (empty when there is none yet) and writes `dist/release.json` and `dist/latest.json`. For a prerelease tag (`v1.2.0-rc.1`) it writes `dist/release.json` only, so the pointer stays on the last stable release. The prerelease is reachable by its tag, and is off the chain: the next stable release's `previous` names the stable tag before it, so a walk of the chain never meets the prerelease. It refuses a `dist/` with an archive that `checksums.txt` does not list, two archives for one platform, or an archive holding no Go binary. `--previous <tag>` overrides the pointer lookup; `--notes <file>` supplies the notes.
+1. **`releasemanifest`** (`go tool releasemanifest`, declared in the framework's `go.mod` `tool` block) reads `dist/metadata.json` for the tool name, tag and date, `dist/checksums.txt` for the archives and their digests, and each archive itself: its size from the file and its `os` and `arch` from the build info of the Go binary inside, so the archive's name never matters. It reads the current pointer at the base URL to fill `previous` (empty when there is none yet) and writes `dist/release.json` and `dist/latest.json`. For a prerelease tag (`v1.2.0-rc.1`) it writes `dist/release.json` only, so the pointer stays on the last stable release. The prerelease is reachable by its tag, and is off the chain: the next stable release's `previous` names the stable tag before it, so a walk of the chain never meets the prerelease. It refuses a `dist/` with an archive that `checksums.txt` does not list, two archives for one platform, or an archive holding no Go binary. `--previous <tag>` overrides the pointer lookup. `--changelog <file>` takes the notes from the tag's section of a changelog: the body under its `## [<tag>]` or `## <tag>` heading, up to the next one. colophon commits that section before it tags, so the tagged commit's `CHANGELOG.md` already holds it. A missing file or section is a warning, and the release goes out with no notes. `--notes <file>` supplies the notes from a file instead, and the two flags cannot be combined.
 2. **`blobs:`** uploads `release.json` with the archives, checksums and signature, immutable like them.
 3. **`publishers:`** runs last in the publish pipe (and not at all when publishing is skipped) and moves the pointer. `scripts/move-pointer.sh` (scaffolded with the channel; the framework repository carries the same file) is the conditional write of the publish order above: given the pointer file and the object's URL on the store's S3 endpoint, it exits 0 without touching the store when the pointer file is absent (a prerelease), otherwise reads the pointer's ETag with a signed `GET`, then `PUT`s `dist/latest.json` with `If-Match` on it (`If-None-Match: *` for a first release) and `Cache-Control: no-cache`, using `curl`'s own SigV4 signing (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, the same credentials as `blobs:`). A 412 fails the job and names the condition that failed.
 

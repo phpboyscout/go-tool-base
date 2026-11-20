@@ -94,3 +94,27 @@ func TestGetStructuredReleaseNotes_APIFallback(t *testing.T) {
 	assert.Equal(t, "v1.0.0", cl.FromVersion)
 	assert.Equal(t, "v1.2.0", cl.ToVersion)
 }
+
+// Releases crossed that all carry no notes say so, rather than printing a
+// heading per release with nothing under it (#136).
+func TestGetReleaseNotes_NoneCarryNotes(t *testing.T) {
+	t.Parallel()
+
+	mockClient := mockRelease.NewMockProvider(t)
+	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).Return([]forge.Release{
+		createTestRelease(t, "v1.2.0", "", false),
+		createTestRelease(t, "v1.1.0", "", false),
+		createTestRelease(t, "v1.0.0", "", false),
+	}, nil).Once()
+
+	updater := &SelfUpdater{
+		Tool: props.Tool{
+			ReleaseSource: props.ReleaseSource{Type: "github", Owner: "org", Repo: "repo"},
+		},
+		releaseClient: mockClient,
+	}
+
+	notes, err := updater.GetReleaseNotes(context.Background(), "v1.0.0", "v1.2.0")
+	require.NoError(t, err)
+	assert.Equal(t, "No release notes found between v1.0.0 and v1.2.0", notes)
+}

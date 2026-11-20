@@ -1583,9 +1583,11 @@ func (s *SelfUpdater) filterReleaseNotes(releases []forge.Release, from, to stri
 			continue
 		}
 
-		// Include if release is > from and <= to
-		if shouldIncludeRelease(fromVersion, toVersion, releaseVersion) {
-			releaseNote := fmt.Sprintf("# %s\n%s", release.GetTagName(), release.GetBody())
+		// Include if release is > from and <= to, and has notes to show: a
+		// release published without notes would print a bare heading.
+		body := release.GetBody()
+		if shouldIncludeRelease(fromVersion, toVersion, releaseVersion) && strings.TrimSpace(body) != "" {
+			releaseNote := fmt.Sprintf("# %s\n%s", release.GetTagName(), body)
 			releaseNotes = append(releaseNotes, releaseNote)
 		}
 

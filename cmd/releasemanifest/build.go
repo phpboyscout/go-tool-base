@@ -40,7 +40,7 @@ type metadata struct {
 // reads what goreleaser has written by the time its before_publish hooks
 // run: metadata.json, checksums.txt and the archives themselves. It is pure
 // over the directory so a test can pin it with a golden file.
-func (b builder) build(dist, baseURL, previous, notesPath string) (static.Manifest, static.Pointer, error) {
+func (b builder) build(dist, baseURL, previous string, notes notesSource) (static.Manifest, static.Pointer, error) {
 	var meta metadata
 
 	if err := readJSON(filepath.Join(dist, "metadata.json"), &meta); err != nil {
@@ -64,13 +64,13 @@ func (b builder) build(dist, baseURL, previous, notesPath string) (static.Manife
 		return static.Manifest{}, static.Pointer{}, err
 	}
 
-	if notesPath != "" {
-		text, err := os.ReadFile(notesPath)
+	if notes != nil {
+		text, err := notes(m.Tag)
 		if err != nil {
-			return static.Manifest{}, static.Pointer{}, errors.Wrap(err, "reading notes")
+			return static.Manifest{}, static.Pointer{}, err
 		}
 
-		m.Notes = string(text)
+		m.Notes = text
 	}
 
 	p := static.Pointer{

@@ -156,7 +156,7 @@ signs:
 #
 # The layout a reader expects is docs/reference/static-release-channel.md.
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base --changelog CHANGELOG.md
     artifacts: [checksum]
     output: true
 
