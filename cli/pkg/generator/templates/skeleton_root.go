@@ -61,6 +61,8 @@ type SkeletonRootData struct {
 	// ConfigKeyCase is the config stack's key mode. Only "exact" emits a
 	// field: folded is the default, so a folded root renders as before.
 	ConfigKeyCase string
+	// ConfigFileOnly are the keys no prefixed environment variable may set (spec 0214).
+	ConfigFileOnly []string
 	// ConfigSources are the declared config source slots (spec 0204 D15).
 	ConfigSources []ConfigSourceData
 	// UpdatePolicy wires props.Tool.UpdatePolicy in the generated root. Empty
@@ -500,6 +502,10 @@ func buildConfigSpec(data SkeletonRootData) jen.Code {
 
 	if data.ConfigKeyCase == "exact" {
 		spec[jen.Id("KeyCase")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "KeyCaseExact")
+	}
+
+	if len(data.ConfigFileOnly) > 0 {
+		spec[jen.Id("FileOnly")] = stringSliceLit(data.ConfigFileOnly)
 	}
 
 	if len(spec) == 0 {

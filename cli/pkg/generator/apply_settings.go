@@ -66,7 +66,12 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) {
 	m.Properties.Description = fresh.Properties.Description
 	m.Properties.Features = fresh.Properties.Features
 	m.Properties.EnvPrefix = fresh.Properties.EnvPrefix
-	m.Properties.Config = fresh.Properties.Config
+	// The file-only list is edited in the manifest alone (spec 0214 D9).
+	m.Properties.Config.Layers = fresh.Properties.Config.Layers
+	m.Properties.Config.Formats = fresh.Properties.Config.Formats
+	m.Properties.Config.Format = fresh.Properties.Config.Format
+	m.Properties.Config.Sources = fresh.Properties.Config.Sources
+	m.Properties.Config.KeyCase = fresh.Properties.Config.KeyCase
 	m.Properties.UpdatePolicy = fresh.Properties.UpdatePolicy
 	// The withhold list is not the caller's to set (spec 0213 D6).
 	m.Properties.MCP.Mode = fresh.Properties.MCP.Mode
