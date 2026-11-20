@@ -22,10 +22,8 @@
 # renovate.json.
 
 include:
-  # Quality gates — MR-only by default. Toolchain + tools come from the
-  # cicd dev-tools image baked into the components (Go 1.26.4, govulncheck,
-  # golangci-lint) — no per-component image overrides needed since cicd
-  # v0.14.0.
+  # Quality gates — MR-only by default. Toolchain + tools come from each
+  # component's own default image, so no per-component image overrides.
   # The CLI is a nested module at cli/ (spec 0194 D1). In workspace mode a
   # bare ./... reaches only the root module, so every path expression names
   # both; the e2e suite lives with the CLI because it builds the gtb binary.
@@ -55,9 +53,8 @@ include:
   - component: gitlab.com/phpboyscout/cicd/go-security@main
 
   # Release — tag-gated goreleaser + main-branch zensical-pages deploy.
-  # goreleaser runs on the dev-tools image (Go 1.26.4), so it builds with
-  # the image's Go — no gotoolchain override needed (the component's
-  # `auto` default applies harmlessly).
+  # goreleaser runs on the component's default go-tools image, with the
+  # component's GOTOOLCHAIN=auto default.
   #
   # --parallelism=1 serialises the 6 cross-compile targets. The default
   # (one build per CPU) compiles the large anthropic-sdk-go across several
@@ -65,12 +62,10 @@ include:
   # ("compile: signal: killed") and publishes zero assets. Sequential builds
   # cap peak memory at the cost of a longer release job.
   #
-  # image: pinned explicitly because this release job needs `syft` on PATH —
-  # goreleaser's sboms: stanza shells out to it. Originally pinned to v0.2.0,
-  # the first tag that baked syft; it then sat there for five releases because
-  # an image passed as a component INPUT is not a job-level `image:`, so
-  # Renovate's gitlabci manager never saw it. The mirrored customManager in
-  # renovate.json5 now tracks it (0065 D3/D4).
+  # No image input: the component's default go-tools image carries syft
+  # (goreleaser's sboms: stanza shells out to it) and goreleaser-pro, and the
+  # component moves that pin itself. An image passed as an input is invisible
+  # to Renovate's gitlabci manager, which is how the old pin went stale.
   #
   # pro: the static release channel's manifest is written by a before_publish
   # hook (spec 0203 D5), a Pro-only slot; the licence is the GORELEASER_KEY
@@ -78,7 +73,6 @@ include:
   - component: gitlab.com/phpboyscout/cicd/goreleaser@main
     inputs:
       args: "release --clean --parallelism=1"
-      image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4"
       pro: true
   - component: gitlab.com/phpboyscout/cicd/zensical-pages@main
 
@@ -205,7 +199,7 @@ goreleaser:
     # in its own shell — exports don't persist between steps.
     AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
   # The static docs site for `gtb docs serve` is built by gtb-docs-site in the
-  # docs image and arrives here as an artefact: dev-tools has no zensical, so
+  # docs image and arrives here as an artefact: go-tools has no zensical, so
   # the `go generate` in goreleaser's before hook syncs the raw docs and keeps
   # the site it finds. v0.43.0's round (Q7) found the release binary had none.
   needs:
@@ -230,7 +224,7 @@ goreleaser:
 # 0212), kept identical to it.
 homebrew-tap:
   stage: release
-  image: registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4
+  image: registry.gitlab.com/phpboyscout/images/ci-base:v0.3.5
   needs:
     - job: goreleaser
       artifacts: true
@@ -309,7 +303,7 @@ osv-scanner:
 # its own fixture, so this is the only job that sees the real one (#39).
 gtb-embedded-assets:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -327,7 +321,7 @@ gtb-embedded-assets:
 # commands, points it at the checkout, and runs go build and golangci-lint
 # (without --fix) on what was emitted. It was red on main for a week with
 # nothing running it (#80); the lint half is what #30 asked for.
-# go-tools rather than dev-tools: the scaffold targets the toolchain that
+# go-tools: the scaffold targets the toolchain that
 # generated it (go 1.27 today), and only go-tools carries a golangci-lint
 # built against a Go new enough to lint that target; the repo's own lint
 # job runs there for the same reason.
