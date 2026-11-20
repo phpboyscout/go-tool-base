@@ -98,7 +98,7 @@ func refuseUndeclaredOverrides(spec p.ConfigSpec, overrides map[string]setup.Sou
 // bootstrapStore is the first pass: fresh backends for the D5 layers, in
 // their declared order, so no backend is shared with the full store.
 func bootstrapStore(ctx context.Context, opts ConfigLoadOptions, layers []p.ConfigLayer) (*config.Store, error) {
-	byLayer, err := configLayerOpts(opts)
+	byLayer, _, err := configLayerOpts(opts)
 	if err != nil {
 		return nil, err
 	}

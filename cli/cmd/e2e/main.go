@@ -127,6 +127,10 @@ func newTestRoot() (*setup.Command, *props.Props, error) {
 
 	declareConfigSource(&tool)
 
+	// Spec 0214: no GTB_ variable reaches anything under update, which
+	// features/cli/file_only_config.feature exercises.
+	tool.Config.FileOnly = []string{"update.**"}
+
 	p, err := props.New(tool, l, afero.NewOsFs(),
 		props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})),
 		props.WithVersion(version.Get()),

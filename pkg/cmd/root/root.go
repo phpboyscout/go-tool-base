@@ -207,7 +207,7 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		return nil, err
 	}
 
-	byLayer, err := configLayerOpts(opts)
+	byLayer, env, err := configLayerOpts(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +228,16 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		return nil, errors.Wrap(err, "failed to load config")
 	}
 
+	reportWithheldEnv(opts.Props, env.withheld(store.Snapshot()))
+
 	return store, nil
 }
 
-// configLayerOpts returns the store options each built-in layer contributes.
+// configLayerOpts returns the store options each built-in layer contributes,
+// and the recorder of the env layer's variables, nil when no key is file-only.
 // A layer with nothing to contribute (no prefix, no flags, no project file)
 // maps to none.
-func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOption, error) {
+func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOption, *envRecorder, error) {
 	byLayer := map[p.ConfigLayer][]config.StoreOption{}
 	codecs := setup.ConfigCodecsIn(opts.Props.GetFeatures())
 
@@ -244,7 +247,7 @@ func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOp
 
 	embedded, err := embeddedSources(opts, codecs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(embedded) > 0 {
@@ -252,11 +255,16 @@ func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOp
 	}
 
 	if err := fileLayerOpts(opts.Props.GetConfigFS(), opts, codecs, byLayer); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	var env *envRecorder
+
 	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
-		byLayer[p.LayerEnv] = []config.StoreOption{config.WithEnv(prefix)}
+		var opt config.StoreOption
+
+		opt, env = envLayer(prefix, opts.Props.Tool.Config.EnvDenials())
+		byLayer[p.LayerEnv] = []config.StoreOption{opt}
 	}
 
 	// Only flags the user actually changed contribute (the backend walks
@@ -265,7 +273,7 @@ func configLayerOpts(opts ConfigLoadOptions) (map[p.ConfigLayer][]config.StoreOp
 		byLayer[p.LayerFlags] = []config.StoreOption{config.WithFlags(opts.Flags, flagBindings(opts.BoundFlags)...)}
 	}
 
-	return byLayer, nil
+	return byLayer, env, nil
 }
 
 // fileLayerOpts adds the file-backed layers to byLayer: the user's config

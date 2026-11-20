@@ -37,6 +37,7 @@ gtb get chat.providers                                 # one value per line
 |---|---|---|
 | `features` | features have their own verbs | `gtb enable <feature>`, `gtb disable <feature>` |
 | `templates` | overlays have their own verbs | `gtb template add`, `update`, `remove` |
+| `properties.config.file_only` | the file-only list is edited in the manifest alone | edit `.gtb/manifest.yaml` and run `gtb regenerate project` |
 | `hashes`, `commands`, `docs_layout`, `module_published`, `version.gtb` | recorded by the generator | nothing; they describe what gtb did |
 
 ## Flags
