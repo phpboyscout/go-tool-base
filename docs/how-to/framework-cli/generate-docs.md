@@ -30,7 +30,7 @@ New projects scaffold a [Diátaxis](https://diataxis.fr/)-structured `docs/` tre
 
 | Content | Quadrant | Path |
 | :--- | :--- | :--- |
-| CLI commands | Reference | `docs/reference/cli/<command>.md` (a leaf), or `docs/reference/cli/<command>/index.md` (a command with subcommands) |
+| CLI commands | Reference | `docs/reference/cli/<command>.md` (a leaf), or `docs/reference/cli/<command>/index.md` (a command with subcommands); the page moves between the two as the command gains or loses subcommands |
 | Library packages | Explanation | `docs/explanation/components/<package>.md` |
 
 The layout is recorded as `docs_layout: diataxis` in `.gtb/manifest.yaml`. Projects generated before this feature default to the legacy **flat** layout (`docs/commands/`, `docs/packages/`); run `regenerate project --force` to migrate them: it moves existing pages into the quadrant tree (preserving your content), updates the manifest, and removes the old trees.

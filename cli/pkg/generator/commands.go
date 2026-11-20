@@ -170,6 +170,8 @@ func (g *Generator) reshapeParentIfTransitioned(ctx context.Context) error {
 
 	g.props.Logger.Debug(fmt.Sprintf("Parent %q gained its first child; reshaping to canonical parent form", parentName))
 
+	g.moveCommandDocForShape(m, parentParts, true)
+
 	return g.RegenerateCommand(ctx, *parent, grandparent)
 }
 
@@ -507,6 +509,8 @@ func (g *Generator) handleDocumentationGeneration(ctx context.Context, data temp
 	if err != nil {
 		relPath = ""
 	}
+
+	g.alignCommandDocWithShape(data.Name, relPath)
 
 	_, docPath := g.prepareDocsContext(data.Name, relPath, false)
 	exists, _ := afero.Exists(g.props.FS, docPath)

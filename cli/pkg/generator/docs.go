@@ -9,6 +9,7 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -767,10 +768,7 @@ func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fu
 	// manifest collides when two parents share a leaf name (a/run vs b/run):
 	// it returns the first match, so the doc lands under the wrong parent or is
 	// skipped as already-existing (keryx v0.19.0 Bug 3).
-	promptParentParts := parentPartsFromCmdRelPath(relPath)
-	if promptParentParts == nil {
-		promptParentParts, _ = g.FindCommandParentPath(name)
-	}
+	promptParentParts := g.commandParentParts(name, relPath)
 
 	fullCmdName = toolName
 	if len(promptParentParts) > 0 {
@@ -791,6 +789,34 @@ func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fu
 	}
 
 	return fullCmdName, outputPath
+}
+
+func (g *Generator) commandParentParts(name, relPath string) []string {
+	parts := parentPartsFromCmdRelPath(relPath)
+	if parts == nil {
+		parts, _ = g.FindCommandParentPath(name)
+	}
+
+	return parts
+}
+
+// alignCommandDocWithShape moves a command's page to the path its current
+// shape takes, so a regenerate repairs a page left behind by a generator
+// that did not move it (#138).
+func (g *Generator) alignCommandDocWithShape(name, relPath string) {
+	m := g.readManifestQuiet()
+	if m == nil {
+		return
+	}
+
+	parentParts := g.commandParentParts(name, relPath)
+
+	cmd := findCommandAt(m.Commands, parentParts, name)
+	if cmd == nil {
+		return
+	}
+
+	g.moveCommandDocForShape(m, append(slices.Clone(parentParts), name), len(cmd.Commands) > 0)
 }
 
 // readManifestQuiet loads the manifest without logging or side effects, so it is
@@ -835,6 +861,69 @@ func (g *Generator) diataxisCommandDocPath(m *Manifest, parentParts []string, na
 	}
 
 	return filepath.Join(cliBase, commandDocRelPath(outRelPath, hasChildren, true))
+}
+
+// moveCommandDocForShape moves a command's page to the path its shape now
+// takes: <path>/index.md once it has children, <path>.md once it has none.
+// Adding a first child, or removing the last, changes the path the commands
+// index links, and the page has to follow it (#138). Moving rather than
+// rewriting keeps any edits made to the page. An existing page at the new
+// path, or an ignored path, is left alone.
+func (g *Generator) moveCommandDocForShape(m *Manifest, cmdParts []string, hasChildren bool) {
+	if m.Properties.ResolvedDocsLayout() != DocsLayoutDiataxis {
+		return
+	}
+
+	cliBase := filepath.Join(g.config.Path, "docs", "reference", "cli")
+	rel := filepath.Join(cmdParts...)
+	from := filepath.Join(cliBase, commandDocRelPath(rel, !hasChildren, true))
+	to := filepath.Join(cliBase, commandDocRelPath(rel, hasChildren, true))
+
+	if g.docPathIgnored(from) || g.docPathIgnored(to) {
+		return
+	}
+
+	if exists, _ := afero.Exists(g.props.FS, from); !exists {
+		return
+	}
+
+	if exists, _ := afero.Exists(g.props.FS, to); exists {
+		g.props.Logger.Warn("a command has pages at both its leaf and parent paths; leaving both",
+			"from", g.relProjectPath(from), "to", g.relProjectPath(to))
+
+		return
+	}
+
+	if err := g.relocateDocPage(from, to); err != nil {
+		g.props.Logger.Warn("could not move a command's page", "path", g.relProjectPath(from), "error", err)
+
+		return
+	}
+
+	if !hasChildren {
+		g.removeDirIfEmpty(filepath.Dir(from))
+	}
+}
+
+func (g *Generator) relocateDocPage(from, to string) error {
+	if err := g.props.FS.MkdirAll(filepath.Dir(to), DefaultDirMode); err != nil {
+		return err
+	}
+
+	return g.props.FS.Rename(from, to)
+}
+
+// removeDirIfEmpty checks emptiness itself because under regenerate the
+// staged FS records a Remove as a recursive delete, whatever the directory
+// holds.
+func (g *Generator) removeDirIfEmpty(dir string) {
+	if g.docPathIgnored(dir) {
+		return
+	}
+
+	if empty, err := afero.IsEmpty(g.props.FS, dir); err == nil && empty {
+		_ = g.props.FS.Remove(dir)
+	}
 }
 
 func (g *Generator) resolveAIConfig() (provider, model string) {

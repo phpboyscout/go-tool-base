@@ -169,5 +169,7 @@ func (g *Generator) reshapeParentIfLeafAgain(ctx context.Context) error {
 
 	g.props.Logger.Debug(fmt.Sprintf("Parent %q lost its last child; reshaping to canonical leaf form", parentName))
 
+	g.moveCommandDocForShape(m, parentParts, false)
+
 	return g.RegenerateCommand(ctx, *parent, grandparent)
 }

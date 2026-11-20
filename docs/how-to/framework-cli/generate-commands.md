@@ -37,7 +37,7 @@ This creates:
 
 - `pkg/cmd/my-command/cmd.go`: The **read-only** command registration and boilerplate.
 - `pkg/cmd/my-command/main.go`: The **editable** implementation file where your logic lives.
-- `docs/reference/cli/my-command.md`: AI-generated reference documentation for the command (a command with subcommands becomes `docs/reference/cli/my-command/index.md`).
+- `docs/reference/cli/my-command.md`: AI-generated reference documentation for the command (a command with subcommands becomes `docs/reference/cli/my-command/index.md`). When a command gains its first subcommand, the generator moves its page to `my-command/index.md`, edits included, and `gtb remove command` moves it back when the last one goes. `gtb regenerate project` moves any page an older gtb left at the wrong path. A page already at the destination, or one covered by `.gtb/ignore`, is left where it is. Links you wrote by hand in other pages are not rewritten, so update any that point at the old path.
 - An entry in `.gtb/manifest.yaml`.
 
 !!! note "Separation of Concerns"

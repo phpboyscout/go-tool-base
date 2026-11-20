@@ -35,3 +35,17 @@ Feature: Diátaxis-structured documentation generation
     When I run gtb in the project with "generate command --name start --parent deploy --short start-it"
     Then the project exit code is 0
     And the generated "docs/reference/cli/deploy/start.md" file exists
+    And the generated "docs/reference/cli/deploy/index.md" file exists
+    And the generated "docs/reference/cli/deploy.md" file does not exist
+
+  Scenario: a parent whose last subcommand is removed gets its leaf page back
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name deploy --short deploy-tool"
+    Then the project exit code is 0
+    When I run gtb in the project with "generate command --name start --parent deploy --short start-it"
+    Then the project exit code is 0
+    And the generated "docs/reference/cli/deploy/index.md" file exists
+    When I run gtb in the project with "remove command --name start --parent deploy"
+    Then the project exit code is 0
+    And the generated "docs/reference/cli/deploy.md" file exists
+    And the generated "docs/reference/cli/deploy/index.md" file does not exist
