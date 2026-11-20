@@ -457,6 +457,60 @@ loading one of them at random; see the
 [migration note](../../../reference/migration/v0.x-config-keys-that-collide-in-case.md).
 See [spec 0209](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0209-case-sensitive-config-keys).
 
+## File-only keys
+
+Every key the store resolves can be set from the environment, and in more
+spellings than the key's own name. `MYTOOL_UPDATE_REQUIRE_SIGNATURE` sets
+`update.require_signature`. In an exact tool, `MYTOOL_update_require_signature`
+does too. And `MYTOOL_UPDATE=x` replaces the whole `update` section, in either
+mode. A variable inherited from a shared CI environment can therefore loosen a
+security setting the tool's config file holds, and refusing a list of variable
+names cannot close every spelling.
+
+A tool that needs some keys out of the environment layer's reach declares them
+as go/config filter patterns, where `*` is one segment and a final `**` is
+everything below:
+
+```go
+props.Tool{
+    EnvPrefix: "MYTOOL",
+    Config: props.ConfigSpec{
+        FileOnly: []string{"update.**", "config.sources.**"},
+    },
+}
+```
+
+A generated project writes the list in `.gtb/manifest.yaml` as
+`properties.config.file_only` and regenerates. `gtb set` and the wizard leave
+it alone, so it changes only where someone reads it.
+
+The root wraps the env backend in `config.Filtered` with those patterns, plus
+every section above each one as an exact path. So `update.**` also denies
+`update`, which stops `MYTOOL_UPDATE=x`, and `update.require_signature` denies
+`update` but leaves `MYTOOL_UPDATE_CHANNEL` working. The filter matches the
+key a variable maps to, after the env backend has resolved its spelling, so
+every spelling is covered at once. Only the env layer is filtered. Config files,
+embedded defaults, flags and config sources still set a file-only key. The
+bootstrap pass that reads `config.sources.<name>` settings is filtered too, so
+`config.sources.**` stops a variable pointing a source somewhere else.
+
+The filter covers the env layer, which is every `MYTOOL_` variable. It does not
+cover a variable the framework or a library reads by name, outside the store:
+`TELEMETRY_ENABLED` and `TELEMETRY_LOCAL` still decide telemetry, and
+`AI_PROVIDER` still picks a chat provider, whatever the tool declares
+file-only. So declaring `telemetry.enabled` does not stop `TELEMETRY_ENABLED`.
+
+A variable aimed at a file-only key does not stop the tool. The tool runs on
+the file's value and warns once per command, naming each variable and never
+its value. `Props.WithheldEnv` holds the names for the command's own store, and
+`doctor`'s "File-only config keys" check lists the patterns and warns when a
+variable was ignored on that run.
+
+gtb declares nothing file-only itself. In a config directory inside a git
+checkout, the environment and flags are the deliberate way to set the
+security-sensitive keys, and a framework default would remove that way out.
+See [spec 0214](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0214-a-tool-can-keep-config-keys-out-of-the-environment).
+
 ## Initialiser integration
 
 [Tool initialisers](../setup/initialisers.md) work against two narrow surfaces:

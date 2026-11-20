@@ -165,6 +165,7 @@ func DefaultChecks(_ *p.Props) []CheckFunc {
 		checkGoVersion,
 		checkConfig,
 		checkStrayEnvVariables,
+		checkFileOnlyKeys,
 		checkConfigStack,
 		checkURLValues,
 		checkNoLiteralCredentials,

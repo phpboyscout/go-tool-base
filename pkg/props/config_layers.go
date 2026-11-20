@@ -28,6 +28,12 @@ type ConfigSpec struct {
 	// KeyCase is how every Store the tool builds compares keys. Empty is
 	// folded (spec 0209 D1).
 	KeyCase KeyCase `json:"key_case,omitempty" yaml:"key_case,omitempty"`
+
+	// FileOnly are go/config filter patterns for keys no EnvPrefix variable
+	// may set: update.** for a whole section, update.require_signature for one
+	// key. Files, flags and sources still set them, and so do variables the
+	// framework reads by name, such as TELEMETRY_ENABLED (spec 0214).
+	FileOnly []string `json:"file_only,omitempty" yaml:"file_only,omitempty"`
 }
 
 // KeyCase is a config stack's key mode: folded to lower case, or exact.
@@ -241,15 +247,26 @@ func ValidateConfigLayers(layers []ConfigLayer) error {
 	return validateLayers(layers, nil)
 }
 
+func validateKeyCase(keyCase KeyCase) error {
+	switch keyCase {
+	case "", KeyCaseFolded, KeyCaseExact:
+		return nil
+	default:
+		return errors.WithHint(errors.Wrapf(ErrConfigKeyCase, "%q", string(keyCase)),
+			"a config stack's key case is folded or exact")
+	}
+}
+
 // ValidateConfigSpec refuses a declaration spec 0204 D1 or D15 refuses: its
 // layers as ValidateConfigLayers does, with each source's name a layer too,
 // and every source a valid, unique, placed slot.
 func ValidateConfigSpec(spec ConfigSpec) error {
-	switch spec.KeyCase {
-	case "", KeyCaseFolded, KeyCaseExact:
-	default:
-		return errors.WithHint(errors.Wrapf(ErrConfigKeyCase, "%q", string(spec.KeyCase)),
-			"a config stack's key case is folded or exact")
+	if err := validateKeyCase(spec.KeyCase); err != nil {
+		return err
+	}
+
+	if err := validateFileOnly(spec.FileOnly); err != nil {
+		return err
 	}
 
 	names := make([]ConfigLayer, 0, len(spec.Sources))

@@ -164,6 +164,29 @@ own name holds an underscore (`service_url`, `vault_url`) needs a default in
 `auth.value` is refused under CI. Mark a source optional if a job should run
 without it.
 
+### Keep keys out of the environment
+
+A key that no job's environment should change, such as a signature check or
+where a source connects, can be made file-only. List it in the manifest and
+regenerate:
+
+```yaml
+# .gtb/manifest.yaml
+properties:
+  config:
+    file_only:
+      - update.**
+      - config.sources.**
+```
+
+From then on, no `MYTOOL_*` variable changes anything under `update` or
+`config.sources`, whatever its spelling, and `MYTOOL_UPDATE=x` cannot replace
+the section. Files, flags and the sources themselves still set those keys. A
+variable aimed at one is ignored with a warning naming it, and `doctor` lists
+the patterns. Variables the framework reads by name, such as
+`TELEMETRY_ENABLED`, are outside the filter. `gtb set` does not edit this list. See
+[File-only keys](../explanation/components/config/index.md#file-only-keys).
+
 ## 7. Check it with doctor
 
 ```

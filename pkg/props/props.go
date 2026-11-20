@@ -61,6 +61,10 @@ type Props struct {
 	// SourceStatuses is how each declared config source slot fared when the
 	// root built the store, in declared order (spec 0204 D10).
 	SourceStatuses []ConfigSourceStatus
+	// WithheldEnv names the environment variables the root ignored when it
+	// built the store, because each aimed at a file-only key (spec 0214 D8).
+	// Names only, sorted; never a value.
+	WithheldEnv []string
 
 	// Construction-only: the snapshot and resolver New resolves Features from.
 	featureSnapshot features.Snapshot
