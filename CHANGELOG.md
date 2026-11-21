@@ -1,5 +1,33 @@
 # Changelog
 
+## [v0.52.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.52.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.51.1...v0.52.0)
+
+### Notes
+
+- A command's page in the Diátaxis docs layout now moves to <command>/index.md when the command gains its first subcommand, and back when it loses its last. Run `gtb regenerate project` once to move pages an older gtb left behind.
+
+- gtb update shows the notes of each static-channel release it crosses, and prints no empty heading for a release without notes. A generated project on the static channel gets its notes published by adding `--changelog CHANGELOG.md` to the releasemanifest hook in .goreleaser.yaml, or by regenerating it.
+
+- Generated GitLab projects now run the homebrew-tap job on images/ci-base:v0.3.5 instead of the archived images/dev-tools:v0.3.4. An existing project should change that job's image the same way.
+
+- A tool can now declare config keys that no variable under its env prefix may set, with `props.ConfigSpec.FileOnly` (for example `update.**`). Every spelling of a `MYTOOL_` variable aimed at one, and a bare section variable such as `MYTOOL_UPDATE=x`, is ignored with a warning, and `doctor` lists the patterns. Variables the framework reads by name, such as `TELEMETRY_ENABLED`, are not covered.
+
+### Features
+
+- **config**: refuse file-only patterns that would protect nothing ([759ef33](https://gitlab.com/phpboyscout/go-tool-base/-/commit/759ef330203b42089044b5596783726386817b75))
+- **generator**: carry properties.config.file_only into the root ([85706d0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/85706d072bc16a849f7e2b6a81d1dcea7e4a9737))
+- **config**: let a tool keep config keys out of the environment ([905487d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/905487d210dbc2afe8762b4930890b7031665aa5))
+
+### Bug Fixes
+
+- **deps**: update go modules ([e8f39b1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e8f39b11f6c43869a3bbac1387aa9456bdc599ec))
+- **generator**: move a command's page when it gains or loses subcommands ([7308c6f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7308c6fe9fe2127381023986e36b75e869250e18))
+- **update**: show each static-channel release's notes ([6b55b60](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6b55b6031f31c5e75ebd69dd3503cfda9abd585c))
+- **generator**: scaffold homebrew-tap on ci-base, not the archived dev-tools ([6373fef](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6373fef2b8fd340159952f6036dc43dc20a5567f))
+- **deps**: update module github.com/aws/aws-sdk-go-v2/config to v1.33.19 ([417d8a5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/417d8a59325e54d56cf828eb2956b8b89dc593c2))
+
 ## [v0.51.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.51.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.51.0...v0.51.1)
