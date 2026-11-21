@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/textescape"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -46,7 +47,7 @@ func checkURLValues(_ context.Context, props *p.Props) CheckResult {
 			}
 
 			line := fmt.Sprintf("%s is %s from %s",
-				escapeUnless(unicode.IsPrint, key), endpoint, escapeUnless(unicode.IsPrint, origin.String()))
+				textescape.Unless(unicode.IsPrint, key), endpoint, textescape.Unless(unicode.IsPrint, origin.String()))
 
 			if strings.HasPrefix(endpoint, "http://") {
 				plaintext++
@@ -154,7 +155,7 @@ func networkEndpoint(value string) (string, bool) {
 		return u.Scheme + "://" + hostWithheld, true
 	}
 
-	return u.Scheme + "://" + escapeUnless(isPrintableASCII, u.Host), true
+	return u.Scheme + "://" + textescape.Unless(isPrintableASCII, u.Host), true
 }
 
 // atSignFollowsAuthority reports an @ after the first /, ? or # of a URL.
@@ -166,31 +167,6 @@ func atSignFollowsAuthority(raw string) bool {
 	end := strings.IndexAny(afterScheme, "/?#")
 
 	return end >= 0 && strings.Contains(afterScheme[end:], "@")
-}
-
-// lastBMPRune is the highest rune four hex digits can write.
-const lastBMPRune = 0xFFFF
-
-// escapeUnless writes every rune keep rejects as \uXXXX or \UXXXXXXXX, so a
-// newline cannot forge a line of output and a host cannot be dressed as
-// another. A backslash is doubled, so text that reads as an escape is not one.
-func escapeUnless(keep func(rune) bool, s string) string {
-	var out strings.Builder
-
-	for _, r := range s {
-		switch {
-		case r == '\\':
-			out.WriteString(`\\`)
-		case keep(r):
-			out.WriteRune(r)
-		case r > lastBMPRune:
-			fmt.Fprintf(&out, `\U%08x`, r)
-		default:
-			fmt.Fprintf(&out, `\u%04x`, r)
-		}
-	}
-
-	return out.String()
 }
 
 func isPrintableASCII(r rune) bool { return r >= ' ' && r <= '~' }

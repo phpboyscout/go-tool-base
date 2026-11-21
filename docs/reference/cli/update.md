@@ -47,6 +47,41 @@ replaced. It applies to every tool built on GTB, since they share the updater.
 A tool installed by the install script, into `$HOME/.local/bin`, updates
 itself as before.
 
+## Installs a manager declares
+
+A manager gtb cannot recognise by path, such as mise, asdf or aqua, says so
+through the environment instead:
+
+| Variable | Applies to | Holds |
+|---|---|---|
+| `GTB_INSTALL_MANAGER` | every tool built on GTB | the manager's name, such as `mise` |
+| `GTB_INSTALL_UPGRADE` | every tool built on GTB | the command that upgrades the tool, printed and never run |
+| `<PREFIX>_INSTALL_MANAGER` | one tool, by its env prefix | overrides `GTB_INSTALL_MANAGER` |
+| `<PREFIX>_INSTALL_UPGRADE` | one tool, by its env prefix | the upgrade command beside `<PREFIX>_INSTALL_MANAGER` |
+
+With a manager named, `update` refuses before it reads the pin, asks the
+release source or prompts. That holds for `--force`, `--version`,
+`--rollback`, `--pin=<tag>` and `--from-file` alike:
+
+```
+widget is managed by mise (GTB_INSTALL_MANAGER), so it does not update itself
+hint: Upgrade it with: mise upgrade widget
+```
+
+The tool's own pair wins over the framework's as a pair, so a per-tool manager
+is never described with the framework-wide upgrade command. A value that is
+empty or only whitespace counts as unset. Before printing, control characters
+are escaped as `\uXXXX` and a backslash is doubled, so a Windows path in the
+upgrade command shows as `C:\\tools`. The prefix is matched as the config
+layer matches it, so an `EnvPrefix` of `widget` or `WIDGET_` reads
+`WIDGET_INSTALL_MANAGER`. Only the environment counts. A config file, project file or
+flag cannot set these, because the signal belongs to whatever installed the
+binary.
+
+Bare `--pin` and `--unpin` install nothing, so they still work. The update
+check and `version` go quiet too: see
+[Configure self-updating](../../how-to/configure-self-updating.md#installs-a-package-manager-keeps).
+
 ## Flags
 
 - `--force, -f`: Force update to the latest version even if already up to date.

@@ -43,6 +43,10 @@ type VersionInfo struct {
 	// the tool is running in CI (the --ci flag, the ci config key, or
 	// CI=true). Latest is absent and Current is unknown, as for CheckFailed.
 	CheckSkipped bool `json:"check_skipped,omitempty"`
+	// ManagedBy is the manager the environment says installed the binary,
+	// and Upgrade its upgrade command (spec 0217 D3).
+	ManagedBy string `json:"managed_by,omitempty"`
+	Upgrade   string `json:"upgrade,omitempty"`
 }
 
 // inCI agrees with the root's gate: the --ci flag or ci config key through the
@@ -84,10 +88,7 @@ builds.`,
 				Current: true,
 			}
 
-			// --check bypasses the development-build skip so maintainers
-			// can probe the release source from a dev build; the
-			// disabled-update fast path always skips the network.
-			if !props.GetFeatures().Enabled(p.UpdateCmd) || (props.Version.IsDevelopment() && !check) {
+			if localOnly(props, info, check) {
 				return writeVersion(out, info)
 			}
 
@@ -154,6 +155,21 @@ builds.`,
 	return setup.AnnotateMCP(setup.Wrap("", cmd), setup.MCPReadOnly())
 }
 
+// localOnly fills in what is known without the release source, and reports
+// whether to stop there. --check bypasses the development-build and
+// managed-install skips (spec 0217 D3), so a maintainer can probe the release
+// source from either; the disabled-update fast path always skips the network.
+func localOnly(props *p.Props, info *VersionInfo, check bool) bool {
+	managed := false
+
+	if m, ok := setup.ManagedInstallFromEnv(props.Tool.EnvPrefix); ok {
+		info.ManagedBy, info.Upgrade = m.Manager, m.Upgrade
+		managed = true
+	}
+
+	return !props.GetFeatures().Enabled(p.UpdateCmd) || ((managed || props.Version.IsDevelopment()) && !check)
+}
+
 // fetchLatestVersion constructs the self-updater and asks the release source
 // for the latest version string. Both failure modes — cannot construct the
 // updater, cannot reach the release source — are the same condition from the
@@ -191,5 +207,12 @@ func printVersionText(w io.Writer, info *VersionInfo) {
 
 	if info.Latest != "" && !info.Current {
 		_, _ = fmt.Fprintf(w, "Latest:  %s (update available)\n", info.Latest)
+	}
+
+	switch {
+	case info.ManagedBy != "" && info.Upgrade != "":
+		_, _ = fmt.Fprintf(w, "Managed: %s (upgrade with: %s)\n", info.ManagedBy, info.Upgrade)
+	case info.ManagedBy != "":
+		_, _ = fmt.Fprintf(w, "Managed: %s\n", info.ManagedBy)
 	}
 }

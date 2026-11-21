@@ -75,13 +75,11 @@ func Unpin(props *p.Props) (*UpdateResult, error) {
 }
 
 func install(ctx context.Context, props *p.Props, req request, out io.Writer, opts ...UpdateConfigOption) (*UpdateResult, error) {
-	o := newUpdateOptions(opts)
-
-	if req.pin || req.rollback {
-		if err := setup.CanPin(props.FS, props.Tool.Name); err != nil {
-			return nil, err
-		}
+	if err := refuseBeforeInstalling(props, req); err != nil {
+		return nil, err
 	}
+
+	o := newUpdateOptions(opts)
 
 	current := runningVersion(props)
 	pin := currentPin(props)
@@ -146,6 +144,21 @@ func finishUpdate(ctx context.Context, props *p.Props, updater Updater, req requ
 	if props.GetFeatures().Enabled(p.ChangelogCmd) {
 		props.Logger.Info(fmt.Sprintf("Run '%s changelog --latest' to see the full changelog.", props.Tool.Name))
 	}
+}
+
+// refuseBeforeInstalling refuses a managed install, and a pin that cannot be
+// kept, before the pin, the release source or any prompt is consulted (spec
+// 0217 D4).
+func refuseBeforeInstalling(props *p.Props, req request) error {
+	if err := setup.RefuseEnvManagedInstall(props.Tool); err != nil {
+		return err
+	}
+
+	if req.pin || req.rollback {
+		return setup.CanPin(props.FS, props.Tool.Name)
+	}
+
+	return nil
 }
 
 // stayPinned is D7's no-op: a pinned tool with nothing named and no force.

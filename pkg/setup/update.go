@@ -852,12 +852,8 @@ func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error)
 
 // Update installs the latest version of the binary to the resolved target path.
 func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
-	targetPath, err := s.resolveTargetPath(ctx)
+	targetPath, err := s.unmanagedTarget(ctx)
 	if err != nil {
-		return "", err
-	}
-
-	if err := s.refuseManagedInstall(ctx, targetPath); err != nil {
 		return targetPath, err
 	}
 
@@ -1073,12 +1069,8 @@ func (s *SelfUpdater) downloadBoundedAsset(
 // If a .sha256 sidecar file exists at filePath+".sha256", the checksum
 // is verified before extraction. Returns the installation target path.
 func (s *SelfUpdater) UpdateFromFile(ctx context.Context, filePath string) (string, error) {
-	targetPath, err := s.resolveTargetPath(ctx)
+	targetPath, err := s.unmanagedTarget(ctx)
 	if err != nil {
-		return "", err
-	}
-
-	if err := s.refuseManagedInstall(ctx, targetPath); err != nil {
 		return targetPath, err
 	}
 
@@ -1190,6 +1182,23 @@ func (s *SelfUpdater) resolveTargetPath(ctx context.Context) (string, error) {
 // would leave the manager's record of the install describing a file that is no
 // longer on disk, so a later upgrade or uninstall would act on the wrong one.
 var ErrManagedInstall = errors.NewSentinel("gtb.setup.managed_install", "refusing to replace a package-managed binary")
+
+// unmanagedTarget resolves the binary to replace, refusing an install the
+// environment says is managed before resolving, which can prompt between
+// installations, and one a package manager owns after. The target is returned
+// with the second refusal.
+func (s *SelfUpdater) unmanagedTarget(ctx context.Context) (string, error) {
+	if err := RefuseEnvManagedInstall(s.Tool); err != nil {
+		return "", err
+	}
+
+	targetPath, err := s.resolveTargetPath(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return targetPath, s.refuseManagedInstall(ctx, targetPath)
+}
 
 // refuseManagedInstall stops an update, --force or not, when a package manager
 // owns targetPath, and names that manager's own upgrade command.

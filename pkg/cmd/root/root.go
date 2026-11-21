@@ -666,18 +666,37 @@ type UpdateCheckResult struct {
 	Error      error
 }
 
-// checkForUpdates handles the version checking and update prompting logic.
-func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, state *rootState) *UpdateCheckResult {
-	result := &UpdateCheckResult{}
+// updatesLeftAlone reports whether the installer or the user has already
+// taken updates out of the tool's hands: no probe, no reminder, and no
+// enabled-policy block. The error is a corrupt pin marker, which reads as no pin
+// and is reported only once a check is about to run, so CI, exempt commands
+// and throttled runs stay quiet.
+func updatesLeftAlone(props *p.Props) (bool, error) {
+	// A managed install is quieter than a pin: not even the marker is read
+	// (spec 0217 D3).
+	if m, ok := setup.ManagedInstallFromEnv(props.Tool.EnvPrefix); ok {
+		props.Logger.Debug("update check skipped: managed install", "manager", m.Manager, "variable", m.ManagerVariable)
 
-	// A pin is a choice the user already made: no probe, no reminder, and no
-	// enabled-policy block (spec 0104 D6). A corrupt marker reads as no pin,
-	// and is reported only once a check is about to run, so CI, exempt
-	// commands and throttled runs stay quiet.
+		return true, nil
+	}
+
+	// A pin is a choice the user already made (spec 0104 D6).
 	pinned, pinErr := setup.GetPinnedVersion(props.FS, props.Tool.Name)
 	if pinned != "" {
 		props.Logger.Debug("update check skipped: pinned", "version", pinned)
 
+		return true, nil
+	}
+
+	return false, pinErr
+}
+
+// checkForUpdates handles the version checking and update prompting logic.
+func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, state *rootState) *UpdateCheckResult {
+	result := &UpdateCheckResult{}
+
+	leftAlone, pinErr := updatesLeftAlone(props)
+	if leftAlone {
 		return result
 	}
 

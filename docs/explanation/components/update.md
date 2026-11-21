@@ -90,6 +90,16 @@ installed. If one does, both `Update` and `UpdateFromFile` return
 packaging can defer to the same answer. The command reference lists what is
 recognised: [Package-managed installs](../../reference/cli/update.md#package-managed-installs).
 
+A manager the detector cannot recognise names itself in the environment, with
+`GTB_INSTALL_MANAGER` or the tool's own `<PREFIX>_INSTALL_MANAGER`
+(`setup.ManagedInstallFromEnv`). The updater checks that before the detector,
+and the `update` command checks it before its pin, release-source and prompt
+steps, so the refusal comes first. The pre-run check returns before it reads
+the pin marker, and `version` asks the release source only under `--check`.
+The variables are read with `os.Getenv` rather than through the config store,
+so no config layer can set them
+([spec 0217](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0217-an-installer-can-tell-a-gtb-tool-its-install-is-managed)).
+
 ### Rollback and pin
 
 A rollback is a downgrade a person asked for, so it is verified exactly as any update is and confirmed first. Without

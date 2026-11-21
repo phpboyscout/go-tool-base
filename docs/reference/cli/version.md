@@ -40,6 +40,20 @@ maintainers can probe the release source from a dev build. The
 disabled-update fast path is unaffected: when the `update` command feature is
 disabled the network is never contacted.
 
+When `GTB_INSTALL_MANAGER` or the tool's `<PREFIX>_INSTALL_MANAGER` names the
+manager that installed the binary, `version` makes no release-source call
+unless `--check` is given, and adds a `Managed` line (`managed_by` and
+`upgrade` in JSON, holding the values as printed: control characters escaped as
+`\uXXXX` and backslashes doubled):
+
+```bash
+$ mytool version
+Version: v1.2.3
+Managed: mise (upgrade with: mise upgrade mytool)
+```
+
+See [Installs a manager declares](update.md#installs-a-manager-declares).
+
 ## Flags
 
 | Flag | Default | Description |

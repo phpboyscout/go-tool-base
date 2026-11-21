@@ -46,6 +46,16 @@ Feature: CLI Update Command
     And stdout is valid JSON
     And the JSON field "data.updated" equals "false"
 
+  Scenario: An install its installer says is managed refuses to update itself
+    Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "already-latest"
+    And I set environment variable "GTB_INSTALL_MANAGER" to "mise"
+    And I set environment variable "GTB_INSTALL_UPGRADE" to "mise upgrade gitlab:phpboyscout/go-tool-base"
+    When I run gtb with "update --force"
+    Then the exit code is not 0
+    And stderr contains "managed by mise (GTB_INSTALL_MANAGER)"
+    And stderr contains "mise upgrade gitlab:phpboyscout/go-tool-base"
+    And stderr does not contain "already running latest version"
+
   Scenario: A release source reporting an older latest is refused without force
     Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "stale-latest"
     When I run gtb with "update"

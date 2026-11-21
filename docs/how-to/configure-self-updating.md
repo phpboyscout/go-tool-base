@@ -267,6 +267,37 @@ be named. Install it from its archive with `update --from-file`. The flags and t
 
 ---
 
+## Installs a Package Manager Keeps
+
+A tool installed by mise, asdf, aqua or a wrapper script must not replace
+itself. The manager's record would then describe a binary that is no longer on
+disk. Homebrew, dpkg and rpm installs are recognised by path. For any other
+manager, set the variable in the environment the tool runs in:
+
+```bash
+export GTB_INSTALL_MANAGER=mise
+export GTB_INSTALL_UPGRADE="mise upgrade widget"   # optional: printed in the refusal
+```
+
+With mise, the `[env]` table of its global config is one place to put these.
+`GTB_INSTALL_MANAGER` covers every tool built on GTB. `WIDGET_INSTALL_MANAGER`
+and `WIDGET_INSTALL_UPGRADE`, named by the tool's env prefix, cover one tool and
+override it.
+
+With a manager named:
+
+- the update check makes no probe, prints no reminder and never blocks under
+  the `enabled` policy, as for a pinned tool;
+- `version` reports `Managed: mise` and asks the release source only with
+  `--check`;
+- `update` refuses, `--force` or not, and prints the upgrade command when one
+  is set.
+
+The table of variables is in the
+[command reference](../reference/cli/update.md#installs-a-manager-declares).
+
+---
+
 ## Throttling
 
 By default, the update check runs at most once per 24 hours (stored in the tool's config directory). This prevents hammering the API on every command invocation. The throttle interval is configurable:

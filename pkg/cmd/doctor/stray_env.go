@@ -23,7 +23,7 @@ func checkStrayEnvVariables(_ context.Context, props *p.Props) CheckResult {
 	}
 
 	recognised := setup.NewConfigKeyRecogniser(props)
-	readByName := setup.DeclaredEnvVariables(props.GetFeatures())
+	readByName := append(setup.DeclaredEnvVariables(props.GetFeatures()), setup.InstallManagerEnvVariables(props.Tool.EnvPrefix)...)
 
 	var stray []string
 

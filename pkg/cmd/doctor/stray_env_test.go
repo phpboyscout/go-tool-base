@@ -84,6 +84,13 @@ func TestCheckStrayEnvVariables(t *testing.T) {
 		assert.Equal(t, CheckPass, checkStrayEnvVariables(context.Background(), gp).Status)
 	})
 
+	t.Run("the install-manager variables are not stray (spec 0217 D1)", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Equal(t, CheckPass, checkStrayEnvVariables(context.Background(), props(t,
+			"TOOLTEST_INSTALL_MANAGER=mise", "TOOLTEST_INSTALL_UPGRADE=mise upgrade tooltest")).Status)
+	})
+
 	t.Run("no prefix, no environment layer, nothing to check", func(t *testing.T) {
 		t.Parallel()
 

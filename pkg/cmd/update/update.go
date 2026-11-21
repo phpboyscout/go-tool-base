@@ -234,6 +234,10 @@ func showUpdateChangelog(ctx context.Context, updater Updater, previousVersion s
 }
 
 func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ...UpdateConfigOption) error {
+	if err := setup.RefuseEnvManagedInstall(props.Tool); err != nil {
+		return err
+	}
+
 	o := newUpdateOptions(opts)
 
 	updater := o.newOfflineUpdater(props)
