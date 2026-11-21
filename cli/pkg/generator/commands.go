@@ -361,7 +361,7 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 		Long:                     longDesc,
 		Aliases:                  aliases,
 		Args:                     args,
-		Package:                  strings.ReplaceAll(g.config.Name, "-", "_"),
+		Package:                  commandPackageName(g.config.Name),
 		WithAssets:               g.config.WithAssets,
 		PersistentPreRun:         g.config.PersistentPreRun,
 		PreRun:                   g.config.PreRun,

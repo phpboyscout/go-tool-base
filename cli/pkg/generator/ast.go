@@ -104,7 +104,7 @@ func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
 		cmdVarName:        "cmd",
 		rootCmdInitIdx:    -1,
 		firstAllAssetsIdx: -1,
-		pkgName:           strings.ReplaceAll(g.config.Name, "-", "_"),
+		pkgName:           commandPackageName(g.config.Name),
 	}
 
 	var parentRelPath string

@@ -99,6 +99,11 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	addCmd(t, p, path, "deploy", "root")
 	addCmd(t, p, path, "canary", "deploy")
 
+	// Spec 0216: a keyword-named command builds and lints, as a child and at
+	// the root.
+	addCmd(t, p, path, "import", "deploy")
+	addCmd(t, p, path, "go", "root")
+
 	// #145: the initialiser, validation and assets scaffolds build as
 	// emitted. Golden strings did not catch init.go drifting from
 	// setup.InitialiserProvider; only a build does.

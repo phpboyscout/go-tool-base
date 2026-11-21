@@ -64,8 +64,8 @@ func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, strin
 	g.detectConfigValidation(path, cmd)
 
 	// Find NewCmd... function
-	pkgName := filepath.Base(filepath.Dir(path))
-	funcName := "NewCmd" + PascalCase(pkgName)
+	cmdName := filepath.Base(filepath.Dir(path))
+	funcName := "NewCmd" + PascalCase(cmdName)
 
 	// Phase 0: Collect constants/variables for value resolution
 	constants := extractConstants(f)
@@ -90,7 +90,7 @@ func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, strin
 	subcommandFuncs := g.processCommandBody(targetFunc, cmd, constants, path, imports, currentPkgPath)
 
 	if cmd.Name == "" {
-		cmd.Name = pkgName
+		cmd.Name = cmdName
 	}
 
 	return cmd, constructorName, subcommandFuncs, nil
