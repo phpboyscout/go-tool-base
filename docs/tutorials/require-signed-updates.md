@@ -28,7 +28,9 @@ last step, which explains why.
 - **`signing-key-v1.asc` and `rotation-authority.asc`** from
   [Publish your public key](publish-your-public-key.md), and the WKD tree
   served for your domain.
-- **The same gtb release.** Everything below is verified against **v0.50.0**.
+- **gtb v0.50.4 or later.** Everything below is verified against **v0.50.0**,
+  except the separate `authority/` directory for the rotation authority, which
+  a generated tool gets from v0.50.4.
 
 ## Turn on signing
 
@@ -69,12 +71,12 @@ endpoint, so the generator doesn't switch it on uninvited.
 
 ## Add your keys
 
-The `keys/` directory starts empty. Copy in the public key you minted and the
-rotation authority:
+The `keys/` directory starts empty. Copy in the public key you minted, and put
+the rotation authority in `authority/` beside it:
 
 ```bash
 cp signing-key-v1.asc internal/trustkeys/keys/
-cp rotation-authority.asc internal/trustkeys/keys/
+cp rotation-authority.asc internal/trustkeys/authority/
 go build ./...
 ```
 
@@ -87,6 +89,18 @@ dormant. So enabling signing before you have a key breaks nothing.
 Every key in `keys/` is trusted to sign a release, so the rotation authority
 goes next door in `internal/trustkeys/authority/`. Keys there join the trust
 set, and the updater refuses a release signed by one.
+
+Put it in one directory, never both. A key in both counts twice in the embedded
+set, so it no longer matches the WKD bucket, and a release built that way
+refuses every later update. If you followed an older version of this page and
+copied it into `keys/`, move it. A tool generated before v0.50.4 has no
+`authority/` directory, and making one by hand doesn't embed it, so run
+`gtb enable signing` again from v0.50.4 or later first. That creates the
+directory and wires it in. Then:
+
+```bash
+git mv internal/trustkeys/keys/rotation-authority.asc internal/trustkeys/authority/
+```
 
 ## Cross-check against WKD
 
