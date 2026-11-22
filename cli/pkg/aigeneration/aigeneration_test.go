@@ -1,6 +1,8 @@
 package aigeneration
 
 import (
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -48,6 +50,46 @@ func TestConfigure(t *testing.T) {
 			require.NoError(t, Initialiser{}.Configure(t.Context(), p, editor))
 		})
 	}
+}
+
+// TestConfigure_WritesNothingWithoutAnAnswer: a person who never answered
+// must not find a default saved as their choice.
+func TestConfigure_WritesNothingWithoutAnAnswer(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		p    *props.Props
+		want error
+	}{
+		{name: "no terminal", p: &props.Props{Logger: logger.NewNoop(), IO: pipedIO{}}, want: setup.ErrNonInteractive},
+		{name: "input ends first", p: accessibleProps(), want: setup.ErrInputEnded},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := Initialiser{}.Configure(t.Context(), tc.p, setupmocks.NewMockEditor(t))
+			require.ErrorIs(t, err, tc.want)
+		})
+	}
+}
+
+// pipedIO is a stdin nobody is typing at, fixed so neither the test's own
+// terminal nor TERM=dumb can change the answer.
+type pipedIO struct{}
+
+func (pipedIO) In() io.Reader     { return strings.NewReader("") }
+func (pipedIO) Out() io.Writer    { return io.Discard }
+func (pipedIO) Err() io.Writer    { return io.Discard }
+func (pipedIO) Interactive() bool { return false }
+func (pipedIO) Accessible() bool  { return false }
+
+func TestName(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "AI generation", Initialiser{}.Name())
 }
 
 func TestIsConfigured(t *testing.T) {
