@@ -14,14 +14,14 @@ ship inside your tool's binary and publish at your WKD endpoint.
 You'll run this command once per signing key, at initial setup and
 again whenever you rotate.
 
-`gtb keys mint` does the bridging from "a `crypto.Signer` somewhere"
+`sigillum keys mint` does the bridging from "a `crypto.Signer` somewhere"
 to "a valid OpenPGP entity on disk". It does not generate the
 private key, that came from either Terraform (KMS) or
-`gtb keys generate` (local PEM).
+`sigillum keys generate` (local PEM).
 
 ## Prerequisites
 
-- `gtb` installed.
+- `sigillum` installed (`go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`, or a binary from the [sigillum releases](https://gitlab.com/phpboyscout/sigillum/-/releases)). The `keys` commands used to ship in `gtb`; they now live only in [sigillum](https://sigillum.phpboyscout.uk).
 - The private key already exists, either in AWS KMS (production
   path) or as a PEM file on disk (tutorial path).
 - For the AWS KMS path: AWS credentials that can call
@@ -35,7 +35,7 @@ private key, that came from either Terraform (KMS) or
 ## The AWS KMS path (production)
 
 ```sh
-gtb keys mint \
+sigillum keys mint \
     --backend aws-kms \
     --key-id alias/mytool-release-signing-v1 \
     --kms-region eu-west-2 \
@@ -81,7 +81,7 @@ INFO  Minted OpenPGP key  backend=aws-kms  key_id=alias/mytool-release-signing-v
 | `--created` | no | now | RFC3339 creation time. Pin only when re-minting an existing key: different creation times produce different fingerprints. |
 
 !!! warning "No silent overwrites"
-    `gtb keys mint` refuses to overwrite an existing `--output` file. If you
+    `sigillum keys mint` refuses to overwrite an existing `--output` file. If you
     are intentionally re-minting to the same path, pass `--force`.
 
 ### Credentials
@@ -91,12 +91,12 @@ export `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` /
 `AWS_SESSION_TOKEN`, or use any other SDK-recognised credential
 source. For a one-off mint against a tag-pipeline-only signer role,
 the canonical recipe is `aws sts assume-role` with MFA, exporting
-the resulting temporary credentials, then running `gtb keys mint`.
+the resulting temporary credentials, then running `sigillum keys mint`.
 
 ## The local PEM path (tutorial / no-cloud-KMS)
 
 ```sh
-gtb keys mint \
+sigillum keys mint \
     --backend local \
     --key-id signing.pem \
     --name "MyTool Release" \
@@ -115,14 +115,14 @@ What this does:
    as the signer.
 3. Writes `release.asc` as in the AWS KMS path.
 
-The PEM file pairs naturally with `gtb keys generate --algorithm rsa`,
+The PEM file pairs naturally with `sigillum keys generate --algorithm rsa`,
 which produces exactly this format on the private-output path. The
 two commands together give you a complete signing chain without any
 cloud dependency, perfect for blog posts and integration tests.
 
 ## Reproducibility: `--created`
 
-`gtb keys mint` uses `time.Now()` for the OpenPGP creation timestamp
+`sigillum keys mint` uses `time.Now()` for the OpenPGP creation timestamp
 by default. The timestamp is folded into the key's fingerprint, so
 two mints of the same KMS key one second apart produce two different
 fingerprints.
@@ -132,12 +132,12 @@ If you ever need to **re-derive** an existing key (because you lost
 the original creation time:
 
 ```sh
-gtb keys mint ... --created 2026-06-08T00:00:00Z
+sigillum keys mint ... --created 2026-06-08T00:00:00Z
 ```
 
 The same KMS material + same UID + same creation time = same
-fingerprint. This is also how `gtb keys generate --algorithm rsa`
-and `gtb keys mint --backend local` produce identical fingerprints
+fingerprint. This is also how `sigillum keys generate --algorithm rsa`
+and `sigillum keys mint --backend local` produce identical fingerprints
 when chained. See the
 [concept doc](../explanation/concepts/release-binary-signing.md) for the
 end-to-end flow.
@@ -177,11 +177,11 @@ disagree.
 
 ## Rotation
 
-Mint v2 of the signing key by re-running `gtb keys mint` against the
+Mint v2 of the signing key by re-running `sigillum keys mint` against the
 new KMS key:
 
 ```sh
-gtb keys mint --backend aws-kms \
+sigillum keys mint --backend aws-kms \
     --key-id alias/mytool-release-signing-v2 \
     ... \
     --output release-v2.asc

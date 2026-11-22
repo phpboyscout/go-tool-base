@@ -109,7 +109,8 @@ sections below are what to bring across by hand.
 ### sigillum on the release runner
 
 The signs block calls [sigillum](https://gitlab.com/phpboyscout/sigillum), a
-standalone signer with the same `sign` command as gtb, so the job needs no gtb.
+standalone signer. Its `sign` command takes the flags gtb's `sign` command used to,
+and gtb no longer ships it, so the job needs no gtb.
 
 On GitLab there's nothing to install, because the goreleaser component's image
 carries sigillum. If you mirror the components with `ci.component_source`, or

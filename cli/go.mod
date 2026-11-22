@@ -41,8 +41,6 @@ require (
 	gitlab.com/phpboyscout/go/redact v0.3.3
 	gitlab.com/phpboyscout/go/repo v0.9.3
 	gitlab.com/phpboyscout/go/signing v0.15.1
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.9.2
-	gitlab.com/phpboyscout/go/signing-cli v0.7.1
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
 	gitlab.com/phpboyscout/go/workspace v0.2.3
@@ -79,7 +77,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.62.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.39.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.5 // indirect

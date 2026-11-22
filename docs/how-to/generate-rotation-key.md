@@ -19,7 +19,7 @@ half offline, and forget about it (until you don't have to).
 
 ## Prerequisites
 
-- `gtb` installed.
+- `sigillum` installed (`go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`, or a binary from the [sigillum releases](https://gitlab.com/phpboyscout/sigillum/-/releases)).
 - A trusted workstation. Anywhere is fine: the private key is
   encrypted and the operator's workstation is the only place it
   briefly exists in memory. No `gpg` install, no `openssl`, no
@@ -31,7 +31,7 @@ half offline, and forget about it (until you don't have to).
 ## The command
 
 ```sh
-gtb keys generate \
+sigillum keys generate \
     --algorithm ed25519 \
     --name "MyTool Rotation Authority" \
     --email rotation@mytool.example \
@@ -49,7 +49,7 @@ Two files appear in the current directory:
   what needs to go offline.**
 
 !!! warning "No silent overwrites"
-    `gtb keys generate` refuses to overwrite an existing key file (public or
+    `sigillum keys generate` refuses to overwrite an existing key file (public or
     private). A private key on disk is irreplaceable, so the default is to
     fail rather than clobber it in place. Pass `--force` only when you
     deliberately want to overwrite an existing key. The private half is always

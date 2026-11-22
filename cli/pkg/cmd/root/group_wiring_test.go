@@ -46,8 +46,8 @@ var workingGroups = map[string]string{
 // ownership boundary rather than a hole.
 //
 // The map is empty today. `keys` left it when go/signing-cli (ours) took the
-// behaviour upstream (v0.5.1), so sigillum's `keys` agrees with gtb's instead of
-// silently differing; `mcp` and its editor groups left it the same way when
+// behaviour upstream (v0.5.1), and gtb no longer ships `keys` at all (sigillum
+// spec 0007 D6); `mcp` and its editor groups left it the same way when
 // go/mcp replaced ophis. It stays as the place a genuinely foreign tree goes.
 var foreignGroups = map[string]string{}
 

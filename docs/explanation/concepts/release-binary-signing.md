@@ -14,14 +14,16 @@ That trust has to be **cryptographic**, not "we hope the registry
 wasn't compromised", but "the binary verifies against a public key we
 already shipped you".
 
-`gtb` provides the building blocks for that chain without anyone
+[sigillum](https://sigillum.phpboyscout.uk) provides the building blocks for that chain without anyone
 holding a private key on their laptop and without shelling out to
-`gpg`. Three `gtb keys` subcommands cover the whole flow:
+`gpg`. The `keys` and `sign` commands used to ship in `gtb`; they now live only in
+sigillum (`go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`), and gtb's own
+self-update verifies what they produce. Three `sigillum keys` subcommands cover the whole flow:
 
 ```sh
-gtb keys generate ...     # create new keypairs (rotation-authority, dev signing keys)
-gtb keys mint     ...     # turn an HSM-held key into an OpenPGP-armored public file
-gtb keys wkd      ...     # lay out the public keys as a Web Key Directory tree to serve
+sigillum keys generate ...     # create new keypairs (rotation-authority, dev signing keys)
+sigillum keys mint     ...     # turn an HSM-held key into an OpenPGP-armored public file
+sigillum keys wkd      ...     # lay out the public keys as a Web Key Directory tree to serve
 ```
 
 Plus a Terraform module (`terraform-aws-signing-kms`) that provisions
@@ -50,9 +52,9 @@ tag, once per release.
 - **Who can use it**: a tightly-scoped IAM role assumable only by
   tag-pipeline OIDC tokens (production) or anyone with read access
   to the PEM file (tutorial).
-- **Created by**: `gtb keys generate --algorithm rsa ...` (tutorial)
+- **Created by**: `sigillum keys generate --algorithm rsa ...` (tutorial)
   or Terraform via `terraform-aws-signing-kms` (production). The
-  `gtb keys mint --backend X` command turns either source into the
+  `sigillum keys mint --backend X` command turns either source into the
   armored OpenPGP public-key file you ship.
 - **Rotation cadence**: as often as your threat model requires.
   Usually every 1–3 years, plus emergency rotation on compromise.
@@ -70,7 +72,7 @@ installs.
   and a printed `paperkey` recovery sheet, both in a home safe.
 - **Who can use it**: you, physically, on a trusted offline
   workstation.
-- **Created by**: `gtb keys generate --algorithm ed25519 ...`: the
+- **Created by**: `sigillum keys generate --algorithm ed25519 ...`: the
   command produces both halves locally and asks you to move the
   private half to offline storage immediately.
 - **Rotation cadence**: typically never. If you ever have to use it,
@@ -132,7 +134,7 @@ for Terraform:
 ```sh
 # 1. Rotation-authority key. Move the private half to offline
 #    storage (encrypted USB + paperkey) and forget about it.
-gtb keys generate \
+sigillum keys generate \
     --algorithm ed25519 \
     --name "MyTool Rotation Authority" \
     --email rotation@mytool.example \
@@ -140,7 +142,7 @@ gtb keys generate \
 
 # 2. Local signing key. The PEM private half stays on this
 #    machine — for the tutorial only; production uses AWS KMS.
-gtb keys generate \
+sigillum keys generate \
     --algorithm rsa --rsa-bits 4096 \
     --name "MyTool Release" \
     --email release@mytool.example \
@@ -151,7 +153,7 @@ gtb keys generate \
 #    Re-deriving from the PEM via the `local` backend gives the
 #    same shape goreleaser produces in production, so the trust
 #    set is identical.
-gtb keys mint \
+sigillum keys mint \
     --backend local --key-id signing.pem \
     --name "MyTool Release" \
     --email release@mytool.example \
@@ -169,7 +171,7 @@ you apply the [`terraform-aws-signing-kms`](https://gitlab.com/phpboyscout/terra
 module and then run:
 
 ```sh
-gtb keys mint \
+sigillum keys mint \
     --backend aws-kms --key-id alias/mytool-release-signing-v1 \
     --kms-region eu-west-2 \
     --name "MyTool Release" \
@@ -298,11 +300,11 @@ The full table of log shapes and what to do about each lives in the
 
 [svdocs]: ../components/setup/signature-verification.md#interpreting-verifier-log-output
 
-## Where `gtb` stops and `goreleaser` starts
+## Where `sigillum keys` stops and `goreleaser` starts
 
-`gtb keys` produces the trust artefacts (public keys). It does **not**
+`sigillum keys` produces the trust artefacts (public keys). It does **not**
 produce the signature on each release. That's `goreleaser`'s job, via
-a `signs:` block in your `.goreleaser.yaml` that shells out to AWS
+a `signs:` block in your `.goreleaser.yaml` that calls `sigillum sign` against AWS
 KMS via OIDC at tag-pipeline time.
 
 The chain in tabular form:
@@ -310,7 +312,7 @@ The chain in tabular form:
 | Step | Who runs it | What it produces |
 |---|---|---|
 | Provision KMS key + IAM role | `tofu apply` (one-off) | KMS key alias, signer role ARN |
-| Mint the OpenPGP public half | `gtb keys mint` (one-off) | `release.asc` |
+| Mint the OpenPGP public half | `sigillum keys mint` (one-off) | `release.asc` |
 | Embed the public half | `go:embed all:keys` (every build) | trust set baked into binary |
 | Publish the public half via WKD | manual or scripted (one-off) | armored key served from your domain |
 | Sign each release manifest | `goreleaser` on tag pipeline | `checksums.txt.sig` |
@@ -318,10 +320,10 @@ The chain in tabular form:
 
 ## What's deliberately out of scope (for now)
 
-- **Generating keys *in* an HSM via `gtb`.** KMS keys are
+- **Generating keys *in* an HSM via `sigillum`.** KMS keys are
   provisioned by Terraform, that's a one-off infrastructure
   operation, not a release-time command.
-- **Publishing to WKD via `gtb`.** WKD hosting is an externally-
+- **Publishing to WKD via `sigillum`.** WKD hosting is an externally-
   administered concern; we don't presume your DNS, your TLS
   provider, or your static-host of choice. We provide the recipe
   (Cloudflare Pages Direct Upload) in the
@@ -332,9 +334,9 @@ The chain in tabular form:
 
 ## Related
 
-- [`gtb keys mint`](../../how-to/mint-signing-key.md): the production
+- [`sigillum keys mint`](../../how-to/mint-signing-key.md): the production
   signing key recipe.
-- [`gtb keys generate-rotation`](../../how-to/generate-rotation-key.md): the offline-storage flow.
+- [`sigillum keys generate`](../../how-to/generate-rotation-key.md) for the rotation authority: the offline-storage flow.
 - [Adding a signing backend](../../how-to/add-signing-backend.md): for
   GCP KMS, Vault, YubiKey, etc.
 - [openpgpkey](../components/openpgpkey.md) and

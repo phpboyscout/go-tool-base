@@ -148,7 +148,8 @@ default:
 # from the cicd component above.
 #
 # Goreleaser's `signs:` block invokes `scripts/sign-release.sh`, which
-# shells out to `go run ./cli/cmd/gtb sign --backend aws-kms`. The aws-kms
+# runs `sigillum sign --backend aws-kms` with the sigillum binary from the
+# go-tools image (sigillum spec 0007 D6). The aws-kms
 # backend uses the AWS SDK Go v2 default credential chain, which
 # auto-resolves a role via web-identity OIDC when
 # `AWS_WEB_IDENTITY_TOKEN_FILE` + `AWS_ROLE_ARN` are set — no aws-cli

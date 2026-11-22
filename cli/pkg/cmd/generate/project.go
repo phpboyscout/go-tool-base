@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/errors"
-	"gitlab.com/phpboyscout/go/signing"
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
@@ -533,8 +532,8 @@ func (o *SkeletonOptions) validateSigningFields() error {
 		return errors.Wrapf(ErrInvalidSigningKeySource, "%q", o.SigningKeySource)
 	}
 
-	if o.SigningBackend != "" && !slices.Contains(signing.Names(), o.SigningBackend) {
-		return errors.Wrapf(ErrInvalidSigningBackend, "%q (available: %s)", o.SigningBackend, strings.Join(signing.Names(), ", "))
+	if o.SigningBackend != "" && !slices.Contains(generator.SigningBackends(), o.SigningBackend) {
+		return errors.Wrapf(ErrInvalidSigningBackend, "%q (available: %s)", o.SigningBackend, strings.Join(generator.SigningBackends(), ", "))
 	}
 
 	// The remaining release-pipeline fields are rendered into the

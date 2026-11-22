@@ -8,7 +8,7 @@
 # (TrustSet.VerifyManifestSignature, via
 # openpgp.CheckArmoredDetachedSignature) expects.
 #
-# The signing call goes through `gtb sign --backend aws-kms`, which
+# The signing call goes through `sigillum sign --backend aws-kms`, which
 # uses the AWS SDK's default credential chain. CI hands the signer the
 # OIDC-derived AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
 # AWS_SESSION_TOKEN via a before_script that runs
@@ -66,16 +66,19 @@ if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -z "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" ]]; t
 	exit 1
 fi
 
-# gtb sign produces an armored OpenPGP detached signature using the
-# pkg/signing aws-kms backend. The private key never leaves KMS —
-# only the public key's RSA bytes are downloaded once via GetPublicKey,
-# and the signing operation is a single kms:Sign round-trip per
-# invocation. See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command.
-#
-# `go run` rather than an installed binary so this script works
-# unmodified inside the goreleaser CI image (which ships Go but not
-# gtb). Local invocations can also `go run` from the repo root.
-go run ./cli/cmd/gtb --ci sign \
+if ! command -v sigillum >/dev/null 2>&1; then
+	echo "sign-release.sh: sigillum is not on PATH; refusing to sign." >&2
+	echo "  CI gets it from the go-tools image. Locally, install it from" >&2
+	echo "  https://gitlab.com/phpboyscout/sigillum (sigillum spec 0007 D6)." >&2
+	exit 1
+fi
+
+# sigillum produces an armored OpenPGP detached signature with the aws-kms
+# backend. The private key never leaves KMS: the public key is fetched once,
+# and signing is one kms:Sign call. gtb's own signing commands moved to
+# sigillum (sigillum spec 0007 D6), and the CI image carries a released,
+# verified sigillum, so its version follows the image tag.
+sigillum --ci sign \
 	--backend aws-kms \
 	--kms-region "${region}" \
 	--key-id "${key_id}" \

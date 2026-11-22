@@ -1,6 +1,6 @@
 ---
 title: signing
-description: Backend registry that lets `gtb keys mint` (and downstream tools) target arbitrary HSM/KMS/keyring back-ends through a single `Backend` interface. Now a standalone module.
+description: Backend registry that lets `sigillum keys mint` (and downstream tools) target arbitrary HSM/KMS/keyring back-ends through a single `Backend` interface. Now a standalone module.
 date: 2026-06-08
 tags: [components, signing, kms, registry, backend]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -17,16 +17,17 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing)
     - **Module documentation:** [signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk)
 
-    The `gtb` CLI behaviour is unchanged, only the Go import paths moved.
+    The `gtb` binary no longer ships the `sign` and `keys` commands or links a
+    signing backend; self-update still verifies through `signing/verify`.
 
     The `sign` / `keys` **commands** that drive this registry now live in the
     shareable [`go/signing-cli`](https://signing-cli.go.phpboyscout.uk) module,
-    which go-tool-base and the standalone `sigillum` CLI both attach.
+    which the standalone [sigillum](https://sigillum.phpboyscout.uk) CLI attaches.
 
 A tiny registry: each backend (AWS KMS, local PEM file, GCP KMS, HashiCorp
 Vault, …) implements a two-method `Backend` interface (`Name`, `NewSigner`)
 and registers itself from its package's `init()`. Downstream binaries opt in
-by **blank-importing** the backend package; `gtb keys mint --backend <name>`
+by **blank-importing** the backend package; `sigillum keys mint --backend <name>`
 resolves the registered backend, invokes its `NewSigner`, and hands the
 resulting `crypto.Signer` to [`openpgpkey`](openpgpkey.md) for OpenPGP packet
 assembly. The full `Backend` contract, the registry API, and the
@@ -35,7 +36,7 @@ compile-time opt-out story are on the
 
 ## Built-in backends
 
-The standard `gtb` binary blank-imports both built-in backends:
+The standard `sigillum` binary blank-imports both built-in backends (the `gtb` binary links neither):
 
 - **`aws-kms`**: a **separate module**,
   **`gitlab.com/phpboyscout/go/signing-aws-kms`** (package `awskms`).

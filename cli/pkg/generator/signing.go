@@ -39,6 +39,13 @@ const (
 	defaultSigningPublicKey = "internal/trustkeys/keys/signing-key-v1.asc"
 )
 
+// SigningBackends names the backends a generated release pipeline may sign
+// with. sigillum does the signing, so these are the backends it links
+// (cmd/sigillum/signing.go, sigillum v0.6.0); gtb links none itself.
+func SigningBackends() []string {
+	return []string{"aws-kms", "local"}
+}
+
 // goreleaserAssetRelPath is the generated release config (relative to the
 // project root); goreleaserAssetEmbedPath is its source in the embedded
 // skeleton FS.

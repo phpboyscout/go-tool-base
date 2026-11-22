@@ -1,15 +1,15 @@
 ---
-title: Sign release artefacts with `gtb sign`
+title: Sign release artefacts with `sigillum sign`
 description: Produce an ASCII-armored OpenPGP detached signature over a release file using a KMS-held key (or any other backend registered with the signing module, `gitlab.com/phpboyscout/go/signing`), then verify with gpg or the in-tool verifier.
 date: 2026-06-09
 tags: [how-to, signing, kms, openpgp, release]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---
 
-# Sign release artefacts with `gtb sign`
+# Sign release artefacts with `sigillum sign`
 
-`gtb sign` produces an armored OpenPGP detached signature over a
-single file using the same backend abstraction `gtb keys mint`
+`sigillum sign` produces an armored OpenPGP detached signature over a
+single file using the same backend abstraction `sigillum keys mint`
 uses. In CI, that's typically AWS KMS via OIDC, no operator ever
 holds the signing-key secret, no `gpg` install needed on the
 runner.
@@ -20,14 +20,14 @@ plus the CI integration with OIDC) and the verification path
 
 ## Prerequisites
 
-- `gtb` ≥ the version that ships [Spec 2026-06-09-sign-command](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command).
-- The public-key file (`release.asc`) corresponding to the signing key, **already published**: embedded in `internal/trustkeys/keys/` and served via WKD per [How-to: publish via WKD](publish-wkd.md). `gtb sign` reads identity (creation time, UID) from this file.
+- `sigillum` installed: `go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`, or a binary from the [sigillum releases](https://gitlab.com/phpboyscout/sigillum/-/releases). The `sign` and `keys` commands used to live in `gtb`; they now ship only in [sigillum](https://sigillum.phpboyscout.uk), with the same flags.
+- The public-key file (`release.asc`) corresponding to the signing key, **already published**: embedded in `internal/trustkeys/keys/` and served via WKD per [How-to: publish via WKD](publish-wkd.md). `sigillum sign` reads identity (creation time, UID) from this file.
 - For the `aws-kms` backend: AWS credentials in the standard SDK chain. In local terminal that means `aws login` + `aws configure export-credentials --format env`; in CI it means an OIDC assume-role step (see below).
 
 ## One file, one sig: local invocation
 
 ```sh
-gtb sign \
+sigillum sign \
     --backend aws-kms \
     --kms-region eu-west-2 \
     --key-id alias/gtb-release-signing-v2 \
@@ -56,13 +56,13 @@ clobbering the input.
 ### Reproducible signatures
 
 Add `--created <rfc3339>` to pin the signature's creation timestamp.
-Two re-runs of `gtb sign` over the same content with the same key
+Two re-runs of `sigillum sign` over the same content with the same key
 and the same `--created` produce **byte-identical** `.sig` files:
 useful when you want to reproduce-from-scratch a previous release's
 artefacts in a SLSA-style chain.
 
 ```sh
-gtb sign \
+sigillum sign \
     --backend aws-kms \
     --kms-region eu-west-2 \
     --key-id alias/gtb-release-signing-v2 \
@@ -76,11 +76,11 @@ gtb sign \
 For tutorials, development, or air-gapped builds:
 
 ```sh
-gtb keys generate --algorithm rsa --rsa-bits 4096 \
+sigillum keys generate --algorithm rsa --rsa-bits 4096 \
     --name "Test Signer" --email test@example.org \
     --output release.asc --private-output release.pem
 
-gtb sign \
+sigillum sign \
     --backend local \
     --key-id ./release.pem \
     --public-key ./release.asc \
@@ -94,7 +94,7 @@ the `aws-kms` backend so the key never leaves the HSM).
 
 ## Verify
 
-`gtb sign` produces what `gpg --verify` consumes, and what the
+`sigillum sign` produces what `gpg --verify` consumes, and what the
 in-tool verifier (`TrustSet.VerifyManifestSignature`, now in the
 `gitlab.com/phpboyscout/go/signing/verify` module that gtb consumes)
 checks during a self-update.
@@ -151,14 +151,14 @@ The setup is split into two layers:
 
    Goreleaser's `signs` block then invokes
    `scripts/sign-release.sh checksums.txt checksums.txt.sig`
-   which is a thin wrapper around `gtb sign --backend aws-kms`. The
+   which is a thin wrapper around `sigillum sign --backend aws-kms`. The
    AWS env vars set by the `before_script` are picked up by the
-   AWS SDK's default credential chain, `gtb sign` itself knows
+   AWS SDK's default credential chain, `sigillum sign` itself knows
    nothing about OIDC, which keeps it portable across CI platforms.
 
 ## Cross-tool compatibility
 
-`gtb sign` output verifies under:
+`sigillum sign` output verifies under:
 
 - **`gpg --verify`** (any modern OpenPGP implementation accepting v4
   RSA-PKCS1v15 signatures)
@@ -173,7 +173,7 @@ framing and the reference implementation.
 
 ## What if my signer doesn't match the public key
 
-`gtb sign` reads the public half from `--public-key` and compares
+`sigillum sign` reads the public half from `--public-key` and compares
 the RSA modulus + exponent to what the backend returns. If they
 disagree, the command errors out with:
 
@@ -187,7 +187,7 @@ becomes an unverifiable `.sig` file in production.
 
 If you intend to rotate the signing key, do it in this order:
 
-1. Mint a new key via `gtb keys mint --backend aws-kms ...`,
+1. Mint a new key via `sigillum keys mint --backend aws-kms ...`,
    producing `release-v2.asc`.
 2. Sign the rotation manifest with the **old** key (using the old
    `release.asc` as `--public-key`).
@@ -200,10 +200,12 @@ See the Phase 2 prep doc for the full rotation runbook.
 
 ## Related
 
-- [Spec: gtb sign](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command)
-, design decisions, RFC details, threat model.
+- [sigillum documentation](https://sigillum.phpboyscout.uk): the full
+  `sign` and `keys` reference.
+- [Spec: sign command](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command)
+  (historical, written when the command lived in gtb): design decisions, RFC details, threat model.
 - [`openpgpkey`](../explanation/components/openpgpkey.md)
-: the `DetachSign` library function the CLI wraps (now the standalone
+: the `DetachSign` library function sigillum wraps (now the standalone
   `gitlab.com/phpboyscout/go/signing/openpgpkey` module).
 - [How-to: publish via WKD](publish-wkd.md): the matching
   trust-anchor publication step.

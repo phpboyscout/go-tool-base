@@ -31,13 +31,13 @@ GTB provides a set of essential built-in commands that are automatically include
 These commands are part of the `gtb` binary itself, the tooling you use to *build*
 a CLI on GTB. They are not shipped in your generated tool.
 
+The `sign` and `keys` commands are no longer part of `gtb`. They live in [sigillum](https://sigillum.phpboyscout.uk) (`sigillum sign`, `sigillum keys generate`, `sigillum keys mint`, `sigillum keys wkd`), with the same flags.
+
 | Command | Purpose |
 | :--- | :--- |
 | **[generate](generate.md)** | Scaffold projects, commands, flags, docs, and man pages. |
 | **[regenerate](regenerate.md)** | Rebuild a project from its manifest, or the manifest from source. |
 | **[remove](remove.md)** | Remove a generated command from a project. |
-| **[keys](keys.md)** | Generate, mint, and publish OpenPGP signing keys. |
-| **[sign](sign.md)** | Produce an OpenPGP detached signature for a file. |
 | **[enable / disable](enable-disable.md)** | Toggle capabilities (signing, MCP, features) on a project. |
 | **[annotate](annotate.md)** | Record a command's MCP tool annotations (title and the four behavioural hints). |
 | **[set / unset / get](set.md)** | Change an author setting by its manifest path, with the same validation and sync as the flags. |
