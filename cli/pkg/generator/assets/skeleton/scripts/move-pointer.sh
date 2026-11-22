@@ -37,6 +37,17 @@ for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
   fi
 done
 
+# macOS ships shasum and no sha256sum. The hash is taken before any request,
+# so a runner with neither stops here rather than after the tag's objects.
+if command -v sha256sum >/dev/null 2>&1; then
+  pointer_sha256=$(sha256sum "$pointer" | cut -d' ' -f1)
+elif command -v shasum >/dev/null 2>&1; then
+  pointer_sha256=$(shasum -a 256 "$pointer" | cut -d' ' -f1)
+else
+  echo "move-pointer: neither sha256sum nor shasum is on PATH; the pointer stays where it is" >&2
+  exit 1
+fi
+
 sign=(--aws-sigv4 "aws:amz:auto:s3" --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}")
 
 # What the pointer is now: its ETag, or nothing when this is the first
@@ -79,7 +90,6 @@ esac
 # the way the immutable objects under a tag are. The payload's hash is given
 # outright for the same reason as the read's: curl 7.88 sends none on an
 # upload and the store refuses the request without it (v0.45.2).
-pointer_sha256=$(sha256sum "$pointer" | cut -d' ' -f1)
 
 status=$(curl --silent --show-error --retry 3 --retry-delay 5 "${sign[@]}" \
   --request PUT \
