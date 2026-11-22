@@ -225,6 +225,9 @@ homebrew_casks:
 #   1. before_publish writes dist/release.json and dist/latest.json from
 #      metadata.json, checksums.txt and the archives themselves. Filtered to
 #      the checksum artifact so it runs once.
+#      A key-rotation manifest committed to release/rotation/ (rotate-keys.json
+#      and its .minisig) is carried into dist, so every release after a
+#      revoked key carries it (go-tool-base spec 0101 D12).
 #   2. blobs uploads the tag's objects, release.json among them
 #      (extra_files), to an S3-compatible store. RELEASE_STORE_ENDPOINT and
 #      RELEASE_STORE_BUCKET name the store; AWS_ACCESS_KEY_ID and
@@ -239,7 +242,7 @@ homebrew_casks:
 # The layout a reader expects: docs/reference/static-release-channel.md in
 # go-tool-base.
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }} --changelog CHANGELOG.md
+  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }} --changelog CHANGELOG.md --rotation release/rotation
     artifacts: [checksum]
     output: true
 
@@ -255,6 +258,8 @@ blobs:
       - "public, max-age=31536000, immutable"
     extra_files:
       - glob: dist/release.json
+      # Matches nothing until a key-rotation manifest is in release/rotation/.
+      - glob: dist/rotate-keys.json*
 
 publishers:
   - name: latest-pointer

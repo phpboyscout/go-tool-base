@@ -8,7 +8,7 @@
 // prerelease tag writes no latest.json, so the pointer stays on the last stable
 // release (spec 0104 D12).
 //
-//	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md | --changelog CHANGELOG.md]
+//	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md | --changelog CHANGELOG.md] [--rotation release/rotation]
 //
 // --previous names the tag the manifest chains to. When omitted the current
 // pointer at the base URL is read and its tag used; with no pointer the chain
@@ -17,6 +17,15 @@
 //
 // --changelog takes the notes from the tag's section of a changelog, the one
 // colophon commits before it tags. --notes takes them from a file instead.
+//
+// --rotation names the repository directory holding the latest key-rotation
+// manifest, rotate-keys.json and rotate-keys.json.minisig. Whatever is there is
+// copied into dist and listed, so once a manifest is committed every later
+// release carries it (spec 0101 D12). An empty or missing directory adds
+// nothing; one file without the other is refused. --rotation-authority names
+// the directory of minisign *.pub authority keys: a carried manifest must
+// verify against one of them and stay valid for 30 days past the release, or
+// the release stops.
 package main
 
 import (
@@ -52,6 +61,8 @@ func main() {
 		previous  string
 		notes     string
 		changelog string
+		rotation  string
+		authority string
 	)
 
 	flag.StringVar(&dist, "dist", "dist", "goreleaser's dist directory")
@@ -59,6 +70,8 @@ func main() {
 	flag.StringVar(&previous, "previous", "", "the tag this release follows; read from the current pointer when omitted")
 	flag.StringVar(&notes, "notes", "", "a file whose text becomes the manifest's notes")
 	flag.StringVar(&changelog, "changelog", "", "a changelog whose section for the tag becomes the manifest's notes")
+	flag.StringVar(&rotation, "rotation", "", "a directory holding the latest rotate-keys.json and its .minisig, carried onto this release")
+	flag.StringVar(&authority, "rotation-authority", "", "a directory of minisign *.pub rotation authority keys a carried manifest must verify against")
 	flag.Parse()
 
 	if baseURL == "" {
@@ -70,6 +83,11 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "releasemanifest: %v\n", err)
 		os.Exit(exitUsage)
+	}
+
+	if err := prepareRotation(rotation, authority, dist, time.Now()); err != nil {
+		fmt.Fprintf(os.Stderr, "releasemanifest: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := run(dist, baseURL, previous, source); err != nil {

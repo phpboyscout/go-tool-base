@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,14 +11,17 @@ import (
 	"time"
 
 	"gitlab.com/phpboyscout/go/errors"
+	"gitlab.com/phpboyscout/go/signing/verify"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 )
 
 var (
-	errNoChecksum        = errors.NewSentinel("gtb.releasemanifest.no_checksum", "an archive carries no checksum; nothing unverifiable is published")
-	errDuplicatePlatform = errors.NewSentinel("gtb.releasemanifest.duplicate_platform", "two archives are built for the same platform")
-	errRotationUnsigned  = errors.NewSentinel("gtb.releasemanifest.rotation_unsigned", "a rotation manifest and its signature are published together")
+	errNoChecksum           = errors.NewSentinel("gtb.releasemanifest.no_checksum", "an archive carries no checksum; nothing unverifiable is published")
+	errDuplicatePlatform    = errors.NewSentinel("gtb.releasemanifest.duplicate_platform", "two archives are built for the same platform")
+	errRotationUnsigned     = errors.NewSentinel("gtb.releasemanifest.rotation_unsigned", "a rotation manifest and its signature are published together")
+	errRotationUnverifiable = errors.NewSentinel("gtb.releasemanifest.rotation_unverifiable", "no rotation authority key to verify the rotation manifest against")
+	errRotationExpiring     = errors.NewSentinel("gtb.releasemanifest.rotation_expiring", "the rotation manifest expires too soon to publish")
 )
 
 // checksumFields is the two columns of a checksums.txt line: digest, name.
@@ -100,6 +104,134 @@ func addRotation(m *static.Manifest, dist, baseURL string) error {
 	}
 
 	return nil
+}
+
+// prepareRotation stages the committed rotation manifest in rotationDir into
+// dist and checks it against the keys in authorityDir, so nothing staged is
+// published unchecked.
+func prepareRotation(rotationDir, authorityDir, dist string, now time.Time) error {
+	if err := stageRotation(rotationDir, dist); err != nil {
+		return err
+	}
+
+	return checkRotation(dist, authorityDir, now)
+}
+
+// stageRotation copies the rotation files found in dir into dist, where
+// addRotation lists them and the upload picks them up.
+func stageRotation(dir, dist string) error {
+	if dir == "" {
+		return nil
+	}
+
+	src, err := os.OpenRoot(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
+	if err != nil {
+		return errors.Wrapf(err, "opening %s", dir)
+	}
+
+	defer func() { _ = src.Close() }()
+
+	dst, err := os.OpenRoot(dist)
+	if err != nil {
+		return errors.Wrapf(err, "opening %s", dist)
+	}
+	defer func() { _ = dst.Close() }()
+
+	for _, name := range []string{static.RotationFile, static.RotationSignatureFile} {
+		data, err := src.ReadFile(name)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+
+		if err != nil {
+			return errors.Wrapf(err, "reading %s from %s", name, dir)
+		}
+
+		if err := dst.WriteFile(name, data, documentMode); err != nil {
+			return errors.Wrapf(err, "staging %s into %s", name, dist)
+		}
+	}
+
+	return nil
+}
+
+// rotationExpiryMargin is how long a carried manifest must stay valid after a
+// release. A manifest past not_after fails every fresh install's update, so
+// it has to be reissued before then, and the margin makes the release that
+// would carry a nearly expired one stop instead.
+const rotationExpiryMargin = 30 * 24 * time.Hour
+
+// checkRotation verifies a rotation manifest staged in dist against the
+// minisign authority keys (*.pub) in authorityDir, and refuses one that
+// expires within rotationExpiryMargin of now. Nothing staged passes.
+func checkRotation(dist, authorityDir string, now time.Time) error {
+	if !exists(dist, static.RotationFile) || !exists(dist, static.RotationSignatureFile) {
+		return nil
+	}
+
+	keys, err := authorityKeys(authorityDir)
+	if err != nil {
+		return err
+	}
+
+	authority, err := verify.NewRotationAuthority(keys...)
+	if err != nil {
+		return errors.Wrapf(err, "reading the rotation authority keys in %s", authorityDir)
+	}
+
+	manifest, err := os.ReadFile(filepath.Join(dist, static.RotationFile))
+	if err != nil {
+		return errors.Wrap(err, "reading the staged rotation manifest")
+	}
+
+	sig, err := os.ReadFile(filepath.Join(dist, static.RotationSignatureFile))
+	if err != nil {
+		return errors.Wrap(err, "reading the staged rotation signature")
+	}
+
+	m, err := authority.VerifyRotationManifest(manifest, sig)
+	if err != nil {
+		return errors.Wrap(err, "the committed rotation manifest cannot be carried")
+	}
+
+	if m.NotAfter.Before(now.Add(rotationExpiryMargin)) {
+		return errors.WithHint(errors.Wrapf(errRotationExpiring, "not_after is %s", m.NotAfter.Format(time.RFC3339)),
+			"Issue a new rotation manifest with a later not_after and commit it in place of this one, then release again.")
+	}
+
+	return nil
+}
+
+func authorityKeys(dir string) ([]string, error) {
+	if dir == "" {
+		return nil, errors.Wrap(errRotationUnverifiable, "--rotation-authority is not set")
+	}
+
+	files, err := filepath.Glob(filepath.Join(dir, "*.pub"))
+	if err != nil {
+		return nil, errors.Wrapf(err, "listing %s", dir)
+	}
+
+	if len(files) == 0 {
+		return nil, errors.Wrapf(errRotationUnverifiable, "no *.pub in %s", dir)
+	}
+
+	keys := make([]string, 0, len(files))
+
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			return nil, errors.Wrapf(err, "reading %s", f)
+		}
+
+		keys = append(keys, string(data))
+	}
+
+	return keys, nil
 }
 
 func exists(dir, name string) bool {
