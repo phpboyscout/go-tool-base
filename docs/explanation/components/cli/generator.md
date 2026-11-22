@@ -104,6 +104,17 @@ The following files are copied verbatim (or rendered as templates) from the embe
         `COLOPHON_TOKEN` access token (`api` and `write_repository` scopes; not
         `CI_JOB_TOKEN`, whose tags start no pipeline), fast-forward merges, and
         pipelines-must-succeed.
+    -   **Releases carry their assets from the start** (spec
+        [0219](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0219-a-generated-gitlab-project-releases-with-its-assets-already-attached)).
+        The colophon include sets `assets: true` and an `asset_base`, and
+        `.goreleaser.yaml` disables its release step. goreleaser uploads first:
+        to the project's generic package registry under the tool's name on the
+        forge channel, or to the store through `blobs:` on the static channel.
+        colophon then creates the release on the tag pipeline once every link
+        resolves. The upload target and `asset_base` come from one generator
+        method, so they cannot drift apart. A GitHub project keeps goreleaser
+        attaching files to the release colophon created at merge, until
+        colophon can attach files there.
 -   `.colophon.yaml` (both forges): a commented starter for colophon's release
     overrides, such as `hold` and `announce`.
 

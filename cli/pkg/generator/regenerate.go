@@ -699,10 +699,45 @@ func (d skeletonTemplateData) HomebrewName() string {
 	return name
 }
 
-// HomebrewURLTemplate is the cask's download URL on the static channel: the
-// tag's objects under the channel's base URL, as the blobs pipe writes them.
+// HomebrewURLTemplate is the cask's download URL: the tag's objects in the
+// static channel's store, or the forge channel's generic package. With the
+// release step off, goreleaser cannot derive one (spec 0219 D4).
 func (d skeletonTemplateData) HomebrewURLTemplate() string {
-	return strings.TrimRight(d.ReleaseBaseURL, "/") + "/{{ .Tag }}/{{ .ArtifactName }}"
+	if !d.StaticChannel() {
+		return d.GenericPackageUploadTarget()
+	}
+
+	return d.staticTagDirectory("{{ .Tag }}") + "/{{ .ArtifactName }}"
+}
+
+// AttachesAssetsAtTag reports whether colophon creates the release on the tag
+// pipeline once every asset link resolves, so goreleaser creates none (spec
+// 0219 D1). GitHub waits on colophon#63.
+func (d skeletonTemplateData) AttachesAssetsAtTag() bool { return d.GitLabCI() }
+
+// GenericPackageUploadTarget is where goreleaser's uploads pipe puts each
+// artefact on the forge channel. It names the tool, not $CI_PROJECT_NAME,
+// because a repository can be named differently.
+func (d skeletonTemplateData) GenericPackageUploadTarget() string {
+	return d.genericPackageDirectory("{{ .Env.CI_API_V4_URL }}", "{{ .Env.CI_PROJECT_ID }}", "{{ .Version }}") + "/{{ .ArtifactName }}"
+}
+
+// ColophonAssetBase is the directory colophon links each asset under. It
+// must name the directory the release's artefacts were uploaded to.
+func (d skeletonTemplateData) ColophonAssetBase() string {
+	if d.StaticChannel() {
+		return d.staticTagDirectory("$CI_COMMIT_TAG")
+	}
+
+	return d.genericPackageDirectory("$CI_API_V4_URL", "$CI_PROJECT_ID", "$COLOPHON_VERSION")
+}
+
+func (d skeletonTemplateData) genericPackageDirectory(apiV4URL, projectID, version string) string {
+	return apiV4URL + "/projects/" + projectID + "/packages/generic/" + d.Name + "/" + version
+}
+
+func (d skeletonTemplateData) staticTagDirectory(tag string) string {
+	return strings.TrimRight(d.ReleaseBaseURL, "/") + "/" + tag
 }
 
 // GitLabCI reports whether GitLab CI runs the project's release job.

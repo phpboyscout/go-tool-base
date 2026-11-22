@@ -95,7 +95,30 @@ archives:
         info:
           mode: 0644
 
-{{ if .Hosted -}}
+{{ if .AttachesAssetsAtTag -}}
+release:
+  # colophon creates the release on the tag pipeline, once every asset it
+  # links resolves (go-tool-base spec 0219), so goreleaser creates none.
+  disable: true
+{{ if not .StaticChannel }}
+# The release's assets go to the project's generic package registry; the
+# colophon include's asset_base in .gitlab-ci.yml names the same directory.
+# An artefact colophon links that this does not upload (sboms:, nfpms:) makes
+# colophon refuse the release, so extend it to match.
+uploads:
+  - name: gitlab-generic
+    target: {{ .GenericPackageUploadTarget | escapeYAML }}
+    # The target names the file itself; without this goreleaser appends the
+    # name again, and every link colophon checks 404s.
+    custom_artifact_name: true
+    method: PUT
+    mode: archive
+    checksum: true
+    signature: true
+    custom_headers:
+      JOB-TOKEN: "{{ "{{" }} .Env.CI_JOB_TOKEN {{ "}}" }}"
+{{ end }}
+{{ else if .Hosted -}}
 release:
   use_existing_draft: true
   replace_existing_artifacts: true
@@ -174,7 +197,7 @@ homebrew_casks:
   - name: {{ .Name | escapeYAML }}
     homepage: {{ .RepositoryURL | escapeYAML }}
     description: {{ .Description | escapeYAML }}
-{{- if .StaticChannel }}
+{{- if or .StaticChannel .AttachesAssetsAtTag }}
     url:
       template: {{ .HomebrewURLTemplate | escapeYAML }}
 {{- end }}

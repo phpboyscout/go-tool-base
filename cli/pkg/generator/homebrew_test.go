@@ -41,7 +41,8 @@ func TestGenerateSkeleton_HomebrewTapOnGitLab(t *testing.T) {
 	assert.Contains(t, gr, `name: "homebrew"`)
 	assert.Contains(t, gr, `homepage: "https://gitlab.com/acme/hbtool"`)
 	assert.Contains(t, gr, `description: "homebrew scaffold"`)
-	assert.NotContains(t, gr, "url:\n", "a public forge release supplies GoReleaser's default URL")
+	assert.Contains(t, gr, `template: "{{ .Env.CI_API_V4_URL }}/projects/{{ .Env.CI_PROJECT_ID }}/packages/generic/hbtool/{{ .Version }}/{{ .ArtifactName }}"`,
+		"with the release step off, the cask names the generic package (spec 0219 D4)")
 	assert.NotContains(t, gr, "commit_author:", "GoReleaser makes no commit")
 	assert.NotContains(t, gr, "HOMEBREW_TAP_TOKEN")
 	assert.Contains(t, gr, "- id: hbtool")

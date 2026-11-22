@@ -8,9 +8,10 @@
 # branch runs nothing except colophon, which keeps a release MR up to date
 # (and that MR gets the full gate), so by the time anything lands it has
 # already been vetted. When the release MR merges, colophon tags the commit
-# that actually landed on the default branch and creates the release;
-# goreleaser and the zensical-pages deploy fire from that tag, so the docs
-# site always corresponds to a real tagged release.
+# that actually landed on the default branch. goreleaser and the
+# zensical-pages deploy fire from that tag, and colophon creates the release
+# once every asset goreleaser uploaded resolves, so a release is never empty
+# and the docs site always corresponds to a real tagged release.
 #
 # Project setting prerequisites (configure these on the GitLab project before
 # the pipeline can function):
@@ -29,6 +30,11 @@
 #     APPLE_NOTARY_KEY_ID and APPLE_NOTARY_KEY, optionally: with them the
 #     macOS binaries the cask installs are notarised; without them macOS may
 #     refuse to open them.
+{{- end }}
+{{- if not .StaticChannel }}
+#   • The package registry enabled (Settings > General > Visibility): the
+#     goreleaser job uploads the release's assets to it, and colophon creates
+#     the release only once every one resolves.
 {{- end }}
 {{- if .Signing.SignsWithKMS }}
 #   • SIGNER_ROLE_ARN: the KMS signer role the goreleaser job assumes over OIDC,
@@ -76,10 +82,14 @@ include:
   - component: {{ .CIComponentSource }}/zensical-pages@{{ .CICDComponentVersion }}
 
   # Release MR machinery: colophon proposes the release MR on the default
-  # branch, and tags and creates the release when it merges. token
-  # ($COLOPHON_TOKEN), branch (main) and stage (release) are the component
-  # defaults.
+  # branch and tags it when it merges. With assets on, it creates the release
+  # on the tag pipeline once every link under asset_base resolves; asset_base
+  # must name where .goreleaser.yaml uploads. token ($COLOPHON_TOKEN), branch
+  # (main) and stage (release) are the component defaults.
   - component: {{ .CIComponentSource }}/colophon@{{ .CICDComponentVersion }}
+    inputs:
+      assets: true
+      asset_base: {{ .ColophonAssetBase | escapeYAML }}
 
 stages:
   - lint

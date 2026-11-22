@@ -58,6 +58,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [A tool can withhold any command from MCP, and `BindingOptions` takes `Props`](v0.x-mcp-withhold-list.md) |
 | v0.x | v0.x | [The static release channel replaces the withdrawn direct channel](v0.x-static-release-channel.md) |
 | v0.x | v0.x | [The config stack a tool declares is its precedence](v0.x-config-stack.md) |
+| v0.x | v0.x | [A generated GitLab project releases with its assets attached](v0.x-generated-gitlab-releases-carry-their-assets.md) |
 | v0.x | v0.x | [`ConfigureSSHKey` returns an `SSHKeySelection`](v0.x-ssh-key-selection.md) |
 | v0.x | v0.x | [OTLP settings carry an Exporter](v0.x-otlp-settings-carry-an-exporter.md) |
 | v0.x | v0.x | [Rollback and pin: `update` asks before an attended downgrade](v0.x-update-rollback-and-pin.md) |
