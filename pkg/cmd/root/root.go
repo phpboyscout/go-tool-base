@@ -323,7 +323,7 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 			return err
 		}
 
-		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath, codec))}
+		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath, warnExtraDocuments(codec, opts.Props.Logger)))}
 	}
 
 	return nil
@@ -336,7 +336,7 @@ func userFileBackends(fsys config.FS, props *p.Props, paths []string, codecs map
 	out := make([]config.StoreOption, 0, len(paths))
 
 	for _, path := range paths {
-		codec := codecs[path]
+		codec := warnExtraDocuments(codecs[path], props.Logger)
 		if inCheckout(path) {
 			codec = checkoutHomeFilter(codec, props.Logger)
 		}

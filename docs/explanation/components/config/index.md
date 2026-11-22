@@ -102,6 +102,12 @@ highest-precedence writable one. Each link contributes its codec under
 [spec 0204](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders)
 D2.
 
+A YAML file may hold more than one document, separated by `---`. go/config
+reads each document as its own layer, later over earlier, so the value a reader
+sees first is not always the one the tool uses. go-tool-base keeps that
+behaviour and warns whenever a user or project-local config file holds more
+than one document, naming the file. Remove the extra separators to quiet it.
+
 Only config files that **exist** are declared as layers, a non-existent file
 contributes nothing and must not become a phantom write target. The one
 exception is the write destination: the highest-precedence path is always
