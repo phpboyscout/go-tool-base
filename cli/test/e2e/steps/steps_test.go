@@ -16,6 +16,7 @@ func TestFeatures(t *testing.T) {
 
 	opts := &godog.Options{
 		Format:   "pretty",
+		Strict:   true,
 		Paths:    []string{"../../../../features"},
 		TestingT: t,
 	}
