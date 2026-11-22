@@ -120,6 +120,10 @@ func restrictedPath(t *testing.T, hasher string) string {
 		}
 
 		target, err := exec.LookPath(tool)
+		if tool == "sha256sum" && err != nil {
+			t.Skip("sha256sum is not on PATH (a Mac without coreutils)")
+		}
+
 		if tool == "shasum" && err != nil {
 			writeShasumShim(t, bin)
 
