@@ -18,9 +18,11 @@ import (
 // in the tool's config directory (spec 0101 D11).
 const rotationStoreFilename = "rotation.json"
 
-// ErrRotationStoreCorrupt is a rotation record that cannot be read. It is never
-// treated as empty, because the empty record forgets every revoke.
-var ErrRotationStoreCorrupt = errors.NewSentinel("gtb.setup.rotation_store_corrupt", "the rotation record cannot be read")
+// ErrRotationStoreCorrupt is a rotation record that cannot be read, or that
+// holds a key that does not parse. It is never treated as empty, because the
+// empty record forgets every revoke.
+var ErrRotationStoreCorrupt = errors.NewSentinel("gtb.setup.rotation_store_corrupt",
+	"the rotation record cannot be read, or holds a key that does not parse")
 
 // rotationStoreMu serialises every file store's read-compare-write, since two
 // updaters in one process each build their own store over the same file.
@@ -36,6 +38,14 @@ func newRotationStore(fs afero.Fs, dir string) verify.RotationStore {
 	}
 
 	return &fileRotationStore{fs: fs, path: filepath.Join(dir, rotationStoreFilename)}
+}
+
+// CheckRotationRecord loads the applied rotation record the updater would load
+// for tool, so doctor reports a corrupt one before an update refuses on it.
+func CheckRotationRecord(ctx context.Context, fs afero.Fs, tool string) error {
+	_, err := newRotationStore(fs, GetDefaultConfigDir(fs, tool)).Load(ctx)
+
+	return err
 }
 
 type fileRotationStore struct {

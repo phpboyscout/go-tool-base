@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -84,6 +86,38 @@ func TestCheckKeyRotation(t *testing.T) {
 		res := checkKeyRotation(context.Background(), withAuthority("update:\n  rotation:\n    enabled: false\n"))
 		require.Equal(t, CheckWarn, res.Status, res.Message)
 		assert.Contains(t, res.Message, setup.ConfigKeyUpdateRotationEnabled)
+	})
+
+	// doctor loads the record update loads, so a corrupt one fails here
+	// rather than passing while update refuses (go-tool-base#205).
+	t.Run("a corrupt rotation record fails, as update would", func(t *testing.T) {
+		t.Parallel()
+
+		for name, record := range map[string]string{
+			"not JSON":                  "{",
+			"a key that does not parse": `{"epoch":1,"added":["not a key"]}`,
+		} {
+			props := withAuthority("{}\n")
+			props.FS = afero.NewMemMapFs()
+			dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+			require.NotEmpty(t, dir)
+			require.NoError(t, afero.WriteFile(props.FS, filepath.Join(dir, "rotation.json"), []byte(record), 0o600))
+
+			res := checkKeyRotation(context.Background(), props)
+			require.Equal(t, CheckFail, res.Status, name)
+			assert.Contains(t, res.Message, "update refuses to run", name)
+			assert.Contains(t, res.Message, "rotation.json", name)
+			assert.Contains(t, res.Details, "ask the tool's maintainers first", name)
+		}
+	})
+
+	t.Run("no rotation record yet passes", func(t *testing.T) {
+		t.Parallel()
+
+		props := withAuthority("{}\n")
+		props.FS = afero.NewMemMapFs()
+		res := checkKeyRotation(context.Background(), props)
+		assert.Equal(t, CheckPass, res.Status, res.Message)
 	})
 
 	t.Run("it is in the default check set", func(t *testing.T) {
