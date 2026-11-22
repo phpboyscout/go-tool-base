@@ -353,6 +353,7 @@ func (g *Generator) reportConflicts() {
 		len(ignored), len(kept), len(g.conflicts.sealed), len(changes)))
 
 	g.reportBehaviourChanges()
+	g.reportReleasePair()
 
 	sorted := append([]keptFile{}, kept...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].RelPath < sorted[j].RelPath })

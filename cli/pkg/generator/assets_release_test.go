@@ -149,11 +149,13 @@ func TestRegenerateProject_MovesAnUneditedReleaseFileToTheAssetsFlow(t *testing.
 	assert.Contains(t, gr, "packages/generic/widget/")
 }
 
-// An edited one is the developer's, and --overwrite deny keeps it.
+// An edited one is the developer's, and --overwrite deny keeps it. The CI
+// file is rewritten for the new flow beside it, so the summary says the two
+// now disagree (#196).
 func TestRegenerateProject_KeepsAnEditedReleaseFileUnderDeny(t *testing.T) {
 	t.Parallel()
 
-	g, fs, _ := newSettingsSkeletonProject(t)
+	g, fs, buf := newSettingsSkeletonProject(t)
 	g.config.Overwrite = OverwriteDeny
 	old := seedPreAssetsGoreleaser(t, g, fs)
 
@@ -163,4 +165,6 @@ func TestRegenerateProject_KeepsAnEditedReleaseFileUnderDeny(t *testing.T) {
 	require.NoError(t, g.RegenerateProject(context.Background()))
 
 	assert.Equal(t, edited, readGenerated(t, fs, settingsSkeletonRoot+"/.goreleaser.yaml"))
+	require.Contains(t, readGenerated(t, fs, settingsSkeletonRoot+"/.gitlab-ci.yml"), "assets: true")
+	assert.Equal(t, goreleaserFile, attrValue(t, buf, releasePairWarning, "path"))
 }
