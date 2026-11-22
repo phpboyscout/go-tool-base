@@ -311,6 +311,8 @@ When a release key is stolen, waiting for every installed binary to ship a new t
 
 A tool takes part by naming the minisign public keys allowed to sign a manifest, in `props.Tool.Signing.RotationAuthorityKeys`. These are a separate power from `AnchorOnlyKeys`: an anchor-only key may not sign a release, and a rotation authority may rewrite the trust set. With no authority keys, the updater never reads a manifest and behaves exactly as before.
 
+A generated tool with signing enabled has an `internal/trustkeys/rotation/` directory for them, wired through `trustkeys.RotationAuthorityKeys()`. Each `*.pub` file there (a minisign public-key file, comment line and all) is embedded at build time. It ships empty, so a generated tool takes no part in rotation until its author adds a key. gtb's own binary reads `cli/pkg/trustkeys/rotation/` the same way, and has no key there yet.
+
 With them, an update does this, before it checks the release's own signature:
 
 1. If the release lists `rotate-keys.json`, the updater fetches it and its signature (the static channel lists both in `release.json`; a forge release carries them as assets of those names).

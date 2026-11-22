@@ -31,6 +31,14 @@ const signingKeysDir = "internal/trustkeys/keys"
 // but must never sign a release. Its .gitkeep gives the embed a file to match.
 const signingAuthorityDir = "internal/trustkeys/authority"
 
+// signingRotationDir is the author-owned directory for the minisign keys that
+// may sign a key-rotation manifest (go-tool-base spec 0101 D19).
+const signingRotationDir = "internal/trustkeys/rotation"
+
+// signingKeyDirs are the author-owned key directories. Each gets a .gitkeep so
+// it ships in git and its `all:` embed has a file to match.
+var signingKeyDirs = []string{signingKeysDir, signingAuthorityDir, signingRotationDir}
+
 // Defaults for the release-signing pipeline, applied when a signing key id
 // is recorded so the generated GoReleaser signs block is always complete.
 const (
@@ -124,11 +132,7 @@ func (g *Generator) syncSigningFiles(m Manifest) error {
 		return err
 	}
 
-	if err := g.writeGitkeep(filepath.Join(g.config.Path, signingKeysDir)); err != nil {
-		return err
-	}
-
-	if err := g.writeGitkeep(filepath.Join(g.config.Path, signingAuthorityDir)); err != nil {
+	if err := g.writeSigningKeyDirs(g.config.Path); err != nil {
 		return err
 	}
 
@@ -357,4 +361,14 @@ func (g *Generator) renderEmbeddedAsset(m *Manifest, fsys fs.FS, embedPath, relP
 // preserving the project's two-space indentation.
 func (g *Generator) writeManifest(m *Manifest) error {
 	return g.marshalManifestFile(ManifestPathFor(g.config.Path), m)
+}
+
+func (g *Generator) writeSigningKeyDirs(root string) error {
+	for _, dir := range signingKeyDirs {
+		if err := g.writeGitkeep(filepath.Join(root, dir)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

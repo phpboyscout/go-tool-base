@@ -127,7 +127,7 @@ The framework ships a tool that writes both documents from a GoReleaser `dist/`,
 
 ```yaml
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/mytool --changelog CHANGELOG.md --rotation release/rotation
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/mytool --changelog CHANGELOG.md --rotation release/rotation --rotation-authority internal/trustkeys/rotation
     artifacts: [checksum]   # the checksum artifact is one object, so the hook runs once
 
 blobs:

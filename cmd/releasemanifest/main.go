@@ -8,7 +8,7 @@
 // prerelease tag writes no latest.json, so the pointer stays on the last stable
 // release (spec 0104 D12).
 //
-//	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md | --changelog CHANGELOG.md] [--rotation release/rotation]
+//	go tool releasemanifest --dist dist --base-url https://pkg.example.com/acme/tool [--previous v1.1.0] [--notes NOTES.md | --changelog CHANGELOG.md] [--rotation release/rotation --rotation-authority internal/trustkeys/rotation]
 //
 // --previous names the tag the manifest chains to. When omitted the current
 // pointer at the base URL is read and its tag used; with no pointer the chain

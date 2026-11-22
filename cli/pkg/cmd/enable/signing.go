@@ -59,6 +59,10 @@ directory), wires Signing: props.SigningConfig{EmbeddedKeys: trustkeys.Keys()}
 into the generated root command, and emits a signing.go with the enforcement
 defaults from the supplied flags. Only the signing-affected files change.
 
+A minisign key that may sign an emergency key-rotation manifest goes in
+internal/trustkeys/rotation/ as a .pub file. With none there, the tool takes
+no part in rotation.
+
 --require-signature stays off by default and must only be flipped once a
 signed release has shipped (the N+1 rollout); re-run this command with the
 flag to do so.`,
@@ -213,6 +217,7 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 
 	p.Logger.Info("Signing enabled.")
 	p.Logger.Info("Drop your minted public key(s) into internal/trustkeys/keys/*.asc, then commit.")
+	p.Logger.Info("A minisign key-rotation authority, when you have one, goes in internal/trustkeys/rotation/*.pub.")
 
 	if !merged.RequireSignature {
 		p.Logger.Info("require_signature stays off until a signed release has shipped — re-run with --require-signature to flip it.")

@@ -36,6 +36,12 @@ var keyFS embed.FS
 //go:embed authority/*.asc
 var authorityFS embed.FS
 
+// rotationFS holds the minisign keys that may sign a key-rotation manifest.
+// It ships with only a .gitkeep until a key is minted (spec 0101 D19).
+//
+//go:embed all:rotation
+var rotationFS embed.FS
+
 // Keys returns every embedded ASCII-armored public key (the contents of
 // internal/trustkeys/keys/*.asc). It returns nil when no key files are
 // present, which leaves the embedded trust anchor unset.
@@ -62,6 +68,43 @@ func KeysE() ([][]byte, error) {
 // store cannot be read.
 func AuthorityKeys() [][]byte {
 	return mustKeysFromFS(authorityFS, "authority")
+}
+
+// RotationAuthorityKeys returns the embedded minisign public keys (the
+// contents of rotation/*.pub) that may sign a key-rotation manifest, for
+// props.Tool.Signing.RotationAuthorityKeys. Like Keys, it panics if the
+// embedded store cannot be read.
+func RotationAuthorityKeys() []string {
+	keys, err := rotationKeysFromFS(rotationFS)
+	if err != nil {
+		panic("trustkeys: reading embedded rotation: " + err.Error())
+	}
+
+	return keys
+}
+
+// rotationKeysFromFS reads rotation/*.pub at the top level only, so a retired
+// key moved into a subdirectory stops being trusted. Each key comes through
+// as written: a malformed one is the updater's to refuse, loudly, and
+// dropping it here would turn rotation off without a word.
+func rotationKeysFromFS(fsys fs.FS) ([]string, error) {
+	files, err := fs.Glob(fsys, "rotation/*.pub")
+	if err != nil {
+		return nil, errors.Wrap(err, "listing embedded rotation authority keys")
+	}
+
+	keys := make([]string, 0, len(files))
+
+	for _, f := range files {
+		b, err := fs.ReadFile(fsys, f)
+		if err != nil {
+			return nil, errors.Wrapf(err, "reading embedded rotation authority key %s", f)
+		}
+
+		keys = append(keys, string(b))
+	}
+
+	return keys, nil
 }
 
 func mustKeysFromFS(fsys fs.FS, root string) [][]byte {

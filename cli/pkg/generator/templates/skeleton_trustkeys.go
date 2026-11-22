@@ -6,8 +6,9 @@ import (
 
 // SkeletonTrustKeys generates internal/trustkeys/trustkeys.go for
 // scaffolded projects with signing enabled. It mirrors go-tool-base's
-// own trustkeys package: a //go:embed of the keys and authority directories,
-// with Keys and AuthorityKeys accessors that walk their *.asc files.
+// own trustkeys package: a //go:embed of the keys, authority and rotation
+// directories, with Keys and AuthorityKeys accessors that walk their *.asc
+// files and RotationAuthorityKeys over the rotation directory's *.pub files.
 //
 // The package is generated and regeneration-protected; the author adds
 // their minted release public key(s) as files under keys/, never by
@@ -28,7 +29,11 @@ func SkeletonTrustKeys() *jen.File {
 	f.PackageComment("It joins the trust set through props.Tool.Signing.AnchorOnlyKeys, which")
 	f.PackageComment("refuses it as a release signer.")
 	f.PackageComment("")
-	f.PackageComment("Both directories ship empty (only a .gitkeep): with no keys present")
+	f.PackageComment("A minisign key that may sign a key-rotation manifest goes in")
+	f.PackageComment("internal/trustkeys/rotation/<name>.pub. It is surfaced through")
+	f.PackageComment("props.Tool.Signing.RotationAuthorityKeys and never joins the trust set.")
+	f.PackageComment("")
+	f.PackageComment("All three directories ship empty (only a .gitkeep): with no keys present")
 	f.PackageComment("Keys returns nil, so signature verification stays dormant until a")
 	f.PackageComment("real key is added and the rollout flips require_signature.")
 
@@ -43,6 +48,9 @@ func SkeletonTrustKeys() *jen.File {
 	f.Comment("//go:embed all:authority")
 	f.Var().Id("authorityFS").Qual("embed", "FS")
 
+	f.Comment("//go:embed all:rotation")
+	f.Var().Id("rotationFS").Qual("embed", "FS")
+
 	f.Comment("Keys returns every embedded ASCII-armored public key (the contents of")
 	f.Comment("internal/trustkeys/keys/*.asc). It returns nil when no key files are")
 	f.Comment("present, which leaves the embedded trust anchor unset.")
@@ -55,6 +63,28 @@ func SkeletonTrustKeys() *jen.File {
 	f.Comment("props.Tool.Signing.AnchorOnlyKeys.")
 	f.Func().Id("AuthorityKeys").Params().Index().Index().Byte().Block(
 		jen.Return(jen.Id("keysIn").Call(jen.Id("authorityFS"), jen.Lit("authority"))),
+	)
+
+	f.Comment("RotationAuthorityKeys returns the embedded minisign public keys that may")
+	f.Comment("sign a key-rotation manifest (the contents of")
+	f.Comment("internal/trustkeys/rotation/*.pub), for")
+	f.Comment("props.Tool.Signing.RotationAuthorityKeys. Only the top level is read, so")
+	f.Comment("a retired key moved into a subdirectory stops being trusted, and each key")
+	f.Comment("is passed on as written: the updater refuses a malformed one.")
+	f.Func().Id("RotationAuthorityKeys").Params().Index().String().Block(
+		jen.List(jen.Id("files"), jen.Id("_")).Op(":=").Qual("io/fs", "Glob").Call(jen.Id("rotationFS"), jen.Lit("rotation/*.pub")),
+		jen.Id("out").Op(":=").Make(jen.Index().String(), jen.Lit(0), jen.Len(jen.Id("files"))),
+		jen.Line(),
+		jen.For(jen.List(jen.Id("_"), jen.Id("f")).Op(":=").Range().Id("files")).Block(
+			jen.List(jen.Id("b"), jen.Err()).Op(":=").Id("rotationFS").Dot("ReadFile").Call(jen.Id("f")),
+			jen.If(jen.Err().Op("!=").Nil()).Block(
+				jen.Panic(jen.Lit("trustkeys: reading ").Op("+").Id("f").Op("+").Lit(": ").Op("+").Err().Dot("Error").Call()),
+			),
+			jen.Line(),
+			jen.Id("out").Op("=").Append(jen.Id("out"), jen.String().Call(jen.Id("b"))),
+		),
+		jen.Line(),
+		jen.Return(jen.Id("out")),
 	)
 
 	f.Func().Id("keysIn").Params(

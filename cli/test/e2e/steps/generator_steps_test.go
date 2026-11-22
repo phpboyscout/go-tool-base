@@ -189,6 +189,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
 	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
 	ctx.Step(`^the generated "([^"]*)" file contains "([^"]*)"$`, theGeneratedFileContains)
+	ctx.Step(`^the generated "([^"]*)" file sets "([^"]*)" to "([^"]*)"$`, theGeneratedFileSets)
 	ctx.Step(`^the generated "([^"]*)" file does not contain "([^"]*)"$`, theGeneratedFileDoesNotContain)
 	// The single-quoted forms take an expectation that itself carries double
 	// quotes, such as a Go call with string arguments.
@@ -759,6 +760,24 @@ func theGeneratedFileContains(ctx context.Context, relPath, substr string) error
 
 	if !strings.Contains(string(content), substr) {
 		return fmt.Errorf("generated %q does not contain %q\ncontent:\n%s", relPath, substr, content)
+	}
+
+	return nil
+}
+
+// theGeneratedFileSets matches a struct field and its value on one line,
+// whatever whitespace gofmt aligns between them.
+func theGeneratedFileSets(ctx context.Context, relPath, field, value string) error {
+	w := getGeneratorWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.projectDir, relPath))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	pattern := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(field) + `[ \t]+` + regexp.QuoteMeta(value) + `,?\s*$`)
+	if !pattern.Match(content) {
+		return fmt.Errorf("generated %q does not set %s to %s\ncontent:\n%s", relPath, field, value, content)
 	}
 
 	return nil
