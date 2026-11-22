@@ -66,15 +66,18 @@ the signing key is lost or compromised, to authorise the next
 signing key without breaking the chain of trust for existing
 installs.
 
-- **Algorithm**: Ed25519 (smaller paperkey output, simpler key
-  management).
-- **Where it lives**: offline. Two backups: an encrypted USB stick
-  and a printed `paperkey` recovery sheet, both in a home safe.
+- **Algorithm**: Ed25519. It signs a rotation manifest with minisign,
+  not OpenPGP, and your tool embeds its minisign public key in
+  `internal/trustkeys/rotation/`.
+- **Where it lives**: offline, as a PKCS#8 PEM. Two backups: an
+  encrypted USB stick and a printed copy of the three-line PEM, both
+  in a home safe.
 - **Who can use it**: you, physically, on a trusted offline
   workstation.
-- **Created by**: `sigillum keys generate --algorithm ed25519 ...`: the
-  command produces both halves locally and asks you to move the
-  private half to offline storage immediately.
+- **Created by**: `sigillum keys generate --algorithm ed25519
+  --private-format pem ...`, which produces both halves locally and
+  asks you to move the private half to offline storage immediately,
+  then `sigillum keys minisign` for the public key you embed.
 - **Rotation cadence**: typically never. If you ever have to use it,
   you've already had a bad day.
 
@@ -92,9 +95,9 @@ When `mytool update` runs, it does this (sketch):
    `checksums.txt` plus `checksums.txt.sig`.
 2. **Load the embedded trust set**: parse the OpenPGP keys baked
    into the running binary. The signing key comes from
-   `internal/trustkeys/keys/`, and the rotation-authority key from
-   `internal/trustkeys/authority/`, which keeps it from signing a release.
-   A tool that can follow an emergency key rotation first applies any
+   `internal/trustkeys/keys/`. An OpenPGP authority key, where a tool
+   has one, comes from `internal/trustkeys/authority/`, which keeps it
+   from signing a release. A tool that can follow an emergency key rotation first applies any
    signed rotation manifest the release carries, using the minisign keys in
    `internal/trustkeys/rotation/` (see
    [Signature Verification](../components/setup/signature-verification.md#emergency-rotation-the-rotation-manifest)).
@@ -136,13 +139,15 @@ post about it or proving the chain works end-to-end before reaching
 for Terraform:
 
 ```sh
-# 1. Rotation-authority key. Move the private half to offline
-#    storage (encrypted USB + paperkey) and forget about it.
+# 1. Rotation-authority key, and the minisign public key your tool
+#    embeds. Move rotation.pem to offline storage (encrypted USB +
+#    a printed copy) and forget about it.
 sigillum keys generate \
-    --algorithm ed25519 \
+    --algorithm ed25519 --private-format pem \
     --name "MyTool Rotation Authority" \
     --email rotation@mytool.example \
     --output rotation.asc
+sigillum keys minisign --backend local --key-id rotation.pem > rotation.pub
 
 # 2. Local signing key. The PEM private half stays on this
 #    machine — for the tutorial only; production uses AWS KMS.
@@ -166,8 +171,8 @@ sigillum keys mint \
 ```
 
 The end state: `release.asc` is ready to drop into
-`internal/trustkeys/keys/`, `rotation.asc` into
-`internal/trustkeys/authority/`, and both to publish via WKD. Nothing else is
+`internal/trustkeys/keys/` and to publish via WKD, and `rotation.pub`
+into `internal/trustkeys/rotation/`. Nothing else is
 needed for verification to work.
 
 For production, step 2 swaps out: instead of generating a local PEM,

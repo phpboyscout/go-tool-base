@@ -61,7 +61,11 @@ gpg --show-keys --with-colons signing-key-v1.asc | \
 - **A copy of your published WKD tree** that's byte-identical to what's served.
   Check each file's `sha256sum` against the same file fetched with `curl`.
 - **The rotation authority's private half**, out of offline storage, for one
-  step.
+  step. This is the OpenPGP `rotation-authority.asc` from
+  [Publish your public key](publish-your-public-key.md), in
+  `internal/trustkeys/authority/`. A minisign manifest authority in
+  `internal/trustkeys/rotation/`, if your tool has one, isn't part of this
+  procedure and stays in the safe.
 - **sigillum.** The `keys` and `sign` commands below use the flags of sigillum **v0.6.0**,
   with local keys standing in for KMS. Install it with
   `go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`. They used to be
@@ -109,7 +113,10 @@ fingerprint for good.
 
 ## Give the rotation authority the new identity
 
-The rotation authority needs the new UID too, keeping its fingerprint. This is
+The rotation authority sits in the WKD bucket with the release keys, so it
+needs the new UID too, keeping its fingerprint. A minisign manifest authority
+in `internal/trustkeys/rotation/` has no user ID and isn't on WKD, so nothing
+about it changes here. This is
 the one step that touches its private half, so do it on a trusted machine, in
 a throwaway keyring:
 
@@ -327,8 +334,16 @@ from the top: a new identity and a new WKD bucket, the new key set embedded,
 and every release signed with the new key alone.
 
 Copies that only trust v1 can't verify those releases, so they'll refuse to
-update. Tell your users to reinstall once from the release page. The new
-binary trusts the new key, and self-update works again from there. That's the
+update. If those copies embed a minisign manifest authority, a rotation
+manifest moves them to the new key without a reinstall. A key that is lost but
+not compromised needs nothing revoked, so the manifest only adds the new key:
+`sigillum keys rotate --reason scheduled` with `--not-after` set, `--add` naming it, and
+`--previous` naming the last manifest you published, such as the fire drill.
+Commit the two files it writes to `release/rotation/`, as
+[Generate the rotation-authority key](../how-to/generate-rotation-key.md#what-happens-when-you-need-to-use-it)
+describes. A compromised key is the runbook's compromise case instead.
+Otherwise, tell your users to reinstall once from the release page.
+The new binary trusts the new key, and self-update works again from there. That's the
 cost of losing a key early, and it's why the overlap matters: never retire v1
 before it has closed.
 
@@ -336,10 +351,12 @@ Don't sign a release with the rotation authority to bridge the gap. It's
 there to vouch for a new key set, not to sign releases, and your tool refuses a
 release signed by it.
 
-Store the rotation authority's private half as
+Keep the rotation authority's private half offline: an encrypted USB stick
+and a printed copy, kept apart, with the printed copy typed back in once to
+prove it reads.
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md)
-describes: a `paperkey` printout and an encrypted USB stick, kept apart, and
-the backup typed back in once to prove it reads. A break-glass key you can't
+walks through it for a minisign manifest authority, and the same storage suits
+the OpenPGP one. A break-glass key you can't
 restore isn't one.
 
 ## The whole chain
