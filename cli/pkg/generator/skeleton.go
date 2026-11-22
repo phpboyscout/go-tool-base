@@ -412,14 +412,18 @@ func notVerified(failed []string) error {
 		ExitCodeNotVerified)
 }
 
-// toolOnPath reports whether a verification tool can be run. A generator built
-// without a lookup (a test that stubs runCommand) treats every tool as present.
+// toolOnPath reports whether a verification tool can be run.
 func (g *Generator) toolOnPath(name string) bool {
-	if g.lookPath == nil {
-		return true
+	lookPath := g.lookPath
+	if lookPath == nil {
+		if g.runCommand != nil {
+			return true
+		}
+
+		lookPath = exec.LookPath
 	}
 
-	_, err := g.lookPath(name)
+	_, err := lookPath(name)
 
 	return err == nil
 }
