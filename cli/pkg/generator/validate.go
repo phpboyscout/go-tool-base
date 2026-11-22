@@ -772,19 +772,19 @@ func validatePort(port, h string) error {
 // declares NestedNamespaces), the others a single owner segment. CODEOWNERS
 // silently drops invalid `@`-mentions, so catching bad input early prevents
 // the scaffolded project from shipping broken ownership rules.
-func ValidateOrg(org, releaseProvider string) error {
+func ValidateOrg(org, forge string) error {
 	o := norm.NFC.String(org)
 	if o == "" {
 		return rejectf("Org", "org must not be empty", "")
 	}
 
-	switch releaseProvider {
+	switch forge {
 	case "gitlab":
 		return validateGitLabOrg(o)
 	case "github", "gitea", "codeberg", "bitbucket", "":
 		return validateGitHubOrg(o)
 	default:
-		return rejectf("Org", fmt.Sprintf("unknown release provider %q", releaseProvider), o)
+		return rejectf("Org", fmt.Sprintf("unknown forge %q", forge), o)
 	}
 }
 
@@ -1573,6 +1573,17 @@ func validateBackendAgreesWithType(rs ManifestReleaseSource) error {
 	return errors.Wrapf(ErrBackendContradictsType, "backend %q, type %q", rs.Backend, rs.Type)
 }
 
+// ownerForge is the forge whose owner syntax rs.Owner follows: the backend
+// the project is hosted on, or the type when it names a forge. A type that
+// names a channel (static) says nothing about the owner (#143).
+func ownerForge(rs ManifestReleaseSource) props.FeatureID {
+	if rs.Backend != "" {
+		return rs.Backend
+	}
+
+	return forgeBackendNamed(rs.Type)
+}
+
 func validateManifestReleaseSource(rs *ManifestReleaseSource) error {
 	if err := ValidateReleaseSourceType(rs.Type); err != nil {
 		return err
@@ -1585,7 +1596,7 @@ func validateManifestReleaseSource(rs *ManifestReleaseSource) error {
 	}
 
 	if rs.Owner != "" {
-		if err := ValidateOrg(rs.Owner, rs.Type); err != nil {
+		if err := ValidateOrg(rs.Owner, string(ownerForge(*rs))); err != nil {
 			return err
 		}
 	}

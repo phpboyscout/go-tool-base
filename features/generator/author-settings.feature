@@ -104,6 +104,20 @@ Feature: The manifest owns every author setting
     Then the project exit code is 0
     And the generated "zensical.toml" file is unchanged
 
+  Scenario: A hosted project moves to the static release channel with two sets
+    Given I generate a gtb project with forge backend "gitlab" on host "gitlab.com"
+    Then the project exit code is 0
+    When I run gtb in the project with "set release_source.static.base_url https://pkg.acme.dev/feattool"
+    Then the project exit code is 0
+    When I run gtb in the project with "set release_source.type static"
+    Then the project exit code is 0
+    And the project manifest contains "type: static"
+    And the generated "scripts/move-pointer.sh" file exists
+    When I remember the generated ".goreleaser.yaml" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated ".goreleaser.yaml" file is unchanged
+
   Scenario: Setting the chat default rewrites the defaults bundle
     Given I generate a gtb project with features "init,update,ai", chat providers "claude,openai" and chat default "claude"
     Then the project exit code is 0

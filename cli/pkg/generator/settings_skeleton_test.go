@@ -358,3 +358,23 @@ func TestSetMCPExposure_LeavesNothingForRegenerate(t *testing.T) {
 	require.NoError(t, g.RegenerateProject(context.Background()))
 	assert.Empty(t, changedFiles(afterSet, projectFiles(t, fsys)))
 }
+
+// A hosted project moves to the static channel by setting its base URL and
+// then its type (#143).
+func TestSetSetting_MovesAHostedProjectToTheStaticChannel(t *testing.T) {
+	t.Parallel()
+
+	g, fsys, _ := newSettingsSkeletonProject(t)
+	ctx := context.Background()
+
+	require.NoError(t, g.SetSetting(ctx, "release_source.static.base_url", []string{"https://pkg.acme.dev/widget"}))
+	require.NoError(t, g.SetSetting(ctx, "release_source.type", []string{"static"}))
+
+	m, err := g.loadManifest()
+	require.NoError(t, err)
+	assert.Equal(t, props.ReleaseSourceStatic, m.ReleaseSource.Type)
+
+	afterSet := projectFiles(t, fsys)
+	require.NoError(t, g.RegenerateProject(ctx))
+	assert.Empty(t, changedFiles(afterSet, projectFiles(t, fsys)))
+}

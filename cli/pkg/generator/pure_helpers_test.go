@@ -1091,7 +1091,7 @@ func TestValidateOrg_GitLabBranches(t *testing.T) {
 	require.Error(t, ValidateOrg("", "gitlab"))
 	require.Error(t, ValidateOrg("a/b/c/d/e", "gitlab"))              // depth > 4
 	require.Error(t, ValidateOrg("bad seg/x", "gitlab"))              // bad char class
-	require.Error(t, ValidateOrg("org", "sourcehut"))                 // unknown provider
+	require.Error(t, ValidateOrg("org", "sourcehut"))                 // unknown forge
 	require.Error(t, ValidateOrg(strings.Repeat("a", 256), "gitlab")) // too long
 }
 
@@ -1340,4 +1340,25 @@ func TestValidateCIComponentSource_Branches(t *testing.T) {
 	require.Error(t, ValidateCIComponentSource("has\x01control"))         // control char
 	require.Error(t, ValidateCIComponentSource("has {{ brace"))           // template brace
 	require.Error(t, ValidateCIComponentSource("https://scheme/x"))       // disallowed rune `:`
+}
+
+// An owner follows the rules of the forge that hosts it, not the release
+// channel (#143): a GitLab project on the static channel keeps nested groups.
+func TestValidateManifestReleaseSource_OwnerFollowsTheForge(t *testing.T) {
+	t.Parallel()
+
+	static := func(backend props.FeatureID, owner string) *ManifestReleaseSource {
+		return &ManifestReleaseSource{
+			Type: props.ReleaseSourceStatic, Backend: backend, Host: "gitlab.com", Owner: owner, Repo: "sc",
+			Static: ManifestStaticSource{BaseURL: "https://pkg.acme.dev/sc"},
+		}
+	}
+
+	require.NoError(t, validateManifestReleaseSource(static("gitlab", "acme")))
+	require.NoError(t, validateManifestReleaseSource(static("gitlab", "acme/tools")))
+	require.Error(t, validateManifestReleaseSource(static("github", "acme/tools")), "GitHub has no nested owners")
+	require.NoError(t, validateManifestReleaseSource(static("", "acme")), "an unhosted static project")
+
+	noBackend := &ManifestReleaseSource{Type: "gitlab", Host: "gitlab.com", Owner: "acme/tools", Repo: "sc"}
+	require.NoError(t, validateManifestReleaseSource(noBackend), "with no backend recorded, a forge type sets the owner rules")
 }
