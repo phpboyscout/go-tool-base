@@ -22,12 +22,15 @@ const SchemaVersion = 1
 // The fixed file names: PointerFile under the base URL, the rest under a
 // tag's directory. ChecksumsFile and SignatureFile are goreleaser's defaults
 // and the layout reference's names; the manifest carries their URLs, so a
-// reader never assumes them.
+// reader never assumes them. RotationFile and RotationSignatureFile are
+// go/signing's names for a rotation manifest and its signature (spec 0101).
 const (
-	PointerFile   = "latest.json"
-	ManifestFile  = "release.json"
-	ChecksumsFile = "checksums.txt"
-	SignatureFile = "checksums.txt.sig"
+	PointerFile           = "latest.json"
+	ManifestFile          = "release.json"
+	ChecksumsFile         = "checksums.txt"
+	SignatureFile         = "checksums.txt.sig"
+	RotationFile          = "rotate-keys.json"
+	RotationSignatureFile = "rotate-keys.json.minisig"
 )
 
 // Sentinels, namespaced gtb.release.static.
@@ -53,17 +56,21 @@ type Pointer struct {
 
 // Manifest is <base>/<tag>/release.json: everything a tool needs to retrieve
 // and verify one release, plus the previous tag so the manifests form a chain
-// a reader can walk without a listing.
+// a reader can walk without a listing. Rotation and RotationSignature are the
+// release's rotation manifest and its authority signature, listed together or
+// not at all (spec 0101 D4).
 type Manifest struct {
-	Schema     int        `json:"schema"`
-	Tool       string     `json:"tool"`
-	Tag        string     `json:"tag"`
-	ReleasedAt string     `json:"released_at"`
-	Previous   string     `json:"previous"`
-	Checksums  string     `json:"checksums"`
-	Signature  string     `json:"signature,omitempty"`
-	Notes      string     `json:"notes,omitempty"`
-	Downloads  []Download `json:"downloads"`
+	Schema            int        `json:"schema"`
+	Tool              string     `json:"tool"`
+	Tag               string     `json:"tag"`
+	ReleasedAt        string     `json:"released_at"`
+	Previous          string     `json:"previous"`
+	Checksums         string     `json:"checksums"`
+	Signature         string     `json:"signature,omitempty"`
+	Rotation          string     `json:"rotation,omitempty"`
+	RotationSignature string     `json:"rotation_signature,omitempty"`
+	Notes             string     `json:"notes,omitempty"`
+	Downloads         []Download `json:"downloads"`
 }
 
 // Download is one archive for one platform. OS and Arch are Go's GOOS and
@@ -127,6 +134,10 @@ func (m Manifest) Validate(base string) error {
 		}
 	}
 
+	if err := m.validateRotation(base); err != nil {
+		return err
+	}
+
 	if len(m.Downloads) == 0 {
 		return errors.Wrap(ErrInvalidManifest, "manifest lists no downloads")
 	}
@@ -167,6 +178,22 @@ func (d Download) validate(base string) error {
 	}
 
 	return underBase(base, d.URL, "download "+d.Name)
+}
+
+func (m Manifest) validateRotation(base string) error {
+	if m.Rotation == "" && m.RotationSignature == "" {
+		return nil
+	}
+
+	if m.Rotation == "" || m.RotationSignature == "" {
+		return errors.Wrap(ErrInvalidManifest, "a rotation manifest and its signature are listed together or not at all")
+	}
+
+	if err := underBase(base, m.Rotation, "rotation"); err != nil {
+		return err
+	}
+
+	return underBase(base, m.RotationSignature, "rotation signature")
 }
 
 // underBase requires raw to share base's scheme and host and to sit under its

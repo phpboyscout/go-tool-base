@@ -157,6 +157,12 @@ type SigningConfig struct {
 	// release keys belongs here rather than in EmbeddedKeys.
 	AnchorOnlyKeys [][]byte `json:"-" yaml:"-"`
 
+	// RotationAuthorityKeys are minisign public keys (the one-line "RW..."
+	// form) that may sign a rotation manifest, which adds and revokes release
+	// keys on an installed binary's next update. None means the tool takes no
+	// part in rotation. They never join the OpenPGP trust set (spec 0101 D15).
+	RotationAuthorityKeys []string `json:"-" yaml:"-"`
+
 	// RequireChecksum is the tool author's baseline for checksum enforcement,
 	// consulted when neither config nor environment supplies one. It is a
 	// pointer so "unset" is distinguishable from "explicitly false": nil

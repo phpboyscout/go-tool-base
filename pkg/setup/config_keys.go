@@ -22,6 +22,8 @@ const (
 	ConfigKeyUpdateChecksumAssetName = "update.checksum_asset_name"
 	// ConfigKeyUpdateSignatureAssetName overrides the signature asset file name.
 	ConfigKeyUpdateSignatureAssetName = "update.signature_asset_name"
+	// ConfigKeyUpdateRotationEnabled lets a release's rotation manifest change the trust set.
+	ConfigKeyUpdateRotationEnabled = "update.rotation.enabled"
 
 	// ConfigKeyTelemetryEnabled is the opt-in switch for usage telemetry.
 	ConfigKeyTelemetryEnabled = "telemetry.enabled"

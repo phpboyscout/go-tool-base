@@ -32,6 +32,7 @@ var protectedProjectConfigKeys = []string{
 	setup.ConfigKeyUpdatePolicy,
 	setup.ConfigKeyUpdateKeySource,
 	setup.ConfigKeyUpdateExternalKeyEmail,
+	setup.ConfigKeyUpdateRotationEnabled,
 	setup.ConfigKeyTelemetryEnabled,
 	setup.ConfigKeyTelemetryConsent,
 }

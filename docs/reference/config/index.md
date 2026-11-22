@@ -166,7 +166,7 @@ The protected set is the exact list in
 
 - `update.require_signature`, `update.require_checksum`,
   `update.require_external_crosscheck`, `update.policy`, `update.key_source`,
-  `update.external_key_email`
+  `update.external_key_email`, `update.rotation.enabled`
 - `telemetry.enabled`, `telemetry.consent`
 - every credential subtree: any path with an `auth` segment (`github.auth.env`,
   `gitlab.auth.value`, …), plus `anthropic.api`, `openai.api`, `gemini.api`,
@@ -256,6 +256,7 @@ cannot downgrade it.
 | `update.external_key_email` | string | `""` | Email used to derive the WKD URL for the release key. |
 | `update.checksum_asset_name` | string | `""` | Override the checksum asset filename in the release. |
 | `update.signature_asset_name` | string | `""` | Override the detached-signature asset filename. |
+| `update.rotation.enabled` | bool | `true` | Apply the signed key-rotation manifest a release carries, so a revoked release key stops being trusted. Only matters to a tool with rotation authority keys. Set `false` to pin the trust set to the compiled-in keys; the updater and `doctor` then warn, because a key the maintainers revoke stays trusted. |
 
 `update.policy` resolution is case-insensitive and forgiving: an empty **or
 unrecognised** value falls back to the tool author's baseline

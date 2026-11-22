@@ -123,6 +123,7 @@ func TestStripProtectedKeys(t *testing.T) {
 	doc := map[string]any{
 		"update": map[string]any{
 			"require_signature": false,
+			"rotation":          map[string]any{"enabled": false},
 			"check_interval":    "24h", // NOT sensitive — kept
 		},
 		"telemetry": map[string]any{"enabled": true},
@@ -138,6 +139,7 @@ func TestStripProtectedKeys(t *testing.T) {
 	assert.Contains(t, removed, "config.sources", "every source pointer is protected (spec 0204 D5)")
 
 	assert.Contains(t, removed, "update.require_signature")
+	assert.Contains(t, removed, "update.rotation.enabled", "a received folder cannot turn revocation off (spec 0101 D18)")
 	assert.Contains(t, removed, "telemetry.enabled")
 	assert.Contains(t, removed, "github.auth")
 	assert.Contains(t, removed, "anthropic.api")

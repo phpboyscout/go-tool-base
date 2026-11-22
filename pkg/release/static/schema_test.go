@@ -200,3 +200,54 @@ func TestValidate_RemainingRefusals(t *testing.T) {
 	_, err = static.DecodeManifest([]byte(`{"schema": 3}`), base)
 	require.ErrorIs(t, err, static.ErrUnsupportedSchema)
 }
+
+// A rotation manifest and its signature are listed together, each under the
+// base, and a reader that predates them ignores both (spec 0101 D4).
+func TestManifest_Rotation(t *testing.T) {
+	t.Parallel()
+
+	withRotation := func() static.Manifest {
+		m := manifest()
+		m.Rotation = base + "/v1.2.0/" + static.RotationFile
+		m.RotationSignature = base + "/v1.2.0/" + static.RotationSignatureFile
+
+		return m
+	}
+
+	t.Run("both under the base pass", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, withRotation().Validate(base))
+	})
+
+	t.Run("one without the other is refused", func(t *testing.T) {
+		t.Parallel()
+
+		m := withRotation()
+		m.RotationSignature = ""
+		require.ErrorIs(t, m.Validate(base), static.ErrInvalidManifest)
+
+		m = withRotation()
+		m.Rotation = ""
+		require.ErrorIs(t, m.Validate(base), static.ErrInvalidManifest)
+	})
+
+	t.Run("either outside the base is refused", func(t *testing.T) {
+		t.Parallel()
+
+		m := withRotation()
+		m.Rotation = "https://evil.example.com/rotate-keys.json"
+		require.ErrorIs(t, m.Validate(base), static.ErrEscapesBase)
+
+		m = withRotation()
+		m.RotationSignature = "https://evil.example.com/rotate-keys.json.minisig"
+		require.ErrorIs(t, m.Validate(base), static.ErrEscapesBase)
+	})
+
+	t.Run("a release without rotation carries neither key", func(t *testing.T) {
+		t.Parallel()
+
+		raw, err := json.Marshal(manifest())
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), "rotation")
+	})
+}

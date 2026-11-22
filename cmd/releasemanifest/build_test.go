@@ -155,6 +155,30 @@ func TestBuild_Refusals(t *testing.T) {
 		require.NoError(t, m.Validate(base))
 	})
 
+	t.Run("a rotation manifest and its signature are listed together", func(t *testing.T) {
+		t.Parallel()
+
+		dist := fixtureDist(t)
+		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationFile), []byte("{}"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationSignatureFile), []byte("sig"), 0o600))
+
+		m, _, err := fixtureBuilder().build(dist, base, "", nil)
+		require.NoError(t, err)
+		assert.Equal(t, base+"/v1.2.0/"+static.RotationFile, m.Rotation)
+		assert.Equal(t, base+"/v1.2.0/"+static.RotationSignatureFile, m.RotationSignature)
+		require.NoError(t, m.Validate(base))
+	})
+
+	t.Run("a rotation manifest without its signature is refused", func(t *testing.T) {
+		t.Parallel()
+
+		dist := fixtureDist(t)
+		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationFile), []byte("{}"), 0o600))
+
+		_, _, err := fixtureBuilder().build(dist, base, "", nil)
+		require.ErrorIs(t, err, errRotationUnsigned)
+	})
+
 	t.Run("no checksums.txt is refused outright", func(t *testing.T) {
 		t.Parallel()
 

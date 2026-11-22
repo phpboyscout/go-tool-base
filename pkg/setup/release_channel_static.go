@@ -101,8 +101,8 @@ func (c *staticChannel) Signature(ctx context.Context, rel forge.Release, maxByt
 }
 
 // staticRelease is one manifest as a forge.Release. Its assets are the
-// downloads, then the checksums file, then the signature when there is one,
-// so the updater's name-based lookups find what they look for today.
+// downloads, then the checksums file, then the signature and the rotation
+// files when there are any, so the updater's name-based lookups find them.
 type staticRelease struct {
 	manifest static.Manifest
 	assets   []forge.ReleaseAsset
@@ -112,16 +112,26 @@ func newStaticRelease(m static.Manifest) *staticRelease {
 	r := &staticRelease{manifest: m}
 
 	for _, d := range m.Downloads {
-		r.assets = append(r.assets, &staticAsset{id: int64(len(r.assets) + 1), name: d.Name, url: d.URL, goos: d.OS, goarch: d.Arch})
+		r.add(&staticAsset{name: d.Name, url: d.URL, goos: d.OS, goarch: d.Arch})
 	}
 
-	r.assets = append(r.assets, &staticAsset{id: int64(len(r.assets) + 1), name: static.ChecksumsFile, url: m.Checksums})
+	r.add(&staticAsset{name: static.ChecksumsFile, url: m.Checksums})
 
 	if m.Signature != "" {
-		r.assets = append(r.assets, &staticAsset{id: int64(len(r.assets) + 1), name: static.SignatureFile, url: m.Signature})
+		r.add(&staticAsset{name: static.SignatureFile, url: m.Signature})
+	}
+
+	if m.Rotation != "" {
+		r.add(&staticAsset{name: static.RotationFile, url: m.Rotation})
+		r.add(&staticAsset{name: static.RotationSignatureFile, url: m.RotationSignature})
 	}
 
 	return r
+}
+
+func (r *staticRelease) add(a *staticAsset) {
+	a.id = int64(len(r.assets) + 1)
+	r.assets = append(r.assets, a)
 }
 
 func (r *staticRelease) GetName() string                 { return r.manifest.Tag }

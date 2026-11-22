@@ -144,6 +144,10 @@ func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel forge.Rel
 		return nil
 	}
 
+	if err := s.applyRotation(ctx, rel); err != nil {
+		return err
+	}
+
 	trustSet, err := s.keyResolver.Resolve(ctx)
 	if err != nil {
 		return s.handleResolveError(err)
@@ -153,10 +157,13 @@ func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel forge.Rel
 }
 
 // handleResolveError applies the trust-set resolution failure policy: a
-// fingerprint mismatch is always fatal; any other resolver error is
-// gated by requireSignature.
+// fingerprint mismatch, an unreadable rotation record or a stored record that
+// will not apply is always fatal; any other resolver error is gated by
+// requireSignature. Proceeding past the record would drop the revokes it
+// holds (spec 0101 D11).
 func (s *SelfUpdater) handleResolveError(err error) error {
-	if errors.Is(err, verify.ErrKeyResolverMismatch) {
+	if errors.Is(err, verify.ErrKeyResolverMismatch) || errors.Is(err, ErrRotationStoreCorrupt) ||
+		errors.Is(err, verify.ErrRotationRefused) {
 		return err
 	}
 
@@ -239,13 +246,5 @@ func (s *SelfUpdater) fetchSignature(ctx context.Context, rel forge.Release) ([]
 // configured signature filename. The second return value is false when
 // no matching asset is present.
 func (s *SelfUpdater) findSignatureAsset(rel forge.Release) (forge.ReleaseAsset, bool) {
-	name := s.SignatureAssetName()
-
-	for _, asset := range rel.GetAssets() {
-		if asset.GetName() == name {
-			return asset, true
-		}
-	}
-
-	return nil, false
+	return findAssetNamed(rel, s.SignatureAssetName())
 }

@@ -17,6 +17,7 @@ import (
 var (
 	errNoChecksum        = errors.NewSentinel("gtb.releasemanifest.no_checksum", "an archive carries no checksum; nothing unverifiable is published")
 	errDuplicatePlatform = errors.NewSentinel("gtb.releasemanifest.duplicate_platform", "two archives are built for the same platform")
+	errRotationUnsigned  = errors.NewSentinel("gtb.releasemanifest.rotation_unsigned", "a rotation manifest and its signature are published together")
 )
 
 // checksumFields is the two columns of a checksums.txt line: digest, name.
@@ -84,6 +85,29 @@ func (b builder) build(dist, baseURL, previous string, notes notesSource) (stati
 	return m, p, nil
 }
 
+// addRotation lists the rotation manifest and its signature when the release
+// carries them (spec 0101 D4). One without the other is a broken release, and
+// a reader would fail the update on it, so it is refused here first.
+func addRotation(m *static.Manifest, dist, baseURL string) error {
+	manifest, signature := exists(dist, static.RotationFile), exists(dist, static.RotationSignatureFile)
+
+	switch {
+	case manifest && signature:
+		m.Rotation = static.FileURL(baseURL, m.Tag, static.RotationFile)
+		m.RotationSignature = static.FileURL(baseURL, m.Tag, static.RotationSignatureFile)
+	case manifest || signature:
+		return errors.Wrapf(errRotationUnsigned, "%s and %s must both be in %s", static.RotationFile, static.RotationSignatureFile, dist)
+	}
+
+	return nil
+}
+
+func exists(dir, name string) bool {
+	_, err := os.Stat(filepath.Join(dir, name))
+
+	return err == nil
+}
+
 // addFiles fills the manifest's files: one download per archive named in
 // checksums.txt, the checksums file itself, and the signature when the
 // release has one beside it. Downloads are ordered by os then arch so the
@@ -96,8 +120,12 @@ func (b builder) addFiles(m *static.Manifest, dist, baseURL string) error {
 
 	m.Checksums = static.FileURL(baseURL, m.Tag, static.ChecksumsFile)
 
-	if _, err := os.Stat(filepath.Join(dist, static.SignatureFile)); err == nil {
+	if exists(dist, static.SignatureFile) {
 		m.Signature = static.FileURL(baseURL, m.Tag, static.SignatureFile)
+	}
+
+	if err := addRotation(m, dist, baseURL); err != nil {
+		return err
 	}
 
 	seen := map[string]string{}

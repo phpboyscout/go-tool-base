@@ -33,6 +33,9 @@ type staticStore struct {
 	*httptest.Server
 	objects map[string][]byte
 	latest  string
+	// rotation and rotationSig, when set, ride on every release published
+	// after, as a release pipeline carries the latest manifest forward.
+	rotation, rotationSig []byte
 }
 
 func newStaticStore(t *testing.T) *staticStore {
@@ -84,6 +87,13 @@ func (s *staticStore) publish(t *testing.T, tag string, archive forgetest.Asset,
 	if signature != nil {
 		s.objects[prefix+static.SignatureFile] = signature
 		m.Signature = static.FileURL(s.base(), tag, static.SignatureFile)
+	}
+
+	if s.rotation != nil {
+		s.objects[prefix+static.RotationFile] = s.rotation
+		s.objects[prefix+static.RotationSignatureFile] = s.rotationSig
+		m.Rotation = static.FileURL(s.base(), tag, static.RotationFile)
+		m.RotationSignature = static.FileURL(s.base(), tag, static.RotationSignatureFile)
 	}
 
 	raw, err := json.Marshal(m)
@@ -387,4 +397,82 @@ func TestExplainRefusal_StaticChannel(t *testing.T) {
 		err = s.explainRefusal(context.Background(), errors.Wrap(sentinel, "x"))
 		assert.Contains(t, hintOf(t, err), "publisher", sentinel.Error())
 	}
+}
+
+// A release on the static channel carrying a compromise manifest moves an
+// installed binary to the replacement key, and a later release signed by the
+// revoked key is refused (spec 0101, Testing).
+func TestUpdate_OnTheStaticChannel_FollowsARotation(t *testing.T) {
+	t.Parallel()
+
+	f := newRotationFixture(t)
+	archive := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	sums := forgetest.Manifest(false, archive)
+
+	t.Run("the replacement key installs, and the revoked key no longer does", func(t *testing.T) {
+		t.Parallel()
+
+		store := newStaticStore(t)
+		store.rotation, store.rotationSig = compromiseManifest(t, f.authority, 1, f.replacement, f.compromised)
+		store.publish(t, "v1.1.0", archive, sums, detachSign(t, f.replacement.entity, sums))
+
+		s, currentBin := rotatingStaticUpdater(t, store, f)
+
+		_, err := s.Update(context.Background())
+		require.NoError(t, err)
+
+		got, err := afero.ReadFile(s.Fs, currentBin)
+		require.NoError(t, err)
+		assert.Equal(t, "new-binary", string(got))
+
+		store.rotation, store.rotationSig = nil, nil
+		later := forgetest.TarGzAsset(e2eToolName, e2eToolName, "signed-by-the-stolen-key")
+		laterSums := forgetest.Manifest(false, later)
+		store.publish(t, "v1.2.0", later, laterSums, detachSign(t, f.compromised.entity, laterSums))
+
+		s.NextRelease = nil
+		_, err = s.Update(context.Background())
+		require.ErrorIs(t, err, verify.ErrSignatureInvalid)
+
+		got, err = afero.ReadFile(s.Fs, currentBin)
+		require.NoError(t, err)
+		assert.Equal(t, "new-binary", string(got), "the stored record still holds without a manifest")
+	})
+
+	t.Run("a manifest from another authority stops the update", func(t *testing.T) {
+		t.Parallel()
+
+		store := newStaticStore(t)
+		store.rotation, store.rotationSig = compromiseManifest(t, newRotationAuthority(t), 1, f.replacement, f.compromised)
+		store.publish(t, "v1.1.0", archive, sums, detachSign(t, f.compromised.entity, sums))
+
+		s, currentBin := rotatingStaticUpdater(t, store, f)
+
+		_, err := s.Update(context.Background())
+		require.ErrorIs(t, err, verify.ErrRotationSignatureInvalid)
+
+		got, err := afero.ReadFile(s.Fs, currentBin)
+		require.NoError(t, err)
+		assert.Equal(t, "old-binary", string(got))
+	})
+}
+
+func rotatingStaticUpdater(t *testing.T, store *staticStore, f rotationFixture) (*SelfUpdater, string) {
+	t.Helper()
+
+	ch, err := newStaticChannel(store.base(), store.Client())
+	require.NoError(t, err)
+
+	s, currentBin := newE2EUpdater(t, nil)
+	withReleaseChannel(ch)(s)
+	s.requireChecksum = true
+	s.requireSignature = true
+	s.embeddedKeys = [][]byte{f.compromised.armoredPub}
+	s.keySource = verify.DefaultKeySource
+	s.rotationAuthorityKeys = []string{f.authority.public}
+	s.rotationEnabled = true
+	s.rotationStore = verify.NewMemoryRotationStore()
+	require.NoError(t, s.buildDefaultKeyResolver())
+
+	return s, currentBin
 }
