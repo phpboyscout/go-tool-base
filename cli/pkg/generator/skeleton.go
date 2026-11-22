@@ -25,7 +25,6 @@ import (
 
 	"github.com/dave/jennifer/jen"
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/errors"
 
@@ -871,13 +870,8 @@ func (g *Generator) refreshOneCommandFiles(cmd *ManifestCommand, path []string) 
 func (g *Generator) loadProjectFileHashes(projectPath string) map[string]string {
 	manifestPath := filepath.Join(projectPath, ".gtb", "manifest.yaml")
 
-	raw, err := afero.ReadFile(g.props.FS, manifestPath)
-	if err != nil {
-		return make(map[string]string)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(raw, &m); err != nil || m.Hashes == nil {
+	m, err := DecodeManifestFile(g.props.FS, manifestPath)
+	if err != nil || m.Hashes == nil {
 		return make(map[string]string)
 	}
 
@@ -1132,6 +1126,8 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 		if err != nil {
 			return errors.Newf("failed to get relative path: %w", err)
 		}
+
+		relPath = filepath.ToSlash(relPath)
 
 		// A file that belongs to a release channel the project is not on
 		// is not rendered, and removed if an earlier channel left it.
