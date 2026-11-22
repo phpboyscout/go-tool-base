@@ -1410,10 +1410,7 @@ func (g *Generator) mergeCommandsIndex(indexPath, relPath, table string) (string
 
 	content := string(existing)
 
-	start := strings.Index(content, commandsIndexMarkerStart)
-
-	end := strings.Index(content, commandsIndexMarkerEnd)
-	if start != -1 && end != -1 && end > start {
+	if start, end, marked := commandsIndexRegion(content); marked {
 		block := commandsIndexMarkerStart + "\n" + table + commandsIndexMarkerEnd
 
 		return content[:start] + block + content[end+len(commandsIndexMarkerEnd):], true
@@ -1431,6 +1428,26 @@ func (g *Generator) mergeCommandsIndex(indexPath, relPath, table string) (string
 		"path", relPath)
 
 	return "", false
+}
+
+// commandsIndexRegion finds the gtb:commands markers in content, returning
+// where the start marker begins and the end marker begins.
+func commandsIndexRegion(content string) (start, end int, ok bool) {
+	start = strings.Index(content, commandsIndexMarkerStart)
+	end = strings.Index(content, commandsIndexMarkerEnd)
+
+	return start, end, start != -1 && end > start
+}
+
+// isCommandsIndexPath reports whether relPath is a commands index in either
+// docs layout.
+func isCommandsIndexPath(relPath string) bool {
+	switch filepath.ToSlash(relPath) {
+	case "docs/commands/index.md", "docs/reference/cli/index.md":
+		return true
+	}
+
+	return false
 }
 
 // isGeneratedCommandsIndex reports whether content looks like an untouched,

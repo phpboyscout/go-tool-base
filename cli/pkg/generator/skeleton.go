@@ -726,8 +726,8 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 		// precisely what preserving the stored hash exists to prevent (0187 D3).
 		// writtenKeys is the manifest's whole skeleton map, not just this run's
 		// writes, so the kept paths have to be excluded explicitly.
-		if g.conflicts.wasKept(relPath) {
-			g.props.Logger.Debug("not refreshing hash for a file you kept", "path", relPath)
+		if g.conflicts.wasKept(relPath) || g.ignoreRules().IsIgnored(relPath) {
+			g.props.Logger.Debug("not refreshing hash for a file you kept or ignored", "path", relPath)
 
 			continue
 		}
@@ -1301,15 +1301,15 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 	// even under --overwrite allow, which otherwise auto-approves overwriting a
 	// modified file — so regenerate never destroys developer content (keryx
 	// defect C). The stored hash is kept in sync with what is actually on disk.
-	if exists && isUserOwnedSeedFile(relPath) {
-		g.props.Logger.Debug("preserving operator-owned file (not overwritten on regenerate)", "path", relPath)
-
-		existing, err := afero.ReadFile(g.props.FS, fullPath)
-		if err != nil {
-			return "", errors.Newf("failed to read existing file %s: %w", fullPath, err)
+	//
+	// A commands index holding its markers is likewise left alone: it is
+	// managed only between them, by generateCommandsIndex. Comparing the whole
+	// page conflicted on the prose around them every run, or overwrote it once
+	// a rehash adopted it (#161).
+	if exists {
+		if hash, kept, err := g.preservedPageHash(fullPath, relPath); err != nil || kept {
+			return hash, err
 		}
-
-		return calculateHash(existing), nil
 	}
 
 	// If the file already exists, verify the user has not customised it.
@@ -1330,6 +1330,35 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 	g.props.Logger.Debug("wrote skeleton file", "path", relPath, "bytes", len(newContent), "hash", hash)
 
 	return hash, nil
+}
+
+// preservedPageHash reports whether an existing file is one regenerate leaves
+// as it stands (an operator-owned seed file, or a commands index holding its
+// markers and not ignored), and if so the hash of the page on disk.
+func (g *Generator) preservedPageHash(fullPath, relPath string) (string, bool, error) {
+	seed := isUserOwnedSeedFile(relPath)
+	if !seed && (!isCommandsIndexPath(relPath) || g.ignoreRules().IsIgnored(relPath)) {
+		return "", false, nil
+	}
+
+	existing, err := afero.ReadFile(g.props.FS, fullPath)
+	if err != nil {
+		return "", false, errors.Newf("failed to read existing file %s: %w", fullPath, err)
+	}
+
+	if seed {
+		g.props.Logger.Debug("preserving operator-owned file (not overwritten on regenerate)", "path", relPath)
+
+		return calculateHash(existing), true, nil
+	}
+
+	if _, _, marked := commandsIndexRegion(string(existing)); !marked {
+		return "", false, nil
+	}
+
+	g.props.Logger.Debug("commands index has its markers; leaving the page to the index update", "path", relPath)
+
+	return calculateHash(existing), true, nil
 }
 
 // recordSkeletonHash records the hash a write returned. An empty hash is a

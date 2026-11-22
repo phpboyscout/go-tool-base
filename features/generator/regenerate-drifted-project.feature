@@ -106,3 +106,27 @@ Feature: regenerate project completes on a project with hand-modified files
     And I run gtb in the project with "regenerate project"
     Then the project exit code is 0
     And the generated "cmd/feattool/main.go" file contains "hand-edited, do not clobber"
+
+  # Issue #161: the commands index is managed between its gtb:commands markers
+  # only, so prose around them survives a new command and the regenerate after it.
+  Scenario: Prose around the commands index markers survives adding a command
+    Given a freshly generated gtb project
+    And I hand-edit the generated "docs/reference/cli/index.md" file
+    When I run gtb in the project with "generate command --name widget --short widget-cmd"
+    And I run gtb in the project with "regenerate project --overwrite deny"
+    Then the project exit code is 0
+    And the generated "docs/reference/cli/index.md" file contains "hand-edited, do not clobber"
+    And the generated "docs/reference/cli/index.md" file contains "widget"
+    And the project output does not contain "conflict detected: file has been manually modified path=docs/reference/cli/index.md"
+
+  # Issue #161: an ignored run must not adopt the edit as the file's baseline.
+  Scenario: Removing an ignore rule still protects the edit it covered
+    Given a freshly generated gtb project
+    And I hand-edit the generated ".goreleaser.yaml" file
+    When I run gtb in the project with "ignore add .goreleaser.yaml"
+    And I run gtb in the project with "regenerate project --overwrite deny"
+    And I run gtb in the project with "ignore remove .goreleaser.yaml"
+    And I run gtb in the project with "regenerate project --overwrite deny"
+    Then the project exit code is 0
+    And the generated ".goreleaser.yaml" file contains "hand-edited, do not clobber"
+    And the project output contains "kept your version"
