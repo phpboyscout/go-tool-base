@@ -75,6 +75,10 @@ func tapLog(t *testing.T, tap string) string {
 func tapFixture(t *testing.T) (tap, dist string) {
 	t.Helper()
 
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("the push script runs under bash, which is not on PATH")
+	}
+
 	root := t.TempDir()
 	tap = filepath.Join(root, "tap.git")
 
