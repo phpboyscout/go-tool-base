@@ -699,9 +699,9 @@ type ManifestReleaseSource struct {
 	// Backend is the forge the project is hosted on (spec 0195 D2). Absent on
 	// a manifest that predates the field; regenerate derives and records it.
 	Backend props.FeatureID `yaml:"backend,omitempty"`
-	Host    string          `yaml:"host"`
-	Owner   string          `yaml:"owner"`
-	Repo    string          `yaml:"repo"`
+	Host    string          `yaml:"host,omitempty"`
+	Owner   string          `yaml:"owner,omitempty"`
+	Repo    string          `yaml:"repo,omitempty"`
 	Private bool            `yaml:"private,omitempty"`
 	// Static is the static release channel's one setting when Type is static
 	// (spec 0203 D1).
