@@ -7,8 +7,6 @@ import (
 
 	"github.com/spf13/afero"
 
-	signingcli "gitlab.com/phpboyscout/go/signing-cli"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -136,8 +134,6 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props, error) {
 		generate.NewCmdGenerate(p),
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
-		setup.Wrap("", signingcli.NewCmdKeys(p.GetLogger())),
-		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),
 		annotate.NewCmdAnnotate(p),

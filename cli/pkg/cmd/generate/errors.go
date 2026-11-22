@@ -21,7 +21,7 @@ var (
 	ErrNonInteractive           = errors.NewSentinel("gtb.generate.non_interactive", "non-interactive mode detected, missing required flags: run from a terminal, pass the answers as flags, or add --accessible (GTB_ACCESSIBLE=true) for line prompts on a piped stdin")
 	ErrInvalidOverwriteValue    = errors.NewSentinel("gtb.generate.invalid_overwrite_value", "invalid --overwrite value: must be allow, deny, or ask")
 	ErrInvalidSigningKeySource  = errors.NewSentinel("gtb.generate.invalid_signing_key_source", "invalid --signing-key-source: must be embedded, external, or both")
-	ErrInvalidSigningBackend    = errors.NewSentinel("gtb.generate.invalid_signing_backend", "invalid --signing-backend: not a registered signing backend")
+	ErrInvalidSigningBackend    = errors.NewSentinel("gtb.generate.invalid_signing_backend", "invalid --signing-backend: not a backend sigillum signs with")
 	ErrGitFlagsConflict         = errors.NewSentinel("gtb.generate.git_flags_conflict", "conflicting flags: --no-git skips the initial commit that --push would publish")
 	ErrModuleRequired           = errors.NewSentinel("gtb.generate.module_required", "a project that is not hosted on a forge needs --module")
 	ErrReleaseChannelRequired   = errors.NewSentinel("gtb.generate.release_channel_required", "self-update needs a release channel: the project's forge (--release-channel forge, hosted projects only) or a static location (--release-channel static --release-base-url <https URL>), or drop update from --features")

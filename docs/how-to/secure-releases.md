@@ -191,7 +191,7 @@ signs:
 ```
 
 `scripts/sign-release.sh` does not touch a local gpg keyring. It shells out to
-`gtb sign --backend aws-kms`, so the private half never leaves KMS and nothing on
+`sigillum sign --backend aws-kms`, so the private half never leaves KMS and nothing on
 the runner can export it. Three variables select the key, all with defaults:
 
 | Variable | Default | What it is |
@@ -219,16 +219,14 @@ ARN still only lets this project's **tag** pipelines sign anything.
 > signed before then keep verifying: verification is offline and never
 > needs the private half. Nothing in the pipeline references v1 any more.
 
-The **sign→verify contract**. That a signature `gtb sign` produces is accepted by
-the same trust set self-update enforces, is covered by
-`TestSignVerifyContract_*` in `cli/pkg/cmd/sign`. Those tests sign a manifest
-through the real `runSign` path, verify it via `verify.LoadTrustSet`, and assert
-that both a tampered manifest and an untrusted signing key are rejected with
-`ErrSignatureInvalid`. They need no credentials and run in the normal unit suite.
+The **sign→verify contract**. That a signature `sigillum sign` produces is
+accepted by the trust set self-update enforces is tested in sigillum, by
+`pkg/cmd/sign/trustset_contract_test.go`, since gtb no longer ships the `sign`
+command. gtb owns the verifying half, in `pkg/setup` over `go/signing/verify`.
 
 !!! warning "Coverage gap: the KMS path in `scripts/sign-release.sh`"
     The script itself is not exercised by any test. It is KMS-only, it shells out
-    to `gtb sign --backend aws-kms` and refuses to run without AWS credentials, so
+    to `sigillum sign --backend aws-kms` and refuses to run without AWS credentials, so
     covering it requires a real KMS key and OIDC-derived credentials.
 
     The previous end-to-end test (`TestSignReleaseScript_VerifiesViaTrustSet`, gated

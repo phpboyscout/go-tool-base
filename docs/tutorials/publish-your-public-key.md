@@ -31,18 +31,21 @@ Allow about thirty minutes, plus whatever your static host and DNS take.
   Minting reads the public half and then signs with it, as the next step
   explains. The key policy gives `kms:Sign` to the signer role alone, so run
   the mint as the signer role or from a pipeline that assumes it.
-- **The `gtb` CLI.** The commands below are checked against **v0.50.0**.
+- **The `sigillum` CLI.** The commands below use the flags of **v0.6.0**. Install it with
+  `go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`, or take a binary from
+  the [sigillum releases](https://gitlab.com/phpboyscout/sigillum/-/releases). The `keys`
+  commands used to be `gtb keys`; the flags are the same.
 - **A domain you control**, and a static host for it that is separate from
   your code and release hosting. More on why below.
 
 ## Mint the public key from KMS
 
-`gtb keys mint` builds an OpenPGP public key from a signing backend.
+`sigillum keys mint` builds an OpenPGP public key from a signing backend.
 In [Sign and verify on your laptop](sign-and-verify-on-your-laptop.md) the
 backend was a `.pem` file. Now it's `aws-kms`:
 
 ```bash
-gtb keys mint \
+sigillum keys mint \
     --backend aws-kms \
     --kms-region eu-west-2 \
     --key-id alias/acme-release-signing-v1 \
@@ -88,7 +91,7 @@ Because it's for emergencies, it doesn't live in KMS. Generate it on a trusted
 machine, ideally one that's offline:
 
 ```bash
-gtb keys generate \
+sigillum keys generate \
     --algorithm ed25519 \
     --name "Acme Rotation Authority" \
     --email release@acme.dev \
@@ -119,10 +122,10 @@ check you'll set up in the next part.
 A Web Key Directory is how a client finds a public key from an email address:
 a fixed layout of files under `.well-known/openpgpkey/` on a web server, with
 each address's keys at a path derived from a hash of its local part.
-`gtb keys wkd` builds the tree in Go, with no `gpg` needed:
+`sigillum keys wkd` builds the tree in Go, with no `gpg` needed:
 
 ```bash
-gtb keys wkd \
+sigillum keys wkd \
     --domain acme.dev \
     --email release@acme.dev \
     --output ./wkd-staging \

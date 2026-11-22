@@ -5,12 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	// Register the compiled-in signing backends so signing.Names() (used by
-	// validateSigningFields) resolves aws-kms and local in the test binary,
-	// mirroring cmd/gtb.
-	_ "gitlab.com/phpboyscout/go/signing-aws-kms"
-	_ "gitlab.com/phpboyscout/go/signing/local"
 )
 
 // TestValidateSigningFields_Backend covers the --signing-backend guard: an

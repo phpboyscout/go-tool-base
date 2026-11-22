@@ -62,6 +62,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [`ConfigureSSHKey` returns an `SSHKeySelection`](v0.x-ssh-key-selection.md) |
 | v0.x | v0.x | [OTLP settings carry an Exporter](v0.x-otlp-settings-carry-an-exporter.md) |
 | v0.x | v0.x | [Rollback and pin: `update` asks before an attended downgrade](v0.x-update-rollback-and-pin.md) |
+| v0.x | v0.x | [`gtb sign` and `gtb keys` moved to sigillum](v0.x-sign-and-keys-moved-to-sigillum.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

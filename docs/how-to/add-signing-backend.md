@@ -1,6 +1,6 @@
 ---
 title: Add a signing backend
-description: Implement and register a third-party backend for `gtb keys mint` / `gtb sign` so consumers of your tool can sign against GCP KMS, HashiCorp Vault, YubiKey, or any other key store.
+description: Implement and register a third-party backend for `sigillum keys mint` / `sigillum sign` so a build of sigillum, or your own signer, can sign against GCP KMS, HashiCorp Vault, YubiKey, or any other key store.
 date: 2026-06-08
 tags: [how-to, keys, backend, signing, extension]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -8,12 +8,16 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Add a signing backend
 
-The standard `gtb` binary ships with two backends: `aws-kms` and
-`local` (PEM file on disk). If you need to sign against something
-else (GCP KMS, Azure Key Vault, HashiCorp Vault Transit, a YubiKey)
-you implement a `signing.Backend`, register it from your own `main`
-package, and `gtb keys mint --backend <name>` / `gtb sign --backend
-<name>` picks it up.
+The standard `sigillum` binary links two backends: `aws-kms` and
+`local` (PEM file on disk). The `gtb` binary links none, because it no
+longer ships the `sign` and `keys` commands. If you need to sign against
+something else (GCP KMS, Azure Key Vault, HashiCorp Vault Transit, a
+YubiKey) you implement a `signing.Backend` and register it from the
+`main` package of the binary that signs. In sigillum that is a blank
+import in `cmd/sigillum/signing.go`, so a build with your backend is a
+fork or local build of [sigillum](https://gitlab.com/phpboyscout/sigillum)
+with one more import, and `sigillum keys mint --backend <name>` /
+`sigillum sign --backend <name>` then picks it up.
 
 A generated release job signs with `sigillum`, which links only `aws-kms` and
 `local`. To release with your own backend, point the `signs:` block in
@@ -30,8 +34,8 @@ release job, and list both files in `.gtb/ignore`.
     with the API on
     [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing).
 
-    This page keeps the gtb-side essentials: the contract, how to
-    register, and how to activate a backend in a gtb-derived binary.
+    This page keeps the essentials: the contract, how to register, and
+    how to activate a backend in a sigillum build or your own signer.
 
 ## The Backend contract
 
@@ -52,14 +56,14 @@ type Backend interface {
 - **`NewSigner(ctx, keyID)`**: given the user's `--key-id`, return a
   `crypto.Signer` whose `Public()` is an `*rsa.PublicKey` and whose
   `Sign()` makes the remote signing call. **`Public()` must return RSA
-  in v0.1**, Ed25519 minting goes through `gtb keys generate`, not
+  in v0.1**, Ed25519 minting goes through `sigillum keys generate`, not
   through the backend registry.
 
-`RegisterFlags` is **not** part of the `Backend` contract. A backend
-that needs CLI flags (e.g. aws-kms's `--kms-region`) implements an
-*optional* interface that the CLI front-end type-asserts for; a backend
-with no flags simply omits it and stays free of any CLI dependency. See
-the signing module's how-to for that optional interface's exact shape.
+Flags are not part of the `Backend` contract. A backend that needs
+settings (e.g. aws-kms's `--kms-region`) describes them, and sigillum
+turns each described setting into a flag; a backend with none stays free
+of any CLI dependency. See the signing module's how-to for how a backend
+describes its settings.
 
 ## Register from `init()`
 
@@ -91,7 +95,7 @@ The implementation pattern matches the two reference backends:
 
 - **`gitlab.com/phpboyscout/go/signing-aws-kms`** (package `awskms`): a
   separate module wrapping AWS KMS, and the example of a backend that
-  contributes a CLI flag (`--kms-region`) via the optional interface.
+  contributes a CLI flag (`--kms-region`) through its settings.
 - **`gitlab.com/phpboyscout/go/signing/local`**: the on-disk PEM backend,
   the example of a flag-less backend.
 
@@ -100,18 +104,16 @@ The implementation pattern matches the two reference backends:
 Backends register by side effect, so a blank import is all it takes:
 
 ```go
-// cmd/your-cli/main.go
+// cmd/sigillum/signing.go (or your own signer's main package)
 import (
-    "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/root"
-
-    // Activate the backends you want. Standard gtb ships aws-kms +
+    // Activate the backends you want. Standard sigillum ships aws-kms +
     // local; your tool can ship anything.
     _ "gitlab.com/yourorg/yourtool/signing/gcp"
 )
 ```
 
-That's it. `your-cli keys mint --backend gcp-kms --key-id <id> ...`
-now works, and omitting a backend's import drops it (and its SDK) from
+That's it. `sigillum keys mint --backend gcp-kms --key-id <id> ...`
+(run from your build) now works, and omitting a backend's import drops it (and its SDK) from
 the linked binary entirely.
 
 ## See also
@@ -119,10 +121,10 @@ the linked binary entirely.
 - [signing module documentation](https://signing.go.phpboyscout.uk):
   the canonical "Implement a custom backend" guide, trust model, and
   per-backend reference.
-- [`gtb keys mint`](mint-signing-key.md): the user-facing surface your
+- [`sigillum keys mint`](mint-signing-key.md): the user-facing surface your
   backend plugs into.
 - [`signing` component](../explanation/components/signing.md): the
-  registry overview as consumed by gtb.
+  registry overview.
 - [`gitlab.com/phpboyscout/go/signing-aws-kms`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing-aws-kms)
   and
   [`gitlab.com/phpboyscout/go/signing/local`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/local),

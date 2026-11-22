@@ -1,6 +1,6 @@
 ---
 title: Sign and verify on your laptop
-description: Make an OpenPGP signing key with gtb, mint the public key you'll publish, sign a checksums file, and verify the signature with plain gpg, all locally with no cloud account.
+description: Make an OpenPGP signing key with sigillum, mint the public key you'll publish, sign a checksums file, and verify the signature with plain gpg, all locally with no cloud account.
 date: 2026-11-02
 tags: [tutorial, signing, openpgp, gpg, release]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -23,8 +23,11 @@ Allow about fifteen minutes.
 
 ## Before you start
 
-- **The `gtb` CLI.** Everything below is verified against **v0.50.0**. See
-  [installation](../installation.md).
+- **The `sigillum` CLI.** The commands below use the flags of **v0.6.0**. Install it
+  with `go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`, or take a
+  binary from the [sigillum releases](https://gitlab.com/phpboyscout/sigillum/-/releases).
+  Until the `sign` and `keys` commands left gtb they were `gtb sign` and
+  `gtb keys`; the flags are the same.
 - **`gpg`**, for the independent check at the end. Most Linux distributions
   ship it. On macOS, `brew install gnupg`.
 - **A scratch directory.** You'll create half a dozen files, one of them a
@@ -36,11 +39,11 @@ mkdir signing-scratch && cd signing-scratch
 
 ## Make a signing key
 
-`gtb keys generate` creates a keypair inside the process and writes both
+`sigillum keys generate` creates a keypair inside the process and writes both
 halves to disk:
 
 ```bash
-gtb keys generate \
+sigillum keys generate \
     --algorithm rsa \
     --name "Acme Releases" \
     --email "release@acme.dev" \
@@ -57,17 +60,17 @@ value, because the next step needs it.
 
 Two files come out. `signing.asc` is the public half. `signing.pem` is the
 private half, a 4096-bit RSA key in PKCS#1 PEM, and it's the thing you guard.
-`gtb` doesn't encrypt it, so keep it on an encrypted disk (LUKS, FileVault) or
+`sigillum` doesn't encrypt it, so keep it on an encrypted disk (LUKS, FileVault) or
 wrap it with `age` rather than leaving it lying about.
 
 ## Mint the public key you'll publish
 
 You could hand `signing.asc` around as it is. Instead, produce the public key
-with `gtb keys mint`, which wraps a *signing backend* in OpenPGP framing and
+with `sigillum keys mint`, which wraps a *signing backend* in OpenPGP framing and
 writes out its public half:
 
 ```bash
-gtb keys mint \
+sigillum keys mint \
     --backend local \
     --key-id signing.pem \
     --name "Acme Releases" \
@@ -101,7 +104,7 @@ archive. Make a stand-in and sign it:
 ```bash
 printf 'abc123  acme_linux_amd64\ndef456  acme_darwin_arm64\n' > checksums.txt
 
-gtb sign \
+sigillum sign \
     --backend local \
     --key-id signing.pem \
     --public-key release.asc \
@@ -122,14 +125,14 @@ That writes `checksums.txt.sig`, a detached, ASCII-armoured OpenPGP signature:
 
 ## See it refuse the wrong key
 
-`--public-key` names the identity you claim to be signing as, and `gtb sign`
+`--public-key` names the identity you claim to be signing as, and `sigillum sign`
 checks the backend's key against it before signing. To see that check fire,
 make a second key and claim to be it:
 
 ```bash
-gtb keys generate --algorithm rsa --name Other --email other@acme.dev --output other.asc
+sigillum keys generate --algorithm rsa --name Other --email other@acme.dev --output other.asc
 
-gtb sign \
+sigillum sign \
     --backend local \
     --key-id signing.pem \
     --public-key other.asc \
@@ -148,7 +151,7 @@ instead of shipping a signature nobody can verify.
 
 Your tool will check this signature itself on every self-update, and a later
 part of the series wires that in. For now, prove the signature is sound with a
-tool that knows nothing about gtb.
+tool that knows nothing about sigillum.
 
 Importing a key changes your `gpg` keyring, so use a throwaway one:
 
@@ -173,8 +176,8 @@ Primary key fingerprint: 0DE1 DE44 3AF4 B5B3 9154  BC66 7BEC 081C 0963 3311
 
 `Good signature` is the line that matters. The warning is about `gpg`'s web of
 trust: you haven't told it you trust this key, which says nothing about whether
-the signature is valid. What `gtb sign` produces is an ordinary OpenPGP
-detached signature, so anyone can check it without gtb.
+the signature is valid. What `sigillum sign` produces is an ordinary OpenPGP
+detached signature, so anyone can check it without sigillum.
 
 ## Watch a tampered file fail
 
@@ -210,7 +213,7 @@ rm -rf "$GNUPGHOME" && unset GNUPGHOME
 ## Where this leaves you
 
 You've made a key, minted the public half you'd publish, signed a manifest,
-and verified it with a tool that has nothing to do with gtb. That's the
+and verified it with a tool that has nothing to do with sigillum. That's the
 complete trust loop in miniature: a private key signs, a public key verifies.
 It stays that shape whether the private half is a `.pem` on your laptop or a
 key held in AWS KMS.

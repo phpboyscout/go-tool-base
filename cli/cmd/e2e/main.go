@@ -35,7 +35,6 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
-	signingcli "gitlab.com/phpboyscout/go/signing-cli"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/generate"
 	ignorecmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd/ignore"
@@ -151,8 +150,6 @@ func newTestRoot() (*setup.Command, *props.Props, error) {
 		generate.NewCmdGenerate(p),
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
-		setup.Wrap("", signingcli.NewCmdKeys(p.GetLogger())),
-		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		tmplcmd.NewCmdTemplate(p),
 		ignorecmd.NewCmdIgnore(p),
 		// config-probe is a contrived fixture for the bootstrap-traversal

@@ -59,7 +59,7 @@ cut-overs, each one a clean repoint with no compatibility shim.
 The tables below list every `gitlab.com/phpboyscout/go/*` module `go.mod` and
 `cli/go.mod` require directly, as of 2026-09-18. A provider submodule (forge, chat, signing backend) is
 documented on its parent's microsite rather than its own, and so is a
-companion module such as `config-afero` or `signing-aws-kms`; where a
+companion module such as `config-afero`; where a
 microsite is not yet serving, the link goes to its `pkg.go.dev` reference
 instead and that gap is called out.
 
@@ -78,9 +78,9 @@ instead and that gap is called out.
 | Module | What it does | What GTB uses it for | Docs |
 |---|---|---|---|
 | `credentials` | Storage-mode abstraction for user-supplied secrets: env-var reference, OS keychain, or literal, with a pluggable backend and an auditable keychain opt-out | The setup wizard's storage-mode selector, `pkg/vcs`'s and `pkg/chat`'s credential resolution, and the `credentials.no-literal` doctor check | [credentials.go.phpboyscout.uk](https://credentials.go.phpboyscout.uk) |
-| `signing` (+ `signing/openpgpkey`, `signing/verify`, `signing/local` subpackages) | OpenPGP/WKD release signing and verification: a backend registry, trust-set and key-resolver primitives, and OpenPGP packet assembly from any `crypto.Signer` | `gtb sign` / `gtb keys`, and Phase 2 self-update signature verification in `pkg/setup` | [signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk) |
-| `signing-aws-kms` | The AWS KMS signing backend for `signing`, wrapping an asymmetric RSA-4096 `SIGN_VERIFY` key | One of the two backends the standard `gtb` binary blank-imports; kept in its own module so a build that omits the import drops the AWS SDK | part of the signing family: [signing.go.phpboyscout.uk, sign with AWS KMS](https://signing.go.phpboyscout.uk/how-to/sign-with-aws-kms/) |
-| `signing-cli` | The shareable `sign`/`keys` Cobra command builders over `signing`, decoupled from any specific CLI framework behind a narrow `Logger` seam | The `gtb sign`/`gtb keys` command surface, re-attached unchanged; also used standalone by the `sigillum` CLI | [signing-cli.go.phpboyscout.uk](https://signing-cli.go.phpboyscout.uk) |
+| `signing` (+ `signing/openpgpkey`, `signing/verify`, `signing/local` subpackages) | OpenPGP/WKD release signing and verification: a backend registry, trust-set and key-resolver primitives, and OpenPGP packet assembly from any `crypto.Signer` | Phase 2 self-update signature verification in `pkg/setup` (the `sign` and `keys` commands that sit over it now live in sigillum) | [signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk) |
+
+`signing-aws-kms` and `signing-cli` are no longer GTB dependencies. The `sign` and `keys` commands and the signing backends moved to [sigillum](https://sigillum.phpboyscout.uk) (sigillum spec 0007 D6), and the `gtb` binary links no signing backend.
 
 ### Forge and repo
 

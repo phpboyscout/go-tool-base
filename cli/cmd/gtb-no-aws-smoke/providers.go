@@ -1,8 +1,8 @@
 package main
 
 // The same set as gtb minus chat-bedrock, so this fixture links no AWS SDK
-// through chat either; signing.go leaves out the KMS backend for the same
-// reason. Those two are the only routes AWS code takes into a build.
+// through chat either. chat-bedrock is the only route AWS code takes into a
+// gtb build.
 import (
 	_ "gitlab.com/phpboyscout/go/chat-anthropic"
 	_ "gitlab.com/phpboyscout/go/chat-gemini"

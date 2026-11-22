@@ -112,9 +112,9 @@ checksum:
 # (-> checksums.txt.sig), consumed by self-update signature verification
 # in pkg/setup.
 #
-# Live, and not gated. scripts/sign-release.sh signs via `gtb sign
-# --backend aws-kms` using the OIDC role the goreleaser job assumes, and
-# it EXITS NON-ZERO when no AWS credentials resolve rather than letting an
+# Live, and not gated. scripts/sign-release.sh signs via `sigillum sign
+# --backend aws-kms` (the sigillum in the CI image) using the OIDC role
+# the goreleaser job assumes, and it EXITS NON-ZERO when no AWS credentials resolve rather than letting an
 # unsigned release through. There is no --skip=sign branch and no
 # GTB_SIGNING_KEY variable; both were described here long after they
 # stopped existing.

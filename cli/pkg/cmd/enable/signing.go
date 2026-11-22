@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/errors"
-	"gitlab.com/phpboyscout/go/signing"
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/cli/pkg/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
@@ -21,9 +20,9 @@ import (
 // accepted values.
 var ErrInvalidKeySource = errors.NewSentinel("gtb.enable.invalid_key_source", "invalid --key-source: must be embedded, external, or both")
 
-// ErrInvalidBackend is returned when --backend is not a registered signing
-// backend.
-var ErrInvalidBackend = errors.NewSentinel("gtb.enable.invalid_backend", "invalid --backend: not a registered signing backend")
+// ErrInvalidBackend is returned when --backend is not a backend sigillum signs
+// with.
+var ErrInvalidBackend = errors.NewSentinel("gtb.enable.invalid_backend", "invalid --backend: not a backend sigillum signs with")
 
 // validKeySources lists the accepted --key-source values.
 var validKeySources = map[string]bool{"embedded": true, "external": true, "both": true}
@@ -98,15 +97,15 @@ type signingFlagSet struct {
 
 // validateSigningFlags checks the flag values this invocation actually
 // provided: the key source must be one of the accepted set, and the backend
-// must be a registered signing backend. Unprovided fields aren't validated —
+// must be one of generator.SigningBackends(). Unprovided fields aren't validated —
 // they keep their existing manifest value.
 func validateSigningFlags(opts *signingOptions, set signingFlagSet) error {
 	if set.keySource && !validKeySources[opts.KeySource] {
 		return errors.Wrapf(ErrInvalidKeySource, "%q", opts.KeySource)
 	}
 
-	if set.backend && opts.Backend != "" && !slices.Contains(signing.Names(), opts.Backend) {
-		return errors.Wrapf(ErrInvalidBackend, "%q (available: %s)", opts.Backend, strings.Join(signing.Names(), ", "))
+	if set.backend && opts.Backend != "" && !slices.Contains(generator.SigningBackends(), opts.Backend) {
+		return errors.Wrapf(ErrInvalidBackend, "%q (available: %s)", opts.Backend, strings.Join(generator.SigningBackends(), ", "))
 	}
 
 	return nil

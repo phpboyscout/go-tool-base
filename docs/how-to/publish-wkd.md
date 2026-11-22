@@ -73,7 +73,7 @@ account boundaries:
    `curl -I https://openpgpkey.<yourdomain>/`, expect a 404 with
    valid TLS.
 
-You also need `wrangler` locally:
+You also need `sigillum` (`go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`) and `wrangler` locally. Install `wrangler` with:
 
 ```sh
 # via mise (recommended if you already use it)
@@ -85,11 +85,11 @@ npm install -g wrangler
 
 ## Generate the WKD tree
 
-`gtb keys wkd` reads one or more armored OpenPGP public keys and
+`sigillum keys wkd` reads one or more armored OpenPGP public keys and
 emits the directory structure the WKD spec mandates:
 
 ```sh
-gtb keys wkd \
+sigillum keys wkd \
     --domain phpboyscout.uk \
     --email release@phpboyscout.uk \
     --submission-address release@phpboyscout.uk \
@@ -137,7 +137,7 @@ To publish multiple emails (e.g. `release@` for releases and
 `security@` for advisories), pass `--email` repeatedly:
 
 ```sh
-gtb keys wkd \
+sigillum keys wkd \
     --domain phpboyscout.uk \
     --email release@phpboyscout.uk \
     --email security@phpboyscout.uk \
@@ -171,11 +171,11 @@ gpg --auto-key-locate clear,wkd --locate-keys release@phpboyscout.uk
 ```
 
 You should see both fingerprints (the rotation-authority and the
-signing-key) printed, matching what `gtb keys mint` reported and what
+signing-key) printed, matching what `sigillum keys mint` reported and what
 you embedded in `internal/trustkeys/`.
 
 Direct HTTP fetch also works for spot-checking. The hash is logged
-by the `gtb keys wkd` run that produced the file. Copy it from there:
+by the `sigillum keys wkd` run that produced the file. Copy it from there:
 
 ```sh
 curl -fsSL "https://openpgpkey.phpboyscout.uk/.well-known/openpgpkey/phpboyscout.uk/hu/<the-hash-gtb-logged>" \
@@ -188,7 +188,7 @@ key) and matching `:user ID packet:` entries for
 
 ## Per-rotation re-deploy
 
-When you mint a new signing key (or rotation key), re-run `gtb keys
+When you mint a new signing key (or rotation key), re-run `sigillum keys
 wkd` against the **new public-key file set** plus any keys you want
 to keep serving, and `wrangler pages deploy` again. There's no
 manual surgery on Cloudflare. The directory is fully reproducible
@@ -208,12 +208,13 @@ key ever ships, redeploy a known-good staging directory in seconds.
 
 ## Related
 
-- [Spec: gtb keys wkd](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command)
-: design decisions, RFC details, the threat-model rationale.
+- [sigillum documentation](https://sigillum.phpboyscout.uk): the `keys wkd` reference.
+- [Spec: keys wkd command](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command)
+  (historical, from when the command lived in gtb): design decisions, RFC details, the threat-model rationale.
 - [Phase 2 signing prep doc][prep]: the upstream gate decisions for
   domain, email, and host.
 - [`openpgpkey`](../explanation/components/openpgpkey.md): the library
-  function `WriteWKDTree` that the CLI wraps (now the standalone
+  function `WriteWKDTree` that sigillum wraps (now the standalone
   `gitlab.com/phpboyscout/go/signing/openpgpkey` module).
 - [`gitlab.com/phpboyscout/go/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify)
 : the client-side `WKDResolver` that pairs with this generator (consumed

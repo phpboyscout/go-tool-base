@@ -17,17 +17,16 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey)
     - **Module documentation:** [signing.go.phpboyscout.uk](https://signing.go.phpboyscout.uk)
 
-    The `gtb` CLI behaviour is unchanged, only the Go import path moved.
     The change is relevant to anyone writing Go against the package.
 
-## How `gtb` uses it
+## How sigillum uses it
 
 Mints an ASCII-armored OpenPGP public key from any `crypto.Signer` whose
 `Public()` returns `*rsa.PublicKey`, so an opaque HSM-backed signer (AWS KMS,
-GCP KMS, YubiKey) works without the private key ever leaving the HSM. Inside
-the `gtb` binary it backs `gtb keys mint`, `gtb keys generate` (RSA path),
-`gtb keys wkd` (Web Key Directory tree generation), and the `DetachSign` half
-of `gtb sign` (the per-release `checksums.txt` → `checksums.txt.sig` step).
+GCP KMS, YubiKey) works without the private key ever leaving the HSM. In
+the [sigillum](https://sigillum.phpboyscout.uk) binary it backs `sigillum keys mint`, `sigillum keys generate` (RSA path),
+`sigillum keys wkd` (Web Key Directory tree generation), and the `DetachSign` half
+of `sigillum sign` (the per-release `checksums.txt` → `checksums.txt.sig` step).
 The full API reference, algorithm/version details, reproducibility notes, and
 worked examples live in the
 [signing module documentation](https://signing.go.phpboyscout.uk) and on
@@ -43,4 +42,4 @@ For the operator-facing recipes, see:
 
 - [Release-binary signing concept](../concepts/release-binary-signing.md): the big-picture story
 - [`signing`](signing.md): the backend registry that drives
-  `gtb keys mint`
+  `sigillum keys mint`

@@ -127,11 +127,11 @@ A protected command is refused by `enable/disable mcp`, unprotect it first.
 
 The per-command decision lives in a generated command's own `cmd.go`, so it
 cannot reach a command gtb did not generate: a built-in such as `update` or
-`config trust`, or one a module attaches such as `sign`. Those are withheld by
-path:
+`config trust`, or one a module attaches with `gtb attach command`. Those are
+withheld by path:
 
 ```bash
-gtb disable mcp sign config/trust update
+gtb disable mcp config/trust update
 ```
 
 Each path goes on `properties.mcp.withhold` in the manifest, and the root is

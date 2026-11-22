@@ -26,7 +26,7 @@ type cliWorld struct {
 	stderr     string
 	exitCode   int
 	envVars    map[string]string
-	keysDir    string // scratch dir for `gtb keys *` outputs; {keys_dir} placeholder
+	keysDir    string // scratch output dir; {keys_dir} placeholder
 	projectDir string // repo-root dir holding a project-local .gtb.yaml; sets cmd.Dir
 }
 
@@ -93,7 +93,6 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a config file with no log\.level key$`, aConfigFileWithNoLogLevelKey)
 	ctx.Step(`^a config file exists with:$`, aTemporaryDirectoryWithConfigFile)
 	ctx.Step(`^a temporary keys directory$`, aTemporaryKeysDirectory)
-	ctx.Step(`^an RSA keypair has been generated as "([^"]*)"$`, anRSAKeypairHasBeenGeneratedAs)
 
 	// --- When ---
 	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
@@ -320,9 +319,7 @@ func iRunGTBWith(ctx context.Context, args string) context.Context {
 		args = strings.ReplaceAll(args, "{init_dir}", w.initDir)
 	}
 
-	// Substitute {keys_dir} placeholder with the keys scratch directory.
-	// Used by features/cli/keys.feature for outputs of `gtb keys generate`
-	// / `keys mint` / `keys wkd`.
+	// Substitute {keys_dir} placeholder with the scratch output directory.
 	if w.keysDir != "" {
 		args = strings.ReplaceAll(args, "{keys_dir}", w.keysDir)
 	}
@@ -683,10 +680,10 @@ func theScenarioConfigDoesNotContain(ctx context.Context, substr string) error {
 	return nil
 }
 
-// --- `gtb keys` helpers ---------------------------------------------
+// --- scratch output directory helpers -------------------------------
 
-// aTemporaryKeysDirectory provisions an isolated scratch dir for
-// `gtb keys *` outputs. Referenced by the `{keys_dir}` placeholder in
+// aTemporaryKeysDirectory provisions an isolated scratch output dir,
+// named for the signing scenarios that first used it. Referenced by the `{keys_dir}` placeholder in
 // `I run gtb with "..."` steps. Cleaned up in the scenario After hook.
 func aTemporaryKeysDirectory(ctx context.Context) (context.Context, error) {
 	w := getCLIWorld(ctx)
@@ -732,36 +729,4 @@ func theFileInKeysDirContains(ctx context.Context, path, substr string) error {
 	}
 
 	return nil
-}
-
-// anRSAKeypairHasBeenGeneratedAs invokes `gtb keys generate
-// --algorithm rsa` to seed a pair of `<basename>.asc` / `<basename>.pem`
-// files for subsequent mint / wkd scenarios. Smaller key (2048) for
-// test speed; cryptographic-strength behaviour belongs in unit tests.
-func anRSAKeypairHasBeenGeneratedAs(ctx context.Context, basename string) (context.Context, error) {
-	w := getCLIWorld(ctx)
-
-	parts := []string{
-		"keys", "generate",
-		"--algorithm", "rsa",
-		"--rsa-bits", "2048",
-		"--name", "Test",
-		"--email", "test@example.org",
-		"--output", filepath.Join(w.keysDir, basename+".asc"),
-		"--private-output", filepath.Join(w.keysDir, basename+".pem"),
-		"--ci",
-		"--config", filepath.Join(w.configDir, "config.yaml"),
-	}
-
-	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args derived from Gherkin step
-
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return ctx, fmt.Errorf("seed RSA keypair %q failed: %w\nstdout: %s\nstderr: %s", basename, err, stdout.String(), stderr.String())
-	}
-
-	return ctx, nil
 }
