@@ -100,7 +100,9 @@ func emitPathList(cmd *cobra.Command, files []string, target string) error {
 	format, _ := cmd.Flags().GetString("output")
 	tw := output.New(output.WithWriter(cmd.OutOrStdout()), output.WithFormat(output.Format(format)))
 
-	if err := tw.Table(rows); err != nil {
+	// Never cut: a path with "..." in it can't be used, and this output is
+	// often piped, where go/output still assumes an 80-column terminal.
+	if err := tw.Table(rows, output.WithNoTruncation()); err != nil {
 		return err
 	}
 

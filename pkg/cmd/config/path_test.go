@@ -77,6 +77,25 @@ func TestCmdPath_MultiFileMergeOrder(t *testing.T) {
 	assert.Less(t, strings.Index(out, first), strings.Index(out, second))
 }
 
+// TestCmdPath_KeepsALongPathWhole: the text table never cuts a path, however
+// narrow the terminal. A path printed with "..." in it is no path at all, and
+// the output is often piped (#183, #211).
+func TestCmdPath_KeepsALongPathWhole(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	path := "/" + strings.Repeat("a-deeply-nested-directory/", 5) + "config.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
+
+	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), path))
+	require.NoError(t, err)
+
+	out := runPath(t, &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}}, "text")
+	assert.Contains(t, out, path)
+	assert.Contains(t, out, "contributing")
+	assert.Contains(t, out, "writable")
+}
+
 func TestCmdPath_NoFile(t *testing.T) {
 	// Not parallel: pins HOME so the default writable path is deterministic
 	// (and any accidental write would land on the memmap FS, not a real home).
