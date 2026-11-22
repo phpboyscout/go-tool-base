@@ -303,7 +303,7 @@ osv-scanner:
 # its own fixture, so this is the only job that sees the real one (#39).
 gtb-embedded-assets:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -327,7 +327,7 @@ gtb-embedded-assets:
 # job runs there for the same reason.
 generated-project-builds:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -342,7 +342,7 @@ generated-project-builds:
 # /etc/passwd in a chroot. It fails rather than skips under CI.
 home-resolution:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -359,7 +359,7 @@ home-resolution:
 # miss on the MR that caused it.
 go-work-sync:
   stage: lint
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -381,7 +381,7 @@ go-work-sync:
 
 apidiff:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -410,7 +410,7 @@ apidiff:
 # package to .coverage-policy.yaml `excluded:` with a rationale.
 coverage-policy:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.11
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   # Reads go-test's cover.out rather than running the module's tests a second
   # time (cicd spec 0079 D8). `optional: true` so a drift between this rule and
   # go-test's `changes` surfaces as this job failing with a reason, rather than
