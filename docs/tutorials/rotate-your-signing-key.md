@@ -66,6 +66,8 @@ gpg --show-keys --with-colons signing-key-v1.asc | \
   `internal/trustkeys/authority/`. A minisign manifest authority in
   `internal/trustkeys/rotation/`, if your tool has one, isn't part of this
   procedure and stays in the safe.
+- **gtb v0.50.4 or later**, for the `gtb enable signing` steps. Earlier
+  releases don't give a generated tool its `authority/` directory.
 - **sigillum.** The `keys` and `sign` commands below use the flags of sigillum **v0.6.0**,
   with local keys standing in for KMS. Install it with
   `go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`. They used to be
@@ -184,10 +186,17 @@ In your tool, replace the embedded keys with the new-identity set and point it
 at the new bucket:
 
 ```bash
+gtb enable signing --email release-v2@acme.dev
 cp signing-key-v1.asc signing-key-v2.asc internal/trustkeys/keys/
 cp rotation-authority.asc internal/trustkeys/authority/
-gtb enable signing --email release-v2@acme.dev
+rm -f internal/trustkeys/keys/rotation-authority.asc
 ```
+
+`gtb enable signing` runs first because, on a tool scaffolded before v0.50.4,
+it's what creates `authority/`. The `rm` clears the copy an older version of
+[Require signed updates](require-signed-updates.md) put in `keys/`. A key in
+both directories counts twice in the embedded set, which then can't match the
+new bucket, and every copy of that release would refuse to update.
 
 The re-minted v1 replaces the old file. It's the same key, so the fingerprint
 set is v1, v2 and the rotation authority, which is exactly what the new bucket
