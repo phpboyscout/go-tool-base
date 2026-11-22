@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
@@ -38,6 +39,18 @@ const (
 // network and no forge.
 const staticChannelEnv = "GTB_E2E_STATIC_CHANNEL"
 
+// staticReleaseKeyEnv and staticAuthorityEnv carry the armored release key
+// this binary trusts and the minisign rotation authority, as a shipped binary
+// embeds them. The rotation scenarios set both, so an update verifies
+// signatures and applies a rotation manifest (spec 0101).
+const (
+	staticReleaseKeyEnv = "GTB_E2E_STATIC_RELEASE_KEY"
+	staticAuthorityEnv  = "GTB_E2E_STATIC_ROTATION_AUTHORITY"
+)
+
+// exitBrokenScenario is the exit code for scenario variables that disagree.
+const exitBrokenScenario = 2
+
 // applyReleaseStub wires a hermetic release source onto the tool when one of
 // the scenario variables is set, pinning a deterministic current version so
 // update scenarios run without a network: an in-memory forge double for
@@ -47,6 +60,7 @@ func applyReleaseStub(p *props.Props) {
 	if base := os.Getenv(staticChannelEnv); base != "" {
 		p.Tool.ReleaseSource = props.ReleaseSource{Type: props.ReleaseSourceStatic, BaseURL: base}
 		p.Version = pkgversion.NewInfo(stubCurrentVersion, "", "")
+		applyStaticTrust(p, os.Getenv(staticReleaseKeyEnv), os.Getenv(staticAuthorityEnv))
 
 		return
 	}
@@ -177,4 +191,23 @@ func armoredPublicKey(entity *openpgp.Entity) []byte {
 	}
 
 	return buf.Bytes()
+}
+
+// applyStaticTrust embeds the keys and requires a signature, as a shipped
+// binary does. One key without the other is a broken scenario, so the binary
+// stops rather than updating with half its trust.
+func applyStaticTrust(p *props.Props, releaseKey, authority string) {
+	if releaseKey == "" && authority == "" {
+		return
+	}
+
+	if releaseKey == "" || authority == "" {
+		_, _ = fmt.Fprintln(os.Stderr, staticReleaseKeyEnv+" and "+staticAuthorityEnv+" are set together")
+
+		os.Exit(exitBrokenScenario)
+	}
+
+	verify.DefaultRequireSignature = true
+	p.Tool.Signing.EmbeddedKeys = [][]byte{[]byte(releaseKey)}
+	p.Tool.Signing.RotationAuthorityKeys = []string{authority}
 }

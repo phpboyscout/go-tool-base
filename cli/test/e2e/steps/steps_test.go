@@ -37,6 +37,7 @@ func initializeScenario(ctx *godog.ScenarioContext) {
 	initControlsSteps(ctx)
 	initCLISteps(ctx)
 	initStaticChannelSteps(ctx)
+	initRotationSteps(ctx)
 	initChatSteps(ctx)
 	initSignalSteps(ctx)
 	initGeneratorSteps(ctx)
