@@ -340,9 +340,14 @@ generated-project-builds:
 # home-resolution — where a release build finds the user's home. The matrix
 # compiles its own probe with CGO_ENABLED=0, matching .goreleaser.yaml, and swaps
 # /etc/passwd in a chroot. It fails rather than skips under CI.
+#
+# Pinned to a hosted amd64 runner: the chroot has no /proc, and an amd64
+# container on an Apple-silicon runner runs under Rosetta, which needs
+# /proc/self/exe and dies before the probe starts (#184).
 home-resolution:
   stage: test
   image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
+  tags: [saas-linux-small-amd64]
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
