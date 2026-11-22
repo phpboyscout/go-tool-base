@@ -76,7 +76,7 @@ func (s skeletonSync) apply(rel string, content []byte) error {
 			return err
 		}
 
-		delete(s.hashes, hashKey(rel))
+		delete(s.hashes, rel)
 
 		return nil
 	}
@@ -89,7 +89,7 @@ func (s skeletonSync) apply(rel string, content []byte) error {
 		return errors.Newf("failed to write %s: %w", rel, err)
 	}
 
-	s.hashes[hashKey(rel)] = calculateHash(content)
+	s.hashes[rel] = calculateHash(content)
 
 	return nil
 }
@@ -106,8 +106,8 @@ func (s skeletonSync) settled(rel string, content []byte) bool {
 
 	switch {
 	case content != nil && bytes.Equal(existing, content):
-		s.hashes[hashKey(rel)] = calculateHash(content)
-	case s.hashes[hashKey(rel)] != calculateHash(existing):
+		s.hashes[rel] = calculateHash(content)
+	case s.hashes[rel] != calculateHash(existing):
 		// Not what gtb last recorded, so the developer's.
 		s.g.props.Logger.Warn(rel + " was edited by hand, so it was left as it is; gtb regenerate project shows the change and asks")
 	default:
@@ -120,7 +120,7 @@ func (s skeletonSync) settled(rel string, content []byte) bool {
 func (s skeletonSync) absentSettled(full, rel string, content []byte) bool {
 	switch {
 	case content == nil:
-		delete(s.hashes, hashKey(rel))
+		delete(s.hashes, rel)
 	case s.hasOverlays:
 		// An overlay's replaces: may have removed it on purpose, and set does
 		// not resolve overlays (spec 0218, out of scope).
@@ -131,12 +131,6 @@ func (s skeletonSync) absentSettled(full, rel string, content []byte) bool {
 	}
 
 	return true
-}
-
-// hashKey is rel as regenerate records it in the manifest's hashes: an OS
-// path, so the two agree on every platform.
-func hashKey(rel string) string {
-	return filepath.FromSlash(rel)
 }
 
 // renderSkeleton renders the embedded skeleton for m in memory, keyed by

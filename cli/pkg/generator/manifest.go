@@ -45,7 +45,29 @@ func DecodeManifestFile(fs afero.Fs, manifestPath string) (*Manifest, error) {
 		return nil, errors.Newf("failed to unmarshal manifest: %w", err)
 	}
 
+	m.slashHashKeys()
+
 	return &m, nil
+}
+
+// slashHashKeys rewrites the backslash-separated keys a manifest regenerated
+// on Windows recorded (#191), so the same project reads its hashes on any OS.
+// filepath.ToSlash is a no-op off Windows, hence the literal replace. Where
+// both forms are present the slash one wins, being the form gtb reads and
+// writes.
+func (m *Manifest) slashHashKeys() {
+	for key, hash := range m.Hashes {
+		slashed := strings.ReplaceAll(key, `\`, "/")
+		if slashed == key {
+			continue
+		}
+
+		delete(m.Hashes, key)
+
+		if _, newer := m.Hashes[slashed]; !newer {
+			m.Hashes[slashed] = hash
+		}
+	}
 }
 
 // EncodeManifestFile serialises m to the given manifest.yaml path on fs at the

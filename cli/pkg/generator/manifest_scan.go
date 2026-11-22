@@ -50,6 +50,8 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 			return errors.Newf("failed to unmarshal manifest: %w", err)
 		}
 
+		m.slashHashKeys()
+
 		manifestExisted = true
 	} else if !os.IsNotExist(readErr) {
 		return errors.Newf("failed to read manifest: %w", readErr)
