@@ -3,8 +3,10 @@ package static
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"syscall"
 
 	"gitlab.com/phpboyscout/go/errors"
 )
@@ -35,6 +37,8 @@ var (
 	ErrBrokenChain = errors.NewSentinel("gtb.release.static.broken_chain", "the release chain does not resolve")
 	// ErrTooLarge: a document exceeded its bound.
 	ErrTooLarge = errors.NewSentinel("gtb.release.static.too_large", "a channel document exceeded its size bound")
+	// ErrUnreachable: no answer came back from the channel's host at all.
+	ErrUnreachable = errors.NewSentinel("gtb.release.static.unreachable", "the release channel could not be reached")
 	// ErrUnexpectedStatus: a status that is neither success nor 404.
 	ErrUnexpectedStatus = errors.NewSentinel("gtb.release.static.unexpected_status", "the channel answered with an unexpected HTTP status")
 )
@@ -229,6 +233,10 @@ func (c *Channel) get(ctx context.Context, rawURL string) (*http.Response, error
 			return nil, escaped.Err
 		}
 
+		if ctx.Err() == nil && gotNoAnswer(err) {
+			return nil, errors.Newf("fetching %s: %w: %w", rawURL, ErrUnreachable, err)
+		}
+
 		return nil, errors.Wrapf(err, "fetching %s", rawURL)
 	}
 
@@ -244,4 +252,25 @@ func (c *Channel) get(ctx context.Context, rawURL string) (*http.Response, error
 
 		return nil, errors.Wrapf(ErrUnexpectedStatus, "%s: HTTP %d", rawURL, resp.StatusCode)
 	}
+}
+
+// gotNoAnswer is true only for failures where the host never answered. A TLS
+// or certificate failure means a host did answer, so it is left out: telling
+// that user to check their connection would send them the wrong way.
+func gotNoAnswer(err error) bool {
+	if _, ok := errors.AsType[*net.DNSError](err); ok {
+		return true
+	}
+
+	if opErr, ok := errors.AsType[*net.OpError](err); ok && opErr.Op == "dial" {
+		return true
+	}
+
+	if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ECONNRESET) {
+		return true
+	}
+
+	netErr, ok := errors.AsType[net.Error](err)
+
+	return ok && netErr.Timeout()
 }
