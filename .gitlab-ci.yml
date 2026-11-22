@@ -224,7 +224,7 @@ goreleaser:
 # 0212), kept identical to it.
 homebrew-tap:
   stage: release
-  image: registry.gitlab.com/phpboyscout/images/ci-base:v0.3.5
+  image: registry.gitlab.com/phpboyscout/images/ci-base:v0.3.6
   needs:
     - job: goreleaser
       artifacts: true
