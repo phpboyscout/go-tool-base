@@ -536,3 +536,83 @@ func TestRegenerateConflicts_CommandsIndexHashIsPersisted(t *testing.T) {
 	assert.Equal(t, CalculateHash(written), readIssue13Manifest(t, fs).Hashes[idx],
 		"the rewritten index must not be left diverged from its recorded hash")
 }
+
+// An ignored file is never written, so refreshing its hash from disk adopts
+// the developer's edit: removing the rule later found it unmodified and
+// overwrote it without asking (#161).
+func TestRegenerateConflicts_IgnoredSkeletonFileKeepsItsStoredHashAfterPostProcessing(t *testing.T) {
+	t.Parallel()
+
+	const rel = ".goreleaser.yaml"
+
+	g, fs, _ := newIssue13Project(t, "ask", rel+"\n")
+
+	stored := "cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe"
+	require.NoError(t, afero.WriteFile(fs, "/work/"+rel, []byte("hand-edited\n"), 0o644))
+
+	m := readIssue13Manifest(t, fs)
+	m.Hashes = map[string]string{rel: stored}
+	raw, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/manifest.yaml", raw, 0o644))
+
+	require.NoError(t, g.refreshProjectFileHashes("/work", map[string]string{rel: stored}))
+
+	assert.Equal(t, stored, readIssue13Manifest(t, fs).Hashes[rel],
+		"an ignored file must keep its stored hash, so un-ignoring it still conflicts")
+}
+
+const markedIndexWithProse = "# CLI\n\n<!-- gtb:commands:start -->\n| a | b |\n<!-- gtb:commands:end -->\n\n## Hand-written\n\nProse.\n"
+
+// A commands index holding its markers is managed between them only. Whether
+// its stored hash is stale (it conflicted every run) or was adopted by the
+// index rehash (it was overwritten), regenerate leaves the page alone (#161).
+func TestRegenerateConflicts_AMarkedCommandsIndexIsLeftToTheIndexUpdate(t *testing.T) {
+	t.Parallel()
+
+	for name, stored := range map[string]string{
+		"stale hash":   "cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe",
+		"adopted hash": CalculateHash([]byte(markedIndexWithProse)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fs, buf := newIssue13Project(t, "deny", "")
+
+			const rel = "docs/reference/cli/index.md"
+
+			require.NoError(t, fs.MkdirAll("/work/docs/reference/cli", 0o755))
+			require.NoError(t, afero.WriteFile(fs, "/work/"+rel, []byte(markedIndexWithProse), 0o644))
+
+			hash, err := g.writeRenderedSkeletonFile("/work/"+rel, rel, []byte("# stub\n"), map[string]string{rel: stored})
+			require.NoError(t, err)
+
+			got, err := afero.ReadFile(fs, "/work/"+rel)
+			require.NoError(t, err)
+			assert.Equal(t, markedIndexWithProse, string(got), "the prose around the markers is kept")
+			assert.Equal(t, CalculateHash(got), hash)
+			assert.False(t, buf.ContainsLevel(logger.WarnLevel, "conflict detected"), "a marked index is not a conflict")
+		})
+	}
+}
+
+// Without its markers the page is an ordinary generated file again, so an
+// edit to it is still protected as a conflict.
+func TestRegenerateConflicts_AnUnmarkedCommandsIndexStillConflicts(t *testing.T) {
+	t.Parallel()
+
+	g, fs, buf := newIssue13Project(t, "deny", "")
+
+	const rel = "docs/reference/cli/index.md"
+
+	require.NoError(t, fs.MkdirAll("/work/docs/reference/cli", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "/work/"+rel, []byte("# CLI\n\nHand-written, no markers.\n"), 0o644))
+
+	_, err := g.writeRenderedSkeletonFile("/work/"+rel, rel, []byte("# stub\n"), map[string]string{rel: "cafebabe"})
+	require.NoError(t, err)
+
+	got, err := afero.ReadFile(fs, "/work/"+rel)
+	require.NoError(t, err)
+	assert.Equal(t, "# CLI\n\nHand-written, no markers.\n", string(got))
+	assert.True(t, buf.ContainsLevel(logger.WarnLevel, "conflict detected"))
+}

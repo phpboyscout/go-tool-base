@@ -296,7 +296,9 @@ handled specially so hand-added prose is never silently discarded:
 
   Only the region **between** the markers is rewritten. Any prose you add before
   or after them is preserved. Scaffolded projects ship the index with an empty
-  marker pair already in place.
+  marker pair already in place. `regenerate project` leaves an index holding its
+  markers as it stands rather than comparing it with the scaffold, so the prose
+  around them never raises a conflict there either.
 
 - If the on-disk index has **diverged** from its generated form (the markers were
   removed and hand-written prose is present), the generator leaves it untouched
