@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 )
@@ -222,6 +223,61 @@ func TestChannel_RefusesWhatItCannotTrust(t *testing.T) {
 		_, err = ch.Latest(context.Background())
 		require.ErrorIs(t, err, static.ErrNoReleasesPublished)
 		assert.Contains(t, err.Error(), "/acme/tool/latest.json", "the URL a person would check is in the message")
+	})
+
+	t.Run("a host that cannot be reached is unreachable, with the URL", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newChannelServer(t)
+		base := srv.base()
+		srv.Close()
+
+		ch, err := static.New(base, srv.Client())
+		require.NoError(t, err)
+
+		_, err = ch.Latest(context.Background())
+		require.ErrorIs(t, err, static.ErrUnreachable)
+		assert.Contains(t, err.Error(), "/acme/tool/latest.json")
+	})
+
+	t.Run("a cancelled request is not reported as unreachable", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newChannelServer(t)
+
+		ch, err := static.New(srv.base(), srv.Client())
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithCancelCause(context.Background())
+		cancel(errors.New("the user pressed ctrl-c"))
+
+		_, err = ch.Latest(ctx)
+		require.Error(t, err)
+		assert.NotErrorIs(t, err, static.ErrUnreachable)
+	})
+
+	t.Run("a host that answered is not unreachable", func(t *testing.T) {
+		t.Parallel()
+
+		untrusted := httptest.NewTLSServer(http.NotFoundHandler())
+		t.Cleanup(untrusted.Close)
+
+		failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadGateway)
+		}))
+		t.Cleanup(failing.Close)
+
+		for name, base := range map[string]string{
+			"an untrusted certificate": untrusted.URL + "/acme/tool",
+			"a server error":           failing.URL + "/acme/tool",
+		} {
+			ch, err := static.New(base, &http.Client{})
+			require.NoError(t, err, name)
+
+			_, err = ch.Latest(context.Background())
+			require.Error(t, err, name)
+			assert.NotErrorIs(t, err, static.ErrUnreachable, name)
+		}
 	})
 
 	t.Run("a pointer whose manifest does not resolve names both URLs", func(t *testing.T) {
