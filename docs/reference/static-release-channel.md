@@ -104,6 +104,8 @@ Downloads are ordered by `os` then `arch`, so the document is stable whatever or
 
 A reader trusts nothing in a document that would take it off the base: every URL must share the base URL's scheme and host and sit under its path. `https` cannot be walked down to `http`.
 
+Every request a gtb tool makes to the channel, from `update` and from `doctor`, sends `User-Agent: <tool>/<version>`, for example `mytool/v1.4.2`. That lets the store's request analytics count update checks per release. Nothing else identifies the caller, and a build with no version stamped sends the tool name alone. Characters a header token can't carry are replaced with `-`.
+
 ## Publishing, in order
 
 The order is what keeps a reader safe at every instant:

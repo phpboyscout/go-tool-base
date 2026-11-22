@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	goversion "go/version"
+	"net/http"
 	"os"
 	"runtime"
 	"slices"
@@ -18,7 +19,6 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
-	"gitlab.com/phpboyscout/go/httpclient"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
@@ -103,7 +103,7 @@ func checkReleaseSource(ctx context.Context, props *p.Props) CheckResult {
 
 	sourceType := props.Tool.ReleaseSource.Type
 	if sourceType == p.ReleaseSourceStatic {
-		return checkStaticReleaseSource(ctx, props.Tool.ReleaseSource.BaseURL)
+		return checkStaticReleaseSource(ctx, props.Tool.ReleaseSource.BaseURL, setup.ReleaseHTTPClient(props))
 	}
 
 	if forgeapi.Registered(sourceType) {
@@ -127,10 +127,10 @@ const staticPointerTimeout = 5 * time.Second
 // names, and says which tag is current. Nothing published yet is a warning
 // with the URL a person would look at; a pointer whose manifest does not
 // resolve is a failure naming both.
-func checkStaticReleaseSource(ctx context.Context, baseURL string) CheckResult {
+func checkStaticReleaseSource(ctx context.Context, baseURL string, client *http.Client) CheckResult {
 	const name = "Release source"
 
-	ch, err := static.New(baseURL, httpclient.NewClient())
+	ch, err := static.New(baseURL, client)
 	if err != nil {
 		return CheckResult{Name: name, Status: CheckFail, Message: "static channel: " + err.Error()}
 	}

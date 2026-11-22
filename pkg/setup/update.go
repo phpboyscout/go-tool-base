@@ -567,7 +567,7 @@ func (s *SelfUpdater) resolveChannel(ctx context.Context, p *props.Props) error 
 	}
 
 	if p.Tool.ReleaseSource.Type == props.ReleaseSourceStatic && s.releaseClient == nil && p.Tool.ReleaseProvider == nil {
-		ch, err := newStaticChannel(p.Tool.ReleaseSource.BaseURL, httpclient.NewClient())
+		ch, err := newStaticChannel(p.Tool.ReleaseSource.BaseURL, ReleaseHTTPClient(p))
 		if err != nil {
 			return errors.WithHintf(err,
 				"The tool's release source is the static channel, whose one setting is the base URL its "+
