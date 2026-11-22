@@ -50,7 +50,13 @@ func (c documentCounter) Decode(path string, src []byte) ([]map[string]any, erro
 // PreservesComments implements config.CommentPreservingCodec, which the
 // wrapper would otherwise hide.
 func (c documentCounter) PreservesComments() bool {
-	cp, ok := c.base.(config.CommentPreservingCodec)
+	return preservesComments(c.base)
+}
+
+// preservesComments answers config.CommentPreservingCodec for the codec a
+// wrapper decorates, so wrapping never changes go/config's capability report.
+func preservesComments(codec config.Codec) bool {
+	cp, ok := codec.(config.CommentPreservingCodec)
 
 	return ok && cp.PreservesComments()
 }

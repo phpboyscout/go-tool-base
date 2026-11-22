@@ -144,6 +144,9 @@ type trustFilterCodec struct {
 	hint    string
 }
 
+// PreservesComments implements config.CommentPreservingCodec.
+func (c trustFilterCodec) PreservesComments() bool { return preservesComments(c.base) }
+
 // Decode implements config.Codec.
 func (c trustFilterCodec) Decode(path string, src []byte) ([]map[string]any, error) {
 	docs, err := c.base.Decode(path, src)
@@ -205,6 +208,9 @@ type editingTrustFilter struct {
 	filter trustFilterCodec
 }
 
+// PreservesComments implements config.CommentPreservingCodec.
+func (f editingTrustFilter) PreservesComments() bool { return f.filter.PreservesComments() }
+
 // Decode implements config.Codec.
 func (f editingTrustFilter) Decode(path string, src []byte) ([]map[string]any, error) {
 	return f.filter.Decode(path, src)
@@ -263,6 +269,9 @@ type sourcePointerFilter struct {
 	path string
 }
 
+// PreservesComments implements config.CommentPreservingCodec.
+func (f sourcePointerFilter) PreservesComments() bool { return preservesComments(f.base) }
+
 // Decode implements config.Codec.
 func (f sourcePointerFilter) Decode(path string, src []byte) ([]map[string]any, error) {
 	docs, err := f.base.Decode(path, src)
@@ -284,6 +293,9 @@ type editingSourcePointerFilter struct {
 	config.EditingCodec
 	filter sourcePointerFilter
 }
+
+// PreservesComments implements config.CommentPreservingCodec.
+func (f editingSourcePointerFilter) PreservesComments() bool { return f.filter.PreservesComments() }
 
 // Decode implements config.Codec.
 func (f editingSourcePointerFilter) Decode(path string, src []byte) ([]map[string]any, error) {
