@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // On the static channel (spec 0203) the Release source check asks no
@@ -72,4 +74,33 @@ func TestCheckReleaseSource_StaticChannel(t *testing.T) {
 	res = checkReleaseSource(context.Background(), broken)
 	assert.Equal(t, CheckFail, res.Status)
 	assert.Contains(t, res.Message, "absolute http(s) URL")
+}
+
+// doctor reads the pointer with the updater's client, so a store counting
+// update checks sees doctor's reads under the same name (go-tool-base#201).
+func TestCheckReleaseSource_StaticChannelSendsTheReleaseUserAgent(t *testing.T) {
+	t.Parallel()
+
+	got := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case got <- r.UserAgent():
+		default:
+		}
+
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	checkReleaseSource(context.Background(), &p.Props{
+		Tool:    p.Tool{Name: "widget", ReleaseSource: p.ReleaseSource{Type: p.ReleaseSourceStatic, BaseURL: srv.URL}},
+		Version: version.Info{Version: "v1.2.3"},
+	})
+
+	select {
+	case ua := <-got:
+		assert.Equal(t, "widget/v1.2.3", ua)
+	case <-time.After(5 * time.Second):
+		t.Fatal("doctor sent no request to the release server")
+	}
 }
