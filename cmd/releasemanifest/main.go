@@ -54,6 +54,9 @@ const (
 	exitUsage    = 2
 )
 
+var errManifestTooLarge = errors.NewSentinel("gtb.releasemanifest.manifest_too_large",
+	"the manifest is larger than the channel reader accepts; shorten the release's notes")
+
 func main() {
 	var (
 		dist      string
@@ -131,7 +134,18 @@ func run(dist, baseURL, previous string, notes notesSource) error {
 // prerelease: until channels exist the one pointer is every user's latest
 // (spec 0104 D12). It reports whether the pointer was written.
 func writeDocuments(dist string, m static.Manifest, p static.Pointer) (bool, error) {
-	if err := writeDocument(filepath.Join(dist, static.ManifestFile), m); err != nil {
+	raw, err := encodeDocument(m)
+	if err != nil {
+		return false, err
+	}
+
+	// The reader refuses anything larger, so publishing it would ship a
+	// release that update cannot read.
+	if len(raw) > static.MaxManifestBytes {
+		return false, errors.Wrapf(errManifestTooLarge, "%d bytes, limit %d", len(raw), static.MaxManifestBytes)
+	}
+
+	if err := writeEncoded(filepath.Join(dist, static.ManifestFile), raw); err != nil {
 		return false, err
 	}
 
@@ -143,12 +157,25 @@ func writeDocuments(dist string, m static.Manifest, p static.Pointer) (bool, err
 }
 
 func writeDocument(path string, doc any) error {
-	raw, err := json.MarshalIndent(doc, "", "  ")
+	raw, err := encodeDocument(doc)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
-	return errors.Wrapf(os.WriteFile(path, append(raw, '\n'), documentMode), "writing %s", filepath.Base(path))
+	return writeEncoded(path, raw)
+}
+
+func encodeDocument(doc any) ([]byte, error) {
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return append(raw, '\n'), nil
+}
+
+func writeEncoded(path string, raw []byte) error {
+	return errors.Wrapf(os.WriteFile(path, raw, documentMode), "writing %s", filepath.Base(path))
 }
 
 // currentTag reads the pointer at baseURL and returns its tag, or "" when

@@ -523,3 +523,51 @@ func TestCheckRotation(t *testing.T) {
 		require.NoError(t, prepareRotation(t.TempDir(), "", t.TempDir(), now))
 	})
 }
+
+// A manifest the channel reader would refuse is not written: update would
+// fail on the release it describes (#188). The reader takes exactly
+// MaxManifestBytes, so that size is written and one byte more is not.
+func TestWriteDocuments_ManifestSizeBoundary(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		size    int
+		written bool
+	}{
+		{"at the limit", static.MaxManifestBytes, true},
+		{"a byte over", static.MaxManifestBytes + 1, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dist := fixtureDist(t)
+
+			m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", nil)
+			require.NoError(t, err)
+
+			m.Notes = "x"
+			raw, err := encodeDocument(m)
+			require.NoError(t, err)
+
+			m.Notes = strings.Repeat("x", 1+tc.size-len(raw))
+			raw, err = encodeDocument(m)
+			require.NoError(t, err)
+			require.Len(t, raw, tc.size)
+
+			_, err = writeDocuments(dist, m, p)
+			if tc.written {
+				require.NoError(t, err)
+				assert.FileExists(t, filepath.Join(dist, static.ManifestFile))
+
+				return
+			}
+
+			require.ErrorIs(t, err, errManifestTooLarge)
+			assert.NoFileExists(t, filepath.Join(dist, static.ManifestFile))
+			assert.NoFileExists(t, filepath.Join(dist, static.PointerFile))
+		})
+	}
+}

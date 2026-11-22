@@ -153,3 +153,49 @@ func TestNotesFromFile_Unreadable(t *testing.T) {
 	_, err := notesFromFile(filepath.Join(t.TempDir(), "absent.md"))("v1.2.0")
 	require.ErrorContains(t, err, "reading notes", "--notes names a file on purpose, so a missing one fails")
 }
+
+// TestChangelogSection_Edges pins the heading forms and note shapes a
+// changelog can carry (#188).
+func TestChangelogSection_Edges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, text, want string
+	}{
+		{
+			name: "a dated heading",
+			text: "## v1.2.0 (2026-11-20)\n\n- dated\n\n## v1.1.0\n",
+			want: "- dated",
+		},
+		{
+			name: "CRLF line endings",
+			text: "## v1.2.0\r\n\r\n- crlf\r\n\r\n## v1.1.0\r\n",
+			want: "- crlf",
+		},
+		{
+			name: "a colophon note's indented lines, fenced or not, stay in it",
+			text: "## v1.2.0\n\n- Upgrade first.\n\n  ```bash\n  ## not a heading\n  ```\n\n## v1.1.0\n- older\n",
+			want: "- Upgrade first.\n\n  ```bash\n  ## not a heading\n  ```",
+		},
+		{
+			name: "a fence left open does not pull in older releases",
+			text: "## v1.2.0\n\n- mine\n\n  ```bash\n  gtb update\n\n## v1.1.0\n\n- older\n\n  ```bash\n  x\n  ```\n\n## v1.0.0\n",
+			want: "- mine\n\n  ```bash\n  gtb update",
+		},
+		{
+			name: "a stray fence above the section does not hide it",
+			text: "## v1.3.0\n\n```rp-suffix\n\n## v1.2.0\n\n- mine\n\n## v1.1.0\n",
+			want: "- mine",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, found := changelogSection(tc.text, "v1.2.0")
+			assert.True(t, found)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

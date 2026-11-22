@@ -69,7 +69,9 @@ func notesFromChangelog(path string, warn io.Writer) notesSource {
 }
 
 // changelogSection is the body under tag's "## " heading, up to the next one,
-// with the heading itself left out because the updater prints its own.
+// with the heading itself left out because the updater prints its own. CRLF
+// endings read as LF. Fences are not tracked: colophon indents every line of a
+// note after its first, so no note line can start with "## ".
 func changelogSection(text, tag string) (string, bool) {
 	var (
 		body []string
@@ -77,6 +79,8 @@ func changelogSection(text, tag string) (string, bool) {
 	)
 
 	for line := range strings.SplitSeq(text, "\n") {
+		line = strings.TrimSuffix(line, "\r")
+
 		if strings.HasPrefix(line, "## ") {
 			if in {
 				break
