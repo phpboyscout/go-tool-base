@@ -48,10 +48,7 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 
 	// .gtb/ignore takes precedence over everything, including Overwrite:"allow".
 	if g.ignoreRules().IsIgnored(relPath) {
-		// Disabling has nothing to remove from a file that is not there.
-		if enable || exists {
-			g.adviseGoreleaserSigns(relPath, m, enable, "it is listed in .gtb/ignore")
-		}
+		g.adviseIgnoredGoreleaser(relPath, m, enable, exists)
 
 		return nil
 	}
@@ -78,12 +75,30 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	}
 
 	hasSigns := topLevelKeyPresent(root, "signs")
+	authorSigns := hasSigns && !bytes.Contains(content, []byte(goreleaserSignsMarker))
+
+	content, err = g.applyRotationWiring(fullPath, relPath, content, m, !authorSigns)
+	if err != nil {
+		return err
+	}
 
 	if enable {
 		return g.enableGoreleaserSigns(fullPath, relPath, content, m, hasSigns)
 	}
 
 	return g.disableGoreleaserSigns(fullPath, relPath, content, m, hasSigns)
+}
+
+// adviseIgnoredGoreleaser says what an ignored release config needs by hand.
+// Disabling has nothing to remove from a file that is not there.
+func (g *Generator) adviseIgnoredGoreleaser(relPath string, m *Manifest, enable, exists bool) {
+	if enable || exists {
+		g.adviseGoreleaserSigns(relPath, m, enable, "it is listed in .gtb/ignore")
+	}
+
+	if attachesRotationToRelease(m.ReleaseSource.Type, m.Properties.Signing) {
+		g.adviseRotationWiring(relPath, true)
+	}
 }
 
 // enableGoreleaserSigns injects the top-level signs: block into a parseable,

@@ -1,7 +1,5 @@
 package generator
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-
 // syncDerivedFromManifest is the one function that brings a project's
 // generated files into line with its manifest: the derived fields an older
 // manifest lacks, the root command, the entry point, version package and
@@ -40,7 +38,7 @@ func (g *Generator) syncDerivedFromManifest(m *Manifest) error {
 	// After every generated Go file is on disk, so the imports the seed reads
 	// are this run's (spec 0200 D2).
 	return g.seedGoMod(g.config.Path, manifestModulePath(*m), resolveGoVersion(m.Version.Go), g.currentVersion(),
-		m.ReleaseSource.Type == props.ReleaseSourceStatic)
+		usesReleaseManifestTool(m.ReleaseSource.Type, m.Properties.Signing))
 }
 
 // warnAboutManifest logs what ManifestWarnings has to say, once per run, on

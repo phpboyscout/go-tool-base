@@ -672,7 +672,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		return err
 	}
 
-	if err := g.seedGoMod(config.Path, data.ModulePath, data.GoVersion, data.GoToolBaseVersion, data.StaticChannel()); err != nil {
+	if err := g.seedGoMod(config.Path, data.ModulePath, data.GoVersion, data.GoToolBaseVersion, usesReleaseManifestTool(data.ReleaseProvider, data.Signing)); err != nil {
 		return err
 	}
 

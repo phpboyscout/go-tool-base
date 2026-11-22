@@ -7,6 +7,12 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
+{{- if .AttachesRotationToRelease }}
+    # A key-rotation manifest committed to release/rotation/ is checked against
+    # the rotation authority before anything is built, then attached to the
+    # release below (go-tool-base spec 0101 D12).
+    - go tool releasemanifest --verify-only --rotation release/rotation --rotation-authority internal/trustkeys/rotation
+{{- end }}
 
 builds:
 {{- if .HomebrewCask }}
@@ -126,6 +132,11 @@ release:
   # colophon creates the Release (with its changelog) when the
   # Release PR/MR is merged; this job only attaches the build artefacts.
   mode: keep-existing
+{{- if .AttachesRotationToRelease }}
+  extra_files:
+    # Matches nothing until a key-rotation manifest is in release/rotation/.
+    - glob: release/rotation/rotate-keys.json{,.minisig}
+{{- end }}
 {{ else -}}
 release:
   # Not hosted on a forge goreleaser can release to: there is no release

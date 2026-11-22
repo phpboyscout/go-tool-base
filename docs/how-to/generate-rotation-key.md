@@ -208,7 +208,72 @@ with `--backend local --key-id` pointing at the recovered PEM. It
 writes `rotate-keys.json` and `rotate-keys.json.minisig`, which add
 replacement release keys and, after a compromise, revoke the old one.
 Commit both files to `release/rotation/` in your repository, and every
-release from then on carries them. Each copy with this key embedded
+release from then on carries them, on the channels that can:
+
+- **The static channel** stages them into the release and lists them in
+  `release.json`.
+- **GitHub, on the forge channel,** attaches them to the release, once
+  signing is on. A goreleaser `before` hook checks them first, by the same
+  rules the static channel applies, and stops the release if they fail.
+- **GitLab, on the forge channel,** doesn't carry them yet. colophon creates
+  the release and links only what goreleaser recorded, and an uploaded extra
+  file isn't recorded
+  ([colophon#76](https://gitlab.com/phpboyscout/colophon/-/work_items/76)).
+  Until that lands, a GitLab project that may need to rotate should release on
+  the static channel.
+- **Gitea and Codeberg, on the forge channel,** don't carry them yet. gtb
+  attaches them on GitHub only
+  ([go-tool-base#221](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/221)).
+  Until that lands, a Gitea or Codeberg project that may need to rotate should
+  release on the static channel.
+- **Bitbucket** can't release on the forge channel, because goreleaser has no
+  Bitbucket release support.
+
+A signed project gets the two lines in `.goreleaser.yaml` from
+`gtb generate project`, and from `gtb regenerate project` when the file is
+unedited. `gtb enable signing` adds them to an edited file too, leaving the rest
+of it as it was, and `gtb disable signing` removes them. So a project whose
+regenerate kept its own `.goreleaser.yaml` picks them up by running
+`gtb enable signing` again. gtb leaves the file alone and prints both lines
+for you to add when it can't place them safely, which covers:
+
+- a file in `.gtb/ignore`, or one with a `signs:` block of your own;
+- a `before:` whose first entry isn't `hooks:`, or a `release:` that already
+  lists `extra_files`;
+- a `before:` or `release:` key written any other way: with anything after
+  the colon (a comment, an anchor, a flow-style value), quoted, behind a byte
+  order mark, or in a later YAML document;
+- a `before:` with no value, or hooks that aren't plain strings;
+- any edit that would change another value in the file, such as a
+  `release:` block ending in a `|+` scalar;
+- CRLF line endings, or a file without a final newline;
+- a file that has one of the two lines but not the other, or has their text
+  only in comments or anywhere other than `before.hooks` and
+  `release.extra_files`.
+
+The lines to add are:
+
+```yaml
+before:
+  hooks:
+    - go tool releasemanifest --verify-only --rotation release/rotation --rotation-authority internal/trustkeys/rotation
+
+release:
+  extra_files:
+    - glob: release/rotation/rotate-keys.json{,.minisig}
+```
+
+`gtb disable signing` removes only the lines gtb wrote, with their comments,
+and keeps any hooks or release files you added beside them. It leaves the
+file alone and prints both lines for you to remove when they no longer read
+exactly as gtb wrote them (you edited a line or its comment), or when taking
+them out would change anything else in the file. The CRLF, final-newline and
+later-document cases above apply to it too.
+
+`--verify-only` needs go-tool-base v0.53.0 or later in the project's `go.mod`,
+plus the `releasemanifest` line in its `tool` block, which a regenerate adds.
+
+Each copy with this key embedded
 applies the manifest on its next update, before it checks that
 release's signature, so a release signed by the replacement key
 installs on the same update.

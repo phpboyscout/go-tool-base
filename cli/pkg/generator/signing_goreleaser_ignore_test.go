@@ -242,9 +242,14 @@ func TestEnableSigning_InjectsIntoCustomisedNonIgnoredGoreleaser(t *testing.T) {
 	assert.Contains(t, string(got), "cmd: sigillum")
 	assert.Contains(t, string(got), `- "alias/acme-release-signing-v1"`)
 
-	// Everything before the appended block is byte-for-byte the original.
-	assert.Greater(t, len(string(got)), len(customisedNonIgnoredGoreleaser))
-	assert.Equal(t, customisedNonIgnoredGoreleaser, string(got)[:len(customisedNonIgnoredGoreleaser)],
+	// Apart from the rotation manifest's lines (#197), everything before the
+	// appended block is byte-for-byte the original.
+	assert.Contains(t, string(got), rotationHookBlock)
+	assert.Contains(t, string(got), rotationGlobBlock)
+	withoutRotation, ok := unspliceRotationWiring(got)
+	require.True(t, ok)
+	assert.Greater(t, len(withoutRotation), len(customisedNonIgnoredGoreleaser))
+	assert.Equal(t, customisedNonIgnoredGoreleaser, string(withoutRotation)[:len(customisedNonIgnoredGoreleaser)],
 		"safe injection must leave existing content byte-for-byte intact")
 
 	// The result must still be valid YAML.
@@ -295,6 +300,8 @@ func TestEnableSigning_AdvisesWhenSignsBlockPresent(t *testing.T) {
 		"expected a fail-loud advisory when a signs: block is already present")
 	assert.True(t, buf.Contains("cmd: sigillum"),
 		"advisory must print the exact signs: block for the user to paste")
+	assert.True(t, buf.Contains("add the rotation manifest's two lines by hand"),
+		"a file gtb leaves alone still hears what the rotation manifest needs")
 
 	// The rest of enable signing still proceeded.
 	assert.FileExists(t, filepath.Join(filepath.Dir(goreleaserPath), "internal", "trustkeys", "trustkeys.go"))

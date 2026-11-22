@@ -717,6 +717,27 @@ func (d skeletonTemplateData) HomebrewURLTemplate() string {
 // 0219 D1). GitHub waits on colophon#63.
 func (d skeletonTemplateData) AttachesAssetsAtTag() bool { return d.GitLabCI() }
 
+// AttachesRotationToRelease reports whether goreleaser attaches a committed
+// key-rotation manifest to the forge release itself (spec 0101 D12, #197).
+func (d skeletonTemplateData) AttachesRotationToRelease() bool {
+	return attachesRotationToRelease(d.ReleaseProvider, d.Signing)
+}
+
+// attachesRotationToRelease is true on GitHub's forge channel for a project
+// that signs. A GitLab release is created by colophon, which cannot link the
+// manifest yet (colophon#76), and the static channel stages it through
+// releasemanifest instead.
+func attachesRotationToRelease(releaseProvider string, signing ManifestSigning) bool {
+	return releaseProvider == string(forge.GithubFeature) && signing.SignsReleases()
+}
+
+// usesReleaseManifestTool reports whether a project runs cmd/releasemanifest:
+// the static channel builds its manifest with it, and a forge release that
+// attaches a rotation manifest verifies it with it first.
+func usesReleaseManifestTool(releaseProvider string, signing ManifestSigning) bool {
+	return releaseProvider == props.ReleaseSourceStatic || attachesRotationToRelease(releaseProvider, signing)
+}
+
 // GenericPackageUploadTarget is where goreleaser's uploads pipe puts each
 // artefact on the forge channel. It names the tool, not $CI_PROJECT_NAME,
 // because a repository can be named differently.
