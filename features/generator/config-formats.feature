@@ -16,7 +16,7 @@ Feature: A generated tool links the config formats it declares
     And the project manifest contains "format: toml"
     And the generated "cmd/feattool/config.go" file contains "gitlab.com/phpboyscout/go-tool-base/pkg/config/formats/toml"
     And the generated "cmd/feattool/config.go" file contains "gitlab.com/phpboyscout/go-tool-base/pkg/config/formats/dotenv"
-    And the generated "pkg/cmd/root/cmd.go" file contains "props.ConfigSpec{Format: \"toml\"}"
+    And the generated "pkg/cmd/root/cmd.go" file contains 'props.ConfigSpec{Format: "toml"}'
 
   Scenario: A tool that declares no format links none, and gtb set links one
     Given a freshly generated gtb project
