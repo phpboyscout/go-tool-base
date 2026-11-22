@@ -590,21 +590,64 @@ func ValidateReleaseSourceType(sourceType string) error {
 // ValidateReleaseBaseURL accepts the static channel's base URL the way a
 // chat provider endpoint is accepted (spec 0203 D1): absolute https, no
 // userinfo, no placeholder host. Plain http is refused, not warned; a tool
-// downloads executables from here.
+// downloads executables from here. Each refusal is worded for the release
+// store and quotes nothing of the URL, because a malformed one can still hold
+// a credential the parser didn't recognise as userinfo (#192).
 func ValidateReleaseBaseURL(baseURL string) error {
-	if baseURL == "" {
-		return rejectf("ReleaseBaseURL", "release base URL must not be empty", "")
-	}
-
-	if err := gochat.ValidateBaseURL(baseURL, false); err != nil {
-		return rejectf("ReleaseBaseURL", "release base URL: "+err.Error(), baseURL)
-	}
-
-	if u, err := url.Parse(baseURL); err != nil || u.RawQuery != "" || u.Fragment != "" {
-		return rejectf("ReleaseBaseURL", "release base URL must carry no query or fragment", baseURL)
+	if rule := releaseBaseURLRefusal(baseURL); rule != "" {
+		return rejectf("ReleaseBaseURL", rule, "")
 	}
 
 	return nil
+}
+
+// releaseBaseURLRefusal is why baseURL can't be a release base URL, or "" when
+// it can.
+func releaseBaseURLRefusal(baseURL string) string {
+	if baseURL == "" {
+		return "release base URL must not be empty"
+	}
+
+	if len(baseURL) > gochat.MaxBaseURLLength {
+		return fmt.Sprintf("release base URL is %d bytes, more than the %d allowed", len(baseURL), gochat.MaxBaseURLLength)
+	}
+
+	if strings.ContainsFunc(baseURL, func(r rune) bool { return r < 0x20 || r == 0x7F }) {
+		return "release base URL must not contain control characters"
+	}
+
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "release base URL is not a valid URL"
+	}
+
+	if u.User != nil {
+		return "release base URL must not carry credentials: a tool reads its releases anonymously"
+	}
+
+	if rule := releaseBaseURLShape(u); rule != "" {
+		return rule
+	}
+
+	if gochat.ValidateBaseURL(baseURL, false) != nil {
+		return "release base URL names a host releases can't be served from, such as a placeholder or reserved one; use the host your releases are uploaded to"
+	}
+
+	return ""
+}
+
+// releaseBaseURLShape is why u can't be a release base URL, or "" when it can.
+func releaseBaseURLShape(u *url.URL) string {
+	switch {
+	case !strings.EqualFold(u.Scheme, "https"):
+		return "release base URL must use https, because a tool downloads its executables from it"
+	case u.Host == "":
+		return "release base URL must name the release store's host"
+	case u.RawQuery != "" || u.Fragment != "":
+		return "release base URL must carry no query or fragment"
+	}
+
+	return ""
 }
 
 // HomebrewForge reports whether a project on backend can publish to a tap:

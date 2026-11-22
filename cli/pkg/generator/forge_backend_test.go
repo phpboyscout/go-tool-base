@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -100,9 +101,42 @@ func TestValidateReleaseBaseURL(t *testing.T) {
 	t.Parallel()
 
 	require.NoError(t, ValidateReleaseBaseURL("https://pkg.acme.dev/tool"))
+	require.NoError(t, ValidateReleaseBaseURL("https://pkg.acme.dev/tool\u0085"), "C1 characters are accepted, as chat accepts them")
 
-	for _, bad := range []string{"", "http://pkg.acme.dev/tool", "https://user:pw@pkg.acme.dev/tool", "https://example.com/tool", "https://pkg.acme.dev/tool?x=1", "pkg.acme.dev/tool"} {
-		require.Error(t, ValidateReleaseBaseURL(bad), bad)
+	refusals := []struct{ url, reason string }{
+		{"", "must not be empty"},
+		{"http://pkg.acme.dev/tool", "must use https"},
+		{"pkg.acme.dev/tool", "must use https"},
+		{"https://user:s3cret@pkg.acme.dev/tool", "must not carry credentials"},
+		{"https://api.example.com/tool", "placeholder or reserved"},
+		{"https://s3cret.example.com/tool", "placeholder or reserved"},
+		{"https://api.example.com/s3cret", "placeholder or reserved"},
+		{"https://u:s3cret@pkg.acme.dev/" + strings.Repeat("a", 2048), "more than the"},
+		{"https://pkg.acme.dev/tool?x=1", "no query or fragment"},
+		{"https:///tool", "must name the release store's host"},
+		{"https://pkg.acme.dev/\x01", "control characters"},
+		{"https://u:s3cret@pkg.acme.dev/\x01", "control characters"},
+		{"https://u:s3cret\x7f@pkg.acme.dev/", "control characters"},
+		{"https://u:s3cret@pkg.acme.dev:badport/", "not a valid URL"},
+		{"https://u:s3cret%zz@pkg.acme.dev/", "not a valid URL"},
+		{"https://u:s3cret@pkg.acme.dev/%zz", "not a valid URL"},
+		{" https://u:s3cret@pkg.acme.dev/", "not a valid URL"},
+		{"u:s3cret@pkg.acme.dev/tool", "must use https"},
+		{"https:u:s3cret@pkg.acme.dev", "host"},
+		{"https://a.io/?sig=s3cret", "no query or fragment"},
+		{"https://a.io/#s3cret", "no query or fragment"},
+		{"https://pkg.acme.dev/" + strings.Repeat("a", 2048), "more than the"},
+	}
+
+	for _, tc := range refusals {
+		err := ValidateReleaseBaseURL(tc.url)
+		require.Error(t, err, tc.url)
+
+		hints := errors.FlattenHints(err)
+		assert.Contains(t, hints, tc.reason, tc.url)
+		assert.NotContains(t, strings.ToLower(hints), "chat", "a release URL is explained in release terms (#192)")
+		assert.NotContains(t, hints, "s3cret", "a refused URL never echoes its credentials")
+		assert.NotContains(t, err.Error(), "s3cret", tc.url)
 	}
 
 	static := &ManifestReleaseSource{Type: "static"}
