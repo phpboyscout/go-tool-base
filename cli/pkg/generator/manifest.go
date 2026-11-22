@@ -667,14 +667,13 @@ type TemplateSource struct {
 // behaviour — mirroring [TemplateSource].
 type ManifestExternalCommand struct {
 	// Module is the Go module path providing the commands, e.g.
-	// "gitlab.com/phpboyscout/go/signing-cli". Used for the go.mod require.
+	// "example.com/release-tools". Used for the go.mod require.
 	Module string `yaml:"module"`
 	// Version is the module version to require, e.g. "v0.1.0". Required — an
 	// explicit pin; there is no implicit latest resolution.
 	Version string `yaml:"version"`
 	// ImportPath is the package to import for the constructors. Defaults to
-	// Module when empty (the signing-cli case: the constructors live in the
-	// module root package).
+	// Module when empty, for constructors in the module's root package.
 	ImportPath string `yaml:"import_path,omitempty"`
 	// Alias is the import alias for ImportPath in the generated root. Defaults
 	// to the import path's base name when empty.
@@ -687,7 +686,7 @@ type ManifestExternalCommand struct {
 // ManifestExternalAttach describes a single external constructor call to render
 // onto the generated root.
 type ManifestExternalAttach struct {
-	// Constructor is the exported symbol to call, e.g. "NewCmdSign".
+	// Constructor is the exported symbol to call, e.g. "NewCmdPublish".
 	Constructor string `yaml:"constructor"`
 	// Args are injection tokens from the closed vocabulary
 	// ([templates.ExternalArgTokens]), rendered in order. Empty means a

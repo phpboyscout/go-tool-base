@@ -46,7 +46,7 @@ func newCmdDetachCommand(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:     "command <module>",
 		Short:   "Detach an external module's attachment",
-		Example: "  gtb detach command gitlab.com/phpboyscout/go/signing-cli",
+		Example: "  gtb detach command example.com/release-tools",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			gen := generator.New(p, &generator.Config{

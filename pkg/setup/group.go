@@ -31,8 +31,8 @@ import (
 // mistyped verb with help and success unless it checks for itself.
 //
 // The message itself comes from [errorhandling.UnknownSubCommand], so that CLIs
-// in this estate that build cobra commands without this framework — go/signing-cli
-// does, deliberately — report a mistyped verb in the same words. What is shared is
+// in this estate that build cobra commands without this framework report a
+// mistyped verb in the same words. What is shared is
 // the message and the sentinel; the three lines of cobra glue are not, and cannot
 // be, since go/errorhandling imports no CLI framework.
 //
