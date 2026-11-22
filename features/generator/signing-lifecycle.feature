@@ -21,8 +21,10 @@ Feature: Enable and disable release-signing verification end-to-end
     And the generated "pkg/cmd/root/cmd.go" file contains "Signing:"
     And the generated "pkg/cmd/root/signing.go" file exists
     And the generated "internal/trustkeys/trustkeys.go" file exists
-    And the generated "pkg/cmd/root/cmd.go" file contains "AnchorOnlyKeys: trustkeys.AuthorityKeys()"
+    And the generated "pkg/cmd/root/cmd.go" file sets "AnchorOnlyKeys:" to "trustkeys.AuthorityKeys()"
     And the generated "internal/trustkeys/authority/.gitkeep" file exists
+    And the generated "internal/trustkeys/rotation/.gitkeep" file exists
+    And the generated "pkg/cmd/root/cmd.go" file sets "RotationAuthorityKeys:" to "trustkeys.RotationAuthorityKeys()"
     When I run gtb in the project with "regenerate project"
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "Signing:"

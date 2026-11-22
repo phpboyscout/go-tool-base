@@ -110,6 +110,9 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props, error) {
 			// may never sign a release (#124).
 			AnchorOnlyKeys: trustkeys.AuthorityKeys(),
 
+			// Minisign keys that may sign a key-rotation manifest (spec 0101).
+			RotationAuthorityKeys: trustkeys.RotationAuthorityKeys(),
+
 			// GoReleaser has always produced checksums.txt on every
 			// release, so gtb fails closed: a future release with a
 			// broken pipeline aborts the update with an actionable

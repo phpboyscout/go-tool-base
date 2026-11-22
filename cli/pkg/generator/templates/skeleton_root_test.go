@@ -130,9 +130,10 @@ func TestSkeletonRoot_ToolOptions(t *testing.T) {
 			data: SkeletonRootData{SigningEnabled: true, ModulePath: "example.com/acme/widget", RequireChecksum: true},
 			want: []string{
 				`trustkeys "example.com/acme/widget/internal/trustkeys"`,
-				"EmbeddedKeys:    trustkeys.Keys()",
-				"AnchorOnlyKeys:  trustkeys.AuthorityKeys()",
-				"RequireChecksum: props.BoolPtr(true)",
+				"EmbeddedKeys:          trustkeys.Keys()",
+				"AnchorOnlyKeys:        trustkeys.AuthorityKeys()",
+				"RequireChecksum:       props.BoolPtr(true)",
+				"RotationAuthorityKeys: trustkeys.RotationAuthorityKeys()",
 			},
 		},
 		{
