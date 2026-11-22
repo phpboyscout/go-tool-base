@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -287,3 +289,50 @@ func TestStripProtectedKeys_FlatDottedKeys(t *testing.T) {
 		stripProtectedKeys(doc))
 	assert.Contains(t, doc, "update.check_interval")
 }
+
+// Every trust filter answers whether edits keep comments as the codec it wraps
+// does, so go/config's capability report is unchanged by the filter
+// (go-tool-base#206).
+func TestTrustFilters_KeepCommentPreservation(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewNoop()
+
+	for name, wrap := range map[string]func(config.Codec) config.Codec{
+		"a user file in a checkout": func(c config.Codec) config.Codec { return checkoutHomeFilter(c, log) },
+		"an untrusted project file": func(c config.Codec) config.Codec { return untrustedProjectFilter(c, log, "tool") },
+		"a trusted project file":    func(c config.Codec) config.Codec { return withoutSourcePointers(c, log, ".tool.yaml") },
+	} {
+		cp, ok := wrap(config.YAMLCodec{}).(config.CommentPreservingCodec)
+		require.True(t, ok, name)
+		assert.True(t, cp.PreservesComments(), name)
+
+		for kind, codec := range map[string]config.Codec{
+			"decode-only": decodeOnlyCodec{},
+			"editing":     editingNoCommentsCodec{},
+		} {
+			cp, ok = wrap(codec).(config.CommentPreservingCodec)
+			require.True(t, ok, name)
+			assert.False(t, cp.PreservesComments(), name+": a "+kind+" codec that drops comments is not reported as keeping them")
+		}
+	}
+}
+
+// decodeOnlyCodec has neither the editing nor the comment-preserving capability.
+type decodeOnlyCodec struct{}
+
+func (decodeOnlyCodec) Decode(path string, src []byte) ([]map[string]any, error) {
+	return config.YAMLCodec{}.Decode(path, src)
+}
+
+// editingNoCommentsCodec is an editing codec that keeps no comments, as the
+// JSON codec is, so the editing filters' own PreservesComments is exercised.
+type editingNoCommentsCodec struct{ decodeOnlyCodec }
+
+func (editingNoCommentsCodec) Check(string, []byte) error { return nil }
+
+func (editingNoCommentsCodec) Apply(_ string, src []byte, _ []config.Edit) ([]byte, error) {
+	return src, nil
+}
+
+func (editingNoCommentsCodec) Empty() []byte { return nil }
