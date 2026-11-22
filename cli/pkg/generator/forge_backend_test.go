@@ -373,3 +373,30 @@ func TestSelectableFeatures_HaveNoForge(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, errors.FlattenHints(err), "--forge-backend", "the refusal names the flag that chooses a forge")
 }
+
+// A static-channel project need not name an owner, and CODEOWNERS must not
+// then claim every file for "@", a handle nobody holds (#158).
+func TestCodeowners_NamesOnlyARealOwner(t *testing.T) {
+	t.Parallel()
+
+	for _, backend := range []props.FeatureID{forge.GitlabFeature, forge.GithubFeature} {
+		ci := ciSkeletonFor(backend, "")
+		file := map[props.FeatureID]string{forge.GitlabFeature: ".gitlab/CODEOWNERS", forge.GithubFeature: ".github/CODEOWNERS"}[backend]
+
+		for org, want := range map[string]func(t *testing.T, got string){
+			"acme": func(t *testing.T, got string) { t.Helper(); assert.Equal(t, "* @acme\n", got) },
+			"":     func(t *testing.T, got string) { t.Helper(); assert.NotContains(t, got, "@") },
+		} {
+			t.Run(string(backend)+"/owner="+org, func(t *testing.T) {
+				t.Parallel()
+
+				g, fs := newPureGenerator(t, &Config{Path: "/proj"})
+				require.NoError(t, g.renderEmbeddedAsset(&Manifest{}, ci.fsys, ci.root+"/"+file, file, skeletonTemplateData{Org: org}))
+
+				got, err := afero.ReadFile(fs, "/proj/"+file)
+				require.NoError(t, err)
+				want(t, string(got))
+			})
+		}
+	}
+}

@@ -1,1 +1,5 @@
+{{ if .Org -}}
 * @{{ .Org }}
+{{ else -}}
+# No release_source.owner is set, so no file has a default owner.
+{{ end -}}
