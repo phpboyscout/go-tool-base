@@ -668,3 +668,30 @@ func TestRunVerifyOnly(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(lone, static.RotationFile), []byte("{}"), 0o600))
 	assert.Equal(t, 1, runVerifyOnly(lone, "", &bytes.Buffer{}))
 }
+
+// A committed rotation manifest given to a run is published with the release
+// and named in its manifest (go-tool-base#205).
+func TestRun_CarriesACommittedRotationManifest(t *testing.T) {
+	t.Parallel()
+
+	b := fixtureBuilder()
+	signer, keys := rotationAuthority(t)
+	committed := signedRotation(t, signer, b.now(), b.now().AddDate(1, 0, 0))
+	dist := fixtureDist(t)
+
+	require.NoError(t, run(b, release{dist: dist, baseURL: base, previous: "v1.1.0", rotation: committed, authority: keys}))
+
+	assert.FileExists(t, filepath.Join(dist, static.RotationFile))
+	assert.FileExists(t, filepath.Join(dist, static.RotationSignatureFile))
+
+	raw, err := os.ReadFile(filepath.Join(dist, static.ManifestFile))
+	require.NoError(t, err)
+
+	var m static.Manifest
+	require.NoError(t, json.Unmarshal(raw, &m))
+	assert.Equal(t, static.FileURL(base, m.Tag, static.RotationFile), m.Rotation)
+	assert.Equal(t, static.FileURL(base, m.Tag, static.RotationSignatureFile), m.RotationSignature)
+
+	require.ErrorIs(t, run(b, release{dist: fixtureDist(t), baseURL: base, previous: "v1.1.0", rotation: committed}), errRotationUnverifiable,
+		"a run refuses a committed manifest it has no authority to check")
+}

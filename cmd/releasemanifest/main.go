@@ -104,33 +104,40 @@ func main() {
 		os.Exit(exitUsage)
 	}
 
-	if err := prepareRotation(rotation, authority, dist, time.Now()); err != nil {
-		fmt.Fprintf(os.Stderr, "releasemanifest: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := run(dist, baseURL, previous, source); err != nil {
+	r := release{dist: dist, baseURL: baseURL, previous: previous, notes: source, rotation: rotation, authority: authority}
+	if err := run(builder{platform: readPlatform, now: time.Now}, r); err != nil {
 		fmt.Fprintf(os.Stderr, "releasemanifest: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(dist, baseURL, previous string, notes notesSource) error {
-	if previous == "" {
-		tag, err := currentTag(context.Background(), baseURL)
+// release is one run's flags.
+type release struct {
+	dist, baseURL, previous string
+	notes                   notesSource
+	rotation, authority     string
+}
+
+func run(b builder, r release) error {
+	if err := prepareRotation(r.rotation, r.authority, r.dist, b.now()); err != nil {
+		return err
+	}
+
+	if r.previous == "" {
+		tag, err := currentTag(context.Background(), r.baseURL)
 		if err != nil {
 			return errors.Wrap(err, "reading the current pointer")
 		}
 
-		previous = tag
+		r.previous = tag
 	}
 
-	m, p, err := builder{platform: readPlatform, now: time.Now}.build(dist, baseURL, previous, notes)
+	m, p, err := b.build(r.dist, r.baseURL, r.previous, r.notes)
 	if err != nil {
 		return err
 	}
 
-	wrotePointer, err := writeDocuments(dist, m, p)
+	wrotePointer, err := writeDocuments(r.dist, m, p)
 	if err != nil {
 		return err
 	}
