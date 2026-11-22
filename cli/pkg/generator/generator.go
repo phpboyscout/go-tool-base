@@ -167,17 +167,6 @@ type Generator struct {
 	// end-of-run summary. Reset at the start of each regeneration.
 	conflicts conflictLog
 
-	// registrationKept records that the command last rendered had its cmd.go
-	// kept rather than written (a conflict under --overwrite deny, or an ignore
-	// rule), so the child re-registration leaves the file and its recorded hash
-	// alone.
-	registrationKept bool
-
-	// parentWasPristine records whether the parent command's cmd.go matched
-	// its recorded hash before this run registered a child in it, so the
-	// hash is refreshed only for a parent the author had not edited.
-	parentWasPristine bool
-
 	// lintRetryDelay overrides the wait before the lint pass's one retry when
 	// another golangci-lint holds the lock; nil means the default. Tests set
 	// zero.

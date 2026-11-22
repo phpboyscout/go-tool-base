@@ -122,19 +122,28 @@ func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDi
 		// parent that matched its recorded hash beforehand; re-hashing an
 		// untouched or hand-edited file would record the author's content as
 		// generated, and the next regenerate would overwrite it unwarned.
-		switch wrote, err := p.g.registerSubcommand(); {
+		switch written, err := p.g.registerSubcommand(); {
 		case err != nil:
 			p.g.props.Logger.Warn("failed to register subcommand", "name", data.Name, "error", err)
 			result.warn("registerInParent", err)
-		case wrote && !p.g.parentWasPristine:
+		case written == parentWrittenOverEdit:
 			p.g.props.Logger.Warn("registered the command in a parent that has been modified since it was generated; the parent's recorded hash is left as it was, so the next regenerate reports the conflict",
 				"parent", filepath.Join(p.g.getParentPathParts()...))
-		case wrote:
+		case written == parentWritten:
 			if err := p.g.updateParentCmdHash(); err != nil {
 				p.g.props.Logger.Warn("failed to update parent command hash", "error", err)
 				result.warn("updateParentCmdHash", err)
 			}
 		}
+	}
+
+	// A kept file is the author's: its children are already registered in it,
+	// and rewriting it would record the hand-edited content as generated, so
+	// the next regenerate would see no conflict and overwrite the edit.
+	if data.RegistrationKept {
+		p.g.props.Logger.Debug("cmd.go was kept, leaving child registrations and its hash alone", "name", data.Name)
+
+		return
 	}
 
 	p.g.props.Logger.Info("re-registering child commands", "name", data.Name)
@@ -160,15 +169,6 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 	cmd := findCommandAt(m.Commands, parentParts, g.config.Name)
 
 	if cmd == nil || len(cmd.Commands) == 0 {
-		return nil
-	}
-
-	// A kept file is the author's: its children are already registered in it,
-	// and rewriting it would record the hand-edited content as generated, so
-	// the next regenerate would see no conflict and overwrite the edit.
-	if g.registrationKept {
-		g.props.Logger.Debug("cmd.go was kept, leaving child registrations and its hash alone", "name", g.config.Name)
-
 		return nil
 	}
 

@@ -113,12 +113,13 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	// only thing that says what this command did a moment ago.
 	g.noteGroupBehaviourChange(cmdDir, *data)
 
-	hash, err := g.generateRegistrationFile(cmdDir, *data)
+	hash, kept, err := g.generateRegistrationFile(cmdDir, *data)
 	if err != nil {
 		return err
 	}
 
 	data.Hashes["cmd.go"] = hash
+	data.RegistrationKept = kept
 
 	if err := g.handleExecutionFile(ctx, cmdDir, data); err != nil {
 		return err
@@ -146,7 +147,9 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	return nil
 }
 
-func (g *Generator) generateRegistrationFile(cmdDir string, data templates.CommandData) (string, error) {
+// generateRegistrationFile renders cmd.go, and returns the hash to record and
+// whether the file was kept rather than written.
+func (g *Generator) generateRegistrationFile(cmdDir string, data templates.CommandData) (string, bool, error) {
 	cmdPath := filepath.Join(cmdDir, "cmd.go")
 
 	g.props.Logger.Debug("rendering registration template", "path", cmdPath)
@@ -155,24 +158,18 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 
 	var buf bytes.Buffer
 	if err := regFile.Render(&buf); err != nil {
-		return "", errors.Newf("failed to render registration file: %w", err)
+		return "", false, errors.Newf("failed to render registration file: %w", err)
 	}
 
 	content := buf.Bytes()
 	newHash := calculateHash(content)
 
-	decision := g.resolveCommandFileConflict(cmdPath, content)
-
-	// Assigned on every render, because one generator renders many commands
-	// and a kept file must not read as kept for the next (#167).
-	g.registrationKept = !decision.Write()
-
-	if g.registrationKept {
+	if decision := g.resolveCommandFileConflict(cmdPath, content); !decision.Write() {
 		// Kept or ignored: leave the file alone and carry on. The recorded
 		// hash is the resolver's, not this render's — see D3/D4 of spec 0187.
 		g.props.Logger.Info(fmt.Sprintf("Keeping registration file: %s", cmdPath))
 
-		return decision.RecordHash, nil
+		return decision.RecordHash, true, nil
 	}
 
 	// Logged after the decision, so the line says what happened (#32).
@@ -181,7 +178,7 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 
 	out, err := g.props.FS.Create(cmdPath)
 	if err != nil {
-		return "", errors.Newf("failed to create registration file: %w", err)
+		return "", false, errors.Newf("failed to create registration file: %w", err)
 	}
 
 	defer func() {
@@ -189,10 +186,10 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 	}()
 
 	if _, err := out.Write(content); err != nil {
-		return "", errors.Newf("failed to write registration file: %w", err)
+		return "", false, errors.Newf("failed to write registration file: %w", err)
 	}
 
-	return newHash, nil
+	return newHash, false, nil
 }
 
 func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {

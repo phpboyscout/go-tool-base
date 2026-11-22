@@ -35,36 +35,50 @@ type subcommandContext struct {
 	registered           bool
 }
 
-func (g *Generator) registerSubcommand() (bool, error) {
+// parentRegistration is what registering a command did to its parent's cmd.go.
+type parentRegistration int
+
+const (
+	parentUntouched parentRegistration = iota
+	// parentWritten: the parent matched its recorded hash beforehand.
+	parentWritten
+	// parentWrittenOverEdit: the parent had been edited since it was generated.
+	parentWrittenOverEdit
+)
+
+func (g *Generator) registerSubcommand() (parentRegistration, error) {
 	g.props.Logger.Debug("Preparing subcommand context for registration...")
 
 	ctx, err := g.prepareSubcommandContext()
 	if err != nil {
-		return false, err
+		return parentUntouched, err
 	}
 
 	if g.wiringSealed(ctx.parentFile, "registering subcommand "+g.config.Name) {
-		return false, nil
+		return parentUntouched, nil
 	}
 
 	g.props.Logger.Debug("reading parent command file", "path", ctx.parentFile)
 
 	fsrc, err := afero.ReadFile(g.props.FS, ctx.parentFile)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to read parent command file")
+		return parentUntouched, errors.Wrap(err, "failed to read parent command file")
 	}
 
 	// Whether the parent matches its recorded hash is decided before this run
 	// writes into it; the hash is refreshed afterwards only when it did.
 	// Recording the hash of a hand-edited parent made the edit read as
 	// generated, and the reshape or the next regenerate overwrote it (F23).
-	g.parentWasPristine = g.parentMatchesRecordedHash(fsrc)
+	written := parentWrittenOverEdit
+	if g.parentMatchesRecordedHash(fsrc) {
+		written = parentWritten
+	}
 
 	g.props.Logger.Debug("Parsing parent command AST...")
 
 	f, err := decorator.Parse(fsrc)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to parse parent command file")
+		return parentUntouched, errors.Wrap(err, "failed to parse parent command file")
 	}
 
 	g.props.Logger.Debug("adding import", "import", ctx.importPath)
@@ -72,7 +86,7 @@ func (g *Generator) registerSubcommand() (bool, error) {
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)
 	if err != nil {
-		return false, err
+		return parentUntouched, err
 	}
 
 	g.props.Logger.Debug(fmt.Sprintf("Analyzing target function NewCmd%s for existing registrations", PascalCase(ctx.parentName)))
@@ -85,10 +99,14 @@ func (g *Generator) registerSubcommand() (bool, error) {
 		// regenerate saw no conflict and overwrote it.
 		g.props.Logger.Debug("subcommand already registered in parent, leaving the file alone", "command", g.config.Name)
 
-		return false, nil
+		return parentUntouched, nil
 	}
 
-	return true, g.applySubcommandRegistration(f, targetFunc, ctx)
+	if err := g.applySubcommandRegistration(f, targetFunc, ctx); err != nil {
+		return parentUntouched, err
+	}
+
+	return written, nil
 }
 
 func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
