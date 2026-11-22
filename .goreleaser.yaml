@@ -144,6 +144,9 @@ signs:
 #      archives themselves. Filtered to the checksum artifact so it runs
 #      once. artifacts.json does not exist yet at this point in either
 #      edition, which is why the tool reads the archives.
+#      It also carries release/rotation/rotate-keys.json and its .minisig
+#      into dist when they are committed, so once a release key has been
+#      revoked every later release carries the manifest (spec 0101 D12).
 #   2. blobs uploads dist/release.json with everything else (extra_files),
 #      write-once and immutable like the rest of the tag.
 #   3. publishers, last in the publish pipe and skipped with it, moves the
@@ -156,7 +159,7 @@ signs:
 #
 # The layout a reader expects is docs/reference/static-release-channel.md.
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base --changelog CHANGELOG.md
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base --changelog CHANGELOG.md --rotation release/rotation
     artifacts: [checksum]
     output: true
 
@@ -191,6 +194,8 @@ blobs:
       - "public, max-age=31536000, immutable"
     extra_files:
       - glob: dist/release.json
+      # Matches nothing until a key-rotation manifest is in release/rotation/.
+      - glob: dist/rotate-keys.json*
 
 publishers:
   - name: latest-pointer
