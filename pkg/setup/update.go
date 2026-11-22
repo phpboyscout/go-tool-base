@@ -143,6 +143,18 @@ type SelfUpdater struct {
 	externalKeyEmail          string
 	requireExternalCrosscheck bool
 
+	// rotationAuthorityKeys are props.Tool.Signing.RotationAuthorityKeys, the
+	// minisign keys that may sign a rotation manifest (spec 0101 D15).
+	rotationAuthorityKeys []string
+	// rotationEnabled is update.rotation.enabled (spec 0101 D18).
+	rotationEnabled bool
+	// rotationStore holds the applied record; nil is the file under the
+	// tool's config directory.
+	rotationStore verify.RotationStore
+	// rotationApplier is the resolver's rotation half, set only when the
+	// resolver was built with authority keys.
+	rotationApplier verify.RotationApplier
+
 	// Connection identity and credential wiring for the release source, kept
 	// so a refusal can be explained rather than flattened (spec 0193 D5). Set
 	// by resolveReleaseClient, and left zero when a provider was injected
@@ -533,8 +545,10 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		// library command call sites (version/update/root) thus pick up
 		// the embedded keys without passing options. An explicit
 		// withEmbeddedKeys/withKeyResolver option below still overrides.
-		embeddedKeys:   p.Tool.Signing.EmbeddedKeys,
-		anchorOnlyKeys: p.Tool.Signing.AnchorOnlyKeys,
+		embeddedKeys:          p.Tool.Signing.EmbeddedKeys,
+		anchorOnlyKeys:        p.Tool.Signing.AnchorOnlyKeys,
+		rotationAuthorityKeys: p.Tool.Signing.RotationAuthorityKeys,
+		rotationEnabled:       RotationEnabled(cfg),
 	}
 
 	// Options are applied before the release client is resolved so
@@ -696,7 +710,7 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 		return errors.Wrap(err, "configuring update signature verification")
 	}
 
-	r, err := verify.BuildKeyResolver(verify.KeyResolverConfig{
+	cfg := verify.KeyResolverConfig{
 		AnchorOnlyFingerprints:    anchorOnly,
 		KeySource:                 s.keySource,
 		ExternalKeyEmail:          s.externalKeyEmail,
@@ -706,15 +720,49 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 		// nil-default is a plain stdlib client).
 		Logger:     slog.New(s.logger.Handler()),
 		HTTPClient: httpclient.NewClient(),
-	}, slices.Concat(s.embeddedKeys, s.anchorOnlyKeys)...)
+	}
+
+	s.configureRotation(&cfg)
+
+	r, err := verify.BuildKeyResolver(cfg, slices.Concat(s.embeddedKeys, s.anchorOnlyKeys)...)
 	if err != nil {
 		return errors.Wrap(err, "configuring update signature verification")
+	}
+
+	if cfg.RotationAuthorityKeys != nil {
+		if s.rotationApplier, err = rotationApplierOf(r); err != nil {
+			return err
+		}
 	}
 
 	s.keyResolver = r
 	s.logger.Debug("update signature verification configured", "resolver", r.Name())
 
 	return nil
+}
+
+func (s *SelfUpdater) configureRotation(cfg *verify.KeyResolverConfig) {
+	if !s.rotationEnabled || len(s.rotationAuthorityKeys) == 0 {
+		return
+	}
+
+	cfg.RotationAuthorityKeys = s.rotationAuthorityKeys
+	cfg.RotationStore = s.rotationStore
+
+	if cfg.RotationStore == nil {
+		cfg.RotationStore = newRotationStore(s.Fs, GetDefaultConfigDir(s.Fs, s.Tool.Name))
+	}
+}
+
+// rotationApplierOf refuses a resolver that was given authority keys but
+// cannot apply a rotation, rather than letting rotation silently stay off.
+func rotationApplierOf(r verify.KeyResolver) (verify.RotationApplier, error) {
+	applier, ok := r.(verify.RotationApplier)
+	if !ok {
+		return nil, errors.Newf("configuring update signature verification: the %s resolver cannot apply a key rotation", r.Name())
+	}
+
+	return applier, nil
 }
 
 // resolveRequireChecksum applies the precedence: runtime config (which the
@@ -1000,13 +1048,7 @@ func (s *SelfUpdater) findChecksumsAsset(rel forge.Release) (forge.ReleaseAsset,
 		name = checksumsDefaultAssetName
 	}
 
-	for _, asset := range rel.GetAssets() {
-		if asset.GetName() == name {
-			return asset, true
-		}
-	}
-
-	return nil, false
+	return findAssetNamed(rel, name)
 }
 
 // downloadChecksumManifest retrieves a checksums manifest asset with

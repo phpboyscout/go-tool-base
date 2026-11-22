@@ -78,6 +78,8 @@ The examples use `https://pkg.example.com/acme/mytool` as the **base URL**, whic
 | `previous` | string | yes, may be empty | The tag of the release published before this one, or `""` for the first. A tag, never a URL: the chain cannot leave the base. |
 | `checksums` | string | yes | Absolute URL of `checksums.txt`, under the base. |
 | `signature` | string | no | Absolute URL of the detached signature over `checksums.txt`, under the base. Omit the key for an unsigned release. |
+| `rotation` | string | no | Absolute URL of the key-rotation manifest, `rotate-keys.json`, under the base. Present only on a release that carries one, after a release key has been revoked ([spec 0101](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0101-signing-key-rotation)). Requires `rotation_signature`. |
+| `rotation_signature` | string | no | Absolute URL of its minisign signature, `rotate-keys.json.minisig`, under the base. Present exactly when `rotation` is. |
 | `notes` | string | no | Release notes as markdown, without the release's own heading. Omit or leave empty when there are none, and `update` shows no entry for that release. |
 | `downloads` | array | yes, at least one | One entry per archive. |
 
