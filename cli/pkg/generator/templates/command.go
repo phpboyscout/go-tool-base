@@ -57,6 +57,10 @@ type CommandData struct {
 	WithInitializer      bool
 	WithConfigValidation bool
 	Hashes               map[string]string
+	// RegistrationKept is set by the render, not read by any template: cmd.go
+	// was kept rather than written, so its child registrations are the
+	// author's and are left alone.
+	RegistrationKept bool
 	// MCPExposure controls whether the generated command stamps a
 	// setup.ExcludeFromMCP / setup.IncludeInMCP marker. The zero value
 	// (Inherit) emits nothing.
