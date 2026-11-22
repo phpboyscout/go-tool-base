@@ -602,7 +602,8 @@ func rootCall(expr dst.Expr) *dst.CallExpr {
 // external adapter the call is
 // NewCmdRoot(p, append([]*setup.Command{…}, external.Commands(p)...)...) and Go
 // forbids an argument after the spread, so the command goes inside the
-// literal; otherwise it is one more variadic argument on its own line.
+// literal; otherwise it is one more variadic argument. Both stay on the line
+// the skeleton renders them on, so a following regenerate changes nothing.
 func insertIntoRootCall(call *dst.CallExpr, ctx *subcommandContext) {
 	newCmdCall := &dst.CallExpr{
 		Fun: &dst.SelectorExpr{
@@ -618,7 +619,6 @@ func insertIntoRootCall(call *dst.CallExpr, ctx *subcommandContext) {
 		return
 	}
 
-	newCmdCall.Decs.Before = dst.NewLine
 	call.Args = append(call.Args, newCmdCall)
 }
 

@@ -133,8 +133,7 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props, error) {
 		return nil, nil, err
 	}
 
-	rootCmd := gtbRoot.NewCmdRoot(p,
-		greet.NewCmdGreet(p))
+	rootCmd := gtbRoot.NewCmdRoot(p, greet.NewCmdGreet(p))
 
 	return rootCmd, p, nil
 }

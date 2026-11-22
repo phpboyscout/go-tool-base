@@ -22,6 +22,20 @@ Feature: regenerate preserves nested subcommands
     Then the project exit code is 0
     And the generated "pkg/cmd/reel/cmd.go" file contains "Register(build.NewCmdBuild"
 
+  Scenario: A regenerate straight after generate command leaves the root alone
+    # Issue #147: generate command put each root registration on its own line
+    # and regenerate joined them, so every new command left a diff behind.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name hello --short say-hello"
+    Then the project exit code is 0
+    When I run gtb in the project with "generate command --name world --short say-world"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "gtbRoot.NewCmdRoot(p, hello.NewCmdHello(p), world.NewCmdWorld(p))"
+    When I remember the generated "pkg/cmd/root/cmd.go" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file is unchanged
+
   Scenario: A command group survives the round-trip with the framework default
     # Issue #21 reported a Run<Name> stub the generator wrote and never called.
     # It was first answered by wiring the RunE; spec 0190 answers it the other
