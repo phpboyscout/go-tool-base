@@ -242,7 +242,7 @@ homebrew_casks:
 # The layout a reader expects: docs/reference/static-release-channel.md in
 # go-tool-base.
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }} --changelog CHANGELOG.md --rotation release/rotation
+  - cmd: go tool releasemanifest --dist dist --base-url {{ .ReleaseBaseURL }} --changelog CHANGELOG.md --rotation release/rotation --rotation-authority internal/trustkeys/rotation
     artifacts: [checksum]
     output: true
 

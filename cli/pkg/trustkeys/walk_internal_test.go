@@ -79,3 +79,20 @@ func TestMustKeysFromFS_PanicsOnReadError(t *testing.T) {
 		"trustkeys: reading embedded authority: walking embedded trust-key directory: open authority/bad.asc: permission denied",
 		func() { mustKeysFromFS(fsys, "authority") })
 }
+
+func TestRotationKeysFromFS_KeepsEveryTopLevelKeyAsWritten(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		"rotation/a.pub":         &fstest.MapFile{Data: []byte("untrusted comment: minisign public key\nRWkey\n")},
+		"rotation/b.pub":         &fstest.MapFile{Data: []byte("not a minisign key")},
+		"rotation/retired/c.pub": &fstest.MapFile{Data: []byte("retired")},
+		"rotation/notes.asc":     &fstest.MapFile{Data: []byte("an OpenPGP key")},
+		"rotation/.gitkeep":      &fstest.MapFile{},
+	}
+
+	keys, err := rotationKeysFromFS(fsys)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"untrusted comment: minisign public key\nRWkey\n", "not a minisign key"}, keys,
+		"a malformed key reaches the updater, which refuses it; a key in a subdirectory is not read")
+}

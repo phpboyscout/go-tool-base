@@ -51,7 +51,7 @@ func TestGenerateSkeleton_StaticChannelRendersTheChannel(t *testing.T) {
 	gr := readGenerated(t, fs, "/work/.goreleaser.yaml")
 	assert.Contains(t, gr, "force_token: gitlab", "hosted: the forge token is the backend's")
 	assert.Contains(t, gr, "before_publish:")
-	assert.Contains(t, gr, "go tool releasemanifest --dist dist --base-url https://pkg.acme.dev/acme/sttool --changelog CHANGELOG.md --rotation release/rotation")
+	assert.Contains(t, gr, "go tool releasemanifest --dist dist --base-url https://pkg.acme.dev/acme/sttool --changelog CHANGELOG.md --rotation release/rotation --rotation-authority internal/trustkeys/rotation")
 	assert.Contains(t, gr, "glob: dist/rotate-keys.json*", "every release after a revoked key carries the manifest (spec 0101 D12)")
 	assert.Contains(t, gr, "artifacts: [checksum]")
 	assert.Contains(t, gr, `directory: "acme/sttool/{{ .Tag }}"`, "the store prefix is the base URL's path")

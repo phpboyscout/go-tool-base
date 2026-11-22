@@ -98,3 +98,11 @@ func TestAuthorityKeys_HoldOnlyTheRotationAuthority(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"2B26658409047ED08B56CEBDCF5B8DBB5D9F19C2"}, ts.Fingerprints())
 }
+
+// No rotation authority key has been minted yet, so gtb ships none and takes
+// no part in rotation until one is added (spec 0101 D19).
+func TestRotationAuthorityKeys_NoneUntilMinted(t *testing.T) {
+	t.Parallel()
+
+	assert.Empty(t, trustkeys.RotationAuthorityKeys())
+}

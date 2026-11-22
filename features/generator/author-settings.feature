@@ -38,11 +38,11 @@ Feature: The manifest owns every author setting
     And the project manifest contains "auxiliary_commands:"
     And the project manifest contains "require_checksum: true"
     And the generated "pkg/cmd/root/cmd.go" file contains "AuxiliaryCommands"
-    And the generated "pkg/cmd/root/cmd.go" file contains "RequireChecksum: props.BoolPtr(true)"
+    And the generated "pkg/cmd/root/cmd.go" file sets "RequireChecksum:" to "props.BoolPtr(true)"
     When I run gtb in the project with "regenerate project --overwrite allow"
     Then the project exit code is 0
     And the project manifest contains "endpoint: https://t.example.internal"
-    And the generated "pkg/cmd/root/cmd.go" file contains "RequireChecksum: props.BoolPtr(true)"
+    And the generated "pkg/cmd/root/cmd.go" file sets "RequireChecksum:" to "props.BoolPtr(true)"
 
   Scenario: An unknown config layer is refused at the flag
     Given I generate a gtb project with the flags "--config-layers flags,bogus"

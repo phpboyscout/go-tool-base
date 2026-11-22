@@ -159,7 +159,7 @@ signs:
 #
 # The layout a reader expects is docs/reference/static-release-channel.md.
 before_publish:
-  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base --changelog CHANGELOG.md --rotation release/rotation
+  - cmd: go tool releasemanifest --dist dist --base-url https://pkg.phpboyscout.uk/go-tool-base --changelog CHANGELOG.md --rotation release/rotation --rotation-authority cli/pkg/trustkeys/rotation
     artifacts: [checksum]
     output: true
 

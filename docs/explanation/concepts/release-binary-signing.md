@@ -94,6 +94,10 @@ When `mytool update` runs, it does this (sketch):
    into the running binary. The signing key comes from
    `internal/trustkeys/keys/`, and the rotation-authority key from
    `internal/trustkeys/authority/`, which keeps it from signing a release.
+   A tool that can follow an emergency key rotation first applies any
+   signed rotation manifest the release carries, using the minisign keys in
+   `internal/trustkeys/rotation/` (see
+   [Signature Verification](../components/setup/signature-verification.md#emergency-rotation-the-rotation-manifest)).
 3. **Fetch the WKD-served copy** of the signing key from your
    domain. Verify it matches the embedded copy by fingerprint.
    This is the **cross-check** that catches a compromised release

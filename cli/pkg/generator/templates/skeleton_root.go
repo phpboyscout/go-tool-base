@@ -368,6 +368,7 @@ func signingConfigValue(data SkeletonRootData) (jen.Code, bool) {
 	if data.SigningEnabled && data.ModulePath != "" {
 		signingDict[jen.Id("EmbeddedKeys")] = jen.Qual(data.ModulePath+"/internal/trustkeys", "Keys").Call()
 		signingDict[jen.Id("AnchorOnlyKeys")] = jen.Qual(data.ModulePath+"/internal/trustkeys", "AuthorityKeys").Call()
+		signingDict[jen.Id("RotationAuthorityKeys")] = jen.Qual(data.ModulePath+"/internal/trustkeys", "RotationAuthorityKeys").Call()
 	}
 
 	if data.RequireChecksum {
