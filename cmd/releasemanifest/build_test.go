@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +15,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/signing/minisign"
+	"gitlab.com/phpboyscout/go/signing/verify"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 )
@@ -339,4 +344,182 @@ func setFixtureTag(t *testing.T, dist, tag string) {
 	raw, err = json.Marshal(meta)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, raw, 0o600))
+}
+
+// Once a manifest is committed, every later release carries it (spec 0101 D12).
+func TestStageRotation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("both files are carried into dist and listed", func(t *testing.T) {
+		t.Parallel()
+
+		repo, dist := t.TempDir(), fixtureDist(t)
+		require.NoError(t, os.WriteFile(filepath.Join(repo, static.RotationFile), []byte(`{"epoch":1}`), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(repo, static.RotationSignatureFile), []byte("sig"), 0o600))
+
+		require.NoError(t, stageRotation(repo, dist))
+
+		got, err := os.ReadFile(filepath.Join(dist, static.RotationFile))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"epoch":1}`, string(got))
+
+		m, _, err := fixtureBuilder().build(dist, base, "", nil)
+		require.NoError(t, err)
+		assert.Equal(t, base+"/v1.2.0/"+static.RotationSignatureFile, m.RotationSignature)
+	})
+
+	t.Run("no directory, or an empty one, adds nothing", func(t *testing.T) {
+		t.Parallel()
+
+		for _, dir := range []string{"", filepath.Join(t.TempDir(), "absent"), t.TempDir()} {
+			dist := fixtureDist(t)
+			require.NoError(t, stageRotation(dir, dist))
+
+			m, _, err := fixtureBuilder().build(dist, base, "", nil)
+			require.NoError(t, err)
+			assert.Empty(t, m.Rotation)
+		}
+	})
+
+	t.Run("a manifest committed without its signature stops the release", func(t *testing.T) {
+		t.Parallel()
+
+		repo, dist := t.TempDir(), fixtureDist(t)
+		require.NoError(t, os.WriteFile(filepath.Join(repo, static.RotationFile), []byte("{}"), 0o600))
+
+		require.NoError(t, stageRotation(repo, dist))
+
+		_, _, err := fixtureBuilder().build(dist, base, "", nil)
+		require.ErrorIs(t, err, errRotationUnsigned)
+	})
+}
+
+// A carried manifest is checked before it is published: one that does not
+// verify, or will expire soon, would fail every fresh install's update to this
+// release and every later one (spec 0101 D5, D12).
+func TestCheckRotation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+
+	authority := func(t *testing.T) (ed25519.PrivateKey, string) {
+		t.Helper()
+
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		key, err := minisign.NewPublicKey(pub)
+		require.NoError(t, err)
+
+		file, err := key.File("rotation authority")
+		require.NoError(t, err)
+
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "authority.pub"), file, 0o600))
+
+		return priv, dir
+	}
+
+	staged := func(t *testing.T, signer ed25519.PrivateKey, notAfter time.Time) string {
+		t.Helper()
+
+		manifest, sig, err := verify.SignRotationManifest(signer, verify.RotationManifest{
+			Schema:   verify.RotationSchema,
+			IssuedAt: now.Add(-time.Hour),
+			NotAfter: notAfter,
+			Reason:   verify.RotationReasonScheduled,
+			Epoch:    1,
+		})
+		require.NoError(t, err)
+
+		dist := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationFile), manifest, 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationSignatureFile), sig, 0o600))
+
+		return dist
+	}
+
+	t.Run("a verified manifest well inside its window passes", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := authority(t)
+		require.NoError(t, checkRotation(staged(t, signer, now.AddDate(1, 0, 0)), keys, now))
+	})
+
+	t.Run("nothing staged needs no authority", func(t *testing.T) {
+		t.Parallel()
+
+		require.NoError(t, checkRotation(t.TempDir(), "", now))
+	})
+
+	t.Run("a manifest no authority key verifies is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, _ := authority(t)
+		_, otherKeys := authority(t)
+		require.ErrorIs(t, checkRotation(staged(t, signer, now.AddDate(1, 0, 0)), otherKeys, now), verify.ErrRotationSignatureInvalid)
+	})
+
+	t.Run("a manifest with no authority keys to check it against is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, _ := authority(t)
+		require.ErrorIs(t, checkRotation(staged(t, signer, now.AddDate(1, 0, 0)), t.TempDir(), now), errRotationUnverifiable)
+	})
+
+	t.Run("a manifest that does not parse is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := authority(t)
+		dist := staged(t, signer, now.AddDate(1, 0, 0))
+		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationFile), []byte("{not json"), 0o600))
+		require.Error(t, checkRotation(dist, keys, now))
+	})
+
+	t.Run("a manifest expiring inside 30 days, or expired, is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := authority(t)
+		for _, notAfter := range []time.Time{now.Add(29*24*time.Hour + 12*time.Hour), now.Add(-time.Minute)} {
+			require.ErrorIs(t, checkRotation(staged(t, signer, notAfter), keys, now), errRotationExpiring, notAfter.String())
+		}
+	})
+
+	t.Run("a manifest valid for exactly 30 days, or longer, passes", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := authority(t)
+		for _, notAfter := range []time.Time{now.Add(30 * 24 * time.Hour), now.Add(30*24*time.Hour + time.Hour)} {
+			require.NoError(t, checkRotation(staged(t, signer, notAfter), keys, now), notAfter.String())
+		}
+	})
+
+	t.Run("an authority key below the top of the directory is not read", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := authority(t)
+		nested := filepath.Join(t.TempDir(), "old")
+		require.NoError(t, os.Rename(keys, nested))
+		require.ErrorIs(t, checkRotation(staged(t, signer, now.AddDate(1, 0, 0)), filepath.Dir(nested), now), errRotationUnverifiable)
+	})
+
+	t.Run("a committed manifest is staged and checked", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := authority(t)
+		committed := staged(t, signer, now.AddDate(1, 0, 0))
+
+		require.ErrorIs(t, prepareRotation(committed, "", t.TempDir(), now), errRotationUnverifiable,
+			"a release with --rotation and no --rotation-authority stops rather than publishing the manifest unchecked")
+
+		dist := t.TempDir()
+		require.NoError(t, prepareRotation(committed, keys, dist, now))
+		assert.FileExists(t, filepath.Join(dist, static.RotationFile))
+	})
+
+	t.Run("no committed manifest needs no authority", func(t *testing.T) {
+		t.Parallel()
+
+		require.NoError(t, prepareRotation(t.TempDir(), "", t.TempDir(), now))
+	})
 }
