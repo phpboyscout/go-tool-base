@@ -105,8 +105,10 @@ D2.
 A YAML file may hold more than one document, separated by `---`. go/config
 reads each document as its own layer, later over earlier, so the value a reader
 sees first is not always the one the tool uses. go-tool-base keeps that
-behaviour and warns whenever a user or project-local config file holds more
-than one document, naming the file. Remove the extra separators to quiet it.
+behaviour and warns, once per load and naming the file, whenever a user,
+project-local or `file` config source holds more than one document that sets
+something. A trailing `---`, or a document holding only comments, does not
+count. Remove the extra separators to quiet it.
 
 Only config files that **exist** are declared as layers, a non-existent file
 contributes nothing and must not become a phantom write target. The one

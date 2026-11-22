@@ -36,7 +36,7 @@ func addSourceLayers(ctx context.Context, opts ConfigLoadOptions, spec p.ConfigS
 		return err
 	}
 
-	bootstrap := sourceBootstrap{Store: store, fs: opts.Props.GetConfigFS(), codecs: setup.ConfigCodecsIn(set)}
+	bootstrap := sourceBootstrap{Store: store, fs: opts.Props.GetConfigFS(), codecs: setup.ConfigCodecsIn(set), opts: opts}
 	opts.Props.SourceStatuses = nil
 
 	// Until the store exists to own them, what the factories built is closed
@@ -98,6 +98,8 @@ func refuseUndeclaredOverrides(spec p.ConfigSpec, overrides map[string]setup.Sou
 // bootstrapStore is the first pass: fresh backends for the D5 layers, in
 // their declared order, so no backend is shared with the full store.
 func bootstrapStore(ctx context.Context, opts ConfigLoadOptions, layers []p.ConfigLayer) (*config.Store, error) {
+	opts.bootstrap = true
+
 	byLayer, _, err := configLayerOpts(opts)
 	if err != nil {
 		return nil, err
@@ -124,12 +126,20 @@ type sourceBootstrap struct {
 	*config.Store
 	fs     config.FS
 	codecs []setup.ConfigCodec
+	opts   ConfigLoadOptions
 }
 
 func (b sourceBootstrap) FS() config.FS { return b.fs }
 
+// CodecFor picks the codec for a source's file. The backend joins the full
+// store, so it carries the multi-document warning.
 func (b sourceBootstrap) CodecFor(path string) (config.Codec, error) {
-	return setup.ConfigCodecFor(b.codecs, path)
+	codec, err := setup.ConfigCodecFor(b.codecs, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.opts.documentWarning(codec), nil
 }
 
 // slotBootstrap is one slot's bootstrap: it keeps the credential rung the

@@ -20,6 +20,16 @@ func warnExtraDocuments(codec config.Codec, log logger.Logger) config.Codec {
 	return warn
 }
 
+// documentWarning wraps codec with the multi-document warning, except on a
+// bootstrap pass, so each file warns once per load.
+func (opts ConfigLoadOptions) documentWarning(codec config.Codec) config.Codec {
+	if opts.bootstrap {
+		return codec
+	}
+
+	return warnExtraDocuments(codec, opts.Props.Logger)
+}
+
 type documentCounter struct {
 	base config.Codec
 	log  logger.Logger
@@ -28,13 +38,35 @@ type documentCounter struct {
 // Decode implements config.Codec.
 func (c documentCounter) Decode(path string, src []byte) ([]map[string]any, error) {
 	docs, err := c.base.Decode(path, src)
-	if err == nil && len(docs) > 1 {
+	if n := nonEmpty(docs); err == nil && n > 1 {
 		c.log.Warn("config file holds more than one document; each one overrides the one before it",
-			"file", path, "documents", len(docs),
+			"file", path, "documents", n,
 			"hint", "remove the extra --- separators so the file holds the values it shows first")
 	}
 
 	return docs, err
+}
+
+// PreservesComments implements config.CommentPreservingCodec, which the
+// wrapper would otherwise hide.
+func (c documentCounter) PreservesComments() bool {
+	cp, ok := c.base.(config.CommentPreservingCodec)
+
+	return ok && cp.PreservesComments()
+}
+
+// nonEmpty counts the documents that set something: a trailing ---, or one
+// holding only a comment, overrides nothing.
+func nonEmpty(docs []map[string]any) int {
+	n := 0
+
+	for _, doc := range docs {
+		if len(doc) > 0 {
+			n++
+		}
+	}
+
+	return n
 }
 
 type editingDocumentCounter struct {
@@ -45,4 +77,9 @@ type editingDocumentCounter struct {
 // Decode implements config.Codec.
 func (c editingDocumentCounter) Decode(path string, src []byte) ([]map[string]any, error) {
 	return c.counter.Decode(path, src)
+}
+
+// PreservesComments implements config.CommentPreservingCodec.
+func (c editingDocumentCounter) PreservesComments() bool {
+	return c.counter.PreservesComments()
 }

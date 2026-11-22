@@ -105,6 +105,10 @@ type ConfigLoadOptions struct {
 	Props       *p.Props
 	AllowEmpty  bool
 
+	// bootstrap marks a bootstrap pass, which decodes the same files the
+	// full store does and so leaves the multi-document warning to it.
+	bootstrap bool
+
 	// SourcesOptional treats every config source as optional, for a command
 	// that opts out of the config check: doctor and config convert must run
 	// on a tool whose required source is missing, since they are how the
@@ -312,7 +316,7 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 	// to land and can create the file. It never triggers the missing-file
 	// re-read that other absent layers would, because it is the written
 	// backend (staged, not reloaded).
-	byLayer[p.LayerFiles] = append(byLayer[p.LayerFiles], userFileBackends(fsys, opts.Props, declaredConfigPaths(existing, opts.CfgPaths), fileCodecs)...)
+	byLayer[p.LayerFiles] = append(byLayer[p.LayerFiles], userFileBackends(fsys, opts, declaredConfigPaths(existing, opts.CfgPaths), fileCodecs)...)
 
 	// The project-local layer is subject to the trust filter: an untrusted
 	// file has its security-sensitive keys stripped and is read-only (writes
@@ -323,7 +327,7 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 			return err
 		}
 
-		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath, warnExtraDocuments(codec, opts.Props.Logger)))}
+		byLayer[p.LayerProject] = []config.StoreOption{config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath, opts.documentWarning(codec)))}
 	}
 
 	return nil
@@ -331,14 +335,14 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions, codecs []setup.Config
 
 // userFileBackends layers the user's config files, filtering any that sit in a
 // config directory inside a git checkout (checkoutHomeFilter).
-func userFileBackends(fsys config.FS, props *p.Props, paths []string, codecs map[string]config.Codec) []config.StoreOption {
-	inCheckout := userConfigInCheckout(props)
+func userFileBackends(fsys config.FS, opts ConfigLoadOptions, paths []string, codecs map[string]config.Codec) []config.StoreOption {
+	inCheckout := userConfigInCheckout(opts.Props)
 	out := make([]config.StoreOption, 0, len(paths))
 
 	for _, path := range paths {
-		codec := warnExtraDocuments(codecs[path], props.Logger)
+		codec := opts.documentWarning(codecs[path])
 		if inCheckout(path) {
-			codec = checkoutHomeFilter(codec, props.Logger)
+			codec = checkoutHomeFilter(codec, opts.Props.Logger)
 		}
 
 		out = append(out, config.WithBackend(config.NewCodecBackend(fsys, path, codec)))

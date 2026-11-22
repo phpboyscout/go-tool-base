@@ -12,6 +12,8 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 const twoDocuments = "log:\n  level: warn\n---\nlog:\n  level: debug\n"
@@ -50,6 +52,64 @@ func TestConfigDocuments_OneDocumentIsQuiet(t *testing.T) {
 	buildUserStore(t, fs, log, userFile, "")
 
 	assert.Empty(t, extraDocumentWarnings(log))
+}
+
+// A trailing separator, or a document holding only a comment, overrides
+// nothing, so it is no reason to warn.
+func TestConfigDocuments_AnEmptyExtraDocumentIsQuiet(t *testing.T) {
+	for name, body := range map[string]string{
+		"trailing separator": "log:\n  level: warn\n---\n",
+		"comment only":       "log:\n  level: warn\n---\n# nothing here\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			fs := afero.NewOsFs()
+			_, userFile := checkoutHome(t, fs, body, false)
+
+			log := logger.NewBuffer()
+			buildUserStore(t, fs, log, userFile, "")
+
+			assert.Empty(t, extraDocumentWarnings(log))
+		})
+	}
+}
+
+func TestConfigDocuments_TheWarningKeepsCommentPreservation(t *testing.T) {
+	cp, ok := warnExtraDocuments(config.YAMLCodec{}, logger.NewNoop()).(config.CommentPreservingCodec)
+
+	require.True(t, ok, "the wrapper must still answer whether edits keep comments")
+	assert.True(t, cp.PreservesComments())
+}
+
+// The bootstrap pass decodes the same files as the full store, so only the
+// full store warns: once per file per load.
+func TestConfigDocuments_TheBootstrapPassDoesNotWarn(t *testing.T) {
+	fs := afero.NewOsFs()
+	_, userFile := checkoutHome(t, fs, twoDocuments, false)
+
+	log := logger.NewBuffer()
+	props := &p.Props{Tool: p.Tool{Name: "mytool"}, Logger: log, FS: fs}
+
+	_, err := bootstrapStore(t.Context(), ConfigLoadOptions{Props: props, CfgPaths: []string{userFile}}, props.Tool.ResolvedConfigSpec().Layers)
+	require.NoError(t, err)
+
+	assert.Empty(t, extraDocumentWarnings(log))
+}
+
+// A file config source decodes through the codec the bootstrap hands it, and
+// it joins the full store, so it warns like any other config file.
+func TestConfigDocuments_AConfigSourceFileWarns(t *testing.T) {
+	log := logger.NewBuffer()
+	props := &p.Props{Tool: p.Tool{Name: "mytool"}, Logger: log}
+
+	b := sourceBootstrap{codecs: setup.ConfigCodecsIn(props.GetFeatures()), opts: ConfigLoadOptions{Props: props}}
+
+	codec, err := b.CodecFor("/etc/mytool/extra.yaml")
+	require.NoError(t, err)
+
+	_, err = codec.Decode("/etc/mytool/extra.yaml", []byte(twoDocuments))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"/etc/mytool/extra.yaml"}, extraDocumentWarnings(log))
 }
 
 func TestConfigDocuments_AWarnedFileStaysWritable(t *testing.T) {

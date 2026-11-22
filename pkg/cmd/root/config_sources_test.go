@@ -497,5 +497,6 @@ func TestSources_TheBootstrapCarriesTheFilesystemAndCodecs(t *testing.T) {
 	_, err := st.build(t)
 	require.NoError(t, err)
 	require.NotNil(t, gotFS)
-	assert.Equal(t, config.YAMLCodec{}, gotCodec)
+	require.IsType(t, editingDocumentCounter{}, gotCodec, "a source's file carries the multi-document warning")
+	assert.Equal(t, config.YAMLCodec{}, gotCodec.(editingDocumentCounter).EditingCodec)
 }
