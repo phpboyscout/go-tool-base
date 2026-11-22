@@ -61,13 +61,12 @@ Many components began life in `pkg/` and were later extracted. The
 
 ## Release Signing
 
-These packages were extracted into the standalone, independently-versioned [signing module](https://signing.go.phpboyscout.uk) (v0.1.0); go-tool-base consumes the verification half as a dependency. The **`sign` and `keys` commands** are no longer part of `gtb`: they live in [sigillum](https://sigillum.phpboyscout.uk), built on `go/signing-cli`, and the `gtb` binary links no signing backend.
+These packages were extracted into the standalone, independently-versioned [signing module](https://signing.go.phpboyscout.uk) (v0.1.0); go-tool-base consumes the verification half as a dependency. The **`sign` and `keys` commands** are no longer part of `gtb`: they live in [sigillum](https://sigillum.phpboyscout.uk), and the `gtb` binary links no signing backend.
 
 | Component | Module | Description |
 | :--- | :--- | :--- |
 | **[Signing](signing.md)** | `gitlab.com/phpboyscout/go/signing` | Backend registry letting `sigillum keys mint` and downstream signers target arbitrary HSM/KMS/keyring back-ends through a single CLI-agnostic `Backend` interface. |
 | **[OpenPGP Key](openpgpkey.md)** | `gitlab.com/phpboyscout/go/signing/openpgpkey` | OpenPGP packet assembly from a `crypto.Signer`, wrapping an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. |
-| **[Signing CLI](https://signing-cli.go.phpboyscout.uk)** | `gitlab.com/phpboyscout/go/signing-cli` | The shareable `sign` / `keys` Cobra command builders, props-decoupled behind a narrow `Logger` seam. The `sigillum` CLI composes them; go-tool-base no longer does. |
 
 ## Web Service
 

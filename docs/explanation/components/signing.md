@@ -20,9 +20,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     The `gtb` binary no longer ships the `sign` and `keys` commands or links a
     signing backend; self-update still verifies through `signing/verify`.
 
-    The `sign` / `keys` **commands** that drive this registry now live in the
-    shareable [`go/signing-cli`](https://signing-cli.go.phpboyscout.uk) module,
-    which the standalone [sigillum](https://sigillum.phpboyscout.uk) CLI attaches.
+    The `sign` / `keys` **commands** that drive this registry live in the
+    standalone [sigillum](https://sigillum.phpboyscout.uk) CLI.
 
 A tiny registry: each backend (AWS KMS, local PEM file, GCP KMS, HashiCorp
 Vault, …) implements a two-method `Backend` interface (`Name`, `NewSigner`)

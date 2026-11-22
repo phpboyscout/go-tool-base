@@ -25,9 +25,9 @@ type SkeletonSubcommand struct {
 // *setup.Command and is attached directly. Declarative attachments are un-gated,
 // so the wrap label is always the empty string.
 type SkeletonExternalCommand struct {
-	ImportPath  string   // e.g. "gitlab.com/phpboyscout/go/signing-cli"
-	PkgAlias    string   // e.g. "signingcli"
-	Constructor string   // e.g. "NewCmdSign"
+	ImportPath  string   // e.g. "example.com/release-tools"
+	PkgAlias    string   // e.g. "releasetools"
+	Constructor string   // e.g. "NewCmdPublish"
 	Args        []string // injection tokens, e.g. ["logger"]
 	Wrap        bool     // wrap in setup.Wrap("", …)
 }

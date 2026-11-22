@@ -257,7 +257,7 @@ func buildSkeletonExternalCommands(ecs []ManifestExternalCommand) []templates.Sk
 
 // externalPkgAlias resolves the import alias for an external package: the
 // operator-pinned alias when set, otherwise a Go-identifier-safe form of the
-// import path's base segment (e.g. "signing-cli" → "signingcli"). Because the
+// import path's base segment (e.g. "release-tools" → "releasetools"). Because the
 // generated root always forces this alias via jen's ImportAlias, it need not
 // match the package's declared name — only be a valid identifier used
 // consistently for the import and its symbol references.

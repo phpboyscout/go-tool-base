@@ -10,8 +10,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 A gtb-generated CLI sometimes needs to expose a **whole command tree that lives
 in a separate module**, commands you did not create with `gtb generate command`
-and whose logic lives elsewhere. The canonical example is the `sign`/`keys` tree
-from `gitlab.com/phpboyscout/go/signing-cli`.
+and whose logic lives elsewhere. The examples below attach the `publish` and
+`notes` commands from a module, `example.com/release-tools`, that exports their constructors.
 
 The wrong way is to hand-edit the generated root (or `cmd/<tool>/main.go`) and
 mark it `.gtb/ignore`. The customisation is either re-rendered away, or the file
@@ -31,8 +31,8 @@ pin, the exported constructor, and the dependencies it takes from the props
 container:
 
 ```bash
-gtb attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 \
-  --constructor NewCmdSign --arg logger --wrap
+gtb attach command example.com/release-tools@v1.4.0 \
+  --constructor NewCmdPublish --arg logger --wrap
 ```
 
 This:
@@ -45,15 +45,15 @@ This:
 The rendered call for the example above is:
 
 ```go
-setup.Wrap("", signingcli.NewCmdSign(p.GetLogger()))
+setup.Wrap("", releasetools.NewCmdPublish(p.GetLogger()))
 ```
 
 Re-run the command for each additional constructor from the same module, a
 second attach for the same module **appends** to it:
 
 ```bash
-gtb attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 \
-  --constructor NewCmdKeys --arg logger --wrap
+gtb attach command example.com/release-tools@v1.4.0 \
+  --constructor NewCmdNotes --arg props --wrap
 ```
 
 ### The injection vocabulary
@@ -121,7 +121,7 @@ and any gating logic you want inside `Commands`.
 
 ```bash
 gtb attach list                                              # show all attachments
-gtb detach command gitlab.com/phpboyscout/go/signing-cli     # remove one
+gtb detach command example.com/release-tools                 # remove one
 ```
 
 `detach` drops the manifest entry and re-renders the root without the wiring;

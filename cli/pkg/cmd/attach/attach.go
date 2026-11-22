@@ -94,11 +94,11 @@ an explicit version pin as <module>@<version>, the exported constructor via
 
 Re-run for each constructor from the same module — a second attach for the same
 module appends to it. The module require is pinned at the given version.`,
-		Example: `  # Attach the sign and keys trees from go/signing-cli (two invocations):
-  gtb attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 \
-    --constructor NewCmdSign --arg logger --wrap
-  gtb attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 \
-    --constructor NewCmdKeys --arg logger --wrap`,
+		Example: `  # Attach the publish and notes trees from one module (two invocations):
+  gtb attach command example.com/release-tools@v1.4.0 \
+    --constructor NewCmdPublish --arg logger --wrap
+  gtb attach command example.com/release-tools@v1.4.0 \
+    --constructor NewCmdNotes --arg props --wrap`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			module, version, err := splitModuleVersion(cmdArgs[0])
@@ -135,7 +135,7 @@ module appends to it. The module require is pinned at the given version.`,
 	}
 
 	cmd.Flags().StringVarP(&opts.path, "path", "p", ".", "Path to project root")
-	cmd.Flags().StringVar(&opts.constructor, "constructor", "", "Exported constructor to call, e.g. NewCmdSign (required)")
+	cmd.Flags().StringVar(&opts.constructor, "constructor", "", "Exported constructor to call, e.g. NewCmdPublish (required)")
 	cmd.Flags().StringArrayVar(&opts.args, "arg", nil, "Injection token passed to the constructor, repeatable: "+argVocabulary)
 	cmd.Flags().BoolVar(&opts.wrap, "wrap", false, "Wrap the constructor's *cobra.Command return in setup.Wrap (omit if it returns *setup.Command)")
 	cmd.Flags().StringVar(&opts.importPath, "import-path", "", "Package import path when it differs from the module path")
