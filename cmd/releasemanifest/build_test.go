@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -402,41 +403,11 @@ func TestCheckRotation(t *testing.T) {
 
 	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
 
-	authority := func(t *testing.T) (ed25519.PrivateKey, string) {
-		t.Helper()
-
-		pub, priv, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		key, err := minisign.NewPublicKey(pub)
-		require.NoError(t, err)
-
-		file, err := key.File("rotation authority")
-		require.NoError(t, err)
-
-		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "authority.pub"), file, 0o600))
-
-		return priv, dir
-	}
-
+	authority := rotationAuthority
 	staged := func(t *testing.T, signer ed25519.PrivateKey, notAfter time.Time) string {
 		t.Helper()
 
-		manifest, sig, err := verify.SignRotationManifest(signer, verify.RotationManifest{
-			Schema:   verify.RotationSchema,
-			IssuedAt: now.Add(-time.Hour),
-			NotAfter: notAfter,
-			Reason:   verify.RotationReasonScheduled,
-			Epoch:    1,
-		})
-		require.NoError(t, err)
-
-		dist := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationFile), manifest, 0o600))
-		require.NoError(t, os.WriteFile(filepath.Join(dist, static.RotationSignatureFile), sig, 0o600))
-
-		return dist
+		return signedRotation(t, signer, now, notAfter)
 	}
 
 	t.Run("a verified manifest well inside its window passes", func(t *testing.T) {
@@ -570,4 +541,130 @@ func TestWriteDocuments_ManifestSizeBoundary(t *testing.T) {
 			assert.NoFileExists(t, filepath.Join(dist, static.PointerFile))
 		})
 	}
+}
+
+// rotationAuthority writes a fresh rotation authority's public key into a
+// directory and returns its private key and that directory.
+func rotationAuthority(t *testing.T) (ed25519.PrivateKey, string) {
+	t.Helper()
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	key, err := minisign.NewPublicKey(pub)
+	require.NoError(t, err)
+
+	file, err := key.File("rotation authority")
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "authority.pub"), file, 0o600))
+
+	return priv, dir
+}
+
+// signedRotation writes a rotation manifest signed by signer, and its
+// signature, into a directory and returns it.
+func signedRotation(t *testing.T, signer ed25519.PrivateKey, now, notAfter time.Time) string {
+	t.Helper()
+
+	manifest, sig, err := verify.SignRotationManifest(signer, verify.RotationManifest{
+		Schema:   verify.RotationSchema,
+		IssuedAt: now.Add(-time.Hour),
+		NotAfter: notAfter,
+		Reason:   verify.RotationReasonScheduled,
+		Epoch:    1,
+	})
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, static.RotationFile), manifest, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, static.RotationSignatureFile), sig, 0o600))
+
+	return dir
+}
+
+func TestVerifyCommittedRotation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+
+	t.Run("a verified manifest passes and is left where it is", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := rotationAuthority(t)
+		dir := signedRotation(t, signer, now, now.AddDate(1, 0, 0))
+		require.NoError(t, verifyCommittedRotation(dir, keys, now))
+		assert.FileExists(t, filepath.Join(dir, static.RotationFile))
+	})
+
+	t.Run("no rotation directory yet passes", func(t *testing.T) {
+		t.Parallel()
+
+		require.NoError(t, verifyCommittedRotation(filepath.Join(t.TempDir(), "absent"), "", now))
+	})
+
+	t.Run("a manifest without its signature is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := rotationAuthority(t)
+		dir := signedRotation(t, signer, now, now.AddDate(1, 0, 0))
+		require.NoError(t, os.Remove(filepath.Join(dir, static.RotationSignatureFile)))
+		require.ErrorIs(t, verifyCommittedRotation(dir, keys, now), errRotationUnsigned)
+	})
+
+	t.Run("a signature without its manifest is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := rotationAuthority(t)
+		dir := signedRotation(t, signer, now, now.AddDate(1, 0, 0))
+		require.NoError(t, os.Remove(filepath.Join(dir, static.RotationFile)))
+		require.ErrorIs(t, verifyCommittedRotation(dir, keys, now), errRotationUnsigned)
+	})
+
+	t.Run("a manifest another key signed is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, _ := rotationAuthority(t)
+		_, otherKeys := rotationAuthority(t)
+		dir := signedRotation(t, signer, now, now.AddDate(1, 0, 0))
+		require.ErrorIs(t, verifyCommittedRotation(dir, otherKeys, now), verify.ErrRotationSignatureInvalid)
+	})
+
+	t.Run("a manifest about to expire is refused", func(t *testing.T) {
+		t.Parallel()
+
+		signer, keys := rotationAuthority(t)
+		dir := signedRotation(t, signer, now, now.AddDate(0, 0, 10))
+		require.ErrorIs(t, verifyCommittedRotation(dir, keys, now), errRotationExpiring)
+	})
+}
+
+func TestVerifyCommittedRotation_DanglingLinkIsRefused(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	signer, keys := rotationAuthority(t)
+	dir := signedRotation(t, signer, now, now.AddDate(1, 0, 0))
+
+	sig := filepath.Join(dir, static.RotationSignatureFile)
+	require.NoError(t, os.Remove(sig))
+	require.NoError(t, os.Symlink(filepath.Join(dir, "gone"), sig))
+
+	require.ErrorIs(t, verifyCommittedRotation(dir, keys, now), errRotationUnreadable,
+		"goreleaser would fail on it at upload, after the build")
+}
+
+func TestRunVerifyOnly(t *testing.T) {
+	t.Parallel()
+
+	var stderr bytes.Buffer
+	assert.Equal(t, exitUsage, runVerifyOnly("", "", &stderr))
+	assert.Contains(t, stderr.String(), "--verify-only needs --rotation")
+
+	assert.Zero(t, runVerifyOnly(filepath.Join(t.TempDir(), "absent"), "", &bytes.Buffer{}), "no rotation yet")
+
+	lone := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(lone, static.RotationFile), []byte("{}"), 0o600))
+	assert.Equal(t, 1, runVerifyOnly(lone, "", &bytes.Buffer{}))
 }

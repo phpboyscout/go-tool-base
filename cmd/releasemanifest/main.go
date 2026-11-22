@@ -26,6 +26,12 @@
 // the directory of minisign *.pub authority keys: a carried manifest must
 // verify against one of them and stay valid for 30 days past the release, or
 // the release stops.
+//
+//	go tool releasemanifest --verify-only --rotation release/rotation --rotation-authority internal/trustkeys/rotation
+//
+// --verify-only checks the committed manifest in place, against the same
+// rules, and writes nothing. A forge-channel release attaches the files itself
+// and runs this from a before hook, since goreleaser's dist must start empty.
 package main
 
 import (
@@ -59,13 +65,14 @@ var errManifestTooLarge = errors.NewSentinel("gtb.releasemanifest.manifest_too_l
 
 func main() {
 	var (
-		dist      string
-		baseURL   string
-		previous  string
-		notes     string
-		changelog string
-		rotation  string
-		authority string
+		dist       string
+		baseURL    string
+		previous   string
+		notes      string
+		changelog  string
+		rotation   string
+		authority  string
+		verifyOnly bool
 	)
 
 	flag.StringVar(&dist, "dist", "dist", "goreleaser's dist directory")
@@ -75,7 +82,16 @@ func main() {
 	flag.StringVar(&changelog, "changelog", "", "a changelog whose section for the tag becomes the manifest's notes")
 	flag.StringVar(&rotation, "rotation", "", "a directory holding the latest rotate-keys.json and its .minisig, carried onto this release")
 	flag.StringVar(&authority, "rotation-authority", "", "a directory of minisign *.pub rotation authority keys a carried manifest must verify against")
+	flag.BoolVar(&verifyOnly, "verify-only", false, "check the manifest in --rotation where it is, write nothing, and need no --base-url")
 	flag.Parse()
+
+	if verifyOnly {
+		if code := runVerifyOnly(rotation, authority, os.Stderr); code != 0 {
+			os.Exit(code)
+		}
+
+		return
+	}
 
 	if baseURL == "" {
 		fmt.Fprintln(os.Stderr, "releasemanifest: --base-url is required")
@@ -214,4 +230,21 @@ func currentTag(ctx context.Context, baseURL string) (string, error) {
 	}
 
 	return p.Tag, nil
+}
+
+// runVerifyOnly is --verify-only: the exit code, with the reason on stderr.
+func runVerifyOnly(rotation, authority string, stderr io.Writer) int {
+	if rotation == "" {
+		_, _ = fmt.Fprintln(stderr, "releasemanifest: --verify-only needs --rotation")
+
+		return exitUsage
+	}
+
+	if err := verifyCommittedRotation(rotation, authority, time.Now()); err != nil {
+		_, _ = fmt.Fprintf(stderr, "releasemanifest: %v\n", err)
+
+		return 1
+	}
+
+	return 0
 }

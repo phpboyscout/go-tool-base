@@ -21,6 +21,7 @@ var (
 	errDuplicatePlatform    = errors.NewSentinel("gtb.releasemanifest.duplicate_platform", "two archives are built for the same platform")
 	errRotationUnsigned     = errors.NewSentinel("gtb.releasemanifest.rotation_unsigned", "a rotation manifest and its signature are published together")
 	errRotationUnverifiable = errors.NewSentinel("gtb.releasemanifest.rotation_unverifiable", "no rotation authority key to verify the rotation manifest against")
+	errRotationUnreadable   = errors.NewSentinel("gtb.releasemanifest.rotation_unreadable", "a rotation file is a link to nothing")
 	errRotationExpiring     = errors.NewSentinel("gtb.releasemanifest.rotation_expiring", "the rotation manifest expires too soon to publish")
 )
 
@@ -159,6 +160,24 @@ func stageRotation(dir, dist string) error {
 	return nil
 }
 
+// verifyCommittedRotation checks the rotation manifest committed in dir where
+// it is, for a release that attaches the files itself rather than staging
+// them into dist (the forge channel, #197). A lone file is refused, as it is
+// when staged.
+func verifyCommittedRotation(dir, authorityDir string, now time.Time) error {
+	if present(dir, static.RotationFile) != present(dir, static.RotationSignatureFile) {
+		return errors.Wrapf(errRotationUnsigned, "%s and %s must both be in %s", static.RotationFile, static.RotationSignatureFile, dir)
+	}
+
+	for _, name := range []string{static.RotationFile, static.RotationSignatureFile} {
+		if present(dir, name) && !exists(dir, name) {
+			return errors.Wrapf(errRotationUnreadable, "%s in %s", name, dir)
+		}
+	}
+
+	return checkRotation(dir, authorityDir, now)
+}
+
 // rotationExpiryMargin is how long a carried manifest must stay valid after a
 // release. A manifest past not_after fails every fresh install's update, so
 // it has to be reissued before then, and the margin makes the release that
@@ -185,12 +204,12 @@ func checkRotation(dist, authorityDir string, now time.Time) error {
 
 	manifest, err := os.ReadFile(filepath.Join(dist, static.RotationFile))
 	if err != nil {
-		return errors.Wrap(err, "reading the staged rotation manifest")
+		return errors.Wrap(err, "reading the rotation manifest")
 	}
 
 	sig, err := os.ReadFile(filepath.Join(dist, static.RotationSignatureFile))
 	if err != nil {
-		return errors.Wrap(err, "reading the staged rotation signature")
+		return errors.Wrap(err, "reading the rotation signature")
 	}
 
 	m, err := authority.VerifyRotationManifest(manifest, sig)
@@ -232,6 +251,14 @@ func authorityKeys(dir string) ([]string, error) {
 	}
 
 	return keys, nil
+}
+
+// present reports whether dir holds name, a dangling link included, which
+// exists misses.
+func present(dir, name string) bool {
+	_, err := os.Lstat(filepath.Join(dir, name))
+
+	return err == nil
 }
 
 func exists(dir, name string) bool {
