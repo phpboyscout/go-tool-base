@@ -15,3 +15,12 @@ Feature: Commands named after Go reserved words
     And the generated "pkg/cmd/handover/import/cmd.go" file contains 'Use:   "import"'
     And the generated "pkg/cmd/handover/cmd.go" file contains "importcmd.NewCmdImport("
     And the generated "docs/reference/cli/handover/import.md" file exists
+
+  Scenario: a command whose package a sibling already has is refused
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name type --short a-type"
+    Then the project exit code is 0
+    When I run gtb in the project with "generate command --name typecmd --short another"
+    Then the project exit code is not zero
+    And the project output contains "package typecmd"
+    And the generated "pkg/cmd/typecmd/cmd.go" file does not exist

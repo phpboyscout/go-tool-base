@@ -42,6 +42,8 @@ This creates:
 
 A command can be named after a Go keyword, such as `import`, `type` or `go`. Its Go package then takes a `cmd` suffix, so `pkg/cmd/import/main.go` starts with `package importcmd`. The command, its directory, its help and its docs page all keep the name `import`.
 
+Two commands under the same parent can't share a package name, because the parent imports both. `generate command` refuses a name that reduces to a sibling's: `my_cmd` beside `my-cmd`, or `typecmd` beside `type`.
+
 !!! note "Separation of Concerns"
     We separate the boilerplate (`cmd.go`) from your logic (`main.go`) so that we can regenerate the boilerplate as you add flags or change configurations without overwriting your hard work!
 
