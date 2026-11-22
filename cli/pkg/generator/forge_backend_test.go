@@ -400,3 +400,30 @@ func TestCodeowners_NamesOnlyARealOwner(t *testing.T) {
 		}
 	}
 }
+
+// A static source that names no repository writes no empty host, owner and
+// repo keys back into the manifest on regenerate (#158).
+func TestManifest_StaticSourceWritesNoEmptyForgeFields(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	m := &Manifest{ReleaseSource: ManifestReleaseSource{
+		Type: "static", Backend: forge.GitlabFeature,
+		Static: ManifestStaticSource{BaseURL: "https://pkg.acme.dev/tool"},
+	}}
+	require.NoError(t, EncodeManifestFile(fs, "/m.yaml", m))
+
+	raw, err := afero.ReadFile(fs, "/m.yaml")
+	require.NoError(t, err)
+
+	for _, key := range []string{"host:", "owner:", "repo:"} {
+		assert.NotContains(t, string(raw), key)
+	}
+
+	m.ReleaseSource.Host, m.ReleaseSource.Owner, m.ReleaseSource.Repo = "gitlab.com", "acme", "tool"
+	require.NoError(t, EncodeManifestFile(fs, "/m.yaml", m))
+
+	raw, err = afero.ReadFile(fs, "/m.yaml")
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), "  host: gitlab.com\n  owner: acme\n  repo: tool\n")
+}
