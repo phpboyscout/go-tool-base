@@ -334,7 +334,7 @@ With them, an update does this, before it checks the release's own signature:
 
 Two details protect the record. A config directory inside a git checkout could have been supplied by the repository, so there the record is neither read nor written: a manifest still applies for that run, from memory, the same treatment the trust store and the update pin get. And `update.rotation.enabled: false` turns rotation off for a locked-down deployment that pins its trust set. The cost is that a key the maintainers revoke stays trusted, so the updater warns on every manifest it skips and `doctor`'s **Key rotation** check warns while it is off. A project-local config cannot set that key until the folder is trusted.
 
-The command that issues a manifest is sigillum's, and has not shipped yet ([sigillum#14](https://gitlab.com/phpboyscout/sigillum/-/work_items/14)), so no gtb release carries one today.
+The command that issues a manifest is sigillum's `keys rotate`, from sigillum v0.6.0, and [Issue a rotation manifest](https://sigillum.phpboyscout.uk/how-to/issue-a-rotation-manifest/) is the runbook. gtb's own binary embeds no rotation authority yet, so no gtb release carries a manifest today.
 
 ## See Also
 

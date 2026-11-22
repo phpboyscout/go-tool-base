@@ -185,18 +185,18 @@ Before producing a signature. This is the safety check that
 catches "I copied the wrong KMS alias into the script" before it
 becomes an unverifiable `.sig` file in production.
 
-If you intend to rotate the signing key, do it in this order:
+To rotate the signing key on a schedule, follow
+[Rotate your signing key](../tutorials/rotate-your-signing-key.md). The
+new key gets its own WKD identity, both keys are embedded in
+`internal/trustkeys/keys/`, and releases are signed with both through
+an overlap, so no rotation manifest is involved.
 
-1. Mint a new key via `sigillum keys mint --backend aws-kms ...`,
-   producing `release-v2.asc`.
-2. Sign the rotation manifest with the **old** key (using the old
-   `release.asc` as `--public-key`).
-3. Publish `release-v2.asc` via WKD alongside the old key for a
-   transition period.
-4. Embed both keys in `internal/trustkeys/keys/`.
-5. Cut the next release; it now signs with v2.
-
-See the Phase 2 prep doc for the full rotation runbook.
+If the old key is compromised or lost, there is no overlap to run. A
+rotation manifest signed by your rotation-authority key moves installed
+copies to the new key: see
+[Generate the rotation-authority key](generate-rotation-key.md#what-happens-when-you-need-to-use-it).
+A copy can only follow a manifest if it was built with that key
+embedded.
 
 ## Related
 
