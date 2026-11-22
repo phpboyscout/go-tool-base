@@ -111,6 +111,18 @@ WARN kept your version path=pkg/cmd/deploy/cmd.go reason="declined at the prompt
 The exit code is **0**. You asked for your changes to be kept and they were
 kept. Only a genuine failure (an unreadable file, a render fault) aborts the run.
 
+On a GitLab project, `.goreleaser.yaml` and `.gitlab-ci.yml` have to agree on how
+a release is created. If the run keeps one of them on the old flow (declined, or
+covered by `.gtb/ignore`) and rewrites the other, the summary adds a warning that
+names the kept file and what to change in it:
+
+```text
+WARN kept file is on the old release flow, and the other release file was rewritten for the new one path=.goreleaser.yaml rewritten=.gitlab-ci.yml ...
+```
+
+Left alone, the next release is created empty or refused. See the
+[GitLab release assets migration](../migration/v0.x-generated-gitlab-releases-carry-their-assets.md).
+
 - `--overwrite ask` (default) prompts per file. With no usable terminal: under
   `--ci`, `CI=true`, `GTB_NON_INTERACTIVE=true`, or no TTY. Nothing is
   prompted and every conflict resolves to keep.
