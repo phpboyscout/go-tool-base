@@ -173,6 +173,7 @@ func DefaultChecks(_ *p.Props) []CheckFunc {
 		checkPermissions,
 		checkForgeAdapters,
 		checkReleaseSource,
+		checkKeyRotation,
 		checkChatProviders,
 	}
 

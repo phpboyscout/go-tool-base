@@ -144,7 +144,7 @@ workflow keys (logging, output, feature toggles) always apply. The protected set
 is the keys that govern self-update verification and posture
 (`update.require_signature`, `update.require_checksum`,
 `update.require_external_crosscheck`, `update.policy`, `update.key_source`,
-`update.external_key_email`), telemetry consent (`telemetry.enabled`), and every
+`update.external_key_email`, `update.rotation.enabled`), telemetry consent (`telemetry.enabled`), and every
 credential subtree (`*.auth.*`, `*.api.*`, `bitbucket.app_password`). When any of
 these is stripped from an untrusted file, the framework logs a WARN naming the
 file and the ignored keys. Never a silent drop. A protected key matches whatever

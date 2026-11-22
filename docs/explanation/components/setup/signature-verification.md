@@ -303,7 +303,36 @@ Failure handling is deliberately asymmetric:
 
 ## Key Rotation
 
-Trust sets hold multiple keys, and verification passes if **any** key validates the signature. During a rotation window the release pipeline signs `checksums.txt` with both the outgoing and incoming keys, and a new WKD identity serves the new set alongside the embedded keys. Once every supported tool version has shipped with the new key, the old key stops signing; its public half stays embedded for as long as older releases should verify, and the WKD entries shipped binaries pin are never edited, because the verifier requires the two anchors to agree exactly. Emergency rotation via a separate rotation-authority key is documented in the spec but deferred beyond Phase 2.
+Trust sets hold multiple keys, and verification passes if **any** key validates the signature. During a rotation window the release pipeline signs `checksums.txt` with both the outgoing and incoming keys, and a new WKD identity serves the new set alongside the embedded keys. Once every supported tool version has shipped with the new key, the old key stops signing; its public half stays embedded for as long as older releases should verify, and the WKD entries shipped binaries pin are never edited, because the verifier requires the two anchors to agree exactly. That is scheduled rotation, and it needs nothing below.
+
+### Emergency rotation: the rotation manifest
+
+When a release key is stolen, waiting for every installed binary to ship a new trust set is too slow. An emergency rotation is a **rotation manifest**: a signed instruction that adds replacement release keys and revokes compromised ones, carried as two files on a release, `rotate-keys.json` and its minisign signature `rotate-keys.json.minisig`. The format and the verification belong to go/signing; the updater's side is described here, and the whole design is in [spec 0101](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0101-signing-key-rotation).
+
+A tool takes part by naming the minisign public keys allowed to sign a manifest, in `props.Tool.Signing.RotationAuthorityKeys`. These are a separate power from `AnchorOnlyKeys`: an anchor-only key may not sign a release, and a rotation authority may rewrite the trust set. With no authority keys, the updater never reads a manifest and behaves exactly as before.
+
+With them, an update does this, before it checks the release's own signature:
+
+1. If the release lists `rotate-keys.json`, the updater fetches it and its signature (the static channel lists both in `release.json`; a forge release carries them as assets of those names).
+2. go/signing verifies the signature against the authority keys and applies the manifest to the agreed trust set: `agreed − revoked ∪ added`. Agreement between the embedded keys and the WKD bucket is still computed on the compiled-in keys alone, so no bucket a shipped binary pins ever changes.
+3. The applied record (epoch, added keys, revoked fingerprints) is saved as `rotation.json` in the tool's config directory, and re-applied on every later verification, offline ones included. A later release without a manifest keeps the replacement key trusted.
+4. The release signature is then checked against the rotated set, so a release signed by the replacement key installs on the same update.
+
+| Condition | Outcome |
+|-----------|---------|
+| The release lists a manifest that cannot be fetched, has no signature, or does not verify | **Always fatal**, whatever `require_signature` says |
+| The manifest does not parse, or revokes without `reason: compromise` | **Always fatal** (`verify.ErrRotationManifestMalformed`); nothing changes |
+| The manifest is expired, future-dated, names an anchor-only key, or would leave no key that may sign | **Always fatal** (`verify.ErrRotationRefused`); nothing changes |
+| The manifest's epoch is below the stored one | **Always fatal** (`verify.ErrRotationReplayed`) |
+| The manifest's epoch equals the stored one, with the same keys | A no-op, so a manifest every later release carries applies once |
+| The manifest's epoch equals the stored one, with different keys | **Always fatal** (`verify.ErrRotationRefused`); an epoch is never reissued with new keys |
+| The release lists no manifest | The stored record stays in force |
+| `rotation.json` cannot be read, is not JSON, or holds a key that does not parse | **Always fatal** (`ErrRotationStoreCorrupt`), whatever `require_signature` says, and never treated as empty, because the empty record forgets every revoke |
+| `rotation.json` would leave no key that may sign | **Always fatal** (`verify.ErrRotationRefused`), whatever `require_signature` says |
+
+Two details protect the record. A config directory inside a git checkout could have been supplied by the repository, so there the record is neither read nor written: a manifest still applies for that run, from memory, the same treatment the trust store and the update pin get. And `update.rotation.enabled: false` turns rotation off for a locked-down deployment that pins its trust set. The cost is that a key the maintainers revoke stays trusted, so the updater warns on every manifest it skips and `doctor`'s **Key rotation** check warns while it is off. A project-local config cannot set that key until the folder is trusted.
+
+The command that issues a manifest is sigillum's, and has not shipped yet ([sigillum#14](https://gitlab.com/phpboyscout/sigillum/-/work_items/14)), so no gtb release carries one today.
 
 ## See Also
 
