@@ -10,7 +10,9 @@ Feature: The manifest owns every author setting
   https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0199-features-as-a-value-and-a-root-that-owns-its-registries
   D4 (the generated root goes through props.New), and
   https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0204-the-config-stack-a-project-declares-and-orders
-  D1 and D13 (the declared layer order is the precedence).
+  D1 and D13 (the declared layer order is the precedence), and
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0218-gtb-set-brings-every-file-a-setting-feeds-up-to-date
+  (set leaves nothing for regenerate).
 
   Scenario: The generated root constructs its Props through props.New and reports a failure as an error
     Given a freshly generated gtb project
@@ -90,6 +92,17 @@ Feature: The manifest owns every author setting
     When I run gtb in the project with "unset telemetry.endpoint"
     Then the project exit code is 0
     And the project manifest does not contain "t.example.internal"
+
+  Scenario: Setting the description rewrites the docs config, and regenerate has nothing left to do
+    Given I generate a gtb project with the flags "--features update,init,docs"
+    Then the project exit code is 0
+    When I run gtb in the project with "set description a-better-widget"
+    Then the project exit code is 0
+    And the generated "zensical.toml" file contains "a-better-widget"
+    When I remember the generated "zensical.toml" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "zensical.toml" file is unchanged
 
   Scenario: Setting the chat default rewrites the defaults bundle
     Given I generate a gtb project with features "init,update,ai", chat providers "claude,openai" and chat default "claude"

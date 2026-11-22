@@ -126,8 +126,21 @@ func editManifestSetting(m *Manifest, full string, edit func(reflect.Value) erro
 
 // commitSetting syncs the derived files, writes the manifest and formats the
 // touched tree on a real filesystem (skipped on the in-memory fs of tests).
+// It also brings the skeleton files the change moves up to date (spec 0218),
+// against the manifest still on disk, so a caller must not write the manifest
+// before committing. That manifest is read first, because the derived-file
+// sync saves an older manifest's derived fields.
 func (g *Generator) commitSetting(ctx context.Context, m *Manifest) error {
+	before, err := g.loadManifest()
+	if err != nil {
+		return err
+	}
+
 	if err := g.syncDerivedFromManifest(m); err != nil {
+		return err
+	}
+
+	if err := g.syncSkeletonFromManifest(before, m); err != nil {
 		return err
 	}
 

@@ -1090,24 +1090,15 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 		recordSkeletonHash(collectedHashes, relPath, hash)
 	}
 
-	// Extract the provider so we can filter CI files appropriately.
-	// Uses a narrow interface to avoid brittle type assertions on anonymous
-	// structs — adding fields to the data struct no longer silently breaks
-	// provider detection.
-	releaseProvider := extractReleaseProvider(data)
-
-	// Walk the common skeleton assets.
-	if err := g.walkSkeletonAssets(skeletonAssets, "assets/skeleton", destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
-		return nil, nil, err
+	roots := skeletonRoots(data)
+	if len(roots) == 1 {
+		g.props.Logger.Info("no CI skeleton for this backend; no CI files written", "backend", extractForgeBackend(data))
 	}
 
-	// Walk the CI assets the backend has, if any (spec 0195 D8).
-	if ci := ciSkeletonFor(extractForgeBackend(data), releaseProvider); ci.root != "" {
-		if err := g.walkSkeletonAssets(ci.fsys, ci.root, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
+	for _, root := range roots {
+		if err := g.walkSkeletonAssets(root.fsys, root.root, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
 			return nil, nil, err
 		}
-	} else {
-		g.props.Logger.Info("no CI skeleton for this backend; no CI files written", "backend", extractForgeBackend(data))
 	}
 
 	// Layer the custom template overlays on top of the embedded base.
@@ -1117,6 +1108,17 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 	}
 
 	return collectedHashes, updatedSources, nil
+}
+
+// skeletonRoots are the embedded trees a project's skeleton renders from: the
+// common assets, then the CI assets its backend has, if any (spec 0195 D8).
+func skeletonRoots(data any) []ciSkeleton {
+	roots := []ciSkeleton{{root: "assets/skeleton", fsys: skeletonAssets}}
+	if ci := ciSkeletonFor(extractForgeBackend(data), extractReleaseProvider(data)); ci.root != "" {
+		roots = append(roots, ci)
+	}
+
+	return roots
 }
 
 // walkSkeletonAssets walks an embedded filesystem rooted at assetRoot,
@@ -1240,17 +1242,28 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
 	}
 
-	tmpl, err := template.New(fullPath).Funcs(templateFuncMap).Parse(tmplStr)
+	content, err := renderSkeletonBytes(fullPath, tmplStr, data)
 	if err != nil {
-		return "", errors.Newf("failed to parse template %s: %w", fullPath, err)
+		return "", err
+	}
+
+	return g.writeRenderedSkeletonFile(fullPath, relPath, content, storedHashes)
+}
+
+// renderSkeletonBytes renders one skeleton template named name with the
+// skeleton's func map.
+func renderSkeletonBytes(name, tmplStr string, data any) ([]byte, error) {
+	tmpl, err := template.New(name).Funcs(templateFuncMap).Parse(tmplStr)
+	if err != nil {
+		return nil, errors.Newf("failed to parse template %s: %w", name, err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", errors.Newf("failed to execute template %s: %w", fullPath, err)
+		return nil, errors.Newf("failed to execute template %s: %w", name, err)
 	}
 
-	return g.writeRenderedSkeletonFile(fullPath, relPath, buf.Bytes(), storedHashes)
+	return buf.Bytes(), nil
 }
 
 // renderPreRenderedSkeletonFile writes already-rendered content (e.g. a custom
@@ -1274,13 +1287,9 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 	// A project already configured for Renovate under another name keeps that
 	// config: a second one would leave Renovate's own precedence to decide
 	// which applies (#113).
-	if !exists && slices.Contains(renovateConfigPaths, relPath) {
-		root := strings.TrimSuffix(fullPath, filepath.FromSlash(relPath))
-		if other := g.existingRenovateConfig(root, relPath); other != "" {
-			reason := "Renovate is already configured by " + other
-
-			g.props.Logger.Warn("not writing a second Renovate config", "path", relPath, "existing", other)
-			g.conflicts.recordKeep(relPath, reason)
+	if !exists {
+		if other := g.otherRenovateConfig(fullPath, relPath); other != "" {
+			g.conflicts.recordKeep(relPath, "Renovate is already configured by "+other)
 
 			return "", nil
 		}
@@ -1330,6 +1339,24 @@ func recordSkeletonHash(hashes map[string]string, relPath, hash string) {
 	if hash != "" {
 		hashes[relPath] = hash
 	}
+}
+
+// otherRenovateConfig names the Renovate config a project already has under
+// another name when relPath is one, warning that a second is not written:
+// Renovate's own precedence would decide which applies (#113).
+func (g *Generator) otherRenovateConfig(fullPath, relPath string) string {
+	if !slices.Contains(renovateConfigPaths, relPath) {
+		return ""
+	}
+
+	root := strings.TrimSuffix(fullPath, filepath.FromSlash(relPath))
+
+	other := g.existingRenovateConfig(root, relPath)
+	if other != "" {
+		g.props.Logger.Warn("not writing a second Renovate config", "path", relPath, "existing", other)
+	}
+
+	return other
 }
 
 // renovateConfigPaths are the files Renovate reads its configuration from, in

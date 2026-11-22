@@ -207,7 +207,9 @@ write the manifest's author settings by dotted path (`chat.default.provider`,
 `telemetry.endpoint`, `bootstrap.skip_config_check`, `release_source.repo`,
 `version.go`; the `properties.` prefix may be left off). `set` validates the
 value the way the generate flags are validated and runs the derived-file sync,
-so the generated files match without a regenerate. Features and templates have
+so the generated files match without a regenerate. That includes the skeleton
+files the setting feeds, such as the CI file and `.goreleaser.yaml`, but only
+the ones the change itself moves, and never one you have edited. Features and templates have
 their own commands (`enable`/`disable`, `template`) and fields the generator
 records (`hashes`, `commands`) are refused. See the
 [set reference](../../reference/cli/set.md).

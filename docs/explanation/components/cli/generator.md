@@ -344,6 +344,14 @@ hash and were once written only at generation, so a project scaffolded by an
 older gtb kept an entry point the current root no longer compiled against
 ([#84](https://gitlab.com/phpboyscout/go-tool-base/-/issues/84)).
 
+Every settings commit (`gtb set`, `gtb unset`, the `gtb wizard` revisit and the
+MCP withhold list) adds one step after that sync, `syncSkeletonFromManifest`
+(`settings_skeleton.go`). It renders the embedded skeleton in memory twice,
+from the manifest as it was and as it now is, and writes or removes only the files whose two renders differ. A file whose
+content no longer matches its recorded hash is left with a warning, and the
+hashes of what it writes go into the manifest before it is saved
+([spec 0218](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0218-gtb-set-brings-every-file-a-setting-feeds-up-to-date)).
+
 Each non-root command is handled by `regenerateCommandRecursive`, which calls through `performGeneration` → `postGenerate` → `CommandPipeline.Run` with `SkipRegistration: true` (children re-register themselves in step 3 of the pipeline).
 
 The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction, so a command's MCP-exposure gating is never silently lost. The project-wide `properties.mcp.withhold` list round-trips the same way: `regenerate project` renders it into the root's `props.MCPConfig` literal, and `regenerate manifest` reads it back. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating).

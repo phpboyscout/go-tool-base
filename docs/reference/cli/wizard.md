@@ -17,8 +17,10 @@ change an answer to change the setting. The pages keep their feature gates, so
 ticking a feature on the first page shows its pages in the same run, and
 unticking one clears that page's answers. What the wizard writes is validated
 the way the `generate project` flags are validated, and the generated files
-(root command, adapter files, signing files, derived fields) are brought into
-line in the same run.
+(root command, adapter files, signing files, derived fields, and every skeleton
+file the changed answers move) are brought into line in the same run, as
+[`gtb set`](set.md#what-happens-on-set) does. A skeleton file you have edited is
+left as it is, with a warning naming it.
 
 ## What a revisit asks differently
 

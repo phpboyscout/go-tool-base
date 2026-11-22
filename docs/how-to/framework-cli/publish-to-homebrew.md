@@ -9,8 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Publish a generated tool to a Homebrew tap
 
 Name a tap with `--homebrew-tap <owner>/<name>` when you generate the project,
-or later with `gtb set homebrew.tap <owner>/<name>` and `gtb regenerate
-project`. Grant the pipeline its push to the tap, cut a release, and the tool
+or later with `gtb set homebrew.tap <owner>/<name>`. Grant the pipeline its push to the tap, cut a release, and the tool
 installs with `brew install --cask <tool>`. The repository holds no credential.
 
 The tap is a repository on the project's own forge. GitLab and GitHub projects
@@ -32,12 +31,12 @@ On an existing project:
 
 ```bash
 gtb set homebrew.tap acme/homebrew
-gtb regenerate project
 ```
 
-`gtb set` records the tap. `regenerate project` renders the release
-configuration that uses it. `gtb unset homebrew.tap` followed by `gtb
-regenerate project` removes it all again.
+`gtb set` records the tap and renders the release configuration that uses it:
+`.goreleaser.yaml`, the CI file and, on GitLab, the cask push script.
+`gtb unset homebrew.tap` removes it all again. A release file you have edited
+is left as it is, with a warning naming it.
 
 A private project is refused unless it releases on the
 [static channel](../../reference/static-release-channel.md), because Homebrew
