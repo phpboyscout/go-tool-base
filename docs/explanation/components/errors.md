@@ -99,10 +99,10 @@ commonly returns. Full catalogue on the
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
-| `ErrChecksumAssetNotFound` | asset not found in checksums manifest | Returned when the release source does not provide a checksums.txt file. |
+| `ErrChecksumAssetNotFound` | asset not found in checksums manifest | The release's checksums.txt has no line for the asset being installed, so its hash can't be checked. |
 | `ErrChecksumManifestMalformed` | checksums manifest is malformed | Returned when parsing an invalid checksums.txt file. |
 | `ErrChecksumManifestDuplicate` | checksums manifest contains a duplicate filename | Returned when the checksum file contains multiple entries for the same binary. |
-| `ErrChecksumTooLarge` | download exceeds maximum size | Returned when the checksums.txt file exceeds the maximum allowed size. |
+| `ErrChecksumTooLarge` | download exceeds maximum size | The checksums manifest or the binary download passed its size bound, and the update stops before installing anything. It usually points at a hostile or misbehaving server; raise the bound only if the asset really is that large. |
 | `ErrBinaryTooLarge` | binary download exceeds maximum size | Returned during extraction if the update binary is dangerously large. |
 | `ErrBinaryNotInArchive` | expected binary not found in archive | Returned when extracting an update tarball/zip that doesn't contain the expected executable. |
 | `ErrDowngradeRefused` | refusing to downgrade | Returned by the implicit (no `--version`) update path when the resolved release is older than the running binary. Signature and checksum verification authenticate an artefact, not its recency, so a stale or rolled-back release listing must not silently downgrade the tool. Deliberate downgrades go through `update --force` or `update --version`. |
@@ -176,6 +176,14 @@ key-resolution sentinels live in `gitlab.com/phpboyscout/go/signing/verify`;
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
 | `ErrConvertTargetExists` | the file to convert to already exists | `config convert` will not overwrite the file it would write. Move or remove that file, then run it again. |
+
+---
+
+## `pkg/cmd/doctor`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrDoctorFoundProblems` | health checks reported problems | `doctor` found a failed check, or under `--fail-on warn` a gating warning, and has already printed its report. Advisory warnings never fail a run. It exits 1 and reports at warn; fix what the report names. |
 
 ---
 
