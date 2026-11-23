@@ -80,17 +80,51 @@ echo "Fetching latest release information from gitlab.com..."
 project_path="phpboyscout%2Fgo-tool-base"
 api_url="https://gitlab.com/api/v4/projects/${project_path}/releases/permalink/latest"
 
+# The status goes on a line of its own after the body, so an error page is
+# reported as one rather than handed to jq.
+curl_args=(-sSL -w '\n%{http_code}')
 if [ -n "${AUTH_HEADER}" ]; then
-  release_json=$(curl -sSL -H "${AUTH_HEADER}" "${api_url}")
-else
-  release_json=$(curl -sSL "${api_url}")
+  curl_args+=(-H "${AUTH_HEADER}")
+fi
+
+if ! response=$(curl "${curl_args[@]}" "${api_url}"); then
+  echo "Error: Could not reach ${api_url}."
+  exit 1
+fi
+
+status=${response##*$'\n'}
+release_json=${response%$'\n'*}
+
+if [ "${status}" != "200" ]; then
+  echo "Error: GitLab answered HTTP ${status} when asked for the latest release:"
+  # Stripped to printable text, since the body is the server's and reaches the
+  # terminal. sed reads it all, so a long body cannot SIGPIPE the pipeline.
+  printf '%s\n' "${release_json}" | LC_ALL=C tr -d '\000-\010\013-\037\177-\377' | cut -c 1-200 | sed -n '1,3s/^/  /p'
+  case "${status}" in
+    429)
+      echo "GitLab limits anonymous API calls per IP address. Retry in a few minutes,"
+      echo "or set GITLAB_TOKEN to a GitLab personal access token with the read_api scope."
+      ;;
+    401|403)
+      echo "Check that GITLAB_TOKEN is a valid token with the read_api scope, or unset it."
+      ;;
+  esac
+  exit 1
+fi
+
+if [ -z "${release_json//[[:space:]]/}" ]; then
+  echo "Error: The latest release information from GitLab was empty, not JSON."
+  exit 1
 fi
 
 # Each release asset is an entry under .assets.links[]; match ours by name and
 # take its direct_asset_url (a stable …/-/releases/<tag>/downloads/<name> route).
-download_url=$(printf '%s' "${release_json}" \
+if ! download_url=$(printf '%s' "${release_json}" \
   | jq -r --arg name "${package_name}" \
-       '.assets.links[]? | select(.name == $name) | .direct_asset_url')
+       '.assets.links[]? | select(.name == $name) | .direct_asset_url' 2>/dev/null); then
+  echo "Error: The latest release information from GitLab was not JSON."
+  exit 1
+fi
 
 if [[ -z "${download_url}" || "${download_url}" == "null" ]]; then
   echo "Error: Could not find a release asset named '${package_name}'."
