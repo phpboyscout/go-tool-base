@@ -63,7 +63,7 @@ var ErrChecksumManifestDuplicate = errors.NewSentinel("gtb.setup.checksum_manife
 
 // ErrChecksumTooLarge is returned when either the checksums manifest
 // or the binary download exceeds its configured size bound. Indicates
-// a hostile or misbehaving server; the update aborts before hashing.
+// a hostile or misbehaving server; the update stops before installing.
 var ErrChecksumTooLarge = errors.NewSentinel("gtb.setup.checksum_too_large", "download exceeds maximum size")
 
 // ErrBinaryTooLarge is returned when a downloaded release binary exceeds
