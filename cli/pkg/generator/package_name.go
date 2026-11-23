@@ -34,15 +34,16 @@ func commandPackageName(name string) string {
 // parentNames are the identifiers and imports a generated parent's cmd.go
 // may already use, so an import under one of them would shadow or clash with
 // it. The root's NewCmdRoot adds v, l, tool, p and err to a child's locals,
-// and its optional imports (base64 for telemetry, external for external
-// commands) are included whether or not this project uses them. Fixing the
-// set here, rather than reading the file, keeps generate and regenerate
-// project choosing the same alias.
+// and its optional imports (trustkeys for signing, forge for a forge feature)
+// are included whether or not this project uses them. Fixing the set here,
+// rather than reading the file, keeps generate and regenerate project choosing
+// the same alias.
 var parentNames = map[string]bool{
 	"assets": true, "props": true, "opts": true, "cmd": true,
 	"v": true, "l": true, "tool": true, "p": true, "err": true,
 	"cobra": true, "setup": true, "version": true, "logger": true,
 	"os": true, "embed": true, "afero": true, "base64": true, "external": true,
+	"time": true, "trustkeys": true, "forge": true, "raw": true,
 }
 
 // commandImportAlias is the name a parent imports a command's package under.

@@ -46,6 +46,15 @@ Feature: Commands named after Go reserved words
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "errorcmd.NewCmdError("
 
+  Scenario: generate and regenerate import a command named after a root import alike
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name time --short tell-it"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "timecmd.NewCmdTime("
+    When I run gtb in the project with "regenerate project"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "timecmd.NewCmdTime("
+
   Scenario: a command named init, main or documentation keeps its name and can be imported
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name handover --short hand-over"

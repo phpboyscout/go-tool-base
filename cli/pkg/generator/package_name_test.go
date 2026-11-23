@@ -67,6 +67,9 @@ func TestCommandImportAlias(t *testing.T) {
 		"afero":    "aferocmd",
 		"base64":   "base64cmd",
 		"external": "externalcmd",
+		"time":     "timecmd",
+		"forge":    "forgecmd",
+		"config":   "config",
 		"my-cmd":   "my_cmd",
 	}
 
@@ -90,8 +93,22 @@ import (
 	"example.com/tool/pkg/cmd/my-cmd"
 	"gopkg.in/yaml.v3"
 	"example.com/lib/semver/v2"
+	"k8s.io/api/core/v1"
+	"github.com/example/go-redis"
+	"example.com/lib/oddly-named"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
+
+func NewCmdRoot() (*cobra.Command, *setup.Command) {
+	var pod v1.Pod
+
+	release := semver.MustParse(yaml.Version)
+	probe, probecmd := 1, 2
+	use(probe, probecmd)
+	use(redis.NewClient(), quite.Different(pod), release, len.New(), my_cmd.New(), aferocmd.New())
+
+	return nil, nil
+}
 `
 
 	f, err := decorator.Parse(src)
@@ -108,6 +125,13 @@ import (
 		{"the setup import", "example.com/tool/pkg/cmd/setup", "setupcmd", "setupcmd"},
 		{"a gopkg.in import binds its name without the version", "example.com/tool/pkg/cmd/yaml", "yaml", "yamlcmd"},
 		{"a major-version import binds the element before it", "example.com/tool/pkg/cmd/semver", "semver", "semvercmd"},
+		{"a package named after its version element", "example.com/tool/pkg/cmd/v1", "v1", "v1cmd"},
+		{"the element before a version-named package is free", "example.com/tool/pkg/cmd/core", "core", "core"},
+		{"a package whose path has a go- prefix", "example.com/tool/pkg/cmd/redis", "redis", "rediscmd"},
+		{"a package named nothing like its path", "example.com/tool/pkg/cmd/quite", "quite", "quitecmd"},
+		{"a local variable", "example.com/tool/pkg/cmd/release", "release", "releasecmd"},
+		{"a name whose suffixed form is taken too", "example.com/tool/pkg/cmd/probe", "probe", "probecmdcmd"},
+		{"the parent's own package name is free", "example.com/tool/pkg/cmd/root/root", "root", "root"},
 	}
 
 	for _, tc := range tests {
@@ -206,7 +230,7 @@ func TestBuildSkeletonSubcommands_AliasesAClashingName(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/work/go.mod", []byte("module test-tool\n"), 0o644))
 
 	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/work"})
-	subs, err := g.buildSkeletonSubcommands([]ManifestCommand{{Name: "error"}, {Name: "deploy"}})
+	subs, err := g.buildSkeletonSubcommands(&Manifest{Commands: []ManifestCommand{{Name: "error"}, {Name: "deploy"}}})
 	require.NoError(t, err)
 	require.Len(t, subs, 2)
 	assert.Equal(t, "errorcmd", subs[0].PkgAlias)

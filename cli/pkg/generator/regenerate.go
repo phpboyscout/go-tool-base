@@ -464,7 +464,7 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 	g.props.Logger.Info("Regenerating root command...")
 	g.props.Logger.Debug("building skeleton subcommands", "commands", len(m.Commands))
 
-	subcommands, err := g.buildSkeletonSubcommands(m.Commands)
+	subcommands, err := g.buildSkeletonSubcommands(&m)
 	if err != nil {
 		return err
 	}
@@ -523,17 +523,29 @@ func (g *Generator) warnOnKeyCaseChange(rootCmdPath, next string) {
 
 // buildSkeletonSubcommands converts the top-level manifest commands into the
 // SkeletonSubcommand descriptors that SkeletonRoot uses to render the
-// gtbRoot.NewCmdRoot(p, sub1.NewCmdSub1(p), ...) call.
-func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]templates.SkeletonSubcommand, error) {
+// gtbRoot.NewCmdRoot(p, sub1.NewCmdSub1(p), ...) call. An alias an external
+// command holds takes a "cmd" suffix, as generate's reading of the file gives it.
+func (g *Generator) buildSkeletonSubcommands(m *Manifest) ([]templates.SkeletonSubcommand, error) {
 	moduleName, err := g.getModuleName()
 	if err != nil {
 		return nil, err
 	}
 
-	subs := make([]templates.SkeletonSubcommand, 0, len(commands))
+	taken := make(map[string]bool)
+	for _, ext := range buildSkeletonExternalCommands(m.Properties.ExternalCommands) {
+		taken[ext.PkgAlias] = true
+	}
 
-	for _, cmd := range commands {
+	subs := make([]templates.SkeletonSubcommand, 0, len(m.Commands))
+
+	for _, cmd := range m.Commands {
 		pkgAlias := commandImportAlias(cmd.Name)
+		for taken[pkgAlias] {
+			pkgAlias += "cmd"
+		}
+
+		taken[pkgAlias] = true
+
 		importPath := fmt.Sprintf("%s/pkg/cmd/%s", moduleName, cmd.Name)
 		constructor := "NewCmd" + PascalCase(cmd.Name)
 

@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"go/token"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -117,11 +115,9 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 // parentImportAlias is the alias the parent file imports the command under. A
 // parent that already imports it keeps its alias, or the package name when it
 // has none (generators before cli/v0.41.0 wrote no alias), so its registration
-// is still found. Otherwise an alias another import in the file holds takes a
-// "cmd" suffix.
+// is still found. Otherwise a name the file uses takes a "cmd" suffix.
 func parentImportAlias(f *dst.File, importPath, pkgName, alias string) string {
 	quoted := strconv.Quote(importPath)
-	taken := make(map[string]bool, len(f.Imports))
 
 	for _, imp := range f.Imports {
 		if imp.Path.Value == quoted {
@@ -131,39 +127,34 @@ func parentImportAlias(f *dst.File, importPath, pkgName, alias string) string {
 
 			return imp.Name.Name
 		}
-
-		taken[importName(imp)] = true
 	}
 
-	for taken[alias] {
+	used := usedNames(f)
+	for used[alias] {
 		alias += "cmd"
 	}
 
 	return alias
 }
 
-// importName is the name an import binds in the file. Without an alias that
-// is the package's own name, which this approximates from the path: a major
-// version element (foo/v2) or suffix (gopkg.in/yaml.v3) is not part of it.
-func importName(imp *dst.ImportSpec) string {
-	if imp.Name != nil {
-		return imp.Name.Name
+// usedNames is every identifier in the file's declarations. An import without
+// an alias binds its package's own name, which its path need not show
+// (k8s.io/api/core/v1 is v1), but Go compiles only an import the file uses.
+func usedNames(f *dst.File) map[string]bool {
+	used := map[string]bool{}
+
+	for _, decl := range f.Decls {
+		dst.Inspect(decl, func(n dst.Node) bool {
+			if id, ok := n.(*dst.Ident); ok {
+				used[id.Name] = true
+			}
+
+			return true
+		})
 	}
 
-	p, _ := strconv.Unquote(imp.Path.Value)
-
-	base := path.Base(p)
-	if majorVersionElement.MatchString(base) {
-		base = path.Base(path.Dir(p))
-	}
-
-	return majorVersionSuffix.ReplaceAllString(base, "")
+	return used
 }
-
-var (
-	majorVersionElement = regexp.MustCompile(`^v[0-9]+$`)
-	majorVersionSuffix  = regexp.MustCompile(`\.v[0-9]+$`)
-)
 
 // resolveImportAlias settles the alias against what the parent file already
 // imports, so registering and removing a command name it the same way.
