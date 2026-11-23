@@ -389,3 +389,29 @@ func TestUnknownInputsFallBackSafely(t *testing.T) {
 	assert.Contains(t, renderStatement(t, jen.Id("x").Op("=").Add(ExternalArgExpr("unknown"))), "x = p",
 		"an unknown injection token renders as p")
 }
+
+// Spec 0224: the hook comes after everything declared, and the options hold the
+// set it was given.
+func TestCommandRegistration_FlagsHook(t *testing.T) {
+	t.Parallel()
+
+	data := CommandData{
+		Package: "widget", PascalName: "Widget", Name: "widget",
+		Flags:             []CommandFlag{{Name: "a", Type: "string"}, {Name: "b", Type: "string"}},
+		MutuallyExclusive: [][]string{{"a", "b"}},
+		RequiredTogether:  [][]string{{"a", "b"}},
+	}
+
+	off := renderRegistration(t, data)
+	assert.NotContains(t, off, "FlagSet")
+	assert.NotContains(t, off, "pflag")
+
+	data.FlagsHook = true
+	on := renderRegistration(t, data)
+
+	assert.Regexp(t, `FlagSet +\*pflag\.FlagSet`, on)
+	assert.Regexp(t, `MarkFlagsRequiredTogether\("a", "b"\)\n\topts\.FlagSet = cmd\.Flags\(\)\n\tFlagsWidget\(props, opts\.FlagSet\)\n\n\treturn cmd`, on)
+
+	data = CommandData{Package: "widget", PascalName: "Widget", Name: "widget", PureGroup: true, FlagsHook: true}
+	assert.Contains(t, renderRegistration(t, data), "opts := &WidgetOptions{}")
+}

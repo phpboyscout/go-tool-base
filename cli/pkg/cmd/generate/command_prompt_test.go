@@ -201,9 +201,9 @@ func TestCommandValidateOrPrompt_NonInteractiveSyncsOptions(t *testing.T) {
 	t.Parallel()
 
 	o := &CommandOptions{Name: "deploy", Parent: "root", Short: "Deploy", WithAssets: true, PersistentPreRun: true,
-		PreRun: true, WithInitializer: true, WithConfigValidation: true, Flags: []string{"env:string:Target"}}
+		PreRun: true, FlagsHook: true, WithInitializer: true, WithConfigValidation: true, Flags: []string{"env:string:Target"}}
 	require.NoError(t, o.ValidateOrPrompt(context.Background(), nobodyTyping()))
-	assert.Equal(t, []string{"assets", "persistent-pre-run", "pre-run", "initializer", "config-validation"}, o.Options)
+	assert.Equal(t, []string{"assets", "persistent-pre-run", "pre-run", "flags-hook", "initializer", "config-validation"}, o.Options)
 }
 
 // TestCommandPrompt_Accessible drives the whole interactive path as line
@@ -213,7 +213,7 @@ func TestCommandPrompt_Accessible(t *testing.T) {
 
 	p := &props.Props{IO: formtest.AccessibleTTY(formtest.Answers(
 		"deploy", "Deploy things", "", "d, dep", "", "ExactArgs(1)",
-		"1", "3", "0", // options: assets, pre-run, done
+		"1", "3", "4", "0", // options: assets, pre-run, flags hook, done
 		"n", "y", "y", // exclude from MCP, add flags, add prompt
 		"do the deploy",
 		"env", "1", "Target", "e", "prod", "n", "y", "y",
@@ -230,6 +230,7 @@ func TestCommandPrompt_Accessible(t *testing.T) {
 	assert.Equal(t, "ExactArgs(1)", o.Args)
 	assert.True(t, o.WithAssets)
 	assert.True(t, o.PreRun)
+	assert.True(t, o.FlagsHook)
 	assert.False(t, o.PersistentPreRun)
 	require.NotNil(t, o.MCPEnabled)
 	assert.False(t, *o.MCPEnabled)

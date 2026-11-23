@@ -26,6 +26,7 @@ type CommandContext struct {
 	WithConfigValidation bool
 	PersistentPreRun     bool
 	PreRun               bool
+	FlagsHook            bool
 	Protected            *bool
 	MCPEnabled           *bool // tri-state MCP exposure; mirrors Protected
 	MCPHints             setup.MCPHints
@@ -66,6 +67,7 @@ func buildCommandContext(cfg *Config, cmd ManifestCommand, parentPath []string) 
 		WithConfigValidation: cmd.WithConfigValidation,
 		PersistentPreRun:     cmd.PersistentPreRun,
 		PreRun:               cmd.PreRun,
+		FlagsHook:            cmd.FlagsHook,
 		Protected:            cmd.Protected,
 		MCPEnabled:           cmd.MCPEnabled,
 		MCPHints:             cmd.MCPHints.Setup(),
@@ -103,6 +105,7 @@ func (c CommandContext) ToConfig() *Config {
 		WithConfigValidation: c.WithConfigValidation,
 		PersistentPreRun:     c.PersistentPreRun,
 		PreRun:               c.PreRun,
+		FlagsHook:            c.FlagsHook,
 		Protected:            c.Protected,
 		MCPEnabled:           c.MCPEnabled,
 		MCPHints:             c.MCPHints,

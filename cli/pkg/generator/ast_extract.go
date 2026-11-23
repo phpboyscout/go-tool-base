@@ -492,6 +492,26 @@ func detectMCPMarker(call *dst.CallExpr, cmd *ManifestCommand) bool {
 	}
 }
 
+// detectFlagsHook recognises the call to the command's own Flags<Name> and
+// records flags_hook, so the switch round-trips through `regenerate manifest`.
+// Only that exact name counts: an author may call other helpers here.
+func detectFlagsHook(call *dst.CallExpr, constructor string, cmd *ManifestCommand) bool {
+	name, isCommand := strings.CutPrefix(constructor, "NewCmd")
+	funcName, pkgAlias := getCallInfo(call)
+
+	if !isCommand || pkgAlias != "" || funcName != "Flags"+name {
+		return false
+	}
+
+	if _, isIdent := call.Fun.(*dst.Ident); !isIdent {
+		return false
+	}
+
+	cmd.FlagsHook = true
+
+	return true
+}
+
 // detectMCPHints recognises setup.AnnotateMCP(cmd, setup.MCPHints{...}) and
 // records the block on cmd, so hints round-trip through `regenerate manifest`.
 // Only the shape the template emits is read: string literal titles and
@@ -705,7 +725,7 @@ func (g *Generator) processCommandBody(targetFunc *dst.FuncDecl, cmd *ManifestCo
 		}
 
 		for _, expr := range exprs {
-			g.classifyBodyExpr(expr, cmd, constants, path, imports, currentPkgPath, varToConstructor, &subcommandFuncs)
+			g.classifyBodyExpr(expr, targetFunc.Name.Name, cmd, constants, path, imports, currentPkgPath, varToConstructor, &subcommandFuncs)
 		}
 	}
 
@@ -716,7 +736,7 @@ func (g *Generator) processCommandBody(targetFunc *dst.FuncDecl, cmd *ManifestCo
 // constructor and routes it: an MCP-exposure marker records the decision, a
 // flag call appends a flag, and anything else is handed to subcommand/metadata
 // extraction. Non-call expressions are ignored.
-func (g *Generator) classifyBodyExpr(expr dst.Expr, cmd *ManifestCommand, constants map[string]string, path string, imports map[string]string, currentPkgPath string, varToConstructor map[string]string, subcommandFuncs *[]string) {
+func (g *Generator) classifyBodyExpr(expr dst.Expr, constructor string, cmd *ManifestCommand, constants map[string]string, path string, imports map[string]string, currentPkgPath string, varToConstructor map[string]string, subcommandFuncs *[]string) {
 	call, ok := expr.(*dst.CallExpr)
 	if !ok {
 		return
@@ -725,6 +745,10 @@ func (g *Generator) classifyBodyExpr(expr dst.Expr, cmd *ManifestCommand, consta
 	// A setup.ExcludeFromMCP / IncludeInMCP marker is neither a flag nor a
 	// subcommand; record the exposure decision and move on.
 	if detectMCPMarker(call, cmd) || detectMCPHints(call, cmd) {
+		return
+	}
+
+	if detectFlagsHook(call, constructor, cmd) {
 		return
 	}
 

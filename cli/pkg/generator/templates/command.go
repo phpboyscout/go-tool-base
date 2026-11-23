@@ -49,7 +49,9 @@ type CommandData struct {
 	Recommendations  []string
 	PersistentPreRun bool
 	PreRun           bool
-	HasSubcommands   bool
+	// FlagsHook wires Flags<Name> and opts.FlagSet (spec 0224).
+	FlagsHook      bool
+	HasSubcommands bool
 	// PureGroup marks a command that only groups its subcommands and so has no
 	// run logic of its own — see Generator.pureGroup for how it is decided.
 	// Such a command gets no Run<Name>, and its RunE is the framework's.
@@ -242,12 +244,30 @@ func generateOptionsStruct(f *jen.File, data CommandData) {
 
 			addFlagToStruct(g, flag)
 		}
+
+		if data.FlagsHook {
+			g.Id(FlagSetField).Op("*").Qual(pflagPkg, "FlagSet")
+		}
 	})
 	f.Line()
 }
 
 func addFlagToStruct(g *jen.Group, flag CommandFlag) {
-	g.Id(pascalCase(flag.Name)).Add(specFor(flag.Type).fieldType())
+	g.Id(OptionsField(flag.Name)).Add(specFor(flag.Type).fieldType())
+}
+
+// FlagSetField is the options field the flags hook adds, so no declared flag
+// may take it (spec 0224 D4).
+const FlagSetField = "FlagSet"
+
+const (
+	pflagPkg = "github.com/spf13/pflag"
+	propsPkg = "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+)
+
+// OptionsField is the options struct field a flag's value is stored in.
+func OptionsField(flagName string) string {
+	return pascalCase(flagName)
 }
 
 func generateNewCmdFunction(f *jen.File, data CommandData) {
@@ -295,9 +315,22 @@ func generateNewCmdFunction(f *jen.File, data CommandData) {
 		addFlagsToCommand(g, data.Flags, data.PersistentFlags)
 		generateMutuallyExclusive(g, data.MutuallyExclusive)
 		generateRequiredTogether(g, data.RequiredTogether)
+		generateFlagsHookCall(g, data)
 
 		g.Return(jen.Id("cmd"))
 	})
+}
+
+// generateFlagsHookCall hands the command's flag set to its hand-written
+// Flags<Name>. It comes last, so the hook sees every declared flag (spec 0224 D2).
+func generateFlagsHookCall(g *jen.Group, data CommandData) {
+	if !data.FlagsHook {
+		return
+	}
+
+	g.Id("opts").Dot(FlagSetField).Op("=").Id("cmd").Dot("Flags").Call()
+	g.Id("Flags"+data.PascalName).Call(jen.Id("props"), jen.Id("opts").Dot(FlagSetField))
+	g.Line()
 }
 
 // generateMCPExposure emits the MCP-exposure marker for the command, if any:
@@ -438,7 +471,7 @@ func needsOpts(data CommandData) bool {
 	// A command that calls its own Run<Name> needs opts to pass it; so does one
 	// with a hook or a flag. A pure group's RunE is setup.GroupRunE, which takes
 	// neither props nor opts, so it declares neither.
-	return !data.PureGroup || data.PersistentPreRun || data.PreRun ||
+	return !data.PureGroup || data.PersistentPreRun || data.PreRun || data.FlagsHook ||
 		len(data.Flags) > 0 || len(data.PersistentFlags) > 0 || len(data.AncestralPersistentFlags) > 0
 }
 
@@ -781,7 +814,7 @@ func CommandExecution(data CommandData) string {
 		return data.FullFileContent
 	}
 
-	cleanImports := getCleanImports(data.Imports, data.WithInitializer, !data.PureGroup, emitsFunction(data))
+	cleanImports := getCleanImports(data)
 
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
@@ -790,6 +823,10 @@ func CommandExecution(data CommandData) string {
 	// import block would be an unused import (#80).
 	if len(cleanImports) > 0 {
 		sb.WriteString(importBlock(cleanImports, data.ModulePath))
+	}
+
+	if data.FlagsHook {
+		sb.WriteString(FlagsHookStub(data) + "\n")
 	}
 
 	if data.PersistentPreRun {
@@ -907,43 +944,28 @@ func quoteImport(imp string) string {
 	return "\"" + imp + "\""
 }
 
-// emitsFunction reports whether CommandExecution writes any function, each of
-// which takes a context and the Props.
-func emitsFunction(data CommandData) bool {
+// FlagsHookStub is the hand-written Flags<Name> as it is first written.
+func FlagsHookStub(data CommandData) string {
+	return fmt.Sprintf("func Flags%s(props *props.Props, flags *pflag.FlagSet) {\n}\n", data.PascalName)
+}
+
+// takesContext reports whether CommandExecution writes a function that takes a
+// context. The flags hook is the one that does not.
+func takesContext(data CommandData) bool {
 	return !data.PureGroup || data.PersistentPreRun || data.PreRun || data.WithInitializer
 }
 
-func getCleanImports(rawImports []string, withInitializer, withRunStub, withFunction bool) []string {
+func getCleanImports(data CommandData) []string {
 	uniqueImports := make(map[string]bool)
 
 	var cleanImports []string
 
-	// Every emitted function takes ctx and props; with none there is nothing
-	// to import.
-	var baseImports []string
-
-	if withFunction {
-		baseImports = append(baseImports, "context", "gitlab.com/phpboyscout/go-tool-base/pkg/props")
-	}
-
-	// Only the generated Run<Name> stub names a sentinel, and a pure group has
-	// no Run<Name>. Importing it anyway would not compile.
-	if withRunStub {
-		baseImports = append(baseImports, "gitlab.com/phpboyscout/go/errorhandling")
-	}
-
-	// The generated Init<Name> stub takes a setup.Editor, so pkg/setup is
-	// required in main.go when an initializer is generated.
-	if withInitializer {
-		baseImports = append(baseImports, "gitlab.com/phpboyscout/go-tool-base/pkg/setup")
-	}
-
-	for _, imp := range baseImports {
+	for _, imp := range stubImports(data) {
 		uniqueImports[imp] = true
 		cleanImports = append(cleanImports, imp)
 	}
 
-	for _, imp := range rawImports {
+	for _, imp := range data.Imports {
 		if isRedundantImport(imp) {
 			continue
 		}
@@ -955,6 +977,38 @@ func getCleanImports(rawImports []string, withInitializer, withRunStub, withFunc
 	}
 
 	return cleanImports
+}
+
+// stubImports is what the functions CommandExecution writes refer to.
+func stubImports(data CommandData) []string {
+	var imports []string
+
+	if takesContext(data) {
+		imports = append(imports, "context")
+	}
+
+	// Every emitted function takes props; with none there is nothing to import.
+	if takesContext(data) || data.FlagsHook {
+		imports = append(imports, propsPkg)
+	}
+
+	if data.FlagsHook {
+		imports = append(imports, pflagPkg)
+	}
+
+	// Only the generated Run<Name> stub names a sentinel, and a pure group has
+	// no Run<Name>. Importing it anyway would not compile.
+	if !data.PureGroup {
+		imports = append(imports, "gitlab.com/phpboyscout/go/errorhandling")
+	}
+
+	// The generated Init<Name> stub takes a setup.Editor, so pkg/setup is
+	// required in main.go when an initializer is generated.
+	if data.WithInitializer {
+		imports = append(imports, "gitlab.com/phpboyscout/go-tool-base/pkg/setup")
+	}
+
+	return imports
 }
 
 func isRedundantImport(imp string) bool {

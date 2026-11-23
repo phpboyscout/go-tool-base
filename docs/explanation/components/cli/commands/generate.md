@@ -241,6 +241,7 @@ Flags:
       --alias strings        Aliases for the command
       --assets               Include assets directory support
       --flag strings         Flags definition (name:type:description:persistent)
+      --flags-hook           Generate a Flags hook, called while the command is built, that can add flags to it
       --force                Overwrite existing files
   -h, --help                 help for command
       --long string          Long description

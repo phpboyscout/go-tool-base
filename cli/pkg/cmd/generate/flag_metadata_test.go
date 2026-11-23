@@ -3,12 +3,16 @@ package generate
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/errors"
+
+	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -111,4 +115,36 @@ commands:
 	assert.Contains(t, man, "required: true", "manifest must retain required marking")
 	assert.Contains(t, man, "name: verbose", "manifest must record the new flag")
 	assert.NotContains(t, man, "stalehash", "stale cmd.go hash must be refreshed after regeneration")
+}
+
+// A persistent flag that a descendant's flags hook has no room for is refused
+// before the manifest is written (spec 0224 D4).
+func TestAddFlag_RefusesOneADescendantsFlagsHookTakes(t *testing.T) {
+	t.Parallel()
+
+	const manifest = `properties:
+  name: test-project
+commands:
+- name: keys
+  description: Keys
+  commands:
+  - name: sign
+    description: Sign
+    flags_hook: true
+`
+
+	fs := afero.NewMemMapFs()
+	p := &props.Props{FS: fs, Logger: logger.NewNoop(), Version: version.NewInfo("v1.0.0", "", "")}
+	path := "/project/.gtb/manifest.yaml"
+	require.NoError(t, afero.WriteFile(fs, "/project/go.mod", []byte("module example.com/test-project\n"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, path, []byte(manifest), 0o644))
+
+	opts := AddFlagOptions{CommandName: "keys", FlagName: "flag-set", FlagType: "string", Persistent: true, Path: "/project"}
+	err := opts.Run(context.Background(), p)
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
+	assert.Contains(t, strings.Join(errors.GetAllHints(err), "\n"), "keys/sign")
+
+	after, err := afero.ReadFile(fs, path)
+	require.NoError(t, err)
+	assert.Equal(t, manifest, string(after))
 }

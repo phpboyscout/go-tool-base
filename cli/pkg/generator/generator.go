@@ -102,6 +102,7 @@ type Config struct {
 	Path             string
 	PersistentPreRun bool
 	PreRun           bool
+	FlagsHook        bool
 	Prompt           string
 	Protected        *bool
 	MCPEnabled       *bool // tri-state MCP exposure; mirrors Protected

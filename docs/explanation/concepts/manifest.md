@@ -73,6 +73,7 @@ commands:
     - **protected**: Whether the command is write-protected (preventing overwrite).
     - **persistent_pre_run**: Whether to generate a persistent pre-run hook.
     - **pre_run**: Whether to generate a pre-run hook.
+    - **flags_hook**: Whether to generate a [flags hook](../../how-to/framework-cli/generate-commands.md#4c-add-flags-from-your-own-code): `Flags<Name>` in `main.go`, and `opts.FlagSet`.
     - **with_initializer**: Whether to generate a config Initializer for this command (`init.go` + `Init<Name>` stub in `main.go`).
     - **mutually_exclusive**: A list of flag groups where only one flag can be set (e.g., `[["json", "yaml"]]`).
     - **required_together**: A list of flag groups that must be set together.

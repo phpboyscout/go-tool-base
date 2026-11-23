@@ -96,6 +96,7 @@ func TestSyncFlagsToOptions(t *testing.T) {
 		WithAssets:           true,
 		PersistentPreRun:     true,
 		PreRun:               true,
+		FlagsHook:            true,
 		WithInitializer:      true,
 		WithConfigValidation: true,
 	}
@@ -104,6 +105,7 @@ func TestSyncFlagsToOptions(t *testing.T) {
 	assert.Contains(t, o.Options, "assets")
 	assert.Contains(t, o.Options, "persistent-pre-run")
 	assert.Contains(t, o.Options, "pre-run")
+	assert.Contains(t, o.Options, "flags-hook")
 	assert.Contains(t, o.Options, "initializer")
 	assert.Contains(t, o.Options, "config-validation")
 }
@@ -122,12 +124,13 @@ func TestSyncOptionsToFlags_RoundTrip(t *testing.T) {
 	t.Parallel()
 
 	o := &CommandOptions{
-		Options: []string{"assets", "persistent-pre-run", "pre-run", "initializer", "config-validation"},
+		Options: []string{"assets", "persistent-pre-run", "pre-run", "flags-hook", "initializer", "config-validation"},
 	}
 	o.syncOptionsToFlags()
 	assert.True(t, o.WithAssets)
 	assert.True(t, o.PersistentPreRun)
 	assert.True(t, o.PreRun)
+	assert.True(t, o.FlagsHook)
 	assert.True(t, o.WithInitializer)
 	assert.True(t, o.WithConfigValidation)
 }

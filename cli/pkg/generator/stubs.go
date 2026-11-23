@@ -3,7 +3,12 @@ package generator
 import (
 	"context"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os/exec"
+	"path"
+	"strconv"
 	"strings"
 
 	"github.com/dave/dst"
@@ -14,12 +19,21 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 )
 
+const (
+	contextImport = "context"
+	propsImport   = "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+)
+
 // ensureHookStubs appends any missing hook function stubs to an existing main.go.
 // It is called when main.go is being preserved (no --force) so that enabling
-// PersistentPreRun, PreRun, or WithInitializer on a subsequent generate doesn't
+// PersistentPreRun, PreRun, FlagsHook or WithInitializer on a subsequent generate doesn't
 // silently leave the required function absent. Existing code is never modified or
 // removed. Any extra imports required by injected stubs are also inserted.
 func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data templates.CommandData) error {
+	return g.ensureStubs(ctx, mainPath, data, !data.PureGroup)
+}
+
+func (g *Generator) ensureStubs(ctx context.Context, mainPath string, data templates.CommandData, withRun bool) error {
 	if g.wiringSealed(mainPath, "injecting hook stubs") {
 		return nil
 	}
@@ -40,9 +54,9 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			// A PURE group is exempt: its cmd.go wires setup.GroupRunE and calls
 			// nothing here, so injecting a stub would add a function nobody
 			// calls — which is what issue #21 objected to.
-			enabled:         !data.PureGroup,
+			enabled:         withRun,
 			funcName:        "Run" + data.PascalName,
-			requiredImports: []string{"gitlab.com/phpboyscout/go/errorhandling"},
+			requiredImports: []string{contextImport, propsImport, "gitlab.com/phpboyscout/go/errorhandling"},
 			stub: func() string {
 				return fmt.Sprintf(
 					"\nfunc Run%s(ctx context.Context, props *props.Props, opts *%sOptions, args []string) error {\n"+
@@ -53,8 +67,9 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			},
 		},
 		{
-			enabled:  data.PersistentPreRun,
-			funcName: "PersistentPreRun" + data.PascalName,
+			enabled:         data.PersistentPreRun,
+			funcName:        "PersistentPreRun" + data.PascalName,
+			requiredImports: []string{contextImport, propsImport},
 			stub: func() string {
 				return fmt.Sprintf(
 					"\nfunc PersistentPreRun%s(ctx context.Context, props *props.Props, opts *%sOptions, args []string) error {\n"+
@@ -66,8 +81,9 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			},
 		},
 		{
-			enabled:  data.PreRun,
-			funcName: "PreRun" + data.PascalName,
+			enabled:         data.PreRun,
+			funcName:        "PreRun" + data.PascalName,
+			requiredImports: []string{contextImport, propsImport},
 			stub: func() string {
 				return fmt.Sprintf(
 					"\nfunc PreRun%s(ctx context.Context, props *props.Props, opts *%sOptions, args []string) error {\n"+
@@ -79,10 +95,16 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			},
 		},
 		{
+			enabled:         data.FlagsHook,
+			funcName:        "Flags" + data.PascalName,
+			requiredImports: []string{propsImport, "github.com/spf13/pflag"},
+			stub:            func() string { return "\n" + templates.FlagsHookStub(data) },
+		},
+		{
 			enabled:  data.WithInitializer,
 			funcName: "Init" + data.PascalName,
 			requiredImports: []string{
-				"gitlab.com/phpboyscout/go-tool-base/pkg/setup",
+				contextImport, propsImport, "gitlab.com/phpboyscout/go-tool-base/pkg/setup",
 			},
 			stub: func() string {
 				return fmt.Sprintf(
@@ -114,32 +136,67 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 	return nil
 }
 
-// ensureImport adds the given import path to the import block of a Go source
-// file (represented as a string) if it is not already present. It locates the
-// closing parenthesis of the first import(...) block and inserts the import
-// just before it. If no grouped import block is found the file is returned
-// unchanged (go fmt will catch any resulting compile error).
+// ensureImport adds importPath to a Go source file that does not already import
+// it under its own name. An aliased, blank or dot import does not count: the
+// stubs name the package by the last element of its path.
 func ensureImport(src, importPath string) string {
-	quoted := `"` + importPath + `"`
+	fset := token.NewFileSet()
 
-	if strings.Contains(src, quoted) {
+	f, err := parser.ParseFile(fset, "", src, parser.ImportsOnly|parser.ParseComments)
+	if err != nil {
 		return src
 	}
 
-	// Find the closing ) of the import block.
-	idx := strings.Index(src, "import (")
-	if idx == -1 {
-		return src
+	quoted := strconv.Quote(importPath)
+
+	for _, imp := range f.Imports {
+		if unquoted, _ := strconv.Unquote(imp.Path.Value); unquoted == importPath && (imp.Name == nil || imp.Name.Name == path.Base(importPath)) {
+			return src
+		}
 	}
 
-	closeIdx := strings.Index(src[idx:], "\n)")
-	if closeIdx == -1 {
-		return src
+	offset := func(pos token.Pos) int { return fset.Position(pos).Offset }
+
+	for _, decl := range f.Decls {
+		if gen, ok := decl.(*ast.GenDecl); ok && gen.Rparen.IsValid() {
+			closing := offset(gen.Rparen)
+			lead := "\n"
+
+			if strings.HasSuffix(src[:closing], "\n") {
+				lead = ""
+			}
+
+			return src[:closing] + lead + "\t" + quoted + "\n" + src[closing:]
+		}
 	}
 
-	insertAt := idx + closeIdx
+	clauseEnd := packageClauseEnd(src, fset, f)
 
-	return src[:insertAt] + "\n\t" + quoted + src[insertAt:]
+	return src[:clauseEnd] + "\n\nimport (\n\t" + quoted + "\n)" + src[clauseEnd:]
+}
+
+// packageClauseEnd is the offset past any comment on the clause's own line,
+// where a directive such as nolint has to stay. A comment's End is short of a
+// multi-line one in a CRLF file, so its closing marker is looked up instead.
+func packageClauseEnd(src string, fset *token.FileSet, f *ast.File) int {
+	clause := fset.Position(f.Name.End())
+	end := clause.Offset
+
+	for _, group := range f.Comments {
+		for _, c := range group.List {
+			start := fset.Position(c.Pos())
+			if start.Offset < clause.Offset || start.Line != clause.Line {
+				continue
+			}
+
+			end = start.Offset + len(c.Text)
+			if strings.HasPrefix(c.Text, "/*") {
+				end = start.Offset + strings.Index(src[start.Offset:], "*/") + len("*/")
+			}
+		}
+	}
+
+	return end
 }
 
 // isUntouchedStub reports whether the named function's body is exactly

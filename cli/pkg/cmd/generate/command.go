@@ -45,6 +45,7 @@ type CommandOptions struct {
 	NonInteractive       bool
 	PersistentPreRun     bool
 	PreRun               bool
+	FlagsHook            bool
 	Force                bool
 	WithInitializer      bool
 	WithConfigValidation bool
@@ -174,6 +175,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.NonInteractive, "non-interactive", os.Getenv("CI") != "", "Never pause for input: disables the repair agent's query_user tool (defaults true when CI is set)")
 	cmd.Flags().BoolVar(&opts.PersistentPreRun, "persistent-pre-run", false, "Generate a PersistentPreRun hook")
 	cmd.Flags().BoolVar(&opts.PreRun, "pre-run", false, "Generate a PreRun hook")
+	cmd.Flags().BoolVar(&opts.FlagsHook, "flags-hook", false, "Generate a Flags hook, called while the command is built, that can add flags to it")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files")
 	cmd.Flags().BoolVar(&opts.WithInitializer, "with-initializer", false, "Generate an Initializer for this command")
 	cmd.Flags().BoolVar(&opts.WithConfigValidation, "with-config-validation", false, "Generate a config validation stub for this command")
@@ -432,6 +434,7 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 				huh.NewOption("Include Assets", "assets"),
 				huh.NewOption("PersistentPreRun Hook", "persistent-pre-run"),
 				huh.NewOption("PreRun Hook", "pre-run"),
+				huh.NewOption("Flags Hook", "flags-hook"),
 				huh.NewOption("Config Initialiser", "initializer"),
 				huh.NewOption("Config Validation", "config-validation"),
 			).
@@ -637,6 +640,10 @@ func (o *CommandOptions) syncFlagsToOptions() error {
 		o.Options = append(o.Options, "pre-run")
 	}
 
+	if o.FlagsHook {
+		o.Options = append(o.Options, "flags-hook")
+	}
+
 	if o.WithInitializer {
 		o.Options = append(o.Options, "initializer")
 	}
@@ -657,6 +664,8 @@ func (o *CommandOptions) syncOptionsToFlags() {
 			o.PersistentPreRun = true
 		case "pre-run":
 			o.PreRun = true
+		case "flags-hook":
+			o.FlagsHook = true
 		case "initializer":
 			o.WithInitializer = true
 		case "config-validation":
@@ -687,6 +696,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		NonInteractive:       o.NonInteractive || !p.GetIO().Interactive(),
 		PersistentPreRun:     o.PersistentPreRun,
 		PreRun:               o.PreRun,
+		FlagsHook:            o.FlagsHook,
 		Force:                o.Force,
 		WithInitializer:      o.WithInitializer,
 		WithConfigValidation: o.WithConfigValidation,

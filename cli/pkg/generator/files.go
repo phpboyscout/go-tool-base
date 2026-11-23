@@ -229,7 +229,18 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 	if !exists || g.config.Force {
 		g.props.Logger.Info(fmt.Sprintf("%s execution file: %s", g.writeVerb(), mainFile))
 
-		return g.generateExecutionFile(ctx, cmdDir, *data)
+		if err := g.generateExecutionFile(ctx, cmdDir, *data); err != nil {
+			return err
+		}
+
+		if data.FullFileContent == "" {
+			return nil
+		}
+
+		// AI-written content holds Run<Name> and none of the hooks cmd.go calls.
+		// No Run stub: one it misnamed has to fail to compile for the repair
+		// agent to see it.
+		return g.ensureStubs(ctx, mainFile, *data, false)
 	}
 
 	// main.go is being preserved — inject any hook stubs that the options

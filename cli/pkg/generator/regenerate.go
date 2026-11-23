@@ -319,6 +319,10 @@ func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, 
 		return err
 	}
 
+	if err := g.checkFlagsHook(g.resolveGenerationFlags()); err != nil {
+		return err
+	}
+
 	if err := g.props.FS.MkdirAll(cmdDir, DefaultDirMode); err != nil {
 		return errors.Newf("failed to create command directory: %w", err)
 	}

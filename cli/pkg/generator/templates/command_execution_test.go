@@ -61,6 +61,8 @@ func TestCommandExecution_ImportsOnlyWhatItUses(t *testing.T) {
 		{"pure group", CommandData{Name: "deploy", Package: "deploy", PascalName: "Deploy", PureGroup: true}},
 		{"pure group with pre run", CommandData{Name: "deploy", Package: "deploy", PascalName: "Deploy", PureGroup: true, PreRun: true}},
 		{"pure group with initializer", CommandData{Name: "deploy", Package: "deploy", PascalName: "Deploy", PureGroup: true, WithInitializer: true}},
+		{"pure group with flags hook", CommandData{Name: "deploy", Package: "deploy", PascalName: "Deploy", PureGroup: true, FlagsHook: true}},
+		{"leaf with flags hook", CommandData{Name: "canary", Package: "canary", PascalName: "Canary", FlagsHook: true}},
 		{"leaf", CommandData{Name: "canary", Package: "canary", PascalName: "Canary"}},
 		{"leaf with hooks and initializer", CommandData{Name: "canary", Package: "canary", PascalName: "Canary", PersistentPreRun: true, WithInitializer: true}},
 	}
@@ -80,6 +82,8 @@ func TestCommandExecution_ImportsOnlyWhatItUses(t *testing.T) {
 					assert.True(t, usesIdent(src, "props"), "props imported but unused:\n%s", src)
 				case `"gitlab.com/phpboyscout/go/errorhandling"`:
 					assert.True(t, usesIdent(src, "errorhandling"), "errorhandling imported but unused:\n%s", src)
+				case `"github.com/spf13/pflag"`:
+					assert.True(t, usesIdent(src, "pflag"), "pflag imported but unused:\n%s", src)
 				case `"gitlab.com/phpboyscout/go-tool-base/pkg/setup"`:
 					assert.True(t, usesIdent(src, "setup"), "setup imported but unused:\n%s", src)
 				}

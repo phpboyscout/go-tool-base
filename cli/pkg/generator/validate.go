@@ -1364,7 +1364,7 @@ func ValidateManifest(m *Manifest) error {
 		return err
 	}
 
-	if err := validateManifestCommands(m.Commands); err != nil {
+	if err := validateManifestCommandTree(m); err != nil {
 		return err
 	}
 
@@ -1390,6 +1390,14 @@ func validateManifestRelease(m *Manifest) error {
 
 	return ValidateHomebrewTap(m.Properties.Homebrew.Tap, props.FeatureID(ciForge(rs.Backend, rs.Type)),
 		rs.Private, rs.Type == props.ReleaseSourceStatic)
+}
+
+func validateManifestCommandTree(m *Manifest) error {
+	if err := validateManifestCommands(m.Commands); err != nil {
+		return err
+	}
+
+	return CheckFlagsHooks(m)
 }
 
 // validateManifestCommands walks the manifest command tree and validates

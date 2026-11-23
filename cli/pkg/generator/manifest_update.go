@@ -26,6 +26,7 @@ type ManifestCommandUpdate struct {
 	WithConfigValidation bool
 	PersistentPreRun     bool
 	PreRun               bool
+	FlagsHook            bool
 	Protected            *bool
 	MCPEnabled           *bool
 	MCPHints             *ManifestMCPHints
@@ -72,6 +73,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 		WithConfigValidation: g.config.WithConfigValidation,
 		PersistentPreRun:     g.config.PersistentPreRun,
 		PreRun:               g.config.PreRun,
+		FlagsHook:            g.config.FlagsHook,
 		Protected:            g.config.Protected,
 		MCPEnabled:           g.config.MCPEnabled,
 		MCPHints:             ManifestMCPHintsFrom(g.config.MCPHints),
@@ -108,6 +110,7 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 
 			m.Commands[i].PersistentPreRun = g.config.PersistentPreRun
 			m.Commands[i].PreRun = g.config.PreRun
+			m.Commands[i].FlagsHook = g.config.FlagsHook
 			m.Commands[i].Hidden = g.config.Hidden
 
 			m.Commands[i].Flags = mFlags
@@ -147,6 +150,7 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 			WithConfigValidation: g.config.WithConfigValidation,
 			PersistentPreRun:     g.config.PersistentPreRun,
 			PreRun:               g.config.PreRun,
+			FlagsHook:            g.config.FlagsHook,
 		})
 	}
 }
@@ -195,6 +199,7 @@ func updateExistingCommand(cmd *ManifestCommand, u ManifestCommandUpdate) {
 
 	cmd.PersistentPreRun = u.PersistentPreRun
 	cmd.PreRun = u.PreRun
+	cmd.FlagsHook = u.FlagsHook
 	cmd.Hidden = u.Hidden
 	cmd.Flags = u.Flags
 
@@ -224,6 +229,7 @@ func createNewManifestCommand(u ManifestCommandUpdate) ManifestCommand {
 		WithConfigValidation: u.WithConfigValidation,
 		PersistentPreRun:     u.PersistentPreRun,
 		PreRun:               u.PreRun,
+		FlagsHook:            u.FlagsHook,
 		Hidden:               u.Hidden,
 		Flags:                u.Flags,
 		Protected:            u.Protected,

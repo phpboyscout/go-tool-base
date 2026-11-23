@@ -231,6 +231,10 @@ func (o *AddFlagOptions) saveManifest(p *props.Props, m *generator.Manifest, pat
 		return errors.Newf("%w for command %s", ErrUpdateManifestFailed, o.CommandName)
 	}
 
+	if err := generator.CheckFlagsHooks(m); err != nil {
+		return err
+	}
+
 	return generator.EncodeManifestFile(p.FS, generator.ManifestPathFor(o.Path), m)
 }
 

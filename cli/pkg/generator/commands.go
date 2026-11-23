@@ -113,6 +113,11 @@ func (g *Generator) generate(ctx context.Context) error {
 	g.keepRecordedSettings()
 
 	flags := g.resolveGenerationFlags()
+
+	if err := g.checkFlagsHook(flags); err != nil {
+		return err
+	}
+
 	data := g.prepareGenerationData(flags)
 
 	if err := g.checkExistingMain(cmdDir); err != nil {
@@ -196,8 +201,13 @@ func (g *Generator) GenerateDryRun(ctx context.Context) (*DryRunResult, error) {
 
 	g.keepRecordedSettings()
 
+	flags := g.resolveGenerationFlags()
+
+	if err := g.checkFlagsHook(flags); err != nil {
+		return nil, err
+	}
+
 	return g.withDryRunOverlay(ctx, g.config.Path, func() error {
-		flags := g.resolveGenerationFlags()
 		data := g.prepareGenerationData(flags)
 
 		// Skip AI generation in dry-run — only preview boilerplate
@@ -362,6 +372,7 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 		WithAssets:               g.config.WithAssets,
 		PersistentPreRun:         g.config.PersistentPreRun,
 		PreRun:                   g.config.PreRun,
+		FlagsHook:                g.config.FlagsHook,
 		Flags:                    normalFlags,
 		PersistentFlags:          persistentFlags,
 		AncestralPersistentFlags: ancestralPersistentFlags,

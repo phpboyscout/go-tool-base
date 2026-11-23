@@ -137,6 +137,7 @@ You can generate lifecycle hook stubs for your command:
 
 - `--persistent-pre-run`: Generate a `PersistentPreRun` hook (runs before this command and all subcommands).
 - `--pre-run`: Generate a `PreRun` hook (runs before this command only).
+- `--flags-hook`: Generate a `Flags` hook (called while the command is built, so it can add flags). See [Add flags from your own code](#4c-add-flags-from-your-own-code).
 - `--with-initializer`: Generate a config Initializer for this command (creates `init.go` and adds an `Init<Name>` stub in `main.go`).
 - `--with-config-validation`: Generate a `config.go` with a `<Name>Config` struct and a `Validate<Name>Config(cfg config.Reader)` function (delegating to `config.ValidateStruct[<Name>Config]`) for validating this command's config keys. See [Define and Validate Config for a Component](../validate-component-config.md).
 
@@ -150,6 +151,50 @@ gtb generate command -n serve --persistent-pre-run --with-initializer
 
 !!! tip "Updating existing commands"
     If you add a lifecycle hook option to a command whose `main.go` already exists (and you're not using `--force`), the generator will **append the missing stub** to your existing implementation file rather than overwriting it. It will also inject any required imports. Your existing logic is never modified.
+
+### 4c. Add flags from your own code
+
+Declare a flag in the manifest when you can. Use the flags hook when a flag depends on what the binary links, or when the run has to know whether a flag was set at all.
+
+```bash
+gtb generate command -n sign --flags-hook
+```
+
+The manifest records `flags_hook: true`, and `main.go` gains a `Flags<Name>` function. The generated constructor calls it with the command's own flag set, after every declared flag and flag group, so it can add a flag or change a declared one:
+
+```go
+func FlagsSign(props *props.Props, flags *pflag.FlagSet) {
+	flags.String("kms-region", "", "KMS region")
+	flags.Lookup("backend").Usage = "one of: " + linkedBackends()
+}
+```
+
+The options struct carries the same set as `opts.FlagSet`. The run and pre-run functions read a hook-added value from it, and ask whether the user set a flag:
+
+```go
+func RunSign(ctx context.Context, props *props.Props, opts *SignOptions, args []string) error {
+	region, err := opts.FlagSet.GetString("kms-region")
+	if err != nil {
+		return err
+	}
+
+	if opts.FlagSet.Changed("public-key") {
+		// Set by the user, even when set to its default.
+	}
+	// ...
+}
+```
+
+A hook-added flag appears in help, in completion, in the command's MCP tool schema and as a config layer, like a declared one. These limits come with it:
+
+- **Its config key is its name with dots for dashes.** A hook-added `--log-level` would set the key `log.level`, so pick a name that is not already a key.
+- **A name the root already has as a persistent flag shadows the root's flag** on this command, with no error. A name the command itself already has panics when the tool starts.
+- **It can't be in a manifest flag group** (`mutually_exclusive`, `required_together`). Check such a rule in the run.
+- **A persistent pre-run sees its own command's set.** When `PersistentPreRun<Name>` runs for a child, `opts.FlagSet` is still the ancestor's set. `Lookup(name).Changed` is right for the ancestor's persistent flags. `Visit` sees nothing, and the child's own flags are not in it.
+- **A pure group keeps its hook.** Its flags are accepted on the group's own command line, and nothing reads them until you write a run.
+- **No declared flag may be stored in the field `FlagSet`.** A flag named `flag-set`, the command's own or inherited, is refused while the hook is on, and adding a persistent one to an ancestor is refused too. An ancestor's flag that is not persistent is fine.
+
+Leaving `--flags-hook` out of a later `generate command` turns the hook off and leaves your `Flags<Name>` function in `main.go`. Delete the function, and any use of `opts.FlagSet`, yourself.
 
 ### 5. Command Protection 🛡️
 

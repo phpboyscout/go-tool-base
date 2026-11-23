@@ -212,6 +212,7 @@ type ManifestCommand struct {
 
 	PersistentPreRun  bool              `yaml:"persistent_pre_run,omitempty"`
 	PreRun            bool              `yaml:"pre_run,omitempty"`
+	FlagsHook         bool              `yaml:"flags_hook,omitempty"`
 	MutuallyExclusive [][]string        `yaml:"mutually_exclusive,omitempty"`
 	RequiredTogether  [][]string        `yaml:"required_together,omitempty"`
 	Flags             []ManifestFlag    `yaml:"flags,omitempty"`

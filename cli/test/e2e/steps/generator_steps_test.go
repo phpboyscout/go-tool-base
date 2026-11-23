@@ -37,6 +37,8 @@ type generatorWorld struct {
 	// existingDir is a directory holding files before generation, the way an
 	// estate repository is created before a tool is scaffolded into it (#113).
 	existingDir string
+	// toolPath is the generated project's own binary, once built.
+	toolPath string
 }
 
 // isolatedEnv returns the environment for a gtb invocation: the real
@@ -209,6 +211,9 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
 	ctx.Step(`^I give the generated "([^"]*)" command a hand-written run body$`, iGiveTheCommandAHandWrittenRunBody)
+	ctx.Step(`^I write a flags hook adding "([^"]*)" with default "([^"]*)" to the generated "([^"]*)" command$`, iWriteAFlagsHook)
+	ctx.Step(`^I build the generated project$`, iBuildTheGeneratedProject)
+	ctx.Step(`^I run the built tool with "([^"]*)"$`, iRunTheBuiltToolWith)
 	ctx.Step(`^I delete the generated "([^"]*)" file$`, iDeleteTheGeneratedFile)
 	ctx.Step(`^I record the state of the generated project$`, iRecordTheStateOfTheGeneratedProject)
 	ctx.Step(`^the generated project is unchanged$`, theGeneratedProjectIsUnchanged)
@@ -691,6 +696,74 @@ func iGiveTheCommandAHandWrittenRunBody(ctx context.Context, command string) err
 
 	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
 	return os.WriteFile(full, updated, 0o644)
+}
+
+func iWriteAFlagsHook(ctx context.Context, flag, value, command string) error {
+	w := getGeneratorWorld(ctx)
+	relPath := filepath.Join("pkg", "cmd", command, "main.go")
+	full := filepath.Join(w.projectDir, relPath)
+
+	content, err := os.ReadFile(full)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	src := string(content)
+
+	for old, replacement := range map[string]string{
+		"flags *pflag.FlagSet) {\n": fmt.Sprintf("flags *pflag.FlagSet) {\n\tflags.String(%q, %q, \"\")\n", flag, value),
+		"return errorhandling.ErrNotImplemented": fmt.Sprintf(`value, err := opts.FlagSet.GetString(%q)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(props.GetIO().Out(), "%s=%%s changed=%%t\n", value, opts.FlagSet.Changed(%q))
+
+	return err`, flag, flag, flag),
+		"\t\"gitlab.com/phpboyscout/go/errorhandling\"\n": "",
+		"\t\"context\"\n": "\t\"context\"\n\t\"fmt\"\n",
+	} {
+		if !strings.Contains(src, old) {
+			return fmt.Errorf("%s has no %q to replace:\n%s", relPath, old, src)
+		}
+
+		src = strings.Replace(src, old, replacement, 1)
+	}
+
+	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
+	return os.WriteFile(full, []byte(src), 0o644)
+}
+
+// iBuildTheGeneratedProject builds the scaffold against this working tree,
+// which isolatedEnv has generation write into its go.mod as a replace.
+func iBuildTheGeneratedProject(ctx context.Context) error {
+	w := getGeneratorWorld(ctx)
+	w.toolPath = filepath.Join(w.projectDir, "bin", "feattool")
+
+	for _, args := range [][]string{
+		{"mod", "tidy"},
+		{"build", "-buildvcs=false", "-o", w.toolPath, "./cmd/feattool"},
+	} {
+		cmd := exec.CommandContext(ctx, "go", args...)
+		cmd.Dir = w.projectDir
+		cmd.Env = w.isolatedEnv()
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("go %s: %w\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	return nil
+}
+
+func iRunTheBuiltToolWith(ctx context.Context, args string) {
+	w := getGeneratorWorld(ctx)
+
+	cmd := exec.CommandContext(ctx, w.toolPath, append(strings.Fields(args), "--ci")...) //nolint:gosec // test-only: args from Gherkin steps
+	cmd.Dir = w.projectDir
+	cmd.Env = w.isolatedEnv()
+
+	recordRun(w, cmd)
 }
 
 func iDeleteTheGeneratedFile(ctx context.Context, relPath string) error {
