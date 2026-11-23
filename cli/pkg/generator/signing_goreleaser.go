@@ -2,8 +2,10 @@ package generator
 
 import (
 	"bytes"
+	"io"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -68,10 +70,7 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 
 	root, ok := parseYAMLMapping(content)
 	if !ok {
-		// A file we cannot parse as a YAML mapping is not safe to splice.
-		g.adviseGoreleaserSigns(relPath, m, enable, "it is not a parseable YAML mapping")
-
-		return nil
+		return g.adviseUnspliceableGoreleaser(fullPath, relPath, content, m, enable)
 	}
 
 	hasSigns := topLevelKeyPresent(root, "signs")
@@ -87,6 +86,20 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	}
 
 	return g.disableGoreleaserSigns(fullPath, relPath, content, m, hasSigns)
+}
+
+// adviseUnspliceableGoreleaser advises both edits for a file that is not safe
+// to splice. Disabling has nothing to remove from text with no signs key.
+func (g *Generator) adviseUnspliceableGoreleaser(fullPath, relPath string, content []byte, m *Manifest, enable bool) error {
+	if _, err := g.applyRotationWiring(fullPath, relPath, content, m, false); err != nil {
+		return err
+	}
+
+	if enable || bytes.Contains(content, []byte("signs:")) {
+		g.adviseGoreleaserSigns(relPath, m, enable, "it is not a single YAML mapping")
+	}
+
+	return nil
 }
 
 // adviseIgnoredGoreleaser says what an ignored release config needs by hand.
@@ -252,12 +265,29 @@ func (g *Generator) recordGoreleaserEdit(relPath string, before, after []byte, m
 	m.Hashes[relPath] = calculateHash(after)
 }
 
+// documentEndMarker matches a YAML document-end marker: "..." at the start of a
+// line, followed by nothing, whitespace or a comment.
+var documentEndMarker = regexp.MustCompile(`(?m)^\.\.\.(?:[ \t]|\r?$)`)
+
 // parseYAMLMapping decodes content and returns the root mapping node when the
-// document is a single YAML mapping, reporting false otherwise (empty,
-// unparseable, or a non-mapping top level) — the shapes injection must refuse.
+// file is a single YAML mapping, reporting false otherwise (empty,
+// unparseable, a non-mapping top level, a second document, or a document-end
+// marker) — the shapes injection must refuse. goreleaser reads only the first
+// document, and a block appended to the file lands after the end of it (#216).
 func parseYAMLMapping(content []byte) (*yaml.Node, bool) {
+	if documentEndMarker.Match(content) {
+		return nil, false
+	}
+
+	dec := yaml.NewDecoder(bytes.NewReader(content))
+
 	var doc yaml.Node
-	if err := yaml.Unmarshal(content, &doc); err != nil {
+	if err := dec.Decode(&doc); err != nil {
+		return nil, false
+	}
+
+	var next yaml.Node
+	if !errors.Is(dec.Decode(&next), io.EOF) {
 		return nil, false
 	}
 

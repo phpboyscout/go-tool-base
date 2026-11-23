@@ -254,8 +254,9 @@ The precedence is:
    scalar is left byte-for-byte intact. Disable removes **only** a block gtb
    itself wrote (identified by its `# Release signing: gtb enable signing wired
    this.` marker); an author-written `signs:` block is never touched.
-3. **A `signs:` block already exists, the file is unparseable, or absent-then-
-   customised** → the file is not modified; the command prints the block to
+3. **A `signs:` block already exists, the file is unparseable or holds more
+   than one YAML document, or absent-then-customised** → the file is not
+   modified; the command prints the block to
    paste (advisory) and still scaffolds `internal/trustkeys`, wires the root
    command, and updates the manifest.
 
