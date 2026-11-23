@@ -1,5 +1,49 @@
 # Changelog
 
+## [v0.53.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.53.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.52.0...v0.53.0)
+
+### Notes
+
+- A signed Gitea or Codeberg project on the forge channel now attaches a committed key-rotation manifest (release/rotation/) to every release, as a GitHub one does, so it no longer needs the static channel to rotate its signing key. Run gtb regenerate project to pick it up, or gtb enable signing again if your .goreleaser.yaml is edited.
+
+- `gtb enable signing --overlap-key-id ... --overlap-public-key ...` dual-signs every release through a key rotation, and `--promote-overlap` or `--end-overlap` closes the window. A project using the hand-written sign-release.sh from the rotation tutorial should follow its migration section.
+
+- gtb enable signing and disable signing no longer edit a .goreleaser.yaml that repeats a key; they print what to change and name the repeated key's lines.
+
+- gtb enable signing no longer reports a signed release config for a .goreleaser.yaml holding more than one YAML document, or a ... document-end marker; it leaves the file alone and says what to add by hand. If you ran gtb enable signing with v0.34.0 to v0.52.0 (cli/v0.41.0 onwards) on such a file, your releases may have shipped unsigned: check that the first document of your .goreleaser.yaml has a top-level signs: key.
+
+- doctor's Key rotation check now fails when rotation.json cannot be read or holds a key that does not parse, as update already refused to run then.
+
+- A signed GitHub project on the forge channel now attaches a committed key-rotation manifest (release/rotation/) to every release, after checking it against the rotation authority. Run gtb regenerate project to pick it up, or gtb enable signing again if your .goreleaser.yaml is edited. A GitLab, Gitea or Codeberg project that may need to rotate its signing key should release on the static channel until its forge channel can carry the manifest.
+
+- A command may now be named after a predeclared Go identifier, or after a name its parent's cmd.go uses, such as `error`, `string`, `cobra` or `props`. Its parent imports it as `errorcmd` and so on, and the command keeps its own package name.
+
+- A generated project's trustkeys test now also fails when a rotation authority key is bound as a signing subkey of a release key.
+
+- A signing project generated or regenerated now has internal/trustkeys/trustkeys_test.go, which fails go test when one key is embedded twice. setup.CheckTrustKeys is the check. A trustkeys_test.go of your own is kept.
+
+### Features
+
+- **generator**: attach a committed rotation manifest to a signed Gitea or Codeberg release ([a123285](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a123285c453fc706113dff218701b5b75f61ead7))
+- **generator**: dual-sign releases through a key rotation overlap ([191815e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/191815e382ee57d1cb58efbbec8fc7e53d286913))
+- **doctor**: fail the key rotation check on a corrupt rotation record ([ef8f8f7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ef8f8f77b7b3d32dccf2c8ccd5aab3e202abb339))
+- **generator**: attach a committed rotation manifest to a signed GitHub release ([c992764](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c9927641f19ada4f230bd8c81e213ae2666a63f3))
+- **releasemanifest**: check a committed rotation manifest in place with --verify-only ([fcf028e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fcf028e0516ab63ae930c6828a37a562f05d101a))
+- **setup**: refuse a trust key bound as another key's subkey ([cdc85d7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cdc85d701c73161121d05e6e62a085d882c1565b))
+- **generator**: fail a generated project's tests on a key embedded twice ([3b77fd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3b77fd42620ba16bdd71eef1b8f3493fde71251a))
+
+### Bug Fixes
+
+- **generator**: leave a .goreleaser.yaml with a duplicate key to the author ([b68ddf7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b68ddf7ad2a36ee0da6e9daedb2a4aff1154b25d))
+- **generator**: leave a multi-document .goreleaser.yaml to the author ([ceff219](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ceff2197c966bf860a9c4693b409643915f33fca))
+- **generator**: import a command whose name its parent uses under an alias ([9b65c1e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9b65c1e2e1a92b21f9ad073d5b8dc2a2c58729e6))
+
+### Other
+
+- **releasemanifest**: stage the rotation manifest inside run, and test it there ([799eb45](https://gitlab.com/phpboyscout/go-tool-base/-/commit/799eb452b84b2f323aaa4fb1d3a383983b5e6f62))
+
 ## [v0.52.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.52.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.51.1...v0.52.0)
