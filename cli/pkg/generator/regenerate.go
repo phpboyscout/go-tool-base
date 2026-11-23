@@ -409,7 +409,8 @@ func (g *Generator) prepareRegenerationData(cmd ManifestCommand) templates.Comma
 // buildSkeletonRootData constructs a complete SkeletonRootData from a Manifest
 // so that regenerateRootCommand produces root/cmd.go with all project settings
 // intact — including help channel configuration stored in Properties.Help.
-func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcommand) templates.SkeletonRootData {
+// declared is what buildSkeletonExternalCommands keeps aliases clear of.
+func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcommand, declared map[string]bool) templates.SkeletonRootData {
 	releaseProvider, org, repoName := m.GetReleaseSource()
 
 	return templates.SkeletonRootData{
@@ -447,7 +448,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		AuxiliaryCommands:     m.Properties.Bootstrap.AuxiliaryCommands,
 		RequireChecksum:       m.Properties.Signing.RequireChecksum,
 		Subcommands:           subcommands,
-		ExternalCommands:      buildSkeletonExternalCommands(m.Properties.ExternalCommands),
+		ExternalCommands:      buildSkeletonExternalCommands(m.Properties.ExternalCommands, declared),
 		ExternalAdapter:       m.Properties.ExternalCommandsAdapter,
 	}
 }
@@ -468,7 +469,7 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 		return err
 	}
 
-	data := buildSkeletonRootData(m, subcommands)
+	data := buildSkeletonRootData(m, subcommands, g.declaredBesideRoot())
 
 	f := templates.SkeletonRoot(data)
 
@@ -531,8 +532,8 @@ func (g *Generator) buildSkeletonSubcommands(m *Manifest) ([]templates.SkeletonS
 		return nil, err
 	}
 
-	taken := g.declaredBeside(filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go"))
-	for _, ext := range buildSkeletonExternalCommands(m.Properties.ExternalCommands) {
+	taken := g.declaredBesideRoot()
+	for _, ext := range buildSkeletonExternalCommands(m.Properties.ExternalCommands, taken) {
 		taken[ext.PkgAlias] = true
 	}
 

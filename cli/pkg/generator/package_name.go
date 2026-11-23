@@ -106,6 +106,10 @@ func (g *Generator) declaredBeside(file string) map[string]bool {
 	return declared
 }
 
+func (g *Generator) declaredBesideRoot() map[string]bool {
+	return g.declaredBeside(filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go"))
+}
+
 // isExternalTest reports a foo_test package, whose names are its own.
 func isExternalTest(path, pkg string) bool {
 	return strings.HasSuffix(path, "_test.go") && strings.HasSuffix(pkg, "_test")

@@ -54,7 +54,7 @@ release_source:
 	require.NoError(t, yaml.Unmarshal([]byte(doc), &m))
 	require.Equal(t, "exact", m.Properties.Config.KeyCase, "fixture assumption: the yaml tag binds config.key_case")
 
-	src, err := renderRoot(t, buildSkeletonRootData(m, nil))
+	src, err := renderRoot(t, buildSkeletonRootData(m, nil, nil))
 	require.NoError(t, err)
 	assert.Contains(t, src, "KeyCase: props.KeyCaseExact")
 }

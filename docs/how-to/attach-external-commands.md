@@ -85,7 +85,7 @@ always on (there is no feature gate, see [Gating](#gating-an-attachment)).
 | Flag | Purpose |
 |------|---------|
 | `--import-path` | Package to import when it differs from the module path. |
-| `--alias` | Import alias for the package in the generated root. |
+| `--alias` | Import alias for the package in the generated root. One the root declares itself (`tool`, `p`) or another file beside it declares takes a `cmd` suffix there, so `tool` is imported as `toolcmd`. |
 | `--name` | Expected top-level command name, for best-effort collision detection. |
 | `--path`, `-p` | Path to the project root (default `.`). |
 

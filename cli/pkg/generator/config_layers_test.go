@@ -140,7 +140,7 @@ release_source:
 	require.Equal(t, []string{"defaults", "files", "env"}, m.Properties.Config.Layers,
 		"fixture assumption: the yaml tag still binds config.layers")
 
-	data := buildSkeletonRootData(m, nil)
+	data := buildSkeletonRootData(m, nil, nil)
 	require.Equal(t, m.Properties.Config.Layers, data.ConfigLayers,
 		"the declared set must reach the render data unchanged")
 

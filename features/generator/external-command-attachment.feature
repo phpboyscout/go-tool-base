@@ -67,3 +67,9 @@ Feature: Attach external command trees to a generated project's root
     Given a freshly generated gtb project
     When I run gtb in the project with "attach command gitlab.com/phpboyscout/go/signing-cli --constructor NewCmdSign --arg logger --wrap"
     Then the project exit code is not zero
+
+  Scenario: An alias the generated root uses itself takes a suffix
+    Given a freshly generated gtb project
+    When I run gtb in the project with "attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 --alias tool --constructor NewCmdSign --arg logger --wrap"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "toolcmd.NewCmdSign(p.GetLogger())"

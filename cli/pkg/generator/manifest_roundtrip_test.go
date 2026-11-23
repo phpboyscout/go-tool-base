@@ -85,7 +85,7 @@ func TestSkeletonConfig_RoundTripsThroughTheManifest(t *testing.T) {
 	assert.Equal(t, ManifestDirectSource{}, m.ReleaseSource.Direct, "the withdrawn channel's block is never written")
 
 	// Read back into the root template the way regenerate does.
-	data := buildSkeletonRootData(m, nil)
+	data := buildSkeletonRootData(m, nil, nil)
 	require.IsType(t, templates.SkeletonRootData{}, data)
 	assert.Equal(t, config.TelemetryEndpoint, data.TelemetryEndpoint)
 	assert.Equal(t, config.TelemetryOTelEndpoint, data.TelemetryOTelEndpoint)

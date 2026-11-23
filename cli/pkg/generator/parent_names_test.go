@@ -2,6 +2,9 @@ package generator
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"go/types"
 	"reflect"
 	"strings"
@@ -61,7 +64,7 @@ func TestBuildSkeletonSubcommands_AliasesAsGenerateDoes(t *testing.T) {
 	var buf bytes.Buffer
 
 	data := fullRootData(t)
-	data.ExternalCommands = buildSkeletonExternalCommands(externals)
+	data.ExternalCommands = buildSkeletonExternalCommands(externals, nil)
 	require.NoError(t, templates.SkeletonRoot(data).Render(&buf))
 
 	f, err := decorator.Parse(buf.String())
@@ -103,6 +106,106 @@ func TestBuildSkeletonSubcommands_AliasesAreDistinct(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "deploycmd", subs[0].PkgAlias)
 	assert.Equal(t, "deploycmdcmd", subs[1].PkgAlias)
+}
+
+// jennifer keeps imports clear of each other but not of what the file declares,
+// so every declaration NewCmdRoot's calls can see must be in rootDeclares.
+func TestRootDeclares_CoversEveryDeclaration(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	require.NoError(t, templates.SkeletonRoot(fullRootData(t)).Render(&buf))
+
+	f, err := parser.ParseFile(token.NewFileSet(), "cmd.go", buf.Bytes(), parser.SkipObjectResolution)
+	require.NoError(t, err)
+
+	declared := map[string]bool{}
+
+	for _, decl := range f.Decls {
+		addDeclared(declared, decl)
+
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "NewCmdRoot" {
+			continue
+		}
+
+		for _, param := range fn.Type.Params.List {
+			for _, name := range param.Names {
+				declared[name.Name] = true
+			}
+		}
+
+		for _, stmt := range fn.Body.List {
+			if assign, ok := stmt.(*ast.AssignStmt); ok {
+				for _, lhs := range assign.Lhs {
+					declared[lhs.(*ast.Ident).Name] = true
+				}
+			}
+		}
+	}
+
+	// rootCmd is in scope only after the calls, and jennifer renames err.
+	delete(declared, "rootCmd")
+	delete(declared, "err")
+
+	assert.Equal(t, rootDeclares, declared)
+}
+
+func TestBuildSkeletonExternalCommands_KeepsClearOfTheRoot(t *testing.T) {
+	t.Parallel()
+
+	declared := map[string]bool{"deploy": true, "Publish": true, "deploycmd": true}
+
+	tests := map[string]struct {
+		module, alias string
+		want          string
+	}{
+		"a root local":             {"example.com/x", "tool", "toolcmd"},
+		"a short root local":       {"example.com/x", "p", "pcmd"},
+		"init":                     {"example.com/x", "init", "initcmd"},
+		"the root's constructor":   {"example.com/x", "NewCmdRoot", "NewCmdRootcmd"},
+		"another file's name":      {"example.com/x", "Publish", "Publishcmd"},
+		"both candidates":          {"example.com/x", "deploy", "deploycmdcmd"},
+		"derived from the module":  {"example.com/tool", "", "toolcmd"},
+		"a name jennifer renames":  {"example.com/x", "props", "props"},
+		"a free name":              {"example.com/x", "release", "release"},
+		"free, derived from a dir": {"example.com/release-tools", "", "releasetools"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := buildSkeletonExternalCommands([]ManifestExternalCommand{{
+				Module: tc.module, Alias: tc.alias, Attach: []ManifestExternalAttach{{Constructor: "NewCmdX"}},
+			}}, declared)
+			require.Len(t, got, 1)
+			assert.Equal(t, tc.want, got[0].PkgAlias)
+		})
+	}
+}
+
+// The command's alias is chosen against the one the attachment ends up with.
+func TestBuildSkeletonSubcommands_AvoidsASuffixedExternalAlias(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/work/go.mod", []byte("module example.com/acme/widget\n"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/root/publish.go", []byte("package root\n\nfunc publish() {}\n"), 0o644))
+
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/work"})
+
+	subs, err := g.buildSkeletonSubcommands(&Manifest{
+		Properties: ManifestProperties{ExternalCommands: []ManifestExternalCommand{
+			{Module: "example.com/other", Alias: "tool", Attach: []ManifestExternalAttach{{Constructor: "NewCmdOther"}}},
+			{Module: "example.com/third", Alias: "publish", Attach: []ManifestExternalAttach{{Constructor: "NewCmdThird"}}},
+		}},
+		Commands: []ManifestCommand{{Name: "tool"}, {Name: "publish"}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "toolcmdcmd", subs[0].PkgAlias)
+	assert.Equal(t, "publishcmdcmd", subs[1].PkgAlias, "publish is declared beside the root, so the attachment has publishcmd")
 }
 
 // fullRootData fills every field, so the render reaches every import the

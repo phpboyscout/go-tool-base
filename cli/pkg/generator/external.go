@@ -222,11 +222,21 @@ func (g *Generator) scaffoldExternalAdapter() error {
 	return nil
 }
 
+// rootDeclares is every name the generated root declares that an import cannot
+// share. jennifer renames an import that clashes with another import, a keyword
+// or a predeclared name, and sees none of these (#228).
+var rootDeclares = map[string]bool{
+	"assets": true, "init": true, "NewCmdRoot": true, "otelAuth": true,
+	"v": true, "l": true, "tool": true, "p": true,
+}
+
 // buildSkeletonExternalCommands flattens the manifest's declarative
 // external_commands block into the per-constructor render descriptors
 // SkeletonRoot consumes. ImportPath defaults to the module path, and the import
-// alias defaults to a sanitised base name when the entry does not pin one.
-func buildSkeletonExternalCommands(ecs []ManifestExternalCommand) []templates.SkeletonExternalCommand {
+// alias defaults to a sanitised base name when the entry does not pin one. An
+// alias the root declares itself takes a "cmd" suffix, and so does one in
+// declared, the names the root package's other files hold.
+func buildSkeletonExternalCommands(ecs []ManifestExternalCommand, declared map[string]bool) []templates.SkeletonExternalCommand {
 	if len(ecs) == 0 {
 		return nil
 	}
@@ -240,6 +250,9 @@ func buildSkeletonExternalCommands(ecs []ManifestExternalCommand) []templates.Sk
 		}
 
 		alias := externalPkgAlias(importPath, ec.Alias)
+		for rootDeclares[alias] || declared[alias] {
+			alias += "cmd"
+		}
 
 		for _, a := range ec.Attach {
 			out = append(out, templates.SkeletonExternalCommand{

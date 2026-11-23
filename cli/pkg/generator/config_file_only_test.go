@@ -55,7 +55,7 @@ release_source:
 	require.NoError(t, yaml.Unmarshal([]byte(doc), &m))
 	require.Equal(t, []string{"update.**"}, m.Properties.Config.FileOnly, "fixture assumption: the yaml tag binds config.file_only")
 
-	src, err := renderRoot(t, buildSkeletonRootData(m, nil))
+	src, err := renderRoot(t, buildSkeletonRootData(m, nil, nil))
 	require.NoError(t, err)
 	assert.Contains(t, src, `FileOnly: []string{"update.**"}`)
 }
