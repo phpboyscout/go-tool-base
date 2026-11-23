@@ -39,6 +39,13 @@ const (
 // network and no forge.
 const staticChannelEnv = "GTB_E2E_STATIC_CHANNEL"
 
+// forgeChannelEnv names a local server answering as the forge forgeTypeEnv
+// names, so an update runs through that forge's real provider.
+const (
+	forgeChannelEnv = "GTB_E2E_FORGE_CHANNEL"
+	forgeTypeEnv    = "GTB_E2E_FORGE_TYPE"
+)
+
 // staticReleaseKeyEnv and staticAuthorityEnv carry the armored release key
 // this binary trusts and the minisign rotation authority, as a shipped binary
 // embeds them. The rotation scenarios set both, so an update verifies
@@ -54,13 +61,18 @@ const exitBrokenScenario = 2
 // applyReleaseStub wires a hermetic release source onto the tool when one of
 // the scenario variables is set, pinning a deterministic current version so
 // update scenarios run without a network: an in-memory forge double for
-// releaseScenarioEnv, the static channel at staticChannelEnv otherwise. It is
-// a no-op when neither is set, leaving the configured GitLab source in place.
+// releaseScenarioEnv, the static channel at staticChannelEnv or the forge at
+// forgeChannelEnv otherwise. It is a no-op when none is set, leaving the
+// configured GitLab source in place.
 func applyReleaseStub(p *props.Props) {
 	if base := os.Getenv(staticChannelEnv); base != "" {
-		p.Tool.ReleaseSource = props.ReleaseSource{Type: props.ReleaseSourceStatic, BaseURL: base}
-		p.Version = pkgversion.NewInfo(stubCurrentVersion, "", "")
-		applyStaticTrust(p, os.Getenv(staticReleaseKeyEnv), os.Getenv(staticAuthorityEnv))
+		applyReleaseChannel(p, props.ReleaseSource{Type: props.ReleaseSourceStatic, BaseURL: base})
+
+		return
+	}
+
+	if host := os.Getenv(forgeChannelEnv); host != "" {
+		applyReleaseChannel(p, props.ReleaseSource{Type: os.Getenv(forgeTypeEnv), Host: host, Owner: "acme", Repo: "gtb"})
 
 		return
 	}
@@ -83,6 +95,12 @@ func applyReleaseStub(p *props.Props) {
 	}
 
 	p.Version = pkgversion.NewInfo(stubCurrentVersion, "", "")
+}
+
+func applyReleaseChannel(p *props.Props, source props.ReleaseSource) {
+	p.Tool.ReleaseSource = source
+	p.Version = pkgversion.NewInfo(stubCurrentVersion, "", "")
+	applyStaticTrust(p, os.Getenv(staticReleaseKeyEnv), os.Getenv(staticAuthorityEnv))
 }
 
 // buildReleaseScenario maps a scenario name to a stub provider and, where the

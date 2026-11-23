@@ -16,36 +16,55 @@ import (
 
 var releaseSigning = ManifestSigning{Enabled: true, KeyID: "alias/release", KMSRegion: "eu-west-2", Backend: "aws-kms"}
 
-// A signed GitHub project on the forge channel verifies a committed rotation
-// manifest before building and attaches it to the release (#197).
-func TestGenerateSkeleton_GitHubForgeReleaseCarriesTheRotationManifest(t *testing.T) {
+func forgeSkeletonConfig(backend props.FeatureID, host string, signing ManifestSigning) SkeletonConfig {
+	cfg := signingSkeletonConfig("/work", signing)
+	cfg.ForgeBackend = backend
+	cfg.Host = host
+
+	return cfg
+}
+
+// A signed project on a forge channel goreleaser creates the release for
+// verifies a committed rotation manifest before building and attaches it to
+// the release (#197, #221).
+func TestGenerateSkeleton_ForgeReleaseCarriesTheRotationManifest(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	g := newSkeletonGeneratorForTest(t, fs)
-	require.NoError(t, g.GenerateSkeleton(context.Background(), signingSkeletonConfig("/work", releaseSigning)))
+	for name, cfg := range map[string]SkeletonConfig{
+		"github":   signingSkeletonConfig("/work", releaseSigning),
+		"gitea":    forgeSkeletonConfig("gitea", "git.example.org", releaseSigning),
+		"codeberg": forgeSkeletonConfig("codeberg", "codeberg.org", releaseSigning),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	raw := readGenerated(t, fs, "/work/.goreleaser.yaml")
-	assert.Contains(t, raw, rotationHookBlock, "the splice inserts the skeleton's own text")
-	assert.Contains(t, raw, rotationGlobBlock)
+			fs := afero.NewMemMapFs()
+			g := newSkeletonGeneratorForTest(t, fs)
+			require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
 
-	var doc struct {
-		Before struct {
-			Hooks []string `yaml:"hooks"`
-		} `yaml:"before"`
-		Release struct {
-			ExtraFiles []struct {
-				Glob string `yaml:"glob"`
-			} `yaml:"extra_files"`
-		} `yaml:"release"`
+			raw := readGenerated(t, fs, "/work/.goreleaser.yaml")
+			assert.Contains(t, raw, rotationHookBlock, "the splice inserts the skeleton's own text")
+			assert.Contains(t, raw, rotationGlobBlock)
+
+			var doc struct {
+				Before struct {
+					Hooks []string `yaml:"hooks"`
+				} `yaml:"before"`
+				Release struct {
+					ExtraFiles []struct {
+						Glob string `yaml:"glob"`
+					} `yaml:"extra_files"`
+				} `yaml:"release"`
+			}
+			require.NoError(t, yaml.Unmarshal([]byte(raw), &doc))
+
+			assert.Contains(t, doc.Before.Hooks, releaseRotationVerifyHook)
+			require.Len(t, doc.Release.ExtraFiles, 1)
+			assert.Equal(t, releaseRotationGlob, doc.Release.ExtraFiles[0].Glob,
+				"a pattern, so goreleaser matches nothing rather than failing before the first rotation")
+			assert.Contains(t, readGenerated(t, fs, "/work/go.mod"), releaseManifestTool)
+		})
 	}
-	require.NoError(t, yaml.Unmarshal([]byte(raw), &doc))
-
-	assert.Contains(t, doc.Before.Hooks, releaseRotationVerifyHook)
-	require.Len(t, doc.Release.ExtraFiles, 1)
-	assert.Equal(t, releaseRotationGlob, doc.Release.ExtraFiles[0].Glob,
-		"a pattern, so goreleaser matches nothing rather than failing before the first rotation")
-	assert.Contains(t, readGenerated(t, fs, "/work/go.mod"), releaseManifestTool)
 }
 
 func TestGenerateSkeleton_ForgeReleaseWithoutTheRotationManifest(t *testing.T) {
@@ -77,26 +96,50 @@ func TestGenerateSkeleton_ForgeReleaseWithoutTheRotationManifest(t *testing.T) {
 	}
 }
 
-// newUnsignedGitHubProject generates a GitHub forge-channel project without
-// signing, as one that enables it later starts.
-func newUnsignedGitHubProject(t *testing.T) (*Generator, afero.Fs, logBuffer) {
+// newUnsignedProject generates a project without signing, as one that enables
+// it later starts.
+func newUnsignedProject(t *testing.T, cfg SkeletonConfig) (*Generator, afero.Fs, logBuffer) {
 	t.Helper()
 
 	fs := afero.NewMemMapFs()
 	buf := logger.NewBuffer()
 	g := New(&props.Props{FS: fs, Logger: buf, Config: emptyTestStore(t)}, &Config{Path: "/work"})
 	g.runCommand = func(context.Context, string, string, ...string) ([]byte, error) { return nil, nil }
-	require.NoError(t, g.GenerateSkeleton(context.Background(), signingSkeletonConfig("/work", ManifestSigning{})))
+	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
 
 	return g, fs, buf
 }
 
+func newUnsignedGitHubProject(t *testing.T) (*Generator, afero.Fs, logBuffer) {
+	t.Helper()
+
+	return newUnsignedProject(t, signingSkeletonConfig("/work", ManifestSigning{}))
+}
+
 // Enabling signing later must wire the rotation manifest too, or a project
 // that then revokes a key ships releases without it (#197).
-func TestEnableSigning_GitHubProjectGainsTheRotationWiring(t *testing.T) {
+func TestEnableSigning_ForgeProjectGainsTheRotationWiring(t *testing.T) {
 	t.Parallel()
 
-	g, fs, _ := newUnsignedGitHubProject(t)
+	cases := map[string]SkeletonConfig{
+		"github":   signingSkeletonConfig("/work", ManifestSigning{}),
+		"gitea":    forgeSkeletonConfig("gitea", "git.example.org", ManifestSigning{}),
+		"codeberg": forgeSkeletonConfig("codeberg", "codeberg.org", ManifestSigning{}),
+	}
+
+	for name, cfg := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			assertSigningTogglesRotationWiring(t, cfg)
+		})
+	}
+}
+
+func assertSigningTogglesRotationWiring(t *testing.T, cfg SkeletonConfig) {
+	t.Helper()
+
+	g, fs, _ := newUnsignedProject(t, cfg)
 	require.NotContains(t, readGenerated(t, fs, "/work/.goreleaser.yaml"), "--verify-only")
 
 	require.NoError(t, g.EnableSigning(context.Background(), releaseSigning))
@@ -255,14 +298,15 @@ func TestAttachesRotationToRelease(t *testing.T) {
 	t.Parallel()
 
 	for provider, want := range map[string]bool{
-		"github": true, "gitlab": false, "gitea": false, "codeberg": false, "bitbucket": false, "static": false, "": false,
+		"github": true, "gitlab": false, "gitea": true, "codeberg": true, "bitbucket": false, "static": false, "": false,
 	} {
 		assert.Equal(t, want, attachesRotationToRelease(provider, releaseSigning), provider)
 		assert.False(t, attachesRotationToRelease(provider, ManifestSigning{}), provider+" unsigned")
 	}
 
 	assert.True(t, usesReleaseManifestTool("static", ManifestSigning{}), "the static channel always builds its manifest")
-	assert.False(t, usesReleaseManifestTool("gitea", releaseSigning))
+	assert.True(t, usesReleaseManifestTool("gitea", releaseSigning), "the before hook runs it")
+	assert.False(t, usesReleaseManifestTool("gitlab", releaseSigning))
 }
 
 func TestEnableSigning_IgnoredGitHubConfigIsAdvised(t *testing.T) {

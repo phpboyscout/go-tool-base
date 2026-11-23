@@ -212,20 +212,15 @@ release from then on carries them, on the channels that can:
 
 - **The static channel** stages them into the release and lists them in
   `release.json`.
-- **GitHub, on the forge channel,** attaches them to the release, once
-  signing is on. A goreleaser `before` hook checks them first, by the same
-  rules the static channel applies, and stops the release if they fail.
+- **GitHub, Gitea and Codeberg, on the forge channel,** attach them to the
+  release, once signing is on. A goreleaser `before` hook checks them first, by
+  the same rules the static channel applies, and stops the release if they fail.
 - **GitLab, on the forge channel,** doesn't carry them yet. colophon creates
   the release and links only what goreleaser recorded, and an uploaded extra
   file isn't recorded
   ([colophon#76](https://gitlab.com/phpboyscout/colophon/-/work_items/76)).
   Until that lands, a GitLab project that may need to rotate should release on
   the static channel.
-- **Gitea and Codeberg, on the forge channel,** don't carry them yet. gtb
-  attaches them on GitHub only
-  ([go-tool-base#221](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/221)).
-  Until that lands, a Gitea or Codeberg project that may need to rotate should
-  release on the static channel.
 - **Bitbucket** can't release on the forge channel, because goreleaser has no
   Bitbucket release support.
 

@@ -240,6 +240,7 @@ E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to ex
 | `features/cli/version.feature` | Text output, JSON output, help flag | Binary compilation |
 | `features/cli/doctor.feature` | Text diagnostic output, JSON structured report | Binary compilation |
 | `features/cli/update.feature` | Help/usage, semver validation, and hermetic self-update outcomes (already-latest no-op, version-not-found, corrupt-checksum, bad-signature) via an in-memory stub release source (`GTB_E2E_RELEASE_SCENARIO`) | Binary compilation |
+| `features/cli/update_rotation.feature` | Self-update across a release key rotation: the static channel, and the Gitea and Codeberg forge providers against a local server | Binary compilation |
 | `features/cli/init.feature` | Non-interactive init, config merge, clean reset, JSON output | Binary compilation, filesystem |
 | `features/cli/config.feature` | Get/set/list/validate, sensitive masking, JSON output | Binary compilation, filesystem |
 | `features/cli/telemetry.feature` | Enable/disable/status/reset, consent withdrawal, machine ID | Binary compilation, filesystem |

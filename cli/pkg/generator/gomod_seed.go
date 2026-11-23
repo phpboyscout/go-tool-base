@@ -32,7 +32,7 @@ var scaffoldTools = []string{frameworkModule + "/cmd/changelog", frameworkModule
 
 // releaseManifestTool writes the static release channel's documents from
 // goreleaser's dist (spec 0203 D5), and verifies the rotation manifest a
-// signed GitHub release attaches (#197). A scaffold that does neither drops
+// signed forge release attaches (#197, #221). A scaffold that does neither drops
 // the line.
 const releaseManifestTool = frameworkModule + "/cmd/releasemanifest"
 

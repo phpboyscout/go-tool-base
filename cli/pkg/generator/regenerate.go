@@ -723,12 +723,17 @@ func (d skeletonTemplateData) AttachesRotationToRelease() bool {
 	return attachesRotationToRelease(d.ReleaseProvider, d.Signing)
 }
 
-// attachesRotationToRelease is true on GitHub's forge channel for a project
-// that signs. A GitLab release is created by colophon, which cannot link the
-// manifest yet (colophon#76), and the static channel stages it through
-// releasemanifest instead.
+// attachesRotationToRelease is true for a project that signs on a forge channel
+// where goreleaser creates the release (#197, #221). A GitLab release is
+// created by colophon, which cannot link the manifest yet (colophon#76), and
+// the static channel stages it through releasemanifest instead.
 func attachesRotationToRelease(releaseProvider string, signing ManifestSigning) bool {
-	return releaseProvider == string(forge.GithubFeature) && signing.SignsReleases()
+	switch props.FeatureID(releaseProvider) {
+	case forge.GithubFeature, forge.GiteaFeature, forge.CodebergFeature:
+		return signing.SignsReleases()
+	default:
+		return false
+	}
 }
 
 // usesReleaseManifestTool reports whether a project runs cmd/releasemanifest:

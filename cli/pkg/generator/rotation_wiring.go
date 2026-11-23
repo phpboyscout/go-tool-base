@@ -41,9 +41,10 @@ type removal struct {
 }
 
 // applyRotationWiring brings an existing release config's rotation lines into
-// line with the signing posture, so enabling signing on a GitHub project adds
-// them and disabling removes them. Everything else stays byte-for-byte. A file
-// gtb may not edit, or whose shape the splice cannot place them in, is advised.
+// line with the signing posture, so enabling signing on a project whose forge
+// release carries them adds them and disabling removes them. Everything else
+// stays byte-for-byte. A file gtb may not edit, or whose shape the splice
+// cannot place them in, is advised.
 func (g *Generator) applyRotationWiring(fullPath, relPath string, content []byte, m *Manifest, mayEdit bool) ([]byte, error) {
 	want := attachesRotationToRelease(m.ReleaseSource.Type, m.Properties.Signing)
 

@@ -34,14 +34,24 @@ const (
 	staticAuthorityEnv  = "GTB_E2E_STATIC_ROTATION_AUTHORITY"
 )
 
+// forgeChannelEnv and forgeTypeEnv point the e2e binary at a local forge.
+const (
+	forgeChannelEnv = "GTB_E2E_FORGE_CHANNEL"
+	forgeTypeEnv    = "GTB_E2E_FORGE_TYPE"
+)
+
+const staticKind = "static"
+
 type rotationChannelKey struct{}
 
-// rotationChannel is a static channel whose binary trusts a release key that
+// rotationChannel is a release channel, static or a forge's, whose binary trusts a release key that
 // has been compromised, with a rotation authority that has signed a manifest
 // moving trust to a replacement (spec 0101). Each release it publishes serves
 // the scenario's own binary, so an update leaves a binary that runs, and
 // still reports the stub's v1.0.0, ready to update again.
 type rotationChannel struct {
+	kind        string
+	releases    []giteaRelease
 	server      *httptest.Server
 	objects     map[string][]byte
 	base        string
@@ -61,14 +71,14 @@ func initRotationSteps(ctx *godog.ScenarioContext) {
 		return ctx, nil
 	})
 
-	ctx.Step(`^a static release channel whose release key was compromised$`, aStaticChannelWhoseReleaseKeyWasCompromised)
+	ctx.Step(`^a (static|gitea|codeberg) release channel whose release key was compromised$`, aChannelWhoseReleaseKeyWasCompromised)
 	ctx.Step(`^the channel publishes "([^"]*)" signed by the (compromised|replacement) key( with the rotation manifest)?$`, theChannelPublishes)
 }
 
-// aStaticChannelWhoseReleaseKeyWasCompromised gives the scenario its own copy
+// aChannelWhoseReleaseKeyWasCompromised gives the scenario its own copy
 // of the binary, because a successful update replaces it, and points that
 // copy at an empty channel and at the compromised key.
-func aStaticChannelWhoseReleaseKeyWasCompromised(ctx context.Context) (context.Context, error) {
+func aChannelWhoseReleaseKeyWasCompromised(ctx context.Context, kind string) (context.Context, error) {
 	w := getCLIWorld(ctx)
 
 	binary, err := os.ReadFile(w.binaryPath)
@@ -76,7 +86,7 @@ func aStaticChannelWhoseReleaseKeyWasCompromised(ctx context.Context) (context.C
 		return ctx, err
 	}
 
-	ch := &rotationChannel{objects: map[string][]byte{}, binary: string(binary)}
+	ch := &rotationChannel{kind: kind, objects: map[string][]byte{}, binary: string(binary)}
 
 	if ch.compromised, err = newReleaseEntity("Compromised Release Key"); err != nil {
 		return ctx, err
@@ -118,7 +128,13 @@ func aStaticChannelWhoseReleaseKeyWasCompromised(ctx context.Context) (context.C
 		w.envVars = make(map[string]string)
 	}
 
-	w.envVars[staticChannelEnv] = ch.base
+	if kind == staticKind {
+		w.envVars[staticChannelEnv] = ch.base
+	} else {
+		w.envVars[forgeChannelEnv] = ch.server.URL
+		w.envVars[forgeTypeEnv] = kind
+	}
+
 	w.envVars[staticReleaseKeyEnv] = compromisedPub
 	w.envVars[staticAuthorityEnv] = authority
 
@@ -167,9 +183,15 @@ func (ch *rotationChannel) signCompromiseManifest() (string, error) {
 	return authority.Encode(), err
 }
 
-// theChannelPublishes puts a release on the channel and moves the pointer to
-// it. Its checksums are signed by the named key, and it carries the
-// compromise manifest when asked to, as every release after a revoke should.
+// releaseFile is one file a release carries.
+type releaseFile struct {
+	name string
+	body []byte
+}
+
+// theChannelPublishes makes a release the channel's latest. Its checksums are
+// signed by the named key, and it carries the compromise manifest when asked
+// to, as every release after a revoke should.
 func theChannelPublishes(ctx context.Context, tag, signer, withManifest string) (context.Context, error) {
 	ch, ok := ctx.Value(rotationChannelKey{}).(*rotationChannel)
 	if !ok {
@@ -189,12 +211,33 @@ func theChannelPublishes(ctx context.Context, tag, signer, withManifest string) 
 		return ctx, err
 	}
 
-	prefix := "/acme/gtb/" + tag + "/"
-	ch.objects[prefix+archive.Name] = archive.Body
-	ch.objects[prefix+static.ChecksumsFile] = checksums
-	ch.objects[prefix+static.SignatureFile] = sig.Bytes()
+	files := []releaseFile{
+		{archive.Name, archive.Body},
+		{static.ChecksumsFile, checksums},
+		{static.SignatureFile, sig.Bytes()},
+	}
 
-	sum := sha256.Sum256(archive.Body)
+	if withManifest != "" {
+		files = append(files, releaseFile{static.RotationFile, ch.rotation}, releaseFile{static.RotationSignatureFile, ch.rotationSig})
+	}
+
+	if ch.kind == staticKind {
+		return ctx, ch.publishStatic(tag, files, withManifest != "")
+	}
+
+	return ctx, ch.publishForge(tag, files)
+}
+
+// publishStatic writes a release's files and manifest under its tag, and moves
+// the pointer to it. The archive is files' first.
+func (ch *rotationChannel) publishStatic(tag string, files []releaseFile, withManifest bool) error {
+	prefix := "/acme/gtb/" + tag + "/"
+	for _, f := range files {
+		ch.objects[prefix+f.name] = f.body
+	}
+
+	archive := files[0]
+	sum := sha256.Sum256(archive.body)
 	m := static.Manifest{
 		Schema:     static.SchemaVersion,
 		Tool:       "gtb",
@@ -203,36 +246,87 @@ func theChannelPublishes(ctx context.Context, tag, signer, withManifest string) 
 		Checksums:  static.FileURL(ch.base, tag, static.ChecksumsFile),
 		Signature:  static.FileURL(ch.base, tag, static.SignatureFile),
 		Downloads: []static.Download{{
-			OS: runtime.GOOS, Arch: runtime.GOARCH, Name: archive.Name,
-			URL: static.FileURL(ch.base, tag, archive.Name), Size: int64(len(archive.Body)), SHA256: hex.EncodeToString(sum[:]),
+			OS: runtime.GOOS, Arch: runtime.GOARCH, Name: archive.name,
+			URL: static.FileURL(ch.base, tag, archive.name), Size: int64(len(archive.body)), SHA256: hex.EncodeToString(sum[:]),
 		}},
 	}
 
-	if withManifest != "" {
-		ch.objects[prefix+static.RotationFile] = ch.rotation
-		ch.objects[prefix+static.RotationSignatureFile] = ch.rotationSig
+	if withManifest {
 		m.Rotation = static.FileURL(ch.base, tag, static.RotationFile)
 		m.RotationSignature = static.FileURL(ch.base, tag, static.RotationSignatureFile)
 	}
 
-	manifest, err := json.Marshal(m)
-	if err != nil {
-		return ctx, err
+	if err := ch.putJSON(prefix+static.ManifestFile, m); err != nil {
+		return err
 	}
 
-	ch.objects[prefix+static.ManifestFile] = manifest
-
-	pointer, err := json.Marshal(static.Pointer{
+	return ch.putJSON("/acme/gtb/"+static.PointerFile, static.Pointer{
 		Schema: static.SchemaVersion, Tool: "gtb", Tag: tag,
 		Manifest: static.ManifestURL(ch.base, tag), PublishedAt: time.Now().UTC().Format(time.RFC3339),
 	})
-	if err != nil {
-		return ctx, err
+}
+
+// giteaRelease and giteaAttachment are the fields an update reads, as Gitea
+// 1.25 answered for a release goreleaser published (#221).
+type giteaRelease struct {
+	ID          int64             `json:"id"`
+	TagName     string            `json:"tag_name"`
+	Name        string            `json:"name"`
+	Body        string            `json:"body"`
+	Draft       bool              `json:"draft"`
+	Prerelease  bool              `json:"prerelease"`
+	CreatedAt   time.Time         `json:"created_at"`
+	PublishedAt time.Time         `json:"published_at"`
+	Assets      []giteaAttachment `json:"assets"`
+}
+
+type giteaAttachment struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Size        int64  `json:"size"`
+	DownloadURL string `json:"browser_download_url"`
+}
+
+// publishForge attaches a release's files and makes it the repository's latest.
+func (ch *rotationChannel) publishForge(tag string, files []releaseFile) error {
+	now := time.Now().UTC()
+	rel := giteaRelease{ID: int64(len(ch.releases) + 1), TagName: tag, Name: tag, CreatedAt: now, PublishedAt: now}
+
+	for i, f := range files {
+		path := "/acme/gtb/releases/download/" + tag + "/" + f.name
+		ch.objects[path] = f.body
+		rel.Assets = append(rel.Assets, giteaAttachment{
+			ID: int64(i + 1), Name: f.name, Size: int64(len(f.body)), DownloadURL: ch.server.URL + path,
+		})
 	}
 
-	ch.objects["/acme/gtb/"+static.PointerFile] = pointer
+	ch.releases = append([]giteaRelease{rel}, ch.releases...)
 
-	return ctx, nil
+	const api = "/api/v1/repos/acme/gtb/releases"
+
+	for path, doc := range map[string]any{
+		"/api/v1/version":    map[string]string{"version": "1.25.5"},
+		api:                  ch.releases,
+		api + "/latest":      rel,
+		api + "/tags/" + tag: rel,
+	} {
+		if err := ch.putJSON(path, doc); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ch *rotationChannel) putJSON(path string, doc any) error {
+	body, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+
+	ch.objects[path] = body
+
+	return nil
 }
 
 // writeOwnBinary writes the scenario's copy of the binary as bin/gtb under dir.

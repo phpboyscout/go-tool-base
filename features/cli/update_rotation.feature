@@ -9,16 +9,17 @@ Feature: Self-update across a release key rotation
 
   Background:
     Given the gtb binary is built
-    And a static release channel whose release key was compromised
 
   Scenario: Without the rotation manifest, a release signed by the replacement key is refused
-    Given the channel publishes "v1.1.0" signed by the replacement key
+    Given a static release channel whose release key was compromised
+    And the channel publishes "v1.1.0" signed by the replacement key
     When I run gtb with "update"
     Then the exit code is not 0
     And stderr contains "signature verification failed"
 
   Scenario: A release carrying the manifest moves the install to the replacement key, and it stays moved
-    Given the channel publishes "v1.1.0" signed by the replacement key with the rotation manifest
+    Given a static release channel whose release key was compromised
+    And the channel publishes "v1.1.0" signed by the replacement key with the rotation manifest
     When I run gtb with "update"
     Then the exit code is 0
     And stderr contains "rotation manifest in force"
@@ -32,9 +33,32 @@ Feature: Self-update across a release key rotation
     And stderr contains "signature verification failed"
 
   Scenario: An install that skips the release introducing the manifest picks it up from the next one
-    Given the channel publishes "v1.1.0" signed by the replacement key with the rotation manifest
+    Given a static release channel whose release key was compromised
+    And the channel publishes "v1.1.0" signed by the replacement key with the rotation manifest
     And the channel publishes "v1.2.0" signed by the replacement key with the rotation manifest
     When I run gtb with "update"
     Then the exit code is 0
     And stderr contains "rotation manifest in force"
     And stderr contains "v1.2.0"
+
+  # The forge channel's update side: the real provider reads the release a
+  # Gitea or Forgejo server describes, with the manifest as its attachments.
+  Scenario Outline: A <forge> forge release carrying the manifest moves the install to the replacement key
+    Given a <forge> release channel whose release key was compromised
+    And the channel publishes "v1.1.0" signed by the replacement key
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "signature verification failed"
+    Given the channel publishes "v1.2.0" signed by the replacement key with the rotation manifest
+    When I run gtb with "update"
+    Then the exit code is 0
+    And stderr contains "rotation manifest in force"
+    Given the channel publishes "v1.3.0" signed by the compromised key
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "signature verification failed"
+
+    Examples:
+      | forge    |
+      | gitea    |
+      | codeberg |
