@@ -99,12 +99,17 @@ with, so embed it now, before your first signed release. A tool generated
 before gtb had `rotation/` gets it from `gtb regenerate project`.
 
 Put the rotation authority in one directory, never both. A key in both counts
-twice in the embedded set, so it no longer matches the WKD bucket, and a release built that way
-refuses every later update. If you followed an older version of this page and
-copied it into `keys/`, move it. A tool generated before v0.50.4 has no
-`authority/` directory, and making one by hand doesn't embed it, so run
-`gtb enable signing` again from v0.50.4 or later first. That creates the
-directory and wires it in. Then:
+twice in the embedded set, so it no longer matches the WKD bucket, and a release
+built that way refuses every later update. From gtb v0.53.0 the generated
+`internal/trustkeys/trustkeys_test.go` fails `go test` when a key is in both
+directories, or twice in one, so your CI catches it before a release does.
+`gtb regenerate project` or `gtb enable signing` adds that test to an existing
+tool. A `trustkeys_test.go` of your own is kept, and the run says so: call
+`setup.CheckTrustKeys(Keys(), AuthorityKeys())` from it instead. If you
+followed an older version of this page and copied it into `keys/`, move it. A
+tool generated before v0.50.4 has no `authority/` directory, and making one by
+hand doesn't embed it, so run `gtb enable signing` again from v0.50.4 or later
+first. That creates the directory and wires it in. Then:
 
 ```bash
 git mv internal/trustkeys/keys/rotation-authority.asc internal/trustkeys/authority/

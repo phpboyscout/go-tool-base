@@ -12,6 +12,7 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -1212,7 +1213,7 @@ func TestEnableThenDisableSigning_MemFS(t *testing.T) {
 		KeySource:        "both",
 	}))
 
-	for _, p := range []string{signingGoFull, trustkeysFull, "/work/internal/trustkeys/keys/.gitkeep"} {
+	for _, p := range []string{signingGoFull, trustkeysFull, "/work/" + signingTrustKeysTestPath, "/work/internal/trustkeys/keys/.gitkeep"} {
 		ex, _ := afero.Exists(fs, p)
 		assert.True(t, ex, "expected %s after enable", p)
 	}
@@ -1361,4 +1362,61 @@ func TestValidateManifestReleaseSource_OwnerFollowsTheForge(t *testing.T) {
 
 	noBackend := &ManifestReleaseSource{Type: "gitlab", Host: "gitlab.com", Owner: "acme/tools", Repo: "sc"}
 	require.NoError(t, validateManifestReleaseSource(noBackend), "with no backend recorded, a forge type sets the owner rules")
+}
+
+func TestGenerateSkeleton_SigningWritesTheTrustKeysTest(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) { return nil, nil }
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name: "sign-tool", Repo: "acme/sign-tool", Host: "github.com", Path: "/work",
+		Signing: ManifestSigning{Enabled: true},
+	}))
+
+	body, err := afero.ReadFile(fs, "/work/"+signingTrustKeysTestPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "setup.CheckTrustKeys(Keys(), AuthorityKeys())")
+}
+
+// A trustkeys_test.go gtb did not write, or one listed in .gtb/ignore, is the
+// author's: enable signing and regenerate keep it (#208).
+func TestSigning_KeepsTheAuthorsTrustKeysTest(t *testing.T) {
+	const mine = "package trustkeys\n\n// mine\n"
+
+	for _, ignored := range []bool{false, true} {
+		for op, run := range map[string]func(*Generator) error{
+			"enable signing": func(g *Generator) error { return g.EnableSigning(context.Background(), ManifestSigning{Enabled: true}) },
+			"regenerate":     func(g *Generator) error { return g.RegenerateProject(context.Background()) },
+		} {
+			g, fs := newSigningProject(t)
+			require.NoError(t, g.EnableSigning(context.Background(), ManifestSigning{Enabled: true}))
+
+			content := mine
+			if ignored {
+				content = generatedGoHeader + "\n\n" + mine
+				require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte(signingTrustKeysTestPath+"\n"), 0o644))
+			}
+
+			require.NoError(t, afero.WriteFile(fs, "/work/"+signingTrustKeysTestPath, []byte(content), 0o644))
+
+			buf := logger.NewBuffer()
+			p := *g.props
+			p.Logger = buf
+			g = New(&p, &Config{Path: "/work", Overwrite: "allow"})
+			g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) { return nil, nil }
+			require.NoError(t, run(g), op)
+
+			got, err := afero.ReadFile(fs, "/work/"+signingTrustKeysTestPath)
+			require.NoError(t, err)
+			assert.Equal(t, content, string(got), "%s, ignored=%v", op, ignored)
+
+			if !ignored {
+				assert.True(t, buf.ContainsLevel(logger.WarnLevel, "kept your version"), "%s says it kept the file: %v", op, buf.Messages())
+				assert.Contains(t, fmt.Sprint(buf.Entries()), "setup.CheckTrustKeys", "%s says what to call instead", op)
+			}
+		}
+	}
 }

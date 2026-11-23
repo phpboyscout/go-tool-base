@@ -90,6 +90,7 @@ mytool/
 └── internal/
     └── trustkeys/
         ├── trustkeys.go                  ← embeds the key directories
+        ├── trustkeys_test.go             ← fails on a key embedded twice
         ├── keys/
         │   └── release.asc               ← the signing key
         └── rotation/

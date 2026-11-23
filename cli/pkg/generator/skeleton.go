@@ -936,13 +936,9 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	// enforcement defaults alongside the Signing: wiring in cmd.go.
 	// The keys/.gitkeep is written separately as a raw file below.
 	if data.Signing.Enabled {
-		goFiles["internal/trustkeys/trustkeys.go"] = templates.SkeletonTrustKeys()
-		goFiles["pkg/cmd/root/signing.go"] = templates.SkeletonSigning(templates.SkeletonSigningData{
-			ExternalKeyEmail:          data.Signing.ExternalKeyEmail,
-			RequireSignature:          data.Signing.RequireSignature,
-			KeySource:                 data.Signing.KeySource,
-			RequireExternalCrosscheck: data.Signing.RequireExternalCrosscheck,
-		})
+		if err := g.addSigningGoFiles(goFiles, destPath, data.Signing); err != nil {
+			return err
+		}
 	}
 
 	// A framework link (keychain, mcp) is its file: cmd/<name>/<id.go> blank
@@ -981,6 +977,30 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	}
 
 	return g.syncChatDefaultsBundle(destPath, data.Name, data.ChatDefault)
+}
+
+// addSigningGoFiles adds the trustkeys package, its test unless the author
+// holds that file, and the generated signing.go.
+func (g *Generator) addSigningGoFiles(goFiles map[string]*jen.File, destPath string, signing ManifestSigning) error {
+	goFiles[signingTrustKeysPath] = templates.SkeletonTrustKeys()
+
+	held, err := g.trustKeysTestHeldByAuthor(destPath)
+	if err != nil {
+		return err
+	}
+
+	if !held {
+		goFiles[signingTrustKeysTestPath] = templates.SkeletonTrustKeysTest()
+	}
+
+	goFiles["pkg/cmd/root/signing.go"] = templates.SkeletonSigning(templates.SkeletonSigningData{
+		ExternalKeyEmail:          signing.ExternalKeyEmail,
+		RequireSignature:          signing.RequireSignature,
+		KeySource:                 signing.KeySource,
+		RequireExternalCrosscheck: signing.RequireExternalCrosscheck,
+	})
+
+	return nil
 }
 
 // renderGoFiles writes each jennifer file under destPath.

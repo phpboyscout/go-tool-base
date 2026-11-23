@@ -323,7 +323,8 @@ gtb-embedded-assets:
 # (without --fix) on what was emitted. It was red on main for a week with
 # nothing running it (#80); the lint half is what #30 asked for.
 # The templates line builds and runs the generated trustkeys accessors, the
-# only test that sees a fail-open key reader there.
+# only test that sees a fail-open key reader there. The duplicate trust key
+# test runs a signing scaffold's own go test, the only proof its check fails.
 # go-tools: the scaffold targets the toolchain that
 # generated it (go 1.27 today), and only go-tools carries a golangci-lint
 # built against a Go new enough to lint that target; the repo's own lint
@@ -338,7 +339,7 @@ generated-project-builds:
     GOTOOLCHAIN: auto
     INT_TEST_GENERATOR_BUILD: "1"
   script:
-    - go test ./cli/pkg/generator/ -run 'TestGenerated.*Compiles$' -count=1 -v
+    - go test ./cli/pkg/generator/ -run 'TestGenerated.*Compiles$|^TestGeneratedTrustKeysTest_RefusesAKeyInBothDirectories$' -count=1 -v
     - go test ./cli/pkg/generator/templates/ -run 'AsBuilt$' -count=1 -v
 
 # home-resolution — where a release build finds the user's home. The matrix

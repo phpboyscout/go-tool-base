@@ -135,3 +135,23 @@ func TestExistingRenovateConfig(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/work/.github/renovate.json", []byte("{}"), 0o644))
 	assert.Equal(t, ".github/renovate.json", g.existingRenovateConfig("/work", "renovate.json5"))
 }
+
+func TestGenerateSkeleton_KeepsTheAuthorsTrustKeysTest(t *testing.T) {
+	t.Parallel()
+
+	const mine = "package trustkeys\n\n// mine\n"
+
+	for _, overwrite := range []OverwriteMode{OverwriteDeny, OverwriteAllow} {
+		g, fs, buf := newForeignFilesProject(t, map[string]string{signingTrustKeysTestPath: mine})
+		g.config.Overwrite = overwrite
+
+		cfg := foreignFilesConfig()
+		cfg.Signing = ManifestSigning{Enabled: true}
+		require.NoError(t, g.GenerateSkeleton(context.Background(), cfg), string(overwrite))
+
+		got, err := afero.ReadFile(fs, "/work/"+signingTrustKeysTestPath)
+		require.NoError(t, err)
+		assert.Equal(t, mine, string(got), string(overwrite))
+		assert.True(t, buf.ContainsLevel(logger.WarnLevel, "kept your version"), "%s: %v", overwrite, buf.Messages())
+	}
+}

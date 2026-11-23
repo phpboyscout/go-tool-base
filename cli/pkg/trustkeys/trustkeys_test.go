@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go/signing/verify"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/trustkeys"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // expectedFingerprints lists the keys that must be embedded in this
@@ -105,4 +106,12 @@ func TestRotationAuthorityKeys_NoneUntilMinted(t *testing.T) {
 	t.Parallel()
 
 	assert.Empty(t, trustkeys.RotationAuthorityKeys())
+}
+
+// gtb's own trust set holds each key once, the check a generated signing
+// project runs on its own (#208).
+func TestTrustKeys_NoKeyEmbeddedTwice(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, setup.CheckTrustKeys(trustkeys.Keys(), trustkeys.AuthorityKeys()))
 }
