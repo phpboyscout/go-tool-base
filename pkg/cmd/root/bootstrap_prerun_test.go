@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -46,6 +47,7 @@ func noConfigProps(t *testing.T, name string, features ...p.FeatureState) *p.Pro
 		Assets: assets,
 		Tool: p.Tool{
 			Name:     name,
+			Config:   p.ConfigSpec{Dir: p.ConfigDirXDG},
 			Features: p.SetFeatures(append(base, features...)...),
 		},
 	}
@@ -53,8 +55,8 @@ func noConfigProps(t *testing.T, name string, features ...p.FeatureState) *p.Pro
 
 // autoInitConfigPath is where auto-init writes the default config for a tool —
 // the same default path the root command searches when --config is not given.
-func autoInitConfigPath(fs afero.Fs, name string) string {
-	return filepath.Join(setup.GetDefaultConfigDir(fs, name), "config.yaml")
+func autoInitConfigPath(style p.ConfigDir, fs afero.Fs, name string) string {
+	return filepath.Join(setup.ConfigDir(p.Tool{Name: name, Config: p.ConfigSpec{Dir: style}}), "config.yaml")
 }
 
 func execChild(t *testing.T, props *p.Props, child *cobra.Command) error {
@@ -111,7 +113,7 @@ func TestPreRun_SkipConfigCheck_ByName(t *testing.T) {
 	require.NoError(t, execChild(t, props, child))
 	assert.True(t, childRan, "named skip-config-check command must run despite missing config")
 	require.NotNil(t, props.Config, "bootstrap must still populate config (embedded defaults)")
-	assert.False(t, exists(t, props.FS, autoInitConfigPath(props.FS, "skipname-tool")),
+	assert.False(t, exists(t, props.FS, autoInitConfigPath(p.ConfigDirXDG, props.FS, "skipname-tool")),
 		"skip-config-check must not write a config file")
 }
 
@@ -160,7 +162,14 @@ func TestPreRun_SkipConfigCheck_ByAnnotation(t *testing.T) {
 func TestPreRun_AutoInitialise_HealsMissingConfig(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testPreRun_AutoInitialise_HealsMissingConfig)
+}
+
+func testPreRun_AutoInitialise_HealsMissingConfig(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := noConfigProps(t, "autoinit-tool")
+	props.Tool.Config.Dir = style
 	props.Tool.Bootstrap = p.BootstrapPolicy{AutoInitialise: true}
 
 	var childRan bool
@@ -173,7 +182,7 @@ func TestPreRun_AutoInitialise_HealsMissingConfig(t *testing.T) {
 	require.NoError(t, execChild(t, props, child))
 	assert.True(t, childRan, "command must run after auto-initialise heals the config")
 	require.NotNil(t, props.Config)
-	assert.True(t, exists(t, props.FS, autoInitConfigPath(props.FS, "autoinit-tool")),
+	assert.True(t, exists(t, props.FS, autoInitConfigPath(style, props.FS, "autoinit-tool")),
 		"auto-initialise must write the default config file")
 }
 
@@ -189,7 +198,7 @@ func TestPreRun_AutoInitialise_NoOpWhenInitDisabled(t *testing.T) {
 
 	require.NoError(t, execChild(t, props, child))
 	require.NotNil(t, props.Config, "init-disabled tool still gets embedded defaults")
-	assert.False(t, exists(t, props.FS, autoInitConfigPath(props.FS, "autoinit-noinit-tool")),
+	assert.False(t, exists(t, props.FS, autoInitConfigPath(p.ConfigDirXDG, props.FS, "autoinit-noinit-tool")),
 		"auto-initialise must be a no-op when init is disabled")
 }
 
@@ -208,7 +217,7 @@ func TestPreRun_SkipConfigCheck_TakesPrecedenceOverAutoInitialise(t *testing.T) 
 
 	require.NoError(t, execChild(t, props, child))
 	require.NotNil(t, props.Config)
-	assert.False(t, exists(t, props.FS, autoInitConfigPath(props.FS, "precedence-tool")),
+	assert.False(t, exists(t, props.FS, autoInitConfigPath(p.ConfigDirXDG, props.FS, "precedence-tool")),
 		"skip-config-check must take precedence: no auto-init file written")
 }
 

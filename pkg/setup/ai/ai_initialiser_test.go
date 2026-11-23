@@ -351,7 +351,7 @@ func TestNewCmdInitAI_Success(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = envVarIO(t, "claude", "ANTHROPIC_TOKEN")
 	cmd := NewCmdInitAI(props)

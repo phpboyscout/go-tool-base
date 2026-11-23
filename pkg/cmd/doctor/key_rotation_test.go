@@ -24,6 +24,12 @@ import (
 func TestCheckKeyRotation(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testCheckKeyRotation)
+}
+
+func testCheckKeyRotation(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
@@ -33,7 +39,7 @@ func TestCheckKeyRotation(t *testing.T) {
 	withAuthority := func(yaml string) *p.Props {
 		return &p.Props{
 			Config: testutil.StoreFromYAML(t, yaml),
-			Tool: p.Tool{Name: "t", Signing: p.SigningConfig{
+			Tool: p.Tool{Name: "t", Config: p.ConfigSpec{Dir: style}, Signing: p.SigningConfig{
 				EmbeddedKeys:          [][]byte{[]byte("release key")},
 				RotationAuthorityKeys: []string{authority.Encode()},
 			}},
@@ -99,7 +105,7 @@ func TestCheckKeyRotation(t *testing.T) {
 		} {
 			props := withAuthority("{}\n")
 			props.FS = afero.NewMemMapFs()
-			dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+			dir := setup.ConfigDir(props.Tool)
 			require.NotEmpty(t, dir)
 			require.NoError(t, afero.WriteFile(props.FS, filepath.Join(dir, "rotation.json"), []byte(record), 0o600))
 

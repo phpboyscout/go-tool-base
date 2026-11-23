@@ -26,7 +26,7 @@ import (
 func newTestProps(t *testing.T) *p.Props {
 	t.Helper()
 
-	return propstest.New(propstest.WithTool(p.Tool{Name: "test-tool"}))
+	return propstest.New(propstest.WithTool(p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}}))
 }
 
 // withNoCI clears the CI env var for the duration of a test so
@@ -42,7 +42,7 @@ func withNoCI(t *testing.T) {
 func TestRunAIInit_ClaudeEnvVarMode(t *testing.T) {
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = envVarIO(t, "claude", "CUSTOM_ANTHROPIC_KEY")
 	err := RunAIInit(t.Context(), props, dir)
@@ -76,7 +76,7 @@ func TestRunAIInit_Claude(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = keyIO(t, "claude", credentials.ModeLiteral, "sk-ant-test123")
 	err := RunAIInit(t.Context(), props, dir)
@@ -100,7 +100,7 @@ func TestRunAIInit_OpenAI(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = keyIO(t, "openai", credentials.ModeLiteral, "sk-openai-test456")
 	err := RunAIInit(t.Context(), props, dir)
@@ -121,7 +121,7 @@ func TestRunAIInit_Gemini(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = keyIO(t, "gemini", credentials.ModeLiteral, "AIza-gemini-test789")
 	err := RunAIInit(t.Context(), props, dir)
@@ -142,7 +142,7 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = keyIO(t, "claude", credentials.ModeLiteral, "sk-ant-test")
 	err := RunAIInit(t.Context(), props, dir)
@@ -173,7 +173,7 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 	configFile := filepath.Join(dir, "config.yaml")
 
 	// A config left behind by a prior literal-mode run.
@@ -266,7 +266,7 @@ func TestRunAIInit_MergesExistingConfig(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	// Create existing config
 	existingConfig := `log:
@@ -638,12 +638,20 @@ func TestRunAIForms_ExistingKeyFallback(t *testing.T) {
 func TestNewCmdInitAI_Wiring(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testNewCmdInitAI_Wiring)
+}
+
+func testNewCmdInitAI_Wiring(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := newTestProps(t)
+	props.Tool.Config.Dir = style
 	cmd := NewCmdInitAI(props)
 
 	assert.Equal(t, "ai", cmd.Use)
 	assert.NotEmpty(t, cmd.Short)
-	assert.NotNil(t, cmd.Flags().Lookup("dir"))
+	require.NotNil(t, cmd.Flags().Lookup("dir"))
+	assert.Equal(t, setup.ConfigDir(props.Tool), cmd.Flag("dir").DefValue)
 	// The init subcommand must use RunE (not Run) so failures route
 	// through the ErrorHandler/telemetry path instead of a direct
 	// logger.Fatalf that bypasses hints, ExitFunc, and the flush.

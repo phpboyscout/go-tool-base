@@ -75,8 +75,13 @@ func TestCheckForUpdates_SkippedWhenDevelopment(t *testing.T) {
 
 // TestWarnIfBehindCached covers the cached-version reminder path.
 func TestWarnIfBehindCached(t *testing.T) {
+	testutil.EachConfigDir(t, testWarnIfBehindCached)
+}
+
+func testWarnIfBehindCached(t *testing.T, style p.ConfigDir) {
 	// Not parallel: writes the cached-version marker via HOME-derived dir.
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	log := logger.NewBuffer()
 	fs := afero.NewOsFs()
@@ -85,7 +90,7 @@ func TestWarnIfBehindCached(t *testing.T) {
 		FS:      fs,
 		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
-		Tool:    p.Tool{Name: "covcachetool"},
+		Tool:    p.Tool{Name: "covcachetool", Config: p.ConfigSpec{Dir: style}},
 	}
 
 	// No cached version yet -> no warning.
@@ -93,7 +98,7 @@ func TestWarnIfBehindCached(t *testing.T) {
 	assert.False(t, log.Contains("a newer"))
 
 	// Record a newer cached version, then warn.
-	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool.Name, "v2.0.0"))
+	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool, "v2.0.0"))
 	warnIfBehindCached(props)
 	assert.True(t, log.Contains("a newer"), "must warn when cached latest is newer than running binary")
 }
@@ -134,6 +139,7 @@ func TestWarnIfBehindCached_NilVersion(t *testing.T) {
 func TestRecordCheckedVersion_Outdated(t *testing.T) {
 	// Not parallel: writes the marker via HOME-derived dir.
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	fs := afero.NewOsFs()
@@ -150,13 +156,18 @@ func TestRecordCheckedVersion_Outdated(t *testing.T) {
 
 	recordCheckedVersion(context.Background(), props, updater, false)
 
-	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(fs, props.Tool.Name),
+	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(fs, props.Tool),
 		"outdated check must cache the latest version in the marker body")
 }
 
 // TestRecordCheckedVersion_UpToDate clears the marker body when current.
 func TestRecordCheckedVersion_UpToDate(t *testing.T) {
+	testutil.EachConfigDir(t, testRecordCheckedVersion_UpToDate)
+}
+
+func testRecordCheckedVersion_UpToDate(t *testing.T, style p.ConfigDir) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	fs := afero.NewOsFs()
@@ -168,15 +179,17 @@ func TestRecordCheckedVersion_UpToDate(t *testing.T) {
 		Tool:    updateTool(provider),
 	}
 
+	props.Tool.Config.Dir = style
+
 	// Seed a stale cached version that must be cleared.
-	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool.Name, "v9.9.9"))
+	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool, "v9.9.9"))
 
 	updater, err := setup.NewUpdater(context.Background(), props, "", false)
 	require.NoError(t, err)
 
 	recordCheckedVersion(context.Background(), props, updater, true)
 
-	assert.Empty(t, setup.GetCheckedVersion(fs, props.Tool.Name),
+	assert.Empty(t, setup.GetCheckedVersion(fs, props.Tool),
 		"up-to-date check must clear the cached version body")
 }
 
@@ -274,7 +287,8 @@ func TestPerformUpdate_DownloadError(t *testing.T) {
 // enabled and other prompt/network features off.
 func updateTool(provider *forgetest.Source) p.Tool {
 	return p.Tool{
-		Name: "covtool",
+		Name:   "covtool",
+		Config: p.ConfigSpec{Dir: p.ConfigDirXDG},
 		ReleaseSource: p.ReleaseSource{
 			Type:  "github",
 			Owner: "example",
@@ -299,6 +313,7 @@ func updateTool(provider *forgetest.Source) p.Tool {
 func TestCheckForUpdates_FailureStampsTheThrottle(t *testing.T) {
 	// Not parallel: the marker lives under the HOME-derived config dir.
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("CI", "")
 
 	provider := forgetest.New() // no release to report: the check fails
@@ -306,13 +321,13 @@ func TestCheckForUpdates_FailureStampsTheThrottle(t *testing.T) {
 	props.IO = promptIO("")
 	cmd := mkUpdateCmd(t)
 
-	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "no marker yet")
+	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool, cmd, 24*time.Hour), "no marker yet")
 
 	result := checkForUpdates(context.Background(), cmd, props, newRootState())
 	require.NotNil(t, result)
 	require.NoError(t, result.Error, "a failed passive check never fails the command")
 
-	assert.True(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour),
+	assert.True(t, setup.SkipUpdateCheck(props.FS, props.Tool, cmd, 24*time.Hour),
 		"the failed check is stamped, so the next invocation inside the interval skips it")
 }
 
@@ -320,23 +335,29 @@ func TestCheckForUpdates_FailureStampsTheThrottle(t *testing.T) {
 // not lose the latest version an earlier check cached, or a transient failure
 // would silence the out-of-date reminder.
 func TestCheckForUpdates_FailureKeepsTheCachedVersion(t *testing.T) {
+	testutil.EachConfigDir(t, testCheckForUpdates_FailureKeepsTheCachedVersion)
+}
+
+func testCheckForUpdates_FailureKeepsTheCachedVersion(t *testing.T, style p.ConfigDir) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("CI", "")
 
 	provider := forgetest.New()
 	props := newUpdateProps(t, "v1.0.0", provider)
+	props.Tool.Config.Dir = style
 	props.IO = promptIO("")
 	cmd := mkUpdateCmd(t)
 
 	// An old marker carrying a cached version: old enough that the check runs.
-	require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool.Name, "v2.0.0"))
-	marker := filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "last_checked")
+	require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool, "v2.0.0"))
+	marker := filepath.Join(setup.ConfigDir(props.Tool), "last_checked")
 	stale := time.Now().Add(-48 * time.Hour)
 	require.NoError(t, props.FS.Chtimes(marker, stale, stale))
-	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "the marker is stale, so the check runs")
+	require.False(t, setup.SkipUpdateCheck(props.FS, props.Tool, cmd, 24*time.Hour), "the marker is stale, so the check runs")
 
 	checkForUpdates(context.Background(), cmd, props, newRootState())
 
-	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(props.FS, props.Tool.Name), "the cached version survives a failed check")
-	assert.True(t, setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, 24*time.Hour), "and the marker is fresh")
+	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(props.FS, props.Tool), "the cached version survives a failed check")
+	assert.True(t, setup.SkipUpdateCheck(props.FS, props.Tool, cmd, 24*time.Hour), "and the marker is fresh")
 }

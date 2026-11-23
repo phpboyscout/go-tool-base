@@ -1,6 +1,7 @@
 package props
 
 import (
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -20,6 +21,9 @@ type ConfigSpec struct {
 	// other than yaml must be linked (spec 0204 D2).
 	Format string `json:"format,omitempty" yaml:"format,omitempty"`
 
+	// Dir is where the tool's user directory lives. Empty is home (spec 0221).
+	Dir ConfigDir `json:"dir,omitempty" yaml:"dir,omitempty"`
+
 	// Sources are the config source slots the tool declares, each placed by
 	// name in Layers (spec 0204 D15). Where each connects is runtime
 	// configuration under config.sources.<name>, never declared here.
@@ -35,6 +39,18 @@ type ConfigSpec struct {
 	// framework reads by name, such as TELEMETRY_ENABLED (spec 0214).
 	FileOnly []string `json:"file_only,omitempty" yaml:"file_only,omitempty"`
 }
+
+// ConfigDir is the style of a tool's user directory, which holds its config
+// file, update state and trust data.
+type ConfigDir string
+
+const (
+	// ConfigDirHome is ~/.<tool>.
+	ConfigDirHome ConfigDir = "home"
+	// ConfigDirXDG is $XDG_CONFIG_HOME/<tool>, or ~/.config/<tool> when the
+	// variable is unset, empty or relative. It is the same on every platform.
+	ConfigDirXDG ConfigDir = "xdg"
+)
 
 // KeyCase is a config stack's key mode: folded to lower case, or exact.
 type KeyCase string
@@ -122,6 +138,33 @@ func ValidateConfigFormat(format string) error {
 		"a tool's own config file is yaml, toml, json or hcl; a read-only format can still be read through --config")
 }
 
+// ValidateConfigDir refuses a user directory style that is neither home nor
+// xdg. Empty is home.
+func ValidateConfigDir(dir ConfigDir) error {
+	switch dir {
+	case "", ConfigDirHome, ConfigDirXDG:
+		return nil
+	default:
+		return errors.WithHint(errors.Wrapf(ErrConfigDir, "%q", dir), "a tool's config directory is home or xdg")
+	}
+}
+
+// validateConfigDirName refuses a name that is not one path element: under xdg
+// the name is the whole last element, so ".." would be the parent directory.
+func validateConfigDirName(tool Tool) error {
+	if tool.Config.Dir != ConfigDirXDG {
+		return nil
+	}
+
+	// Windows drops a trailing dot or space, and NUL ends a path everywhere.
+	if !filepath.IsLocal(tool.Name) || strings.TrimRight(tool.Name, ". ") != tool.Name || strings.ContainsAny(tool.Name, "/\\\x00") {
+		return errors.WithHintf(errors.Wrapf(ErrConfigDir, "tool name %q", tool.Name),
+			"an %s tool's directory is named after the tool, so the name must be a single directory name", ConfigDirXDG)
+	}
+
+	return nil
+}
+
 var (
 	// ErrUnknownConfigLayer is a declared layer the framework does not know.
 	ErrUnknownConfigLayer = errors.NewSentinel("gtb.props.unknown_config_layer", "unknown config layer")
@@ -135,6 +178,9 @@ var (
 	ErrConfigSource = errors.NewSentinel("gtb.props.config_source", "config source declaration")
 	// ErrConfigFormat is an own config format that is not writable.
 	ErrConfigFormat = errors.NewSentinel("gtb.props.config_format", "config format cannot be a tool's own")
+	// ErrConfigDir is a user directory style other than home or xdg, or a
+	// tool name that cannot name an xdg directory.
+	ErrConfigDir = errors.NewSentinel("gtb.props.config_dir", "invalid config directory")
 	// ErrConfigKeyCase is a key case other than folded or exact.
 	ErrConfigKeyCase = errors.NewSentinel("gtb.props.config_key_case", "unknown config key case")
 )

@@ -40,7 +40,7 @@ func TestInstall_RefusesAnEnvManagedInstallFirst(t *testing.T) {
 	for name, run := range routes {
 		t.Run(name, func(t *testing.T) {
 			props := rollbackProps(attended("y"))
-			require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.2.0"))
+			require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.2.0"))
 			r := &rollbackUpdater{latest: "v1.3.0", before: "v1.1.0"}
 
 			_, err := run(t.Context(), props, r)

@@ -293,7 +293,7 @@ func UpdateConfig(ctx context.Context, props *p.Props, binPath string, opts ...U
 		props.Logger.Debug("Skipping config update as init command is disabled")
 	} else {
 		updatePaths := []string{
-			setup.GetDefaultConfigDir(props.FS, props.Tool.Name),
+			setup.ConfigDir(props.Tool),
 			fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", props.Tool.Name)),
 		}
 

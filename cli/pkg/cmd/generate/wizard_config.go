@@ -264,7 +264,7 @@ func (o *SkeletonOptions) settingsNote(i int) string {
 	tool := cmp.Or(o.Name, "<tool>")
 	name := o.slotName(i)
 	example := settingsExample(name, setup.ConfigSourceSettings(kind, tool, name))
-	userFile := fmt.Sprintf("~/.%s/config.%s", strings.ToLower(tool), o.ownFormatExt())
+	userFile := o.userConfigFile(tool)
 
 	if !slices.Contains(o.Features, string(props.InitCmd)) {
 		return noteText(strings.Join([]string{
@@ -288,6 +288,16 @@ func (o *SkeletonOptions) settingsNote(i int) string {
 			"pkg/cmd/root/assets/config.yaml. They apply when %s has not been run.", name, initConfig)),
 		"Every key, including the ones init config does not ask:\n" + configSourcesDocs,
 	}, "\n\n"))
+}
+
+// userConfigFile is where a user of the generated tool keeps their own config.
+func (o *SkeletonOptions) userConfigFile(tool string) string {
+	dir := "~/." + strings.ToLower(tool)
+	if o.ConfigDir == string(props.ConfigDirXDG) {
+		dir = "~/.config/" + strings.ToLower(tool)
+	}
+
+	return dir + "/config." + o.ownFormatExt()
 }
 
 func (o *SkeletonOptions) ownFormatExt() string {

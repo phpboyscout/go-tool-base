@@ -78,6 +78,7 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) error {
 	m.Properties.Config.Format = fresh.Properties.Config.Format
 	m.Properties.Config.Sources = fresh.Properties.Config.Sources
 	m.Properties.Config.KeyCase = fresh.Properties.Config.KeyCase
+	m.Properties.Config.Dir = fresh.Properties.Config.Dir
 	m.Properties.UpdatePolicy = fresh.Properties.UpdatePolicy
 	// The withhold list is not the caller's to set (spec 0213 D6).
 	m.Properties.MCP.Mode = fresh.Properties.MCP.Mode

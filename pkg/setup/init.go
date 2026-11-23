@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"maps"
 	"os"
@@ -160,31 +159,39 @@ type InitOptions struct {
 	Initialisers []Initialiser
 }
 
-// GetDefaultConfigDir returns the default config directory for the named
-// tool (~/.toolname/). It returns an empty string when the user home
-// directory cannot be resolved (see [UserHomeDir]) — callers
-// must treat an empty result as "no config dir" and skip any read/write
-// rather than joining it with a filename, which would otherwise resolve to
-// a relative path under the current working directory.
+// ConfigDir returns the tool's user directory in the style it declares:
+// ~/.<tool>, or $XDG_CONFIG_HOME/<tool> for [props.ConfigDirXDG]. It only
+// computes the path; whatever writes under it creates it.
 //
-// It is pure: it computes and returns the path only and never creates the
-// directory. Building the command tree (--help, completions, default flag
-// values) resolves this path, so a hidden MkdirAll here would create
-// ~/.toolname as a side effect of merely running --help. Directory creation is
-// deferred to the writers that actually persist a file under it (Initialise,
-// setTimeSinceLastIn, the config writers in pkg/cmd), each of which MkdirAlls
-// its parent at write time. The fs parameter is retained for API
-// compatibility and is unused.
-func GetDefaultConfigDir(_ afero.Fs, name string) string {
-	return configDirUnder(UserHomeDir(), name)
+// It is empty when the directory cannot be resolved. Skip the read or write
+// then: joining a filename onto it would name a file in the working directory.
+func ConfigDir(tool props.Tool) string {
+	return configDirUnder(tool.Config.Dir, UserHomeDir(), os.Getenv(xdgConfigHome), tool.Name)
 }
 
-func configDirUnder(homeDir, name string) string {
+const xdgConfigHome = "XDG_CONFIG_HOME"
+
+func configDirUnder(style props.ConfigDir, homeDir, xdgHome, name string) string {
+	name = strings.ToLower(name)
+
+	if style == props.ConfigDirXDG {
+		// The XDG specification says to ignore a relative value.
+		if filepath.IsAbs(xdgHome) {
+			return filepath.Join(xdgHome, name)
+		}
+
+		if homeDir == "" {
+			return ""
+		}
+
+		return filepath.Join(homeDir, ".config", name)
+	}
+
 	if homeDir == "" {
 		return ""
 	}
 
-	return filepath.Join(homeDir, fmt.Sprintf(".%s", strings.ToLower(name)))
+	return filepath.Join(homeDir, "."+name)
 }
 
 // EnsureDefaultConfigDir creates the tool's default config directory with
@@ -192,8 +199,8 @@ func configDirUnder(homeDir, name string) string {
 // path, or "" when the home directory cannot be resolved. One shared home for
 // the pre-create every Apply-to-the-default-path caller needs; each caller
 // keeps its own error posture.
-func EnsureDefaultConfigDir(fs afero.Fs, name string) (string, error) {
-	dir := GetDefaultConfigDir(fs, name)
+func EnsureDefaultConfigDir(fs afero.Fs, tool props.Tool) (string, error) {
+	dir := ConfigDir(tool)
 	if dir == "" {
 		return "", nil
 	}

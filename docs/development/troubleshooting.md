@@ -68,7 +68,7 @@ The generator automatically runs `golangci-lint run --fix` after generating code
 ### Configuration Not Loading
 If your tool isn't picking up the configuration you expect:
 
-1.  Check the search paths. By default, it looks in `~/.<toolname>/` and `/etc/<toolname>/`.
+1.  Check the search paths. By default, it looks in `~/.<toolname>/` (`~/.config/<toolname>/` for a tool that [keeps it under XDG](../how-to/configure-the-config-stack.md#put-the-tools-directory-under-xdg_config_home)) and `/etc/<toolname>/`.
 2.  Enable debug logging to see exactly what files are being loaded:
     ```bash
     ./my-tool --debug command

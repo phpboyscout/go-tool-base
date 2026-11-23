@@ -405,7 +405,7 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 }
 
 func checkPermissions(_ context.Context, props *p.Props) CheckResult {
-	return checkPermissionsOf(props.FS, setup.GetDefaultConfigDir(props.FS, props.Tool.Name))
+	return checkPermissionsOf(props.FS, setup.ConfigDir(props.Tool))
 }
 
 func checkPermissionsOf(fs afero.Fs, configDir string) CheckResult {

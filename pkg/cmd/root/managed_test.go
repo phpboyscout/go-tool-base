@@ -25,11 +25,11 @@ func TestCheckForUpdates_ManagedIsLeftAlone(t *testing.T) {
 	for _, policy := range []p.UpdatePolicy{p.UpdatePolicyEnabled, p.UpdatePolicyPrompt, p.UpdatePolicyDisabled} {
 		t.Run(string(policy), func(t *testing.T) {
 			props := outdatedProps(t, policy, promptIO("n"))
-			require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool.Name, "v2.0.0"))
-			checked := filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "last_checked")
+			require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool, "v2.0.0"))
+			checked := filepath.Join(setup.ConfigDir(props.Tool), "last_checked")
 			stale := time.Now().Add(-30 * 24 * time.Hour).Truncate(time.Second)
 			require.NoError(t, props.FS.Chtimes(checked, stale, stale))
-			marker := filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "pinned_version")
+			marker := filepath.Join(setup.ConfigDir(props.Tool), "pinned_version")
 			require.NoError(t, afero.WriteFile(props.FS, marker, []byte("garbage"), 0o600))
 			watched := &openRecorder{Fs: props.FS, path: marker}
 			props.FS = watched

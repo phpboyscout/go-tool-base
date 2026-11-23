@@ -43,7 +43,7 @@ Opts the user into anonymous usage telemetry. Writes `telemetry.enabled: true` t
 config file and persists it to disk.
 
 If no config file exists (e.g. tools that disable `InitCmd`), the default config directory
-(`~/.toolname/`) and config file are created automatically.
+(`~/.toolname/`, or `~/.config/toolname/` for a tool that [keeps it under XDG](../../how-to/configure-the-config-stack.md#put-the-tools-directory-under-xdg_config_home)) and config file are created automatically.
 
 ```bash
 $ mytool telemetry enable

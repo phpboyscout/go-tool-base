@@ -21,7 +21,7 @@ func TestSkipUpdateCheck_FeatureBased_NotUseString(t *testing.T) {
 
 	cmd := Wrap(props.UpdateCmd, &cobra.Command{Use: "upgrade [target]"})
 
-	assert.True(t, SkipUpdateCheck(memFS, "feat-tool", cmd.Command, 0),
+	assert.True(t, SkipUpdateCheck(memFS, props.Tool{Name: "feat-tool"}, cmd.Command, 0),
 		"an UpdateCmd-feature command must skip the update check regardless of its Use string")
 }
 
@@ -37,7 +37,7 @@ func TestSkipUpdateCheck_InitFeature_SubtreeWalk(t *testing.T) {
 	child := Wrap("github", &cobra.Command{Use: "github"})
 	parent.Register(child)
 
-	assert.True(t, SkipUpdateCheck(memFS, "subtree-tool", child.Command, 0),
+	assert.True(t, SkipUpdateCheck(memFS, props.Tool{Name: "subtree-tool"}, child.Command, 0),
 		"a subcommand of an InitCmd-feature parent must skip the update check")
 }
 
@@ -51,7 +51,7 @@ func TestSkipUpdateCheck_DownstreamAuthName_NotSkipped(t *testing.T) {
 
 	for _, use := range []string{"auth", "init"} {
 		cmd := &cobra.Command{Use: use}
-		assert.False(t, SkipUpdateCheck(memFS, "collide-tool", cmd, 0),
+		assert.False(t, SkipUpdateCheck(memFS, props.Tool{Name: "collide-tool"}, cmd, 0),
 			"a bare downstream command named %q must not be exempted by name", use)
 	}
 }
@@ -72,8 +72,8 @@ func TestSkipUpdateCheck_MarkAnnotation(t *testing.T) {
 	assert.True(t, SkipsUpdateCheck(parent.Command), "stamped command must report the annotation")
 	assert.False(t, SkipsUpdateCheck(child.Command), "SkipsUpdateCheck is self-only; subtree semantics live in SkipUpdateCheck")
 
-	assert.True(t, SkipUpdateCheck(memFS, "mark-tool", parent.Command, 0))
-	assert.True(t, SkipUpdateCheck(memFS, "mark-tool", child.Command, 0),
+	assert.True(t, SkipUpdateCheck(memFS, props.Tool{Name: "mark-tool"}, parent.Command, 0))
+	assert.True(t, SkipUpdateCheck(memFS, props.Tool{Name: "mark-tool"}, child.Command, 0),
 		"a stamped parent must cover its subtree")
 }
 
@@ -92,11 +92,12 @@ func TestSkipUpdateCheck_IntervalStillApplies(t *testing.T) {
 
 	memFS := afero.NewMemMapFs()
 	cmd := &cobra.Command{Use: "run"}
+	tool := props.Tool{Name: "interval-tool", Config: props.ConfigSpec{Dir: props.ConfigDirXDG}}
 
-	require.NoError(t, SetTimeSinceLast(memFS, "interval-tool", CheckedKey))
+	require.NoError(t, SetTimeSinceLast(memFS, tool, CheckedKey))
 
-	assert.True(t, SkipUpdateCheck(memFS, "interval-tool", cmd, 1<<40),
+	assert.True(t, SkipUpdateCheck(memFS, tool, cmd, 1<<40),
 		"a recent check within the interval must skip")
-	assert.False(t, SkipUpdateCheck(memFS, "interval-tool", cmd, 0),
+	assert.False(t, SkipUpdateCheck(memFS, tool, cmd, 0),
 		"interval 0 means check on every invocation")
 }

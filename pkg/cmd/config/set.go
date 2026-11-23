@@ -63,7 +63,7 @@ their native types; everything else is stored as a string.`,
 			}
 
 			if err := applyAndHarden(cmd.Context(), props, change); err != nil {
-				return persistError(err, setup.GetDefaultConfigDir(props.FS, props.Tool.Name))
+				return persistError(err, setup.ConfigDir(props.Tool))
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "set %s = %s\n", key, rawVal)
@@ -79,7 +79,7 @@ their native types; everything else is stored as a string.`,
 // write routed to the default path has somewhere to land. Best-effort: a
 // custom --config path's directory already exists, because its file loaded.
 func ensureDefaultConfigDir(props *p.Props) {
-	_, _ = setup.EnsureDefaultConfigDir(writableFS(props), props.Tool.Name)
+	_, _ = setup.EnsureDefaultConfigDir(writableFS(props), props.Tool)
 }
 
 // applyAndHarden commits changes through the store, then re-asserts owner-only
@@ -248,14 +248,14 @@ func isInteractiveInput(cmd *cobra.Command) bool {
 // answer comes from planning a probe Set against the store — the same routing
 // Apply uses — so a declared-but-not-yet-created config file is reported
 // correctly rather than falling back to whichever file happened to load.
-func resolveWritableConfigPath(props *p.Props, fs afero.Fs) string {
+func resolveWritableConfigPath(props *p.Props) string {
 	if props.Config != nil {
 		if plan, err := props.Config.Plan(cfg.Set("gtb.write-probe", true)); err == nil && len(plan.Operations) > 0 {
 			return plan.Operations[0].Target.Name
 		}
 	}
 
-	dir := setup.GetDefaultConfigDir(fs, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 	if dir == "" {
 		return ""
 	}

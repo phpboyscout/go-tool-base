@@ -11,6 +11,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -45,7 +46,7 @@ func sourcesProps(t *testing.T, fs afero.Fs, sources ...p.ConfigSource) *p.Props
 		layers = append(layers, p.ConfigLayer(s.Name))
 	}
 
-	tool := p.Tool{Name: "mytool", Config: p.ConfigSpec{Sources: sources, Layers: append(layers, p.LayerEnv, p.LayerFlags)}}
+	tool := p.Tool{Name: "mytool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG, Sources: sources, Layers: append(layers, p.LayerEnv, p.LayerFlags)}}
 
 	props, err := p.New(tool, logger.NewNoop(), fs, p.WithFeatures(reg.Snapshot()), p.WithAssets(p.NewAssets()))
 	require.NoError(t, err)
@@ -58,12 +59,24 @@ func sourcesProps(t *testing.T, fs afero.Fs, sources ...p.ConfigSource) *p.Props
 func TestInitConfig_WritesTheSlotsSettings(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testInitConfig_WritesTheSlotsSettings)
+}
+
+func testInitConfig_WritesTheSlotsSettings(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	props := sourcesProps(t, fs,
 		p.ConfigSource{Name: "team", Kind: "memfile"},
 		p.ConfigSource{Name: "shared", Kind: "memfile"})
+	props.Tool.Config.Dir = style
 
 	cmd := NewCmdInit(props)
+
+	slot, _, err := cmd.Find([]string{"config", "shared"})
+	require.NoError(t, err)
+	assert.Equal(t, setup.ConfigDir(props.Tool), slot.Flag("dir").DefValue)
+
 	cmd.SetArgs([]string{"config", "shared", "--dir", "/home/me/.mytool"})
 	require.NoError(t, cmd.Execute())
 

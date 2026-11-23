@@ -899,6 +899,26 @@ func ValidateUpdatePolicy(policy string) error {
 	}
 }
 
+// ValidateConfigDir accepts an empty string (home, the default) and the two
+// user directory styles.
+func ValidateConfigDir(dir string) error {
+	if props.ValidateConfigDir(props.ConfigDir(dir)) != nil {
+		return rejectf("ConfigDir", "config directory must be one of: home, xdg", dir)
+	}
+
+	return nil
+}
+
+// normaliseConfigDir drops the default, so a manifest or root that says home
+// and one that says nothing are the same.
+func normaliseConfigDir(dir string) string {
+	if dir == string(props.ConfigDirHome) {
+		return ""
+	}
+
+	return dir
+}
+
 // ValidateConfigKeyCase accepts an empty string (folded, the default) and the
 // two key modes props.ConfigSpec understands.
 func ValidateConfigKeyCase(keyCase string) error {
@@ -1024,6 +1044,10 @@ func validateManifestConfig(p *ManifestProperties) error {
 	}
 
 	if err := ValidateConfigFormats(p.Config.Formats, p.Config.Format); err != nil {
+		return err
+	}
+
+	if err := ValidateConfigDir(p.Config.Dir); err != nil {
 		return err
 	}
 

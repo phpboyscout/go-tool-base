@@ -39,6 +39,7 @@ var probes = map[string]func(c *SkeletonConfig){
 		c.ConfigSources = []ManifestConfigSource{{Name: "team", Kind: "consul"}}
 	},
 	"ConfigKeyCase":                     func(c *SkeletonConfig) { c.ConfigKeyCase = "exact" },
+	"ConfigDir":                         func(c *SkeletonConfig) { c.ConfigDir = "xdg" },
 	"Signing.Enabled":                   func(c *SkeletonConfig) { c.Signing.Enabled = true },
 	"Signing.ExternalKeyEmail":          func(c *SkeletonConfig) { c.Signing.ExternalKeyEmail = "rel@example.com" },
 	"Signing.RequireSignature":          func(c *SkeletonConfig) { c.Signing.RequireSignature = true },

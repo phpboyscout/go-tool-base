@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/errors"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // trustStoreFilename is the per-user record of project-local config files the
@@ -108,8 +110,8 @@ func projectConfigNames(toolName string, codecs []ConfigCodec) []string {
 
 // trustStorePath returns the absolute path of the per-user trust store for the
 // named tool, or "" when the home directory cannot be resolved.
-func trustStorePath(fs afero.Fs, toolName string) string {
-	return trustStorePathUnder(GetDefaultConfigDir(fs, toolName))
+func trustStorePath(tool props.Tool) string {
+	return trustStorePathUnder(ConfigDir(tool))
 }
 
 func trustStorePathUnder(dir string) string {
@@ -185,10 +187,10 @@ func resolveExisting(dir string) string {
 // it is an empty store, the default state before the user has trusted anything.
 // So is a store inside a git checkout, whose records the repository could have
 // written.
-func loadTrustStore(fs afero.Fs, toolName string) (*trustStore, error) {
+func loadTrustStore(fs afero.Fs, tool props.Tool) (*trustStore, error) {
 	store := &trustStore{Trusted: map[string]string{}}
 
-	path := trustStorePath(fs, toolName)
+	path := trustStorePath(tool)
 	if path == "" || DirInCheckout(fs, filepath.Dir(path)) {
 		return store, nil
 	}
@@ -214,8 +216,8 @@ func loadTrustStore(fs afero.Fs, toolName string) (*trustStore, error) {
 }
 
 // saveTrustStore persists the trust store with owner-only permissions.
-func saveTrustStore(fs afero.Fs, toolName string, store *trustStore) error {
-	path := trustStorePath(fs, toolName)
+func saveTrustStore(fs afero.Fs, tool props.Tool, store *trustStore) error {
+	path := trustStorePath(tool)
 	if path == "" {
 		return errors.New("cannot resolve config directory for trust store (no home directory from HOME or the user's account)")
 	}
@@ -223,7 +225,7 @@ func saveTrustStore(fs afero.Fs, toolName string, store *trustStore) error {
 	if DirInCheckout(fs, filepath.Dir(path)) {
 		return errors.WithHintf(errors.Wrapf(ErrTrustStoreInCheckout, "%s", filepath.Dir(path)),
 			"A trust record there could have come from the repository, so %s does not keep one. "+
-				"Set security-sensitive keys through environment variables or flags instead.", toolName)
+				"Set security-sensitive keys through environment variables or flags instead.", tool.Name)
 	}
 
 	if err := fs.MkdirAll(filepath.Dir(path), dirPermTrust); err != nil {
@@ -263,7 +265,7 @@ func hashProjectConfig(fs afero.Fs, path string) (string, error) {
 // A missing store, a path not in the store, or an unreadable file all resolve
 // to "not trusted" — the safe default. Only an unexpected I/O fault reading the
 // store surfaces as an error.
-func IsProjectConfigTrusted(fs afero.Fs, toolName, path string) (bool, error) {
+func IsProjectConfigTrusted(fs afero.Fs, tool props.Tool, path string) (bool, error) {
 	if path == "" {
 		return false, nil
 	}
@@ -273,7 +275,7 @@ func IsProjectConfigTrusted(fs afero.Fs, toolName, path string) (bool, error) {
 		abs = path
 	}
 
-	store, err := loadTrustStore(fs, toolName)
+	store, err := loadTrustStore(fs, tool)
 	if err != nil {
 		return false, err
 	}
@@ -296,7 +298,7 @@ func IsProjectConfigTrusted(fs afero.Fs, toolName, path string) (bool, error) {
 // TrustProjectConfig records the current content of the project-local config
 // file at path as trusted for the named tool. This is the explicit user action —
 // the `config trust` command — that unlocks the file's security-sensitive keys.
-func TrustProjectConfig(fs afero.Fs, toolName, path string) error {
+func TrustProjectConfig(fs afero.Fs, tool props.Tool, path string) error {
 	if path == "" {
 		return errors.New("no project-local config file to trust")
 	}
@@ -311,19 +313,19 @@ func TrustProjectConfig(fs afero.Fs, toolName, path string) error {
 		return err
 	}
 
-	store, err := loadTrustStore(fs, toolName)
+	store, err := loadTrustStore(fs, tool)
 	if err != nil {
 		return err
 	}
 
 	store.Trusted[abs] = hash
 
-	return saveTrustStore(fs, toolName, store)
+	return saveTrustStore(fs, tool, store)
 }
 
 // UntrustProjectConfig removes any trust record for the file at path. It is a
 // no-op (nil error) when the path was not trusted.
-func UntrustProjectConfig(fs afero.Fs, toolName, path string) error {
+func UntrustProjectConfig(fs afero.Fs, tool props.Tool, path string) error {
 	if path == "" {
 		return nil
 	}
@@ -333,7 +335,7 @@ func UntrustProjectConfig(fs afero.Fs, toolName, path string) error {
 		abs = path
 	}
 
-	store, err := loadTrustStore(fs, toolName)
+	store, err := loadTrustStore(fs, tool)
 	if err != nil {
 		return err
 	}
@@ -344,13 +346,13 @@ func UntrustProjectConfig(fs afero.Fs, toolName, path string) error {
 
 	delete(store.Trusted, abs)
 
-	return saveTrustStore(fs, toolName, store)
+	return saveTrustStore(fs, tool, store)
 }
 
 // ListTrustedProjects returns the absolute paths of every trusted project-local
 // config file for the named tool, sorted for stable output.
-func ListTrustedProjects(fs afero.Fs, toolName string) ([]string, error) {
-	store, err := loadTrustStore(fs, toolName)
+func ListTrustedProjects(fs afero.Fs, tool props.Tool) ([]string, error) {
+	store, err := loadTrustStore(fs, tool)
 	if err != nil {
 		return nil, err
 	}

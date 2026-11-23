@@ -213,7 +213,7 @@ func newResetCmd(p *props.Props) *cobra.Command {
 func setTelemetryEnabled(ctx context.Context, p *props.Props, enabled bool, out io.Writer) error {
 	// The default config dir may not exist yet (tools without InitCmd);
 	// create it lazily so the write's target directory is present.
-	if _, err := setup.EnsureDefaultConfigDir(p.FS, p.Tool.Name); err != nil {
+	if _, err := setup.EnsureDefaultConfigDir(p.FS, p.Tool); err != nil {
 		return err
 	}
 

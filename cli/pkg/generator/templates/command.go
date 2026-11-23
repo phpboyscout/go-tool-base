@@ -455,7 +455,7 @@ func CommandInitializer(data CommandData) *jen.File {
 				jen.List(jen.Id("editor"), jen.Id("_"), jen.Err()).Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "OpenConfigEditor").Call(
 					jen.Id("cmd").Dot("Context").Call(),
 					jen.Id("p"),
-					jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "GetDefaultConfigDir").Call(jen.Id("p").Dot("FS"), jen.Id("p").Dot("Tool").Dot("Name")),
+					jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "ConfigDir").Call(jen.Id("p").Dot("Tool")),
 					jen.False(),
 				),
 				jen.If(jen.Err().Op("!=").Nil()).Block(jen.Return(jen.Err())),

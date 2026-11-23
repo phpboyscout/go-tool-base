@@ -55,7 +55,7 @@ until you run this again.`,
 			}
 
 			if forget {
-				if err := setup.UntrustProjectConfig(props.FS, props.Tool.Name, target); err != nil {
+				if err := setup.UntrustProjectConfig(props.FS, props.Tool, target); err != nil {
 					return errors.Wrap(err, "revoking trust")
 				}
 
@@ -64,7 +64,7 @@ until you run this again.`,
 				return nil
 			}
 
-			if err := setup.TrustProjectConfig(props.FS, props.Tool.Name, target); err != nil {
+			if err := setup.TrustProjectConfig(props.FS, props.Tool, target); err != nil {
 				return errors.Wrap(err, "trusting project config")
 			}
 
@@ -110,7 +110,7 @@ func resolveTrustTarget(props *p.Props, args []string) (string, error) {
 
 // runTrustList prints the trusted project-local files for the tool.
 func runTrustList(cmd *cobra.Command, props *p.Props) error {
-	paths, err := setup.ListTrustedProjects(props.FS, props.Tool.Name)
+	paths, err := setup.ListTrustedProjects(props.FS, props.Tool)
 	if err != nil {
 		return errors.Wrap(err, "listing trusted project configs")
 	}

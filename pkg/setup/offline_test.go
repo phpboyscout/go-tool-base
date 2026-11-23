@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -31,9 +32,16 @@ func setupOfflineUpdater(t *testing.T, fs afero.Fs, toolName string) *SelfUpdate
 func TestUpdateFromFile_Success(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testUpdateFromFile_Success)
+}
+
+func testUpdateFromFile_Success(t *testing.T, style props.ConfigDir) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
+	updater.Tool.Config.Dir = style
 
 	tarData := createTarGz(t, toolName, "binary-content")
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
@@ -45,6 +53,10 @@ func TestUpdateFromFile_Success(t *testing.T) {
 	content, err := afero.ReadFile(fs, targetPath)
 	require.NoError(t, err)
 	assert.Equal(t, "binary-content", string(content))
+
+	stamped, err := afero.Exists(fs, filepath.Join(ConfigDir(updater.Tool), "last_updated"))
+	require.NoError(t, err)
+	assert.True(t, stamped)
 }
 
 func TestUpdateFromFile_WithValidChecksum(t *testing.T) {

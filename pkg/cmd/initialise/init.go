@@ -66,7 +66,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 		},
 	}
 
-	initCmd.Flags().StringVarP(&initOpts.Dir, "dir", "d", setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "directory to initialise the config in")
+	initCmd.Flags().StringVarP(&initOpts.Dir, "dir", "d", setup.ConfigDir(props.Tool), "directory to initialise the config in")
 	initCmd.Flags().BoolVarP(&initOpts.Clean, "clean", "c", false, "reset the existing configuration and replace with the defaults")
 	// --skip-key is the init command's own: every profile that offers an SSH
 	// key honours it, whichever forges are linked (spec 0199 D3).

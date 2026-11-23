@@ -51,7 +51,7 @@ func TestUpdateFromFile_FailedExtractDoesNotStampTimestamps(t *testing.T) {
 
 	require.NoError(t, memFS.MkdirAll(filepath.Dir(currentBin), 0o755))
 
-	configDir := GetDefaultConfigDir(memFS, toolName)
+	configDir := ConfigDir(props.Tool{Name: toolName})
 	require.NotEmpty(t, configDir, "test host must have a resolvable HOME")
 
 	// A non-gzip archive forces extract() to fail.
@@ -101,15 +101,6 @@ func TestSetTimeSinceLast_EmptyConfigDirIsNoOp(t *testing.T) {
 	require.NoError(t, err, "empty config dir must be a no-op")
 	assert.Empty(t, rec.created,
 		"no timestamp file may be created when the config dir is empty")
-}
-
-// TestGetDefaultConfigDir_EmptyHomeReturnsEmpty pins the contract that an
-// unresolved/empty HOME yields an empty path (so callers skip writes).
-func TestConfigDirUnder_NoHomeReturnsEmpty(t *testing.T) {
-	t.Parallel()
-
-	assert.Empty(t, configDirUnder("", "test-tool"),
-		"no home must yield an empty config dir, not a relative path")
 }
 
 // TestUpdate_AlreadyCurrentIsSaidSo (#95): a binary that is already at the

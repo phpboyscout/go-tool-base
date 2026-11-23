@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -31,14 +32,20 @@ log:
   level: debug
 `
 
+// The tests run in both styles, so a site that looks only in one directory
+// fails them.
+func styledTool(style p.ConfigDir) p.Tool {
+	return p.Tool{Name: "mytool", Config: p.ConfigSpec{Dir: style}}
+}
+
 // buildProjectStore builds a config store through the real bootstrap seam
 // (buildConfigStore) with only a project-local layer, mirroring what a command
 // run inside a cloned repository sees.
-func buildProjectStore(t *testing.T, fs afero.Fs, log logger.Logger, projectPath string) *p.Props {
+func buildProjectStore(t *testing.T, style p.ConfigDir, fs afero.Fs, log logger.Logger, projectPath string) *p.Props {
 	t.Helper()
 
 	props := &p.Props{
-		Tool:   p.Tool{Name: "mytool"},
+		Tool:   styledTool(style),
 		Logger: log,
 		FS:     fs,
 	}
@@ -61,6 +68,7 @@ func buildProjectStore(t *testing.T, fs afero.Fs, log logger.Logger, projectPath
 // workflow keys still apply, and the ignored keys are logged at WARN.
 func TestProjectLocalTrust_HostileCloneIsIgnored(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewOsFs()
 	dir := t.TempDir()
@@ -68,7 +76,7 @@ func TestProjectLocalTrust_HostileCloneIsIgnored(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, path, []byte(hostileProjectConfig), 0o600))
 
 	log := logger.NewBuffer()
-	props := buildProjectStore(t, fs, log, path)
+	props := buildProjectStore(t, p.ConfigDirXDG, fs, log, path)
 	view := props.Config.View()
 
 	// Security-sensitive keys are stripped from the untrusted layer.
@@ -96,16 +104,21 @@ func TestProjectLocalTrust_HostileCloneIsIgnored(t *testing.T) {
 // contrast, that but for the trust filter the hostile keys WOULD apply (the
 // pre-fix behaviour): once the directory is trusted, every key is honoured.
 func TestProjectLocalTrust_TrustedCloneApplies(t *testing.T) {
+	testutil.EachConfigDir(t, testProjectLocalTrust_TrustedCloneApplies)
+}
+
+func testProjectLocalTrust_TrustedCloneApplies(t *testing.T, style p.ConfigDir) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewOsFs()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".mytool.yaml")
 	require.NoError(t, afero.WriteFile(fs, path, []byte(hostileProjectConfig), 0o600))
 
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, styledTool(style), path))
 
-	props := buildProjectStore(t, fs, logger.NewNoop(), path)
+	props := buildProjectStore(t, style, fs, logger.NewNoop(), path)
 	view := props.Config.View()
 
 	assert.True(t, view.IsSet("update.require_signature"))
@@ -178,13 +191,14 @@ func TestProjectLocalTrust_ProtectedKeysMatchInAnyCase(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
+			t.Setenv("XDG_CONFIG_HOME", "")
 
 			fs := afero.NewOsFs()
 			path := filepath.Join(t.TempDir(), ".mytool.yaml")
 			require.NoError(t, afero.WriteFile(fs, path, []byte(tc.file+"log:\n  level: debug\n"), 0o600))
 
 			log := logger.NewBuffer()
-			view := buildProjectStore(t, fs, log, path).Config.View()
+			view := buildProjectStore(t, p.ConfigDirXDG, fs, log, path).Config.View()
 
 			assert.False(t, view.IsSet(tc.key), "%s must not reach the store", tc.key)
 			assert.Equal(t, "debug", view.GetString("log.level"), "the file's other keys still apply")
@@ -198,6 +212,7 @@ func TestProjectLocalTrust_ProtectedKeysMatchInAnyCase(t *testing.T) {
 // and a file that is trusted keeps them.
 func TestProjectLocalTrust_ExactKeyCaseStripsEverySpelling(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewOsFs()
 	path := filepath.Join(t.TempDir(), ".mytool.yaml")
@@ -205,7 +220,7 @@ func TestProjectLocalTrust_ExactKeyCaseStripsEverySpelling(t *testing.T) {
 		[]byte("update:\n  require_signature: false\n  Require_Signature: false\nlog:\n  Level: debug\n"), 0o600))
 
 	build := func(log logger.Logger) *p.Props {
-		props := &p.Props{Tool: p.Tool{Name: "mytool", Config: p.ConfigSpec{KeyCase: p.KeyCaseExact}}, Logger: log, FS: fs}
+		props := &p.Props{Tool: p.Tool{Name: "mytool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG, KeyCase: p.KeyCaseExact}}, Logger: log, FS: fs}
 
 		store, err := buildConfigStore(t.Context(), ConfigLoadOptions{Props: props, AllowEmpty: true, ProjectConfigPath: path})
 		require.NoError(t, err)
@@ -223,7 +238,7 @@ func TestProjectLocalTrust_ExactKeyCaseStripsEverySpelling(t *testing.T) {
 	assert.Equal(t, "debug", view.GetString("log.Level"), "an unprotected key keeps its exact spelling")
 	assert.True(t, log.Contains("ignoring security-sensitive keys"))
 
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, styledTool(p.ConfigDirXDG), path))
 	assert.True(t, build(logger.NewNoop()).Config.View().IsSet("update.Require_Signature"))
 }
 
@@ -239,14 +254,15 @@ func TestProjectLocalTrust_SourcePointersMatchInAnyCase(t *testing.T) {
 	for name, file := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
+			t.Setenv("XDG_CONFIG_HOME", "")
 
 			fs := afero.NewOsFs()
 			path := filepath.Join(t.TempDir(), ".mytool.yaml")
 			require.NoError(t, afero.WriteFile(fs, path, []byte(file), 0o600))
-			require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+			require.NoError(t, setup.TrustProjectConfig(fs, styledTool(p.ConfigDirXDG), path))
 
 			log := logger.NewBuffer()
-			view := buildProjectStore(t, fs, log, path).Config.View()
+			view := buildProjectStore(t, p.ConfigDirXDG, fs, log, path).Config.View()
 
 			assert.False(t, view.IsSet("config.sources.team.address"))
 			assert.True(t, log.Contains("ignoring config.sources"))

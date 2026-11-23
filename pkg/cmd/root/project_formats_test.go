@@ -139,7 +139,7 @@ func TestProjectLocalTrust_TrustedTOMLIsReadAndWritable(t *testing.T) {
 	fs := afero.NewOsFs()
 	path := filepath.Join(t.TempDir(), ".mytool.toml")
 	require.NoError(t, afero.WriteFile(fs, path, []byte(hostileByFormat[".toml"].content), 0o600))
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, p.Tool{Name: "mytool"}, path))
 
 	store, err := buildConfigStore(t.Context(), ConfigLoadOptions{
 		Props:             allFormatsProps(t, fs, logger.NewNoop()),

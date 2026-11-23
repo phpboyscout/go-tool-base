@@ -24,7 +24,7 @@ var ownConfigFormats = []string{"yaml", "toml", "json", "hcl"}
 // the user's. With no home directory there is no user's file: joining onto the
 // empty directory would read one from wherever the tool was run.
 func DefaultConfigPaths(p *props.Props) []string {
-	return configPathsUnder(GetDefaultConfigDir(p.FS, p.Tool.Name), p.Tool.Name, p.Tool.ConfigFilename())
+	return configPathsUnder(ConfigDir(p.Tool), p.Tool.Name, p.Tool.ConfigFilename())
 }
 
 func configPathsUnder(userDir, toolName, filename string) []string {

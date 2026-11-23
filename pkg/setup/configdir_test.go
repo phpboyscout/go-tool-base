@@ -7,27 +7,29 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// GetDefaultConfigDir must be pure: it computes and returns the path but never
+// ConfigDir must be pure: it computes and returns the path but never
 // creates the directory. Merely resolving the path (e.g. while building --help
 // or default flag values) must not materialise ~/.toolname on disk.
-func TestGetDefaultConfigDir_DoesNotCreateDirectory(t *testing.T) {
+func TestConfigDir_DoesNotCreateDirectory(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	const name = "puretool"
 
-	dir := GetDefaultConfigDir(fs, name)
+	dir := ConfigDir(props.Tool{Name: name})
 	require.NotEmpty(t, dir, "expected a resolvable home dir in the test environment")
 
 	exists, err := afero.DirExists(fs, dir)
 	require.NoError(t, err)
-	assert.False(t, exists, "GetDefaultConfigDir must not create the directory as a side effect")
+	assert.False(t, exists, "ConfigDir must not create the directory as a side effect")
 }
 
 // setTimeSinceLastIn writes a timestamp marker and must create the parent config
-// directory lazily at write time, now that GetDefaultConfigDir is pure.
+// directory lazily at write time, now that ConfigDir is pure.
 func TestSetTimeSinceLastIn_CreatesDirectoryAtWrite(t *testing.T) {
 	t.Parallel()
 

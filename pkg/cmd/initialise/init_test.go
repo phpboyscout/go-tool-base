@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 
 	propstest "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
@@ -26,6 +27,7 @@ import (
 func testTool() p.Tool {
 	return p.Tool{
 		Name:     "test-tool",
+		Config:   p.ConfigSpec{Dir: p.ConfigDirXDG},
 		Features: p.SetFeatures(p.Enable(forge.GithubFeature), p.Enable(p.AiCmd)),
 	}
 }
@@ -74,10 +76,14 @@ func TestRegisterSubcommands_AiEnabled(t *testing.T) {
 }
 
 func TestNewCmdInit(t *testing.T) {
+	testutil.EachConfigDir(t, testNewCmdInit)
+}
 
+func testNewCmdInit(t *testing.T, style p.ConfigDir) {
 	fs := afero.NewMemMapFs()
 	// Mock HOME for default config dir
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	props := &p.Props{
 		Tool:         testTool(),
@@ -86,6 +92,7 @@ func TestNewCmdInit(t *testing.T) {
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
+	props.Tool.Config.Dir = style
 	props.Assets = p.NewAssets()
 	cmd := NewCmdInit(props)
 
@@ -97,7 +104,7 @@ func TestNewCmdInit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify file exists
-	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
+	defaultDir := setup.ConfigDir(p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: style}})
 	exists, _ := afero.DirExists(fs, defaultDir)
 	assert.True(t, exists, "config dir should exist")
 
@@ -108,6 +115,7 @@ func TestNewCmdInit(t *testing.T) {
 
 func TestNewCmdInit_FlagCombinations(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	tests := []struct {
 		name  string
@@ -157,7 +165,7 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 			err := cmd.Execute()
 			require.NoError(t, err)
 
-			defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
+			defaultDir := setup.ConfigDir(p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}})
 			configFile := filepath.Join(defaultDir, "config.yaml")
 			exists, _ := afero.Exists(fs, configFile)
 			assert.True(t, exists, "config file should exist")
@@ -167,6 +175,7 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 
 func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewMemMapFs()
 
@@ -178,7 +187,7 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
-	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
+	defaultDir := setup.ConfigDir(p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}})
 	configFile := filepath.Join(defaultDir, "config.yaml")
 
 	// Write an existing config with a custom value
@@ -200,6 +209,7 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 
 func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewMemMapFs()
 
@@ -211,7 +221,7 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
-	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
+	defaultDir := setup.ConfigDir(p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}})
 	configFile := filepath.Join(defaultDir, "config.yaml")
 
 	// Write an existing config with a custom value
@@ -234,6 +244,7 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 
 func TestNewCmdInit_CustomDir(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewMemMapFs()
 

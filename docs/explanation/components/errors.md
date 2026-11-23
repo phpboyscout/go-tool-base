@@ -63,6 +63,7 @@ them. The wrapped message names the value refused, and most carry a hint.
 | `ErrUnknownConfigLayer` | unknown config layer | `Tool.Config.Layers` names a layer the framework does not know. Check the spelling against the layer constants in `pkg/props`. |
 | `ErrConfigSource` | config source declaration | A slot in `Tool.Config.Sources` is declared in a way spec 0204 D15 refuses. The wrapped message names the slot and the rule. |
 | `ErrConfigFormat` | config format cannot be a tool's own | `Tool.Config.Format` names a format the tool cannot write, so `init` could not create its own file. Use `yaml`, `toml`, `json` or `hcl`. |
+| `ErrConfigDir` | invalid config directory | `Tool.Config.Dir` is something other than home or xdg, or an xdg tool's name is not a single directory name. |
 | `ErrConfigKeyCase` | unknown config key case | The key case is something other than folded or exact. |
 | `ErrConfigFileOnly` | file-only config pattern | A `Tool.Config.FileOnly` pattern could never match a key, so it protects nothing. Fix or remove the pattern. |
 

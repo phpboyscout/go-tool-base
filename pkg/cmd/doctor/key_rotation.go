@@ -47,7 +47,7 @@ func rotationPosture(ctx context.Context, props *p.Props, name string) CheckResu
 	}
 
 	if props.FS != nil {
-		if err := setup.CheckRotationRecord(ctx, props.FS, props.Tool.Name); err != nil {
+		if err := setup.CheckRotationRecord(ctx, props.FS, props.Tool); err != nil {
 			return CheckResult{Name: name, Status: CheckFail, Message: "update refuses to run: " + err.Error(), Details: errors.FlattenHints(err)}
 		}
 	}

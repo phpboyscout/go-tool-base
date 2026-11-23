@@ -48,9 +48,7 @@ print only that target.`,
 				return errors.New("no configuration loaded")
 			}
 
-			fs := writableFS(props)
-
-			target := resolveWritableConfigPath(props, fs)
+			target := resolveWritableConfigPath(props)
 			if target == "" {
 				return errors.New("could not resolve a writable config path")
 			}

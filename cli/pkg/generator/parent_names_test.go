@@ -225,7 +225,7 @@ func fullRootData(t *testing.T) templates.SkeletonRootData {
 		DisabledFeatures: features, EnabledFeatures: features,
 		HelpType: "slack", SlackChannel: "c", SlackTeam: "t", TeamsChannel: "c", TeamsTeam: "t",
 		TelemetryEndpoint: "https://t.example.com", TelemetryOTelEndpoint: "https://o.example.com", EnvPrefix: "W",
-		ConfigLayers: []string{"defaults", "flags"}, ConfigFormat: "toml", ConfigKeyCase: "exact", ConfigFileOnly: []string{"update.**"},
+		ConfigLayers: []string{"defaults", "flags"}, ConfigFormat: "toml", ConfigKeyCase: "exact", ConfigDir: "xdg", ConfigFileOnly: []string{"update.**"},
 		ConfigSources: []templates.ConfigSourceData{{Name: "team", Kind: "consul", Required: &yes, Writable: &yes}},
 		UpdatePolicy:  "prompt", UpdateCheckInterval: "36h", MCPMode: "direct", MCPWithhold: []string{"x"},
 		SigningEnabled: true, ModulePath: "example.com/acme/widget", AutoInitialise: true,

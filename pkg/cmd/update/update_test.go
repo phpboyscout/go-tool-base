@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/exectest"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -75,6 +76,12 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 func TestUpdateConfig(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testUpdateConfig)
+}
+
+func testUpdateConfig(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	props := &p.Props{
 		FS: fs,
@@ -90,12 +97,12 @@ func TestUpdateConfig(t *testing.T) {
 		localFS := afero.NewMemMapFs()
 		localProps := &p.Props{
 			FS:     localFS,
-			Tool:   p.Tool{Name: "test-tool"},
+			Tool:   p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: style}},
 			Logger: logger.NewNoop(),
 		}
 
 		var executedCommands []string
-		_ = localFS.MkdirAll(setup.GetDefaultConfigDir(localFS, "test-tool"), 0755)
+		_ = localFS.MkdirAll(setup.ConfigDir(localProps.Tool), 0755)
 		_ = localFS.MkdirAll("/etc/test-tool", 0755)
 
 		update.UpdateConfig(context.Background(), localProps, "/bin/new-tool",
@@ -127,14 +134,13 @@ func TestUpdateConfig(t *testing.T) {
 		t.Parallel()
 
 		localFS := afero.NewMemMapFs()
-		_ = localFS.MkdirAll(setup.GetDefaultConfigDir(localFS, "test-tool"), 0755)
-
 		buf := logger.NewBuffer()
 		localProps := &p.Props{
 			FS:     localFS,
-			Tool:   p.Tool{Name: "test-tool", Features: p.SetFeatures(p.Enable(p.InitCmd))},
+			Tool:   p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: style}, Features: p.SetFeatures(p.Enable(p.InitCmd))},
 			Logger: buf,
 		}
+		_ = localFS.MkdirAll(setup.ConfigDir(localProps.Tool), 0755)
 
 		update.UpdateConfig(context.Background(), localProps, "/bin/new-tool",
 			update.WithExecCommand(exectest.FailCommand()),
@@ -302,7 +308,7 @@ func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
 	t.Parallel()
 
 	props := &p.Props{
-		Tool:   p.Tool{Name: "test-tool"},
+		Tool:   p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}},
 		Logger: logger.NewNoop(),
 	}
 
@@ -324,7 +330,7 @@ func TestUpdateFromFile_ViaCommand(t *testing.T) {
 
 	props := &p.Props{
 		FS:     afero.NewMemMapFs(),
-		Tool:   p.Tool{Name: "test-tool"},
+		Tool:   p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}},
 		Logger: logger.NewNoop(),
 	}
 
@@ -377,8 +383,8 @@ func TestUpdateConfig_NamesNoProfileFlag(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
-	props := &p.Props{FS: fs, Tool: p.Tool{Name: "test-tool"}, Logger: logger.NewNoop()}
-	_ = fs.MkdirAll(setup.GetDefaultConfigDir(fs, "test-tool"), 0o755)
+	props := &p.Props{FS: fs, Tool: p.Tool{Name: "test-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}}, Logger: logger.NewNoop()}
+	_ = fs.MkdirAll(setup.ConfigDir(props.Tool), 0o755)
 
 	var executed []string
 

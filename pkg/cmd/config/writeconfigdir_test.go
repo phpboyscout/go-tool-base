@@ -10,7 +10,7 @@ import (
 )
 
 // writeConfigAtomic must create the parent config directory lazily at write
-// time, now that setup.GetDefaultConfigDir is pure and no longer creates
+// time, now that setup.ConfigDir is pure and no longer creates
 // ~/.toolname as a side effect.
 func TestWriteConfigAtomic_CreatesParentDirectory(t *testing.T) {
 	t.Parallel()

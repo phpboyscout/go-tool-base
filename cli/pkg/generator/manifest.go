@@ -597,6 +597,8 @@ type ManifestConfig struct {
 	// KeyCase is the config stack's key mode, folded or exact; empty is
 	// folded (spec 0209).
 	KeyCase string `yaml:"key_case,omitempty"`
+	// Dir is the user directory's style, home or xdg; empty is home (spec 0221).
+	Dir string `yaml:"dir,omitempty"`
 	// FileOnly are the keys no prefixed environment variable may set, as go/config
 	// filter patterns (spec 0214). Edited here only, never by gtb set.
 	FileOnly []string `yaml:"file_only,omitempty"`

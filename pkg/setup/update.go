@@ -232,8 +232,8 @@ func ResolveCheckInterval(toolDefault time.Duration, configValue string) time.Du
 
 // timeSinceLast returns the age of the recorded "last <status>" timestamp and
 // whether such a record exists.
-func timeSinceLast(fs afero.Fs, name string, status timeSinceKey) (time.Duration, bool) {
-	dir := GetDefaultConfigDir(fs, name)
+func timeSinceLast(fs afero.Fs, tool props.Tool, status timeSinceKey) (time.Duration, bool) {
+	dir := ConfigDir(tool)
 	lastSinceFile := filepath.Join(dir, fmt.Sprintf("last_%s", status))
 
 	if di, err := fs.Stat(dir); err == nil && di.IsDir() {
@@ -247,14 +247,14 @@ func timeSinceLast(fs afero.Fs, name string, status timeSinceKey) (time.Duration
 
 // TimeSinceLast returns the duration since the last update check or update,
 // and whether one has been recorded at all.
-func TimeSinceLast(fs afero.Fs, name string, status timeSinceKey) (time.Duration, bool) {
-	return timeSinceLast(fs, name, status)
+func TimeSinceLast(fs afero.Fs, tool props.Tool, status timeSinceKey) (time.Duration, bool) {
+	return timeSinceLast(fs, tool, status)
 }
 
 // GetTimeSinceLast returns the duration since the last update check or update,
 // or [DefaultCheckInterval] when no timestamp has been recorded yet.
-func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Duration {
-	if age, ok := timeSinceLast(fs, name, status); ok {
+func GetTimeSinceLast(fs afero.Fs, tool props.Tool, status timeSinceKey) time.Duration {
+	if age, ok := timeSinceLast(fs, tool, status); ok {
 		return age
 	}
 
@@ -269,8 +269,8 @@ const markerFilePerm = 0o600
 // When the default config directory cannot be resolved (empty/unset HOME),
 // it is a no-op: stamping a relative path would otherwise write the marker
 // into the current working directory.
-func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
-	return setTimeSinceLastIn(fs, GetDefaultConfigDir(fs, name), status, "")
+func SetTimeSinceLast(fs afero.Fs, tool props.Tool, status timeSinceKey) error {
+	return setTimeSinceLastIn(fs, ConfigDir(tool), status, "")
 }
 
 // SetCheckedVersion stamps the last-checked marker and stores the latest release
@@ -279,15 +279,15 @@ func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
 // GetCheckedVersion). The marker's modtime still drives the interval throttle —
 // one file, two jobs. A blank version clears the stored value while still
 // refreshing the check timestamp (e.g. when the tool is found up to date).
-func SetCheckedVersion(fs afero.Fs, name, version string) error {
-	return setTimeSinceLastIn(fs, GetDefaultConfigDir(fs, name), CheckedKey, strings.TrimSpace(version))
+func SetCheckedVersion(fs afero.Fs, tool props.Tool, version string) error {
+	return setTimeSinceLastIn(fs, ConfigDir(tool), CheckedKey, strings.TrimSpace(version))
 }
 
 // GetCheckedVersion returns the latest release version recorded by the most
 // recent update check (the body of the last_checked marker), or "" when none
 // has been recorded or the tool was up to date at the last check.
-func GetCheckedVersion(fs afero.Fs, name string) string {
-	dir := GetDefaultConfigDir(fs, name)
+func GetCheckedVersion(fs afero.Fs, tool props.Tool) string {
+	dir := ConfigDir(tool)
 	if dir == "" {
 		return ""
 	}
@@ -313,8 +313,8 @@ var ErrPinInCheckout = errors.NewSentinel("gtb.setup.pin_in_checkout", "the conf
 // CanPin reports why a pin cannot be recorded for the named tool, or nil when
 // it can. A command that would install and then pin asks first, so it does not
 // install a release it cannot keep the tool on.
-func CanPin(fs afero.Fs, name string) error {
-	return canPinIn(fs, GetDefaultConfigDir(fs, name))
+func CanPin(fs afero.Fs, tool props.Tool) error {
+	return canPinIn(fs, ConfigDir(tool))
 }
 
 func canPinIn(fs afero.Fs, dir string) error {
@@ -331,8 +331,8 @@ func canPinIn(fs afero.Fs, dir string) error {
 // check moves it. An empty version clears the pin. Like the other markers it is
 // a no-op when the config directory cannot be resolved. In a config directory
 // inside a git checkout a pin is refused and clearing one is a no-op.
-func SetPinnedVersion(fs afero.Fs, name, version string) error {
-	return setPinnedVersionIn(fs, GetDefaultConfigDir(fs, name), version)
+func SetPinnedVersion(fs afero.Fs, tool props.Tool, version string) error {
+	return setPinnedVersionIn(fs, ConfigDir(tool), version)
 }
 
 func setPinnedVersionIn(fs afero.Fs, dir, version string) error {
@@ -371,8 +371,8 @@ func setPinnedVersionIn(fs afero.Fs, dir, version string) error {
 // tool.
 // A marker in a config directory inside a git checkout reads as unpinned the
 // same way.
-func GetPinnedVersion(fs afero.Fs, name string) (string, error) {
-	return getPinnedVersionIn(fs, GetDefaultConfigDir(fs, name))
+func GetPinnedVersion(fs afero.Fs, tool props.Tool) (string, error) {
+	return getPinnedVersionIn(fs, ConfigDir(tool))
 }
 
 func getPinnedVersionIn(fs afero.Fs, dir string) (string, error) {
@@ -415,8 +415,6 @@ func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey, body
 		return nil
 	}
 
-	// Create the config dir lazily at first write — GetDefaultConfigDir is pure
-	// and no longer creates it as a side effect.
 	return writeMarkerIn(fs, configDir, fmt.Sprintf("last_%s", status), body)
 }
 
@@ -753,7 +751,7 @@ func (s *SelfUpdater) configureRotation(cfg *verify.KeyResolverConfig) {
 	cfg.RotationStore = s.rotationStore
 
 	if cfg.RotationStore == nil {
-		cfg.RotationStore = newRotationStore(s.Fs, GetDefaultConfigDir(s.Fs, s.Tool.Name))
+		cfg.RotationStore = newRotationStore(s.Fs, ConfigDir(s.Tool))
 	}
 }
 
@@ -847,7 +845,7 @@ func requireReleaseToken(ctx context.Context, vcsProvider string, p props.Config
 // [MarkSkipUpdateCheck] annotation or is wrapped with the UpdateCmd or InitCmd
 // feature. Built-ins stamp themselves (version, doctor, mcp); a downstream
 // command opts out with setup.MarkSkipUpdateCheck(cmd).
-func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command, checkInterval time.Duration) bool {
+func SkipUpdateCheck(fs afero.Fs, tool props.Tool, cmd *cobra.Command, checkInterval time.Duration) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		if SkipsUpdateCheck(c) {
 			return true
@@ -862,7 +860,7 @@ func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command, checkInterval
 		return false
 	}
 
-	age, ok := timeSinceLast(fs, name, CheckedKey)
+	age, ok := timeSinceLast(fs, tool, CheckedKey)
 
 	return ok && age < checkInterval
 }
@@ -948,8 +946,8 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 	// failed extract must not record the binary as freshly updated, or the
 	// reminder/skip logic would defer the next attempt for up to the check
 	// interval despite no update having landed.
-	_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
-	_ = SetTimeSinceLast(s.Fs, s.Tool.Name, CheckedKey)
+	_ = SetTimeSinceLast(s.Fs, s.Tool, UpdatedKey)
+	_ = SetTimeSinceLast(s.Fs, s.Tool, CheckedKey)
 
 	return targetPath, nil
 }
@@ -1163,7 +1161,7 @@ func (s *SelfUpdater) UpdateFromFile(ctx context.Context, filePath string) (stri
 
 	// Stamp the freshness marker only after a successful extract (see the
 	// online Update path for the rationale).
-	_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
+	_ = SetTimeSinceLast(s.Fs, s.Tool, UpdatedKey)
 
 	return targetPath, nil
 }

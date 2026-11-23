@@ -531,10 +531,16 @@ func TestInitRegistry(t *testing.T) {
 func TestNewCmdInitBitbucket(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testNewCmdInitBitbucket)
+}
+
+func testNewCmdInitBitbucket(t *testing.T, style props.ConfigDir) {
+	t.Parallel()
+
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
 		Logger: logger.NewNoop(),
-		Tool:   props.Tool{Name: "testtool"},
+		Tool:   props.Tool{Name: "testtool", Config: props.ConfigSpec{Dir: style}},
 	}
 
 	cmd := NewCmdInitBitbucket(p)
@@ -544,6 +550,7 @@ func TestNewCmdInitBitbucket(t *testing.T) {
 
 	f := cmd.Flags().Lookup("dir")
 	require.NotNil(t, f)
+	assert.Equal(t, setup.ConfigDir(p.Tool), f.DefValue)
 }
 
 // --- RunBitbucketInit / RunBitbucketInitCmd ---
