@@ -89,8 +89,12 @@ sigillum keys mint \
     --name "Acme Releases" \
     --email release-v2@acme.dev \
     --created "2026-06-02T00:00:00Z" \
-    --output signing-key-v1.asc
+    --output signing-key-v1.asc --force
 ```
+
+`--force` is there because `signing-key-v1.asc` already exists from the first
+mint, and `mint` refuses to overwrite a file without it. Only the public half
+is written, so nothing is lost: the private key stays in KMS.
 
 The fingerprint it logs must exactly match v1's fingerprint from the
 inventory. If it doesn't, the `--created` value is wrong. Fix it before going
@@ -345,10 +349,14 @@ and every release signed with the new key alone.
 Copies that only trust v1 can't verify those releases, so they'll refuse to
 update. If those copies embed the manifest authority from
 [Publish your public key](publish-your-public-key.md#and-a-manifest-authority),
-a rotation manifest moves them to the new key without a reinstall. A key that is lost but
-not compromised needs nothing revoked, so the manifest only adds the new key:
-`sigillum keys rotate --reason scheduled` with `--not-after` set, `--add` naming it, and
-`--previous` naming the last manifest you published, such as the fire drill.
+a rotation manifest moves them to the new key without a reinstall. A key that
+is lost but not compromised needs nothing revoked, so the manifest only adds
+the new key: `sigillum keys rotate --reason scheduled` with `--not-after` set
+and `--add` naming it. If you've already published a manifest, such as the
+fire drill, `--previous` names the latest one. The first manifest needs none.
+Pass the keys your shipped copies embed as `--anchor` (and the OpenPGP
+rotation authority as `--anchor-only`), and `keys rotate` checks the result as
+those copies' updater would before you publish it.
 Commit the two files it writes to `release/rotation/`, as
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md#what-happens-when-you-need-to-use-it)
 describes. A compromised key is the runbook's compromise case instead.
@@ -365,8 +373,8 @@ Keep the rotation authority's private half offline: an encrypted USB stick
 and a printed copy, kept apart, with the printed copy typed back in once to
 prove it reads.
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md)
-walks through it for a minisign manifest authority, and the same storage suits
-the OpenPGP one. A break-glass key you can't
+walks through it for the minisign manifest authority (the how-to calls that
+key the rotation-authority key), and the same storage suits the OpenPGP one. A break-glass key you can't
 restore isn't one.
 
 ## The whole chain

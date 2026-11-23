@@ -98,8 +98,8 @@ rotation manifest later. A copy built without it keeps the trust it shipped
 with, so embed it now, before your first signed release. A tool generated
 before gtb had `rotation/` gets it from `gtb regenerate project`.
 
-Put the rotation authority in one directory, never both. A key in both counts twice in the embedded
-set, so it no longer matches the WKD bucket, and a release built that way
+Put the rotation authority in one directory, never both. A key in both counts
+twice in the embedded set, so it no longer matches the WKD bucket, and a release built that way
 refuses every later update. If you followed an older version of this page and
 copied it into `keys/`, move it. A tool generated before v0.50.4 has no
 `authority/` directory, and making one by hand doesn't embed it, so run

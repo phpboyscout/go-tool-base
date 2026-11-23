@@ -143,7 +143,8 @@ joins the trust set, so its email doesn't matter the way the other one's does.
 
 Move `manifest-authority.pem` offline beside the other private half.
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md#move-the-private-half-offline)
-covers the storage and the paper-backup test.
+covers the storage and the paper-backup test. That how-to calls this minisign
+key the rotation-authority key, so don't mistake it for the OpenPGP one above.
 
 ## Build the WKD tree
 
