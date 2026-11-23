@@ -153,6 +153,35 @@ func TestWizardRun_Surface(t *testing.T) {
 		assert.Nil(t, m.Commands[1].MCPEnabled, "status is untouched")
 	})
 
+	t.Run("a kept cmd.go fails the run and stops no other change", func(t *testing.T) {
+		t.Parallel()
+
+		p, fs := revisitProjectWithCommands(t)
+
+		require.NoError(t, fs.MkdirAll("/work/pkg/cmd/post", 0o755))
+		require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/post/cmd.go", []byte("package post\n"), 0o644))
+		require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte("pkg/cmd/post/cmd.go\n"), 0o644))
+
+		o := &WizardOptions{Path: "/work", runForm: func(so *SkeletonOptions) error {
+			so.MCPExposed = nil
+
+			return so.afterWizard()
+		}}
+
+		err := o.Run(context.Background(), p, &bytes.Buffer{})
+		require.ErrorIs(t, err, generator.ErrCommandFileKept)
+		require.ErrorContains(t, err, "post")
+
+		status, err := afero.ReadFile(fs, "/work/pkg/cmd/status/cmd.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(status), "setup.ExcludeFromMCP(cmd)")
+
+		m, err := generator.New(p, &generator.Config{Path: "/work"}).LoadManifest()
+		require.NoError(t, err)
+		require.NotNil(t, m.Commands[0].MCPEnabled)
+		assert.False(t, *m.Commands[0].MCPEnabled, "the decision is recorded")
+	})
+
 	t.Run("dry run names the change and writes nothing", func(t *testing.T) {
 		t.Parallel()
 

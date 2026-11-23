@@ -9,7 +9,8 @@ import (
 )
 
 type disableMCPOptions struct {
-	Path string
+	Path      string
+	Overwrite string
 }
 
 // NewCmdDisableMCP returns the dual-purpose `gtb disable mcp` subcommand. With
@@ -38,7 +39,9 @@ so 'mcp tools' / 'mcp start' omit them. The commands stay runnable on the CLI.
 
 A command gtb generated records mcp_enabled: false and has its cmd.go
 re-rendered to carry setup.ExcludeFromMCP. A protected command is refused;
-unprotect it first.
+unprotect it first. A cmd.go you keep (edited by hand, or covered by
+.gtb/ignore) records the decision without applying it, and the run fails:
+--overwrite allow replaces an edited one.
 
 Any other path (a built-in such as 'update' or 'config/trust', or a command
 attached from a module such as 'sign') goes on properties.mcp.withhold in the
@@ -49,11 +52,12 @@ A listed path that names no command stops the tool's MCP server from starting,
 so a typo is caught on the first run.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return icmd.RunMCPCommand(cmd, p, opts.Path, args, false)
+			return icmd.RunMCPCommand(cmd, p, opts.Path, opts.Overwrite, args, false)
 		},
 	}
 
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
+	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", icmd.OverwriteUsage)
 
 	return setup.Wrap("", cmd)
 }

@@ -270,11 +270,11 @@ func writeCommandManifest(t *testing.T, fs afero.Fs) {
 }
 
 func disableMCP(p *props.Props, paths ...string) error {
-	return RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, paths, false)
+	return RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, "ask", paths, false)
 }
 
 func enableMCP(p *props.Props, paths ...string) error {
-	return RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, paths, true)
+	return RunMCPCommand(newToggleCmd(context.Background(), false), p, projectRoot, "ask", paths, true)
 }
 
 func TestRunMCPCommand(t *testing.T) {
@@ -402,7 +402,8 @@ func TestRunMCPCommand(t *testing.T) {
 		t.Parallel()
 
 		fs := afero.NewMemMapFs()
-		p := &props.Props{FS: fs, Logger: logger.NewNoop(), IO: nobodyTyping()}
+		log := logger.NewBuffer()
+		p := &props.Props{FS: fs, Logger: log, IO: nobodyTyping()}
 
 		require.NoError(t, fs.MkdirAll(projectRoot+"/.gtb", 0o755))
 		require.NoError(t, afero.WriteFile(fs, projectRoot+"/go.mod", []byte("module example.com/tool\n\ngo 1.27\n"), 0o644))
@@ -421,7 +422,12 @@ func TestRunMCPCommand(t *testing.T) {
 		require.NoError(t, fs.MkdirAll(projectRoot+"/pkg/cmd/hook", 0o755))
 		require.NoError(t, afero.WriteFile(fs, projectRoot+"/pkg/cmd/hook/cmd.go", []byte(handEdited), 0o644))
 
-		require.NoError(t, RunMCPCommand(newToggleCmd(context.Background(), true), p, projectRoot, []string{"hook", "worklist"}, false))
+		run := func(overwrite string) error {
+			return RunMCPCommand(newToggleCmd(context.Background(), true), p, projectRoot, overwrite, []string{"hook", "worklist"}, false)
+		}
+
+		require.ErrorIs(t, run("ask"), generator.ErrCommandFileKept)
+		assert.True(t, log.Contains("1 command(s) withheld"), "the summary counts the commands written")
 
 		kept, err := afero.ReadFile(fs, projectRoot+"/pkg/cmd/hook/cmd.go")
 		require.NoError(t, err)
@@ -431,6 +437,37 @@ func TestRunMCPCommand(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(worklist), "setup.ExcludeFromMCP(cmd)")
 		assert.Contains(t, string(worklist), "list.NewCmdList(")
+
+		require.NoError(t, run("allow"))
+
+		replaced, err := afero.ReadFile(fs, projectRoot+"/pkg/cmd/hook/cmd.go")
+		require.NoError(t, err)
+		assert.Contains(t, string(replaced), "setup.ExcludeFromMCP(cmd)")
+		assert.True(t, log.Contains("2 command(s) withheld"))
+	})
+
+	t.Run("a summary with nothing written is not printed", func(t *testing.T) {
+		t.Parallel()
+
+		log := logger.NewBuffer()
+		reportMCPExposure(&props.Props{Logger: log}, generator.MCPExposureReport{Kept: []string{"hook"}}, false)
+		assert.Empty(t, log.Entries())
+	})
+
+	t.Run("overwrite is checked, and needs a command path", func(t *testing.T) {
+		t.Parallel()
+
+		p, _ := newSkeletonProps(t)
+		cmd := newToggleCmd(context.Background(), true)
+
+		require.ErrorIs(t, RunMCPCommand(cmd, p, projectRoot, "sometimes", []string{"post"}, false), generator.ErrInvalidOverwriteMode)
+
+		var overwrite string
+
+		cmd.Flags().StringVar(&overwrite, "overwrite", "ask", "")
+		require.NoError(t, cmd.Flags().Set("overwrite", "allow"))
+		require.ErrorIs(t, RunMCPCommand(cmd, p, projectRoot, overwrite, nil, false), ErrOverwriteWithoutPaths)
+		assert.True(t, featureOn(t, p, "mcp"), "nothing was toggled")
 	})
 }
 

@@ -83,7 +83,9 @@ func TestSetMCPEnabled_KeptFileThenThreeLevels(t *testing.T) {
 
 	// Deepest first: a child's re-render registers it in its parent again,
 	// which would mask a parent that lost its children.
-	for _, path := range []string{"hook", "worklist/list/item", "worklist/list", "worklist"} {
+	require.ErrorIs(t, g.SetMCPEnabled(t.Context(), "hook", false), ErrCommandFileKept)
+
+	for _, path := range []string{"worklist/list/item", "worklist/list", "worklist"} {
 		require.NoError(t, g.SetMCPEnabled(t.Context(), path, false), path)
 	}
 

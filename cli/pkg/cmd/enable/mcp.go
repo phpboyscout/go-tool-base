@@ -9,7 +9,8 @@ import (
 )
 
 type enableMCPOptions struct {
-	Path string
+	Path      string
+	Overwrite string
 }
 
 // NewCmdEnableMCP returns the dual-purpose `gtb enable mcp` subcommand. With no
@@ -35,6 +36,9 @@ those commands back on the MCP tool surface.
 
 A command gtb generated records mcp_enabled: true and has its cmd.go re-rendered
 to carry setup.IncludeInMCP. A protected command is refused; unprotect it first.
+A cmd.go you keep (edited by hand, or covered by .gtb/ignore) records the
+decision without applying it, and the run fails: --overwrite allow replaces an
+edited one.
 
 Any other path is taken off properties.mcp.withhold. A path under a command that
 is still on that list is refused, because the list covers everything beneath a
@@ -42,11 +46,12 @@ command: expose the listed command instead. A path that is neither generated nor
 listed is already exposed, and nothing changes.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return icmd.RunMCPCommand(cmd, p, opts.Path, args, true)
+			return icmd.RunMCPCommand(cmd, p, opts.Path, opts.Overwrite, args, true)
 		},
 	}
 
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
+	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", icmd.OverwriteUsage)
 
 	return setup.Wrap("", cmd)
 }

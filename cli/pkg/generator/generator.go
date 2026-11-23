@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -168,6 +169,9 @@ type Generator struct {
 	// end-of-run summary. Reset at the start of each regeneration.
 	conflicts conflictLog
 
+	// editingCommand is set while editManifestCommand re-renders a command.
+	editingCommand bool
+
 	// lintRetryDelay overrides the wait before the lint pass's one retry when
 	// another golangci-lint holds the lock; nil means the default. Tests set
 	// zero.
@@ -215,8 +219,19 @@ func (g *Generator) SetProtection(ctx context.Context, commandName string, prote
 // re-renders that single command's cmd.go so the generated
 // setup.ExcludeFromMCP / setup.IncludeInMCP marker matches. It is the engine
 // behind `gtb enable mcp` (enabled=true) and `gtb disable mcp` (enabled=false).
+// A cmd.go that is kept leaves the decision recorded, and is ErrCommandFileKept.
 func (g *Generator) SetMCPEnabled(ctx context.Context, commandPath string, enabled bool) error {
-	return g.editManifestCommand(ctx, commandPath, func(cmd *ManifestCommand) {
+	verb := "disable"
+	if enabled {
+		verb = "enable"
+	}
+
+	edit := commandEdit{
+		unchanged: "its MCP exposure",
+		apply:     fmt.Sprintf("gtb %s mcp %s --overwrite allow", verb, commandPath),
+	}
+
+	return g.editManifestCommand(ctx, commandPath, edit, func(cmd *ManifestCommand) {
 		cmd.MCPEnabled = &enabled
 	})
 }
@@ -224,13 +239,19 @@ func (g *Generator) SetMCPEnabled(ctx context.Context, commandPath string, enabl
 // SetMCPHints records a command's MCP hints in the manifest and re-renders
 // its cmd.go so the generated setup.AnnotateMCP call matches. It is the engine
 // behind `gtb annotate`: a set field replaces the recorded one, an unset field
-// leaves it alone, and clear drops the block entirely.
+// leaves it alone, and clear drops the block entirely. A cmd.go that is kept
+// leaves the hints recorded, and is ErrCommandFileKept.
 func (g *Generator) SetMCPHints(ctx context.Context, commandPath string, hints setup.MCPHints, clear bool) error {
 	if err := ValidateMCPTitle(hints.Title); err != nil {
 		return err
 	}
 
-	return g.editManifestCommand(ctx, commandPath, func(cmd *ManifestCommand) {
+	edit := commandEdit{
+		unchanged: "its MCP annotations",
+		apply:     fmt.Sprintf("the same gtb annotate %s with --overwrite allow", commandPath),
+	}
+
+	return g.editManifestCommand(ctx, commandPath, edit, func(cmd *ManifestCommand) {
 		if clear {
 			cmd.MCPHints = nil
 
@@ -239,6 +260,17 @@ func (g *Generator) SetMCPHints(ctx context.Context, commandPath string, hints s
 
 		cmd.MCPHints = ManifestMCPHintsFrom(mergeMCPHints(cmd.MCPHints.Setup(), hints))
 	})
+}
+
+// ErrCommandFileKept is a change recorded in the manifest that did not reach the
+// command, because its cmd.go was kept.
+var ErrCommandFileKept = errors.NewSentinel("gtb.generator.command_file_kept",
+	"recorded in the manifest but not applied, because cmd.go was kept")
+
+// commandEdit words the warning for an edit whose cmd.go was kept.
+type commandEdit struct {
+	unchanged string
+	apply     string
 }
 
 // editManifestCommand applies mutate to one manifest command and re-renders
@@ -250,7 +282,7 @@ func (g *Generator) SetMCPHints(ctx context.Context, commandPath string, hints s
 // re-writes it too, but that write is advisory, and writing first guarantees
 // the decision is durable before cmd.go changes, so a failure cannot leave the
 // two disagreeing.
-func (g *Generator) editManifestCommand(ctx context.Context, commandPath string, mutate func(*ManifestCommand)) error {
+func (g *Generator) editManifestCommand(ctx context.Context, commandPath string, edit commandEdit, mutate func(*ManifestCommand)) error {
 	pathParts := strings.Split(commandPath, "/")
 	name := pathParts[len(pathParts)-1]
 	parentPath := pathParts[:len(pathParts)-1]
@@ -277,7 +309,33 @@ func (g *Generator) editManifestCommand(ctx context.Context, commandPath string,
 		return err
 	}
 
-	return g.RegenerateCommand(ctx, *cmd, parentPath)
+	g.editingCommand = true
+	defer func() { g.editingCommand = false }()
+
+	data, err := g.regenerateCommand(ctx, *cmd, parentPath)
+	if err != nil {
+		return err
+	}
+
+	if !data.RegistrationKept {
+		return nil
+	}
+
+	g.warnEditKept(commandPath, edit)
+
+	return errors.Wrap(ErrCommandFileKept, commandPath)
+}
+
+func (g *Generator) warnEditKept(commandPath string, edit commandEdit) {
+	relPath := path.Join("pkg/cmd", commandPath, "cmd.go")
+	reason, fix := g.conflicts.keptReason(relPath), "To apply it and lose the edits in that file, run "
+
+	if g.ignoreRules().IsIgnored(relPath) {
+		reason, fix = "covered by .gtb/ignore", "To apply it, take the file out of .gtb/ignore, then run "
+	}
+
+	g.props.Logger.Warn(fmt.Sprintf("%s: kept %s (%s), so %s did not change. The manifest records the change. %s%s.",
+		commandPath, relPath, reason, edit.unchanged, fix, edit.apply))
 }
 
 // mergeMCPHints overlays the set fields of update onto base.

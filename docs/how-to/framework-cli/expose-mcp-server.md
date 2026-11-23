@@ -128,6 +128,11 @@ gtb disable mcp deploy              # a command you generated
 gtb disable mcp sign config/trust   # an attached and a built-in command
 ```
 
+If you have edited a command's `cmd.go` by hand, the run keeps the file and
+fails. Add `--overwrite allow` to replace it, or add the call yourself:
+`setup.ExcludeFromMCP(cmd)`. gtb does not read the call back, so it still
+reports the file as kept and exits 1 each time you name that command.
+
 Rebuild, then check what the binary really publishes:
 
 ```bash

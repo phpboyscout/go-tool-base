@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -405,4 +406,150 @@ func TestRegenerateManifest_RecoversTheWithholdList(t *testing.T) {
 	require.NoError(t, g.RegenerateManifest(context.Background()))
 
 	assert.Equal(t, before.Properties.MCP, readManifest(t, fs, path).Properties.MCP)
+}
+
+// A kept cmd.go, or an ignored root command, stops nothing else and is reported
+// apart from what was written (#174).
+func TestSetMCPExposure_Kept(t *testing.T) {
+	t.Parallel()
+
+	ignoreRoot := func(t *testing.T, fs afero.Fs) {
+		t.Helper()
+
+		require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte("pkg/cmd/root/cmd.go\n"), 0o644))
+	}
+
+	t.Run("a kept command", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs, _ := newPerimeterTestProject(t, wizardManifest+"  - name: bye\n    description: says bye\n")
+		g.config.Overwrite = OverwriteDeny
+
+		require.NoError(t, fs.MkdirAll("/work/pkg/cmd/hello", 0o755))
+		require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hello/cmd.go", []byte("package hello\n"), 0o644))
+
+		report, err := g.SetMCPExposure(context.Background(), []string{"hello", "bye", "sign"}, false)
+		require.ErrorIs(t, err, ErrCommandFileKept)
+		require.ErrorContains(t, err, "hello")
+		assert.Equal(t, MCPExposureReport{
+			Tool: "mytool", Commands: []string{"bye"}, Listed: []string{"sign"}, Kept: []string{"hello"},
+		}, report)
+	})
+
+	t.Run("an ignored root", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs, log := newPerimeterTestProject(t, wizardManifest)
+		ignoreRoot(t, fs)
+
+		report, err := g.SetMCPExposure(context.Background(), []string{"hello", "sign"}, false)
+		require.ErrorIs(t, err, ErrCommandFileKept)
+		assert.Equal(t, MCPExposureReport{Tool: "mytool", Commands: []string{"hello"}, Kept: []string{"sign"}}, report)
+		assert.Equal(t, []string{"sign"}, withheldIn(t, g), "the decision is recorded")
+		assert.NotContains(t, rootSource(t, fs), "Withhold")
+		assert.True(t, log.ContainsLevel(logger.WarnLevel, "unchanged for: sign. The manifest records the change."))
+	})
+
+	t.Run("an ignored root and a generated command that was listed by hand", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs, log := newPerimeterTestProject(t,
+			strings.Replace(wizardManifest, "  docs_layout:", "  mcp:\n    withhold: [hello]\n  docs_layout:", 1))
+		ignoreRoot(t, fs)
+
+		report, err := g.SetMCPExposure(context.Background(), []string{"hello"}, true)
+		require.ErrorIs(t, err, ErrCommandFileKept)
+		assert.Equal(t, MCPExposureReport{Tool: "mytool", Kept: []string{"hello"}}, report)
+		assert.True(t, log.ContainsLevel(logger.WarnLevel, "unchanged for: hello."))
+	})
+
+	for _, exposed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("an ignored root fails every run until it carries the list, exposed=%t", exposed), func(t *testing.T) {
+			t.Parallel()
+
+			g, fs, _ := newPerimeterTestProject(t, wizardManifest)
+			ctx := context.Background()
+
+			_, err := g.SetMCPExposure(ctx, []string{"keys"}, false)
+			require.NoError(t, err)
+
+			_, err = g.SetMCPExposure(ctx, []string{"sign"}, !exposed)
+			require.NoError(t, err)
+
+			before := rootSource(t, fs)
+			again := func() (MCPExposureReport, error) {
+				g.rules = nil
+
+				return g.SetMCPExposure(ctx, []string{"sign"}, exposed)
+			}
+
+			ignoreRoot(t, fs)
+
+			for range 2 {
+				report, err := again()
+				require.ErrorIs(t, err, ErrCommandFileKept)
+				assert.Equal(t, MCPExposureReport{Tool: "mytool", Kept: []string{"sign"}}, report)
+				assert.Equal(t, before, rootSource(t, fs))
+			}
+
+			require.NoError(t, fs.Remove("/work/.gtb/ignore"))
+
+			report, err := again()
+			require.NoError(t, err)
+			assert.Equal(t, MCPExposureReport{Tool: "mytool", Listed: []string{"sign"}}, report, "the list already had it")
+			assert.Equal(t, !exposed, strings.Contains(rootSource(t, fs), `"sign"`))
+
+			ignoreRoot(t, fs)
+
+			report, err = again()
+			require.NoError(t, err, "an ignored root that carries the list is in the state asked for")
+			assert.Equal(t, MCPExposureReport{Tool: "mytool", Unchanged: []string{"sign"}}, report)
+		})
+	}
+
+	t.Run("an ignored root that withholds an ancestor", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs, _ := newPerimeterTestProject(t, wizardManifest)
+		ctx := context.Background()
+
+		_, err := g.SetMCPExposure(ctx, []string{"keys"}, false)
+		require.NoError(t, err)
+		ignoreRoot(t, fs)
+
+		g.rules = nil
+
+		_, err = g.SetMCPExposure(ctx, []string{"keys"}, true)
+		require.ErrorIs(t, err, ErrCommandFileKept)
+
+		report, err := g.SetMCPExposure(ctx, []string{"keys/publish", "hello"}, true)
+		require.ErrorIs(t, err, ErrCommandFileKept)
+		assert.Equal(t, MCPExposureReport{Tool: "mytool", Commands: []string{"hello"}, Kept: []string{"keys/publish"}}, report)
+	})
+
+	t.Run("a generated command an ignored root withholds", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs, _ := newPerimeterTestProject(t, wizardManifest)
+		require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/root/cmd.go", []byte(renderRootWithMCP(t, "", "hello")), 0o644))
+		ignoreRoot(t, fs)
+
+		_, err := g.SetMCPExposure(context.Background(), []string{"hello"}, true)
+		require.ErrorIs(t, err, ErrCommandFileKept)
+
+		report, err := g.SetMCPExposure(context.Background(), []string{"hello"}, false)
+		require.NoError(t, err, "its own cmd.go withholds it")
+		assert.Equal(t, []string{"hello"}, report.Commands)
+	})
+
+	t.Run("an ignored root with nothing to change there", func(t *testing.T) {
+		t.Parallel()
+
+		g, fs, _ := newPerimeterTestProject(t, wizardManifest)
+		ignoreRoot(t, fs)
+
+		report, err := g.SetMCPExposure(context.Background(), []string{"hello"}, false)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"hello"}, report.Commands)
+	})
 }

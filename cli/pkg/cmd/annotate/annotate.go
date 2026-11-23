@@ -22,6 +22,7 @@ var ErrClearWithHints = errors.NewSentinel("gtb.annotate.clear_with_hints", "ann
 
 type options struct {
 	Path        string
+	Overwrite   string
 	Title       string
 	ReadOnly    bool
 	Destructive bool
@@ -48,7 +49,9 @@ Each hint flag is tri-state. Given bare (--read-only) it records true; given as
 --read-only=false it records false; not given, the recorded value is left as it
 is. --clear removes every recorded annotation. The command path is
 slash-separated ('post' or 'post/due'). A protected command is refused;
-unprotect it first.
+unprotect it first. A cmd.go you keep (edited by hand, or covered by
+.gtb/ignore) records the annotations without applying them, and the run fails:
+--overwrite allow replaces an edited one.
 
 Hints describe one command and do not inherit down a subtree.`,
 		Args: cobra.ExactArgs(1),
@@ -58,8 +61,13 @@ Hints describe one command and do not inherit down a subtree.`,
 				return err
 			}
 
+			mode, err := generator.ParseOverwriteMode(opts.Overwrite)
+			if err != nil {
+				return err
+			}
+
 			resolved := icmd.ResolveProjectPath(p, opts.Path)
-			gen := generator.New(p, &generator.Config{Path: resolved})
+			gen := generator.New(p, &generator.Config{Path: resolved, Overwrite: mode})
 
 			if err := gen.SetMCPHints(cmd.Context(), args[0], hints, clear); err != nil {
 				return err
@@ -77,6 +85,7 @@ Hints describe one command and do not inherit down a subtree.`,
 
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
+	flags.StringVar(&opts.Overwrite, "overwrite", "ask", icmd.OverwriteUsage)
 	flags.StringVar(&opts.Title, "title", "", "display title shown by MCP clients")
 	flags.BoolVar(&opts.ReadOnly, "read-only", false, "the command mutates nothing (--read-only=false to say it does)")
 	flags.BoolVar(&opts.Destructive, "destructive", false, "the command may remove or rewrite state")

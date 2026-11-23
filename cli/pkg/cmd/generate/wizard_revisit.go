@@ -118,13 +118,19 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 
 	// The surface is per command, not an author setting: each changed tick is
 	// the same call gtb enable mcp <path> / gtb disable mcp <path> makes.
+	// A kept cmd.go costs that command its change and no other.
+	var kept error
+
 	for _, change := range so.mcpSurfaceChanges() {
-		if err := g.SetMCPEnabled(ctx, change.Path, change.Exposed); err != nil {
+		err := g.SetMCPEnabled(ctx, change.Path, change.Exposed)
+		if err != nil && !errors.Is(err, generator.ErrCommandFileKept) {
 			return err
 		}
+
+		kept = errors.Join(kept, err)
 	}
 
-	return nil
+	return kept
 }
 
 func (o *SkeletonOptions) printDryRun(out io.Writer, before *generator.Manifest, cfg generator.SkeletonConfig) error {
