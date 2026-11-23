@@ -53,7 +53,7 @@ ReleaseSource: props.ReleaseSource{
 |---|---|---|
 | `"github"` | GitHub / GitHub Enterprise | Set `Host` for GHE instances |
 | `"gitlab"` | GitLab / self-managed | Set `Host` for self-managed GitLab |
-| `"bitbucket"` | Bitbucket Cloud Downloads | Version inferred from asset filenames |
+| `"bitbucket"` | Bitbucket Cloud Downloads | A release is tagged with its upload time, so its [version can't be checked](../reference/cli/update.md#version-check) |
 | `"gitea"` | Gitea / Forgejo | `Host` is required |
 | `"codeberg"` | Codeberg (Forgejo) | `Host` defaults to `https://codeberg.org` |
 | `"static"` | The static release channel: any https location the release publishes a pointer and per-tag manifests under, no forge involved | `BaseURL` is the one setting; see [below](#the-static-release-channel) |
@@ -214,6 +214,11 @@ func main() {
     // ...
 }
 ```
+
+`update` also checks the version Go records in the binary itself, which ldflags don't set. Build releases in a git
+checkout whose `HEAD` carries the release tag, without `-buildvcs=false`. The tag needs its `v` prefix, and from v2 the
+module path needs its major version, such as `/v2`. See
+[Version check](../reference/cli/update.md#version-check).
 
 For a development build (a non-semver version, or one containing `-dev`/`-dirty`, `version.IsDevelopment()`), the update check is automatically skipped, so no API calls are made during local development.
 

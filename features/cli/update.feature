@@ -15,6 +15,7 @@ Feature: CLI Update Command
     And stdout contains "--rollback"
     And stdout contains "--pin"
     And stdout contains "--unpin"
+    And stdout contains "--allow-version-mismatch"
 
   Scenario: Invalid semver format returns validation error
     When I run gtb with "update --version bad"
@@ -105,6 +106,18 @@ Feature: CLI Update Command
     Then the exit code is not 0
     And stderr contains "no release with that tag"
     And stderr contains "latest.json"
+
+  Scenario: A release whose binary is another version is refused, and installs with the flag
+    Given the scenario has its own copy of the binary
+    And a static release channel serving "mislabelled"
+    When I run gtb with "update --force"
+    Then the exit code is not 0
+    And stderr contains "the download is not the version it claims to be"
+    And stderr contains "its binary is v0.9.0"
+    When I run gtb with "update --allow-version-mismatch"
+    Then the exit code is 0
+    And stderr contains "not the version asked for"
+    And stderr contains "Update complete"
 
   Scenario: On the static channel, a corrupt checksum aborts the update before replacing the binary
     Given a static release channel serving "bad-checksum"

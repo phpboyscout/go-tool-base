@@ -14,6 +14,7 @@ import (
 
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/binversion/binversiontest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 )
 
@@ -48,6 +49,7 @@ func initStaticChannelSteps(ctx *godog.ScenarioContext) {
 		return ctx, nil
 	})
 
+	ctx.Step(`^the scenario has its own copy of the binary$`, theScenarioHasItsOwnBinary)
 	ctx.Step(`^a static release channel serving "([^"]*)"$`, aStaticReleaseChannelServing)
 }
 
@@ -69,7 +71,7 @@ func aStaticReleaseChannelServing(ctx context.Context, scenario string) (context
 
 	base := ch.server.URL + "/acme/gtb"
 
-	if err := ch.serve(base, scenario); err != nil {
+	if err := ch.serve(ctx, base, scenario); err != nil {
 		ch.server.Close()
 
 		return ctx, err
@@ -85,14 +87,21 @@ func aStaticReleaseChannelServing(ctx context.Context, scenario string) (context
 	return context.WithValue(ctx, staticChannelKey{}, ch), nil
 }
 
+func theScenarioHasItsOwnBinary(ctx context.Context) (context.Context, error) {
+	_, err := ownBinary(getCLIWorld(ctx))
+
+	return ctx, err
+}
+
 // serve lays out the named scenario's releases. "nothing-published" is a
 // channel with no pointer yet; "chain" is two releases with the pointer on
 // the newer; the rollback scenarios put an older release behind the running
 // one.
-func (ch *staticChannel) serve(base, scenario string) error {
+func (ch *staticChannel) serve(ctx context.Context, base, scenario string) error {
 	type release struct {
 		tag, previous   string
 		corruptChecksum bool
+		binary          string // the version its binary records, when it records one
 	}
 
 	scenarios := map[string][]release{
@@ -100,6 +109,7 @@ func (ch *staticChannel) serve(base, scenario string) error {
 		"already-latest":    {{tag: staticCurrentVersion}},
 		"stale-latest":      {{tag: staticOlderVersion}},
 		"bad-checksum":      {{tag: staticNewerVersion, previous: staticCurrentVersion, corruptChecksum: true}},
+		"mislabelled":       {{tag: staticNewerVersion, binary: staticOlderVersion}},
 		"chain":             {{tag: staticCurrentVersion}, {tag: staticNewerVersion, previous: staticCurrentVersion}},
 		"rollback-chain":    {{tag: staticOlderVersion}, {tag: staticCurrentVersion, previous: staticOlderVersion}},
 		"rollback-bad-checksum": {
@@ -114,7 +124,16 @@ func (ch *staticChannel) serve(base, scenario string) error {
 	}
 
 	for _, r := range releases {
-		if err := ch.publish(base, r.tag, r.previous, r.corruptChecksum); err != nil {
+		body := []byte("new-binary")
+
+		if r.binary != "" {
+			var err error
+			if body, err = binversiontest.Build(ctx, r.binary, binversiontest.Tagged); err != nil {
+				return err
+			}
+		}
+
+		if err := ch.publish(base, r.tag, r.previous, r.corruptChecksum, body); err != nil {
 			return err
 		}
 	}
@@ -125,8 +144,8 @@ func (ch *staticChannel) serve(base, scenario string) error {
 // publish puts one release on the channel for this platform and moves the
 // pointer to it. corruptChecksum serves a checksums file that hashes other
 // bytes, so the archive fails verification after it downloads.
-func (ch *staticChannel) publish(base, tag, previous string, corruptChecksum bool) error {
-	archive := forgetest.TarGzAsset("gtb", "gtb", "new-binary")
+func (ch *staticChannel) publish(base, tag, previous string, corruptChecksum bool, binary []byte) error {
+	archive := forgetest.TarGzAsset("gtb", "gtb", string(binary))
 	prefix := "/acme/gtb/" + tag + "/"
 
 	ch.objects[prefix+archive.Name] = archive.Body

@@ -345,8 +345,15 @@ func TestNewCmdUpdate_FlagExclusivity(t *testing.T) {
 			require.NoError(t, cmd.Flags().Set(a, flags[a]))
 			require.NoError(t, cmd.Flags().Set(b, flags[b]))
 
-			assert.Error(t, cmd.ValidateFlagGroups(), "%s with %s", a, b)
+			require.Error(t, cmd.ValidateFlagGroups(), "%s with %s", a, b)
 		}
+
+		// A local archive has no release to match (spec 0220 D8).
+		cmd := update.NewCmdUpdate(rollbackProps(unattended()))
+		require.NoError(t, cmd.Flags().Set(a, flags[a]))
+		require.NoError(t, cmd.Flags().Set("allow-version-mismatch", "true"))
+
+		assert.Equal(t, a == "from-file", cmd.ValidateFlagGroups() != nil, a)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -33,6 +34,7 @@ type updateConfigOptions struct {
 	execCommand       func(context.Context, string, ...string) *exec.Cmd
 	newUpdater        NewUpdaterFunc
 	newOfflineUpdater NewOfflineUpdaterFunc
+	updaterOptions    []setup.UpdaterOption
 }
 
 // WithExecCommand overrides exec.CommandContext for testing.
@@ -53,6 +55,14 @@ func WithOfflineUpdater(fn NewOfflineUpdaterFunc) UpdateConfigOption {
 	return func(o *updateConfigOptions) { o.newOfflineUpdater = fn }
 }
 
+// WithVersionMismatchAllowed installs a release whose binary is not the version
+// asked for, with a warning. An injected updater decides for itself.
+func WithVersionMismatchAllowed() UpdateConfigOption {
+	return func(o *updateConfigOptions) {
+		o.updaterOptions = append(o.updaterOptions, setup.WithVersionMismatchAllowed())
+	}
+}
+
 // resolveUpdaterFactories fills in the updater factories from the supplied
 // options, falling back to the real constructors when an option is not given.
 // Tests inject their own factories with WithUpdater / WithOfflineUpdater (the
@@ -60,7 +70,7 @@ func WithOfflineUpdater(fn NewOfflineUpdaterFunc) UpdateConfigOption {
 func (o *updateConfigOptions) resolveUpdaterFactories() {
 	if o.newUpdater == nil {
 		o.newUpdater = func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error) {
-			return setup.NewUpdater(ctx, props, version, force)
+			return setup.NewUpdater(ctx, props, version, force, o.updaterOptions...)
 		}
 	}
 
@@ -105,7 +115,10 @@ archive to install without network access.
 --rollback=vX.Y.Z, verified as any update is, and asks first. A rollback pins
 the tool there: neither update nor the update check moves it until --unpin.
 --pin stays on the running version, and --pin=vX.Y.Z installs that one and
-stays on it.`,
+stays on it.
+
+A release whose binary is not the version asked for is refused.
+--allow-version-mismatch installs it anyway, with a warning.`,
 		Args: noPositionalVersion,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			result, err := runUpdate(cmd, props, opts...)
@@ -128,8 +141,10 @@ stays on it.`,
 	updateCmd.Flags().Lookup("rollback").NoOptDefVal = previousRelease
 	updateCmd.Flags().String("pin", "", "stay on the running version, or install --pin=vX.Y.Z and stay on it")
 	updateCmd.Flags().Lookup("pin").NoOptDefVal = runningRelease
+	updateCmd.Flags().Bool("allow-version-mismatch", false, "install a release whose binary is not the version asked for")
 	updateCmd.Flags().Bool("unpin", false, "clear the pin so updates resume")
 	updateCmd.MarkFlagsMutuallyExclusive("from-file", "version", "rollback", "pin", "unpin")
+	updateCmd.MarkFlagsMutuallyExclusive("from-file", "allow-version-mismatch")
 
 	return setup.AnnotateMCP(setup.Wrap(p.UpdateCmd, updateCmd), setup.MCPOpenWorld())
 }
@@ -161,6 +176,10 @@ func runUpdate(cmd *cobra.Command, props *p.Props, opts ...UpdateConfigOption) (
 	version, _ := flags.GetString("version")
 	rollback, _ := flags.GetString("rollback")
 	pin, _ := flags.GetString("pin")
+
+	if allow, _ := flags.GetBool("allow-version-mismatch"); allow {
+		opts = append(slices.Clone(opts), WithVersionMismatchAllowed())
+	}
 
 	switch {
 	case fromFile != "":

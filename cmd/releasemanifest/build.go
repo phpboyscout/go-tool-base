@@ -13,11 +13,13 @@ import (
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/signing/verify"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/binversion"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 )
 
 var (
 	errNoChecksum           = errors.NewSentinel("gtb.releasemanifest.no_checksum", "an archive carries no checksum; nothing unverifiable is published")
+	errOtherVersion         = errors.NewSentinel("gtb.releasemanifest.other_version", "a binary is not the version being released")
 	errDuplicatePlatform    = errors.NewSentinel("gtb.releasemanifest.duplicate_platform", "two archives are built for the same platform")
 	errRotationUnsigned     = errors.NewSentinel("gtb.releasemanifest.rotation_unsigned", "a rotation manifest and its signature are published together")
 	errRotationUnverifiable = errors.NewSentinel("gtb.releasemanifest.rotation_unverifiable", "no rotation authority key to verify the rotation manifest against")
@@ -32,7 +34,7 @@ const checksumFields = 2
 // two seams exist for the tests: platform reads an archive's binary and now
 // stamps the pointer.
 type builder struct {
-	platform func(path string) (goos, goarch string, err error)
+	platform func(path, tool string) (built, error)
 	now      func() time.Time
 }
 
@@ -290,7 +292,7 @@ func (b builder) addFiles(m *static.Manifest, dist, baseURL string) error {
 	seen := map[string]string{}
 
 	for _, name := range archivesIn(dist) {
-		d, err := b.download(dist, baseURL, m.Tag, name, sums[name])
+		d, err := b.download(dist, baseURL, m, name, sums[name])
 		if err != nil {
 			return err
 		}
@@ -317,8 +319,8 @@ func (b builder) addFiles(m *static.Manifest, dist, baseURL string) error {
 }
 
 // download is one archive's row: its digest from checksums.txt, its size
-// from the file, its platform from the binary inside.
-func (b builder) download(dist, baseURL, tag, name, sum string) (static.Download, error) {
+// from the file, its platform from the tool's binary inside.
+func (b builder) download(dist, baseURL string, m *static.Manifest, name, sum string) (static.Download, error) {
 	if sum == "" {
 		return static.Download{}, errors.Wrapf(errNoChecksum, "%s is not in %s", name, static.ChecksumsFile)
 	}
@@ -330,19 +332,40 @@ func (b builder) download(dist, baseURL, tag, name, sum string) (static.Download
 		return static.Download{}, errors.Wrapf(err, "sizing %s", name)
 	}
 
-	goos, goarch, err := b.platform(path)
+	binary, err := b.platform(path, m.Tool)
 	if err != nil {
 		return static.Download{}, errors.Wrapf(err, "platform of %s", name)
 	}
 
+	if err := refuseOtherVersion(name, m.Tag, binary.version); err != nil {
+		return static.Download{}, err
+	}
+
 	return static.Download{
-		OS:     goos,
-		Arch:   goarch,
+		OS:     binary.goos,
+		Arch:   binary.goarch,
 		Name:   name,
-		URL:    static.FileURL(baseURL, tag, name),
+		URL:    static.FileURL(baseURL, m.Tag, name),
 		Size:   info.Size(),
 		SHA256: sum,
 	}, nil
+}
+
+// refuseOtherVersion refuses a binary that update would refuse to install
+// (spec 0220 D6).
+func refuseOtherVersion(name, tag, recorded string) error {
+	if binversion.Same(recorded, tag) {
+		return nil
+	}
+
+	if recorded == "" {
+		recorded = "no release version"
+	}
+
+	return errors.WithHintf(errors.Wrapf(errOtherVersion, "%s records %s, and the release is %s", name, recorded, tag),
+		"Build it in a git checkout whose HEAD is tagged %s, with Go 1.24 or later and without -buildvcs=false. "+
+			"A tool in a nested module needs the tag with the module's prefix too, and one at v2 or above needs its "+
+			"major version in the module path.", tag)
 }
 
 // archivesIn is the archives goreleaser wrote into dist, by name. The sbom

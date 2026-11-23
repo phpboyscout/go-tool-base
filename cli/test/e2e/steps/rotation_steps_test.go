@@ -26,6 +26,7 @@ import (
 	"gitlab.com/phpboyscout/go/signing/minisign"
 	"gitlab.com/phpboyscout/go/signing/verify"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/binversion/binversiontest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 )
 
@@ -48,8 +49,8 @@ type rotationChannelKey struct{}
 // rotationChannel is a release channel, static or a forge's, whose binary trusts a release key that
 // has been compromised, with a rotation authority that has signed a manifest
 // moving trust to a replacement (spec 0101). Each release it publishes serves
-// the scenario's own binary, so an update leaves a binary that runs, and
-// still reports the stub's v1.0.0, ready to update again.
+// a binary of that version, and puts back the scenario's own, which reports
+// the stub's v1.0.0 and is ready to update again.
 type rotationChannel struct {
 	kind        string
 	releases    []giteaRelease
@@ -57,7 +58,7 @@ type rotationChannel struct {
 	objectsMu   sync.RWMutex // the server reads objects while a step publishes
 	objects     map[string][]byte
 	base        string
-	binary      string
+	binary      []byte
 	compromised *openpgp.Entity
 	replacement *openpgp.Entity
 	rotation    []byte
@@ -99,12 +100,12 @@ func initRotationSteps(ctx *godog.ScenarioContext) {
 func aChannelWhoseReleaseKeyWasCompromised(ctx context.Context, kind string) (context.Context, error) {
 	w := getCLIWorld(ctx)
 
-	binary, err := os.ReadFile(w.binaryPath)
+	binary, err := ownBinary(w)
 	if err != nil {
 		return ctx, err
 	}
 
-	ch := &rotationChannel{kind: kind, objects: map[string][]byte{}, binary: string(binary)}
+	ch := &rotationChannel{kind: kind, objects: map[string][]byte{}, binary: binary}
 
 	if ch.compromised, err = newReleaseEntity("Compromised Release Key"); err != nil {
 		return ctx, err
@@ -135,12 +136,6 @@ func aChannelWhoseReleaseKeyWasCompromised(ctx context.Context, kind string) (co
 		_, _ = rw.Write(body)
 	}))
 	ch.base = ch.server.URL + "/acme/gtb"
-
-	if err := writeOwnBinary(w.configDir, binary); err != nil {
-		return ctx, err
-	}
-
-	w.binaryPath = filepath.Join(w.configDir, "bin", "gtb")
 
 	if w.envVars == nil {
 		w.envVars = make(map[string]string)
@@ -221,7 +216,16 @@ func theChannelPublishes(ctx context.Context, tag, signer, withManifest string) 
 		key = ch.replacement
 	}
 
-	archive := forgetest.TarGzAsset("gtb", "gtb", ch.binary)
+	if err := writeOwnBinary(getCLIWorld(ctx).configDir, ch.binary); err != nil {
+		return ctx, err
+	}
+
+	released, err := binversiontest.Build(ctx, tag, binversiontest.Tagged)
+	if err != nil {
+		return ctx, err
+	}
+
+	archive := forgetest.TarGzAsset("gtb", "gtb", string(released))
 	checksums := forgetest.ChecksumsAsset(false, archive).Body
 
 	var sig bytes.Buffer
@@ -347,6 +351,23 @@ func (ch *rotationChannel) putJSON(path string, doc any) error {
 	return nil
 }
 
+// ownBinary points the scenario at a copy of the binary, which it returns,
+// because a successful update replaces it.
+func ownBinary(w *cliWorld) ([]byte, error) {
+	binary, err := os.ReadFile(w.binaryPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := writeOwnBinary(w.configDir, binary); err != nil {
+		return nil, err
+	}
+
+	w.binaryPath = filepath.Join(w.configDir, "bin", "gtb")
+
+	return binary, nil
+}
+
 // writeOwnBinary writes the scenario's copy of the binary as bin/gtb under dir.
 func writeOwnBinary(dir string, binary []byte) error {
 	root, err := os.OpenRoot(dir)
@@ -359,7 +380,12 @@ func writeOwnBinary(dir string, binary []byte) error {
 		return err
 	}
 
-	return root.WriteFile("bin/gtb", binary, 0o700)
+	// A rename, because the copy already there may still be running.
+	if err := root.WriteFile("bin/gtb.new", binary, 0o700); err != nil {
+		return err
+	}
+
+	return root.Rename("bin/gtb.new", "bin/gtb")
 }
 
 func newReleaseEntity(name string) (*openpgp.Entity, error) {

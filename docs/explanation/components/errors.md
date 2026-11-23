@@ -105,6 +105,7 @@ commonly returns. Full catalogue on the
 | `ErrChecksumTooLarge` | download exceeds maximum size | The checksums manifest or the binary download passed its size bound, and the update stops before installing anything. It usually points at a hostile or misbehaving server; raise the bound only if the asset really is that large. |
 | `ErrBinaryTooLarge` | binary download exceeds maximum size | Returned during extraction if the update binary is dangerously large. |
 | `ErrBinaryNotInArchive` | expected binary not found in archive | Returned when extracting an update tarball/zip that doesn't contain the expected executable. |
+| `ErrVersionMismatch` | the update was stopped because the download is not the version it claims to be | The release is tagged otherwise than asked, its binary was built as another version, or signatures are required and either the binary records no version or the tag isn't one. Nothing was installed. Report it to the tool's publisher. |
 | `ErrDowngradeRefused` | refusing to downgrade | Returned by the implicit (no `--version`) update path when the resolved release is older than the running binary. Signature and checksum verification authenticate an artefact, not its recency, so a stale or rolled-back release listing must not silently downgrade the tool. Deliberate downgrades go through `update --force` or `update --version`. |
 | `ErrDowngradeNotConfirmed` | a downgrade needs confirmation | A rollback or pinned downgrade that nobody confirmed: declined at the prompt, or asked for unattended without `--force`. Re-run with `--force` to downgrade without a prompt. |
 | `ErrNoEarlierRelease` | no earlier release to roll back to | A rollback found no release below the running version among the newest ones the channel lists. There is nothing to roll back to; name a version with `update --version` if an older one exists. |
@@ -217,6 +218,7 @@ URL that failed.
 | `ErrUnexpectedStatus` | the channel answered with an unexpected HTTP status | A status that is neither success nor 404. The wrapped error carries the status. |
 | `ErrTooManyRedirects` | the channel redirected too many times | One request was redirected more than 10 times. The channel needs repairing on the publishing side. |
 | `ErrNoReleasesPublished` | no release has been published on this channel yet | The `latest.json` pointer does not exist yet. Nothing to update to. |
+| `ErrOtherRelease` | not the release asked for | The manifest stored under the tag asked for names another tag. `update` reports it as `setup.ErrVersionMismatch`. |
 | `ErrReleaseNotFound` | no release with that tag on this channel | No manifest exists for the tag asked for. Check the version. |
 | `ErrNotFound` | the channel has no such object | An object a manifest names is not there: the release was published incompletely. |
 | `ErrBrokenChain` | the release chain does not resolve | A manifest the pointer or a previous link names does not resolve, or the chain loops. The channel needs repairing on the publishing side. |

@@ -90,8 +90,9 @@ check and `version` go quiet too: see
 - `--rollback[=tag]`: Roll back to the release before the running one, or to the named older release with `--rollback=v1.1.0`, and pin it. The tag must be attached with `=`.
 - `--pin[=tag]`: Stay on the running version, with no network call. `--pin=v1.3.0` installs that release, newer or older, and stays on it.
 - `--unpin`: Clear the pin, so `update` and the update check resume. No network call.
+- `--allow-version-mismatch`: Install a release whose binary is not the version asked for, with a warning. See [Version check](#version-check).
 
-`--from-file`, `--version`, `--rollback`, `--pin` and `--unpin` are mutually exclusive. `--force` combines with `--version`, `--rollback` and `--pin`.
+`--from-file`, `--version`, `--rollback`, `--pin` and `--unpin` are mutually exclusive. `--force` and `--allow-version-mismatch` combine with `--version`, `--rollback` and `--pin`. `--allow-version-mismatch` is refused beside `--from-file`.
 
 ## Rollback and pin
 
@@ -134,6 +135,29 @@ When the tool's config directory is inside a git checkout, as a CI job's home di
 read there, because the repository could have supplied it. `--pin` and `--rollback` exit non-zero with a hint before
 installing anything, a pin file found there is ignored with a warning, and `--unpin` has nothing to clear and leaves
 any pin file there in place. Name the version with `--version` instead.
+
+## Version check
+
+After the checksum and signature checks, and before the binary is replaced, `update` reads the version Go recorded in
+the downloaded binary. It must be the version asked for: the one given to `--version`, `--pin` or `--rollback`, or the
+latest release's tag. Build metadata such as `+dirty` is ignored.
+
+| The binary records | Result |
+|---|---|
+| the version asked for | installs |
+| another version | refused, with both versions in the hint. `--allow-version-mismatch` installs it with a warning |
+| no release version, and `update.require_signature` applies | refused. No flag changes that |
+| no release version otherwise | installs with a warning |
+
+A release whose tag is not a full version, such as `v1.2.3`, leaves nothing to compare, so it's treated as one whose
+binary records none.
+
+A release fetched by tag must also carry that tag itself, or it is refused, and no flag changes that. A refusal exits
+non-zero and leaves the installed binary in place. `--force` has no effect on any of this, and `--from-file` is not
+checked, because a local archive has no tag to compare with.
+
+A refused release is either one relabelled on its way to you or a mistake by its publisher. Report it to the
+publisher. Where signatures are not required, the recorded version is only as trustworthy as the download.
 
 ## Downgrade behaviour
 

@@ -30,6 +30,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/pkgmanager"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/release/static"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
@@ -105,6 +106,8 @@ type SelfUpdater struct {
 	// io is the invocation's streams, for the prompt that picks between
 	// installations; nil is the process's.
 	io props.IO
+	// allowVersionMismatch is update --allow-version-mismatch (spec 0220 D8).
+	allowVersionMismatch bool
 
 	// requireChecksum resolved from config (update.require_checksum →
 	// env-prefixed env var via the store's env layer → DefaultRequireChecksum).
@@ -937,7 +940,7 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 		return targetPath, err
 	}
 
-	if err := s.extract(file, targetPath); err != nil {
+	if err := s.extract(file, targetPath, s.binaryCheck(s.wantedVersion(latestVersion))); err != nil {
 		return targetPath, err
 	}
 
@@ -1153,7 +1156,8 @@ func (s *SelfUpdater) UpdateFromFile(ctx context.Context, filePath string) (stri
 
 	file.Write(data)
 
-	if err := s.extract(file, targetPath); err != nil {
+	// A local archive has no tag to compare with (spec 0220, out of scope).
+	if err := s.extract(file, targetPath, nil); err != nil {
 		return targetPath, err
 	}
 
@@ -1401,7 +1405,7 @@ func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset forge.ReleaseAsse
 }
 
 // Extract from the file buffer containing the raw bytes of a .tar.gz file.
-func (s *SelfUpdater) extract(file bytes.Buffer, targetPath string) error {
+func (s *SelfUpdater) extract(file bytes.Buffer, targetPath string, check func(path string) error) error {
 	gzipReader, err := gzip.NewReader(bytes.NewReader(file.Bytes()))
 	if err != nil {
 		return errors.WithStack(err)
@@ -1426,7 +1430,7 @@ func (s *SelfUpdater) extract(file bytes.Buffer, targetPath string) error {
 		if header.Name == s.Tool.Name || header.Name == s.Tool.Name+".exe" {
 			s.logger.Info("writing updated binary", "name", header.Name, "path", targetPath)
 
-			return s.extractAndInstallBinary(tarReader, targetPath)
+			return s.extractAndInstallBinary(tarReader, targetPath, check)
 		}
 	}
 
@@ -1451,8 +1455,18 @@ func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (forge.Release, erro
 		defer cancel()
 
 		s.NextRelease, err = s.releaseChannel().ByTag(timeoutCtx, s.version)
+		if errors.Is(err, static.ErrOtherRelease) {
+			return nil, s.versionMismatch(s.version, err.Error())
+		}
+
 		if err != nil {
 			return nil, s.explainRefusal(ctx, errors.Wrap(err, "failed to get release by tag"))
+		}
+
+		if err := s.refuseOtherRelease(s.NextRelease); err != nil {
+			s.NextRelease = nil
+
+			return nil, s.explainRefusal(ctx, err)
 		}
 	}
 
@@ -1487,7 +1501,7 @@ func (s *SelfUpdater) GetCurrentVersion() string {
 // form fits under the download cap.
 var errDecompressedSizeExceeded = errors.NewSentinel("gtb.setup.decompressed_size_exceeded", "extracted binary exceeded the decompressed-size bound")
 
-func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath string) error {
+func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath string, check func(path string) error) error {
 	tempFilePath := fmt.Sprintf("%s_", targetPath)
 
 	tempFile, err := s.Fs.Create(tempFilePath)
@@ -1507,32 +1521,18 @@ func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath 
 		}
 	}()
 
-	// Copy in chunks, tracking the cumulative decompressed size. The compressed
-	// download is capped, but gzip expansion is not — so a crafted archive is
-	// aborted here once it grows past the bound rather than filling the disk.
-	bound := s.extractedBound()
-
-	var written int64
-
-	for {
-		n, copyErr := io.CopyN(tempFile, tarReader, copyChunkSize)
-		written += n
-
-		if written > bound {
-			return errors.Wrapf(errDecompressedSizeExceeded, "extracted binary exceeded %d bytes", bound)
-		}
-
-		if copyErr != nil {
-			if errors.Is(copyErr, io.EOF) {
-				break
-			}
-
-			return errors.Wrap(copyErr, "failed to copy binary chunk")
-		}
+	if err := s.copyBounded(tempFile, tarReader); err != nil {
+		return err
 	}
 
 	if err := tempFile.Close(); err != nil {
 		return errors.Wrap(err, "failed to close temp file")
+	}
+
+	if check != nil {
+		if err := check(tempFilePath); err != nil {
+			return err
+		}
 	}
 
 	// Chmod the temp file BEFORE the rename, so the installed binary is never
@@ -1548,6 +1548,32 @@ func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath 
 	installed = true
 
 	return nil
+}
+
+func (s *SelfUpdater) copyBounded(dst io.Writer, src io.Reader) error {
+	// Copy in chunks, tracking the cumulative decompressed size. The compressed
+	// download is capped, but gzip expansion is not — so a crafted archive is
+	// aborted here once it grows past the bound rather than filling the disk.
+	bound := s.extractedBound()
+
+	var written int64
+
+	for {
+		n, copyErr := io.CopyN(dst, src, copyChunkSize)
+		written += n
+
+		if written > bound {
+			return errors.Wrapf(errDecompressedSizeExceeded, "extracted binary exceeded %d bytes", bound)
+		}
+
+		if copyErr != nil {
+			if errors.Is(copyErr, io.EOF) {
+				return nil
+			}
+
+			return errors.Wrap(copyErr, "failed to copy binary chunk")
+		}
+	}
 }
 
 // GetReleaseNotes retrieves the release notes for releases between the specified 'from' and 'to' versions (inclusive).

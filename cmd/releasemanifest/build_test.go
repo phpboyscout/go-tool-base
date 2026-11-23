@@ -37,13 +37,23 @@ var fixturePlatforms = map[string][2]string{
 	"fixtool_Windows_x86_64.tar.gz": {"windows", "amd64"},
 }
 
-func fixturePlatform(path string) (string, string, error) {
+func fixturePlatform(path, _ string) (built, error) {
 	p, ok := fixturePlatforms[filepath.Base(path)]
 	if !ok {
-		return "", "", errNoPlatform
+		return built{}, errNoPlatform
 	}
 
-	return p[0], p[1], nil
+	return built{goos: p[0], goarch: p[1], version: "v1.2.0"}, nil
+}
+
+// fixtureRelease is fixturePlatform with every binary built as tag.
+func fixtureRelease(tag string) func(string, string) (built, error) {
+	return func(path, tool string) (built, error) {
+		b, err := fixturePlatform(path, tool)
+		b.version = tag
+
+		return b, err
+	}
 }
 
 // The fixture is a real goreleaser 2.17 metadata.json and checksums.txt,
@@ -200,7 +210,9 @@ func TestBuild_Refusals(t *testing.T) {
 
 		dist := fixtureDist(t)
 		b := fixtureBuilder()
-		b.platform = func(string) (string, string, error) { return "linux", "amd64", nil }
+		b.platform = func(string, string) (built, error) {
+			return built{goos: "linux", goarch: "amd64", version: "v1.2.0"}, nil
+		}
 
 		_, _, err := b.build(dist, base, "", nil)
 		require.ErrorIs(t, err, errDuplicatePlatform)
@@ -212,17 +224,71 @@ func TestBuild_Refusals(t *testing.T) {
 
 		dist := fixtureDist(t)
 		b := fixtureBuilder()
-		b.platform = func(path string) (string, string, error) {
+		b.platform = func(path, tool string) (built, error) {
 			if strings.Contains(path, "Windows_arm64") {
-				return "", "", errNoPlatform
+				return built{}, errNoPlatform
 			}
 
-			return fixturePlatform(path)
+			return fixturePlatform(path, tool)
 		}
 
 		_, _, err := b.build(dist, base, "", nil)
 		require.ErrorIs(t, err, errNoPlatform)
 		assert.Contains(t, err.Error(), "fixtool_Windows_arm64.tar.gz")
+	})
+
+	// Spec 0220 D6.
+	for name, tt := range map[string]struct{ recorded, named string }{
+		"an archive whose binary is another release is refused": {recorded: "v1.0.0", named: "records v1.0.0"},
+		"an archive whose binary records no release is refused": {named: "records no release version"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			b := fixtureBuilder()
+			b.platform = func(path, tool string) (built, error) {
+				p, err := fixturePlatform(path, tool)
+				if strings.Contains(path, "Windows_arm64") {
+					p.version = tt.recorded
+				}
+
+				return p, err
+			}
+
+			_, _, err := b.build(fixtureDist(t), base, "", nil)
+			require.ErrorIs(t, err, errOtherVersion)
+			assert.Contains(t, err.Error(), "fixtool_Windows_arm64.tar.gz")
+			assert.Contains(t, err.Error(), tt.named)
+		})
+	}
+
+	t.Run("the tool's binary is the one read", func(t *testing.T) {
+		t.Parallel()
+
+		b := fixtureBuilder()
+		b.platform = func(path, tool string) (built, error) {
+			assert.Equal(t, "fixtool", tool)
+
+			return fixturePlatform(path, tool)
+		}
+
+		_, _, err := b.build(fixtureDist(t), base, "", nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("a dirty stamp of the release is published", func(t *testing.T) {
+		t.Parallel()
+
+		b := fixtureBuilder()
+		b.platform = func(path, tool string) (built, error) {
+			p, err := fixturePlatform(path, tool)
+			p.version += "+dirty"
+
+			return p, err
+		}
+
+		_, _, err := b.build(fixtureDist(t), base, "", nil)
+		require.NoError(t, err)
 	})
 
 	t.Run("notes come from the file when given", func(t *testing.T) {
@@ -309,7 +375,10 @@ func TestWriteDocuments_PrereleaseLeavesThePointer(t *testing.T) {
 			dist := fixtureDist(t)
 			setFixtureTag(t, dist, tt.tag)
 
-			m, p, err := fixtureBuilder().build(dist, base, "v1.1.0", nil)
+			b := fixtureBuilder()
+			b.platform = fixtureRelease(tt.tag)
+
+			m, p, err := b.build(dist, base, "v1.1.0", nil)
 			require.NoError(t, err)
 
 			wrote, err := writeDocuments(dist, m, p)
@@ -694,4 +763,13 @@ func TestRun_CarriesACommittedRotationManifest(t *testing.T) {
 
 	require.ErrorIs(t, run(b, release{dist: fixtureDist(t), baseURL: base, previous: "v1.1.0", rotation: committed}), errRotationUnverifiable,
 		"a run refuses a committed manifest it has no authority to check")
+}
+
+// Equal strings are not enough: a tag that is not a version is never published.
+func TestRefuseOtherVersion_ATagThatIsNotAVersion(t *testing.T) {
+	t.Parallel()
+
+	for _, recorded := range []string{"", "v1.2.3", "nightly"} {
+		require.ErrorIs(t, refuseOtherVersion("fixtool.tar.gz", "nightly", recorded), errOtherVersion, recorded)
+	}
 }

@@ -30,6 +30,8 @@ var (
 	ErrInvalidBaseURL = errors.NewSentinel("gtb.release.static.invalid_base_url", "release channel base URL must be an absolute http(s) URL")
 	// ErrNoReleasesPublished: the pointer does not exist yet.
 	ErrNoReleasesPublished = errors.NewSentinel("gtb.release.static.no_releases_published", "no release has been published on this channel yet")
+	// ErrOtherRelease: the manifest for the tag asked for names another tag.
+	ErrOtherRelease = errors.NewSentinel("gtb.release.static.other_release", "not the release asked for")
 	// ErrReleaseNotFound: no manifest for the tag asked for.
 	ErrReleaseNotFound = errors.NewSentinel("gtb.release.static.release_not_found", "no release with that tag on this channel")
 	// ErrNotFound: an object a manifest names is not there.
@@ -126,6 +128,10 @@ func (c *Channel) ByTag(ctx context.Context, tag string) (Manifest, error) {
 	m, err := c.manifestAt(ctx, ManifestURL(c.base, tag))
 	if errors.Is(err, ErrNotFound) {
 		return Manifest{}, errors.Wrapf(ErrReleaseNotFound, "%s", ManifestURL(c.base, tag))
+	}
+
+	if err == nil && m.Tag != tag {
+		return Manifest{}, errors.Wrapf(ErrOtherRelease, "%s is tagged %s", ManifestURL(c.base, tag), m.Tag)
 	}
 
 	return m, err

@@ -144,6 +144,12 @@ func TestChannel_ByTagIsOneFetch(t *testing.T) {
 	assert.Empty(t, m.Previous, "the first release starts the chain")
 	assert.Equal(t, int32(1), srv.requests.Load(), "pinning a tag does not read the pointer")
 
+	srv.put("/acme/tool/v1.5.0/"+static.ManifestFile, manifestFor(srv.base(), "v1.0.0", ""))
+
+	_, err = ch.ByTag(context.Background(), "v1.5.0")
+	require.ErrorIs(t, err, static.ErrOtherRelease)
+	assert.Contains(t, err.Error(), "v1.5.0/release.json is tagged v1.0.0")
+
 	_, err = ch.ByTag(context.Background(), "v9.9.9")
 	require.ErrorIs(t, err, static.ErrReleaseNotFound)
 

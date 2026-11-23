@@ -39,7 +39,7 @@ func TestExtractAndInstallBinary_InstalledMode0755(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	s := &SelfUpdater{Fs: fs}
 
-	require.NoError(t, s.extractAndInstallBinary(tarReaderFor(t, []byte("#!binary")), "/usr/local/bin/tool"))
+	require.NoError(t, s.extractAndInstallBinary(tarReaderFor(t, []byte("#!binary")), "/usr/local/bin/tool", nil))
 
 	info, err := fs.Stat("/usr/local/bin/tool")
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestExtractAndInstallBinary_DecompressedSizeBound(t *testing.T) {
 	s := &SelfUpdater{Fs: fs, maxExtractedBytes: 100}
 
 	// 500 bytes of payload against a 100-byte bound.
-	err := s.extractAndInstallBinary(tarReaderFor(t, bytes.Repeat([]byte{0x41}, 500)), "/usr/local/bin/tool")
+	err := s.extractAndInstallBinary(tarReaderFor(t, bytes.Repeat([]byte{0x41}, 500)), "/usr/local/bin/tool", nil)
 	require.ErrorIs(t, err, errDecompressedSizeExceeded, "extraction beyond the decompressed-size bound must fail")
 
 	orphan, statErr := afero.Exists(fs, "/usr/local/bin/tool_")

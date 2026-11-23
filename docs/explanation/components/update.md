@@ -44,7 +44,8 @@ The installation follows these steps to bypass this limitation:
 1.  **Download**: The platform-specific `.tar.gz` asset is downloaded into memory.
 2.  **Extract**: The binary is extracted from the archive.
 3.  **Temp Buffer**: The new binary is written to a temporary file (e.g., `mytool_`) in the same directory as the current executable.
-4.  **Swap**: The temporary file is renamed to the target filename (overwriting the old one), and permissions are set.
+4.  **Check**: The version Go recorded in the new binary must be the version asked for (see [Version check](#version-check)).
+5.  **Swap**: The temporary file is renamed to the target filename (overwriting the old one), and permissions are set.
 
 By writing to a temporary file first and then performing a rename, we ensure that the update is atomic: either it succeeds completely, or the old binary remains untouched.
 
@@ -79,6 +80,24 @@ behaviour, which already requires `--force` for any update. The throttled
 background check merely *notifies* that the source reports an older latest;
 it never applies a downgrade automatically. See
 [`0167-self-update-downgrade-guard`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0167-self-update-downgrade-guard).
+
+### Version check
+
+A signature says who built an archive and nothing about which release it belongs to, because archive names carry no
+version. So an old, validly signed archive served under a new tag would pass every check above it and downgrade the
+tool. Go records the main module's version in the binary from the tag at `HEAD`. The binary is inside the signed
+archive, so that version is as authentic as the code. The updater reads it from the extracted file before the rename
+and refuses a different one with `ErrVersionMismatch`.
+
+The version asked for comes from the user or from the tag the channel names, never from an unsigned document about
+the release. A release fetched by tag whose own tag differs is refused too, on the static channel and on a forge.
+A tool that doesn't require signatures can still be served an attacker's own binary with any recorded version. There
+the check catches a relabelled genuine release or a publishing mistake, and nothing more.
+
+`update --allow-version-mismatch`, or `update.WithVersionMismatchAllowed` in code, overrides a mismatch and nothing
+else. It is separate from `--force`, so a script that already passes `--force` doesn't lose the check. See
+[`0220`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0220-update-installs-a-release-only-when-its-binary-is-the-version-asked-for)
+and the [behaviour table](../../reference/cli/update.md#version-check).
 
 ### Package-managed guard
 
@@ -151,7 +170,7 @@ See [Configure Self-Updating: Air-Gapped Environments](../../how-to/configure-se
 
 1. Validates version format (if specified).
 2. Downloads the target version from GitHub/GitLab.
-3. Replaces the current binary.
+3. Checks the binary's recorded version, and replaces the current binary.
 4. Updates configuration files in standard locations.
 5. Displays release notes for the new version.
 

@@ -19,6 +19,7 @@ import (
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 	"gitlab.com/phpboyscout/go/signing/verify"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/binversion/binversiontest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -228,7 +229,8 @@ func TestUpdate_OnTheStaticChannel_VerifiesTheSignature(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	archive := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	newBinary := string(binversiontest.Binary(t, "v1.1.0", binversiontest.Tagged))
+	archive := forgetest.TarGzAsset(e2eToolName, e2eToolName, newBinary)
 	manifest := forgetest.Manifest(false, archive)
 
 	t.Run("a good signature installs", func(t *testing.T) {
@@ -244,7 +246,7 @@ func TestUpdate_OnTheStaticChannel_VerifiesTheSignature(t *testing.T) {
 
 		got, err := afero.ReadFile(s.Fs, currentBin)
 		require.NoError(t, err)
-		assert.Equal(t, "new-binary", string(got))
+		assert.Equal(t, newBinary, string(got))
 	})
 
 	t.Run("a bad signature leaves the binary alone", func(t *testing.T) {
@@ -406,7 +408,8 @@ func TestUpdate_OnTheStaticChannel_FollowsARotation(t *testing.T) {
 	t.Parallel()
 
 	f := newRotationFixture(t)
-	archive := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	newBinary := string(binversiontest.Binary(t, "v1.1.0", binversiontest.Tagged))
+	archive := forgetest.TarGzAsset(e2eToolName, e2eToolName, newBinary)
 	sums := forgetest.Manifest(false, archive)
 
 	t.Run("the replacement key installs, and the revoked key no longer does", func(t *testing.T) {
@@ -423,7 +426,7 @@ func TestUpdate_OnTheStaticChannel_FollowsARotation(t *testing.T) {
 
 		got, err := afero.ReadFile(s.Fs, currentBin)
 		require.NoError(t, err)
-		assert.Equal(t, "new-binary", string(got))
+		assert.Equal(t, newBinary, string(got))
 
 		store.rotation, store.rotationSig = nil, nil
 		later := forgetest.TarGzAsset(e2eToolName, e2eToolName, "signed-by-the-stolen-key")
@@ -436,7 +439,7 @@ func TestUpdate_OnTheStaticChannel_FollowsARotation(t *testing.T) {
 
 		got, err = afero.ReadFile(s.Fs, currentBin)
 		require.NoError(t, err)
-		assert.Equal(t, "new-binary", string(got), "the stored record still holds without a manifest")
+		assert.Equal(t, newBinary, string(got), "the stored record still holds without a manifest")
 	})
 
 	t.Run("a manifest from another authority stops the update", func(t *testing.T) {

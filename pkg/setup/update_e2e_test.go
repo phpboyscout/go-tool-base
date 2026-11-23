@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go/forge"
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/binversion/binversiontest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -93,7 +94,8 @@ func TestUpdate_VerifiesSignedChecksum_HappyPath(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	asset := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	newBinary := string(binversiontest.Binary(t, "v1.1.0", binversiontest.Tagged))
+	asset := forgetest.TarGzAsset(e2eToolName, e2eToolName, newBinary)
 	manifest := forgetest.Manifest(false, asset)
 
 	provider := forgetest.New(forgetest.WithRelease("v1.1.0",
@@ -115,7 +117,7 @@ func TestUpdate_VerifiesSignedChecksum_HappyPath(t *testing.T) {
 
 	got, err := afero.ReadFile(s.Fs, currentBin)
 	require.NoError(t, err)
-	assert.Equal(t, "new-binary", string(got))
+	assert.Equal(t, newBinary, string(got))
 }
 
 func TestUpdate_AbortsOnBadSignature(t *testing.T) {

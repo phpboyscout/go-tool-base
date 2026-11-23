@@ -33,8 +33,10 @@ When a user runs `mytool update`, the tool:
 3. downloads the archive for the user's platform.
 4. verifies it against the release's checksums, and its signature if you sign
    releases.
-5. replaces the running binary in place.
-6. runs `init` from the new binary over the user's config, to add any keys the
+5. in releases after v0.53.0, checks that the binary inside was built as the version asked for. See
+   [update checks the binary's version](../reference/migration/v0.x-update-checks-the-binarys-version.md).
+6. replaces the running binary in place.
+7. runs `init` from the new binary over the user's config, to add any keys the
    release introduced. Nothing is asked: the credential steps are skipped.
 
 Until you publish a release, step 1 has nothing to find, so the tool warns on

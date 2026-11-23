@@ -18,6 +18,7 @@ Update() →  findReleaseAsset()           = target binary
          →  fetchChecksumsManifest()     = checksums.txt (via ChecksumProvider or asset list)
          →  VerifyChecksumFromManifest() = binary SHA-256 vs manifest entry
          →  extract()                    = only reached when verify succeeds
+         →  binaryCheck()                = the binary's recorded version vs the one asked for
 ```
 
 `checksums.txt` is GoReleaser's default manifest. One `<hex-sha256>  <filename>` entry per line. If your `.goreleaser.yaml` uses the defaults, no changes are needed; the file is already attached to every release.

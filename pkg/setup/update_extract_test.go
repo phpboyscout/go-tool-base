@@ -40,7 +40,7 @@ func TestExtractAndInstallBinary_RemovesTempFileOnFailure(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	s := &SelfUpdater{Fs: fs}
 
-	err := s.extractAndInstallBinary(truncatedTarReader(t), "/usr/local/bin/tool")
+	err := s.extractAndInstallBinary(truncatedTarReader(t), "/usr/local/bin/tool", nil)
 	require.Error(t, err, "a truncated stream must fail the install")
 
 	exists, statErr := afero.Exists(fs, "/usr/local/bin/tool_")
@@ -73,7 +73,7 @@ func TestExtractAndInstallBinary_SuccessInstallsBinary(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	s := &SelfUpdater{Fs: fs}
 
-	require.NoError(t, s.extractAndInstallBinary(tr, "/usr/local/bin/tool"))
+	require.NoError(t, s.extractAndInstallBinary(tr, "/usr/local/bin/tool", nil))
 
 	installed, err := afero.ReadFile(fs, "/usr/local/bin/tool")
 	require.NoError(t, err)
