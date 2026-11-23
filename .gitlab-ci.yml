@@ -388,16 +388,22 @@ go-work-sync:
     - '(cd cli && GOWORK=off go mod tidy) || echo "go-work-sync - CLI tidy failed, tolerated while the CLI uses unreleased framework code (spec 0194 D2, #109)"'
     - git diff --exit-code -- go.work go.work.sum go.mod go.sum cli/go.mod cli/go.sum
 
-# The catalogue drifted 59 sentinels behind while this ran only from
-# `just check` (#152).
+# go-test skips an MR that changes no Go file, so a docs-only edit to the
+# catalogue would merge unchecked and break the next Go MR instead (#152,
+# #220). Widening go-test's `changes` would start e2e on every such edit.
 error-catalogue:
-  stage: lint
+  stage: test
   image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - docs/explanation/components/errors.md
+  variables:
+    GOTOOLCHAIN: auto
   script:
-    - ./scripts/lint-docs-errors.sh
+    - go test ./internal/repopolicy/ -run '^TestErrorCatalogueMatchesSentinels$' -count=1 -v
 
 apidiff:
   stage: test

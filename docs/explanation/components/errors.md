@@ -376,7 +376,7 @@ When adding a sentinel error to a `pkg/` package:
 2. Add a row to this catalogue with its message and handling guidance, under
    the heading that names its package (`## \`pkg/mypackage\``). Two packages
    can share a sentinel name, so a row elsewhere does not count.
-   `scripts/lint-docs-errors.sh` checks every exported sentinel in `pkg/`, and
-   it runs on every merge request.
+   A test in `internal/repopolicy` checks every exported `Err` variable in
+   `pkg/` has a row, and that every row names one that exists.
 3. Use `errors.Wrap(err, "context")` to add call-site context when returning
    the error through multiple layers.
