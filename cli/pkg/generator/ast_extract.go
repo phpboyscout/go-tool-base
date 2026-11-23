@@ -162,7 +162,7 @@ func resolveStringValue(expr dst.Expr, constants map[string]string) (string, boo
 	return "", false
 }
 
-func (g *Generator) extractFromCobraLiteral(expr dst.Expr, cmd *ManifestCommand) {
+func (g *Generator) extractFromCobraLiteral(expr dst.Expr, constructor string, cmd *ManifestCommand) {
 	// Real generated constructors wrap the cobra literal in the setup.Command
 	// middleware helper, e.g. `setup.Wrap("name", &cobra.Command{...})`. The
 	// &cobra.Command literal is then an argument of that call, not the bare
@@ -171,7 +171,7 @@ func (g *Generator) extractFromCobraLiteral(expr dst.Expr, cmd *ManifestCommand)
 	// following regenerate project wipes the help text.
 	if call, ok := expr.(*dst.CallExpr); ok {
 		for _, arg := range call.Args {
-			g.extractFromCobraLiteral(arg, cmd)
+			g.extractFromCobraLiteral(arg, constructor, cmd)
 		}
 
 		return
@@ -182,7 +182,7 @@ func (g *Generator) extractFromCobraLiteral(expr dst.Expr, cmd *ManifestCommand)
 		return
 	}
 
-	g.applyCobraLiteralFields(composite, cmd)
+	g.applyCobraLiteralFields(composite, constructor, cmd)
 }
 
 // cobraCommandComposite returns the &cobra.Command{...} composite literal that
@@ -208,7 +208,7 @@ func cobraCommandComposite(expr dst.Expr) *dst.CompositeLit {
 
 // applyCobraLiteralFields reads each Key: value field of a cobra.Command
 // literal into the manifest command (Use, Short, Long, Aliases, …).
-func (g *Generator) applyCobraLiteralFields(composite *dst.CompositeLit, cmd *ManifestCommand) {
+func (g *Generator) applyCobraLiteralFields(composite *dst.CompositeLit, constructor string, cmd *ManifestCommand) {
 	for _, elt := range composite.Elts {
 		kve, ok := elt.(*dst.KeyValueExpr)
 		if !ok {
@@ -225,11 +225,11 @@ func (g *Generator) applyCobraLiteralFields(composite *dst.CompositeLit, cmd *Ma
 			val = unquoteLiteral(lit.Value)
 		}
 
-		g.processCobraKey(key.Name, val, kve.Value, cmd)
+		g.processCobraKey(key.Name, val, kve.Value, constructor, cmd)
 	}
 }
 
-func (g *Generator) processCobraKey(keyName, val string, valueExpr dst.Expr, cmd *ManifestCommand) {
+func (g *Generator) processCobraKey(keyName, val string, valueExpr dst.Expr, constructor string, cmd *ManifestCommand) {
 	switch keyName {
 	case "Use":
 		cmd.Name = strings.Fields(val)[0]
@@ -239,13 +239,13 @@ func (g *Generator) processCobraKey(keyName, val string, valueExpr dst.Expr, cmd
 		cmd.LongDescription = MultilineString(val)
 	case "PersistentPreRun", "PersistentPreRunE":
 		if fn, ok := valueExpr.(*dst.FuncLit); ok {
-			cmd.PersistentPreRun = g.containsCall(fn.Body, "PersistentPreRun")
+			cmd.PersistentPreRun = callsHook(fn.Body, "PersistentPreRun", constructor)
 		} else {
 			cmd.PersistentPreRun = true
 		}
 	case "PreRun", "PreRunE":
 		if fn, ok := valueExpr.(*dst.FuncLit); ok {
-			cmd.PreRun = g.containsCall(fn.Body, "PreRun")
+			cmd.PreRun = callsHook(fn.Body, "PreRun", constructor)
 		} else {
 			cmd.PreRun = true
 		}
@@ -371,73 +371,28 @@ var timeSuffixes = map[string]string{
 	"Hour":        "h",
 }
 
-func (g *Generator) containsCall(body *dst.BlockStmt, prefix string) bool {
-	if body == nil {
+// callsHook reports whether body calls the command's own hook, in whatever
+// statement or wrapper: each generation of cmd.go has called its hooks a
+// different way, and a manifest is rebuilt from all of them. Only that exact
+// name counts: an author may call other helpers here.
+func callsHook(body *dst.BlockStmt, hook, constructor string) bool {
+	name, isCommand := strings.CutPrefix(constructor, "NewCmd")
+	if !isCommand || body == nil {
 		return false
 	}
 
-	for _, stmt := range body.List {
-		exprStmt, ok := stmt.(*dst.ExprStmt)
-		if !ok {
-			continue
+	found := false
+
+	dst.Inspect(body, func(n dst.Node) bool {
+		if call, ok := n.(*dst.CallExpr); ok {
+			id, ok := call.Fun.(*dst.Ident)
+			found = found || ok && id.Name == hook+name
 		}
 
-		call, ok := exprStmt.X.(*dst.CallExpr)
-		if !ok {
-			continue
-		}
+		return !found
+	})
 
-		target := g.extractCallTarget(call)
-
-		if id, ok := target.(*dst.Ident); ok {
-			if strings.HasPrefix(id.Name, prefix) && id.Name != "PreRun" && id.Name != "PersistentPreRun" {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// extractCallTarget finds the function a statement really calls, seeing through
-// an ErrorHandler.Fatal wrapper around it.
-//
-// It scans EVERY argument rather than the first, because the position moved.
-// Before errorhandling v0.2.0 the wrapper read
-//
-//	eh.Fatal(PreRunSetup(p), "msg")
-//
-// and since v0.2.0 Fatal takes a context first:
-//
-//	eh.Fatal(cmd.Context(), PreRunSetup(p))
-//
-// This scanner reads projects of both vintages — regenerate runs against
-// whatever a user already has on disk — so it cannot assume either. Taking
-// Args[0] unconditionally would pick `cmd.Context` out of the newer form and
-// silently drop the pre-run hook: no compile error, no failing test, just a
-// manifest missing an entry. See spec 0002 D9 in the errorhandling wiki.
-//
-// Only a plain identifier call qualifies, which is what separates the two: a
-// pre-run hook is `PreRunSetup(p)`, while the context is the method call
-// `cmd.Context()`. Anything else falls back to the call's own target.
-func (g *Generator) extractCallTarget(call *dst.CallExpr) dst.Expr {
-	sel, ok := call.Fun.(*dst.SelectorExpr)
-	if !ok || sel.Sel.Name != "Fatal" {
-		return call.Fun
-	}
-
-	for _, arg := range call.Args {
-		subCall, ok := arg.(*dst.CallExpr)
-		if !ok {
-			continue
-		}
-
-		if _, isIdent := subCall.Fun.(*dst.Ident); isIdent {
-			return subCall.Fun
-		}
-	}
-
-	return call.Fun
+	return found
 }
 
 func (g *Generator) detectAssets(path string, f *dst.File, cmd *ManifestCommand) {
@@ -706,26 +661,27 @@ func (g *Generator) processCommandBody(targetFunc *dst.FuncDecl, cmd *ManifestCo
 	var subcommandFuncs []string
 
 	varToConstructor := make(map[string]string)
+	constructor := targetFunc.Name.Name
 
 	for _, stmt := range targetFunc.Body.List {
 		var exprs []dst.Expr
 
 		switch s := stmt.(type) {
 		case *dst.AssignStmt:
-			exprs = g.processAssignStmt(s, cmd, imports, currentPkgPath, varToConstructor)
+			exprs = g.processAssignStmt(s, constructor, cmd, imports, currentPkgPath, varToConstructor)
 		case *dst.ExprStmt:
 			exprs = append(exprs, s.X)
 		case *dst.DeclStmt:
-			exprs = g.processDeclStmt(s, cmd)
+			exprs = g.processDeclStmt(s, constructor, cmd)
 		case *dst.ReturnStmt:
 			for _, res := range s.Results {
-				g.extractFromCobraLiteral(res, cmd)
+				g.extractFromCobraLiteral(res, constructor, cmd)
 				exprs = append(exprs, res)
 			}
 		}
 
 		for _, expr := range exprs {
-			g.classifyBodyExpr(expr, targetFunc.Name.Name, cmd, constants, path, imports, currentPkgPath, varToConstructor, &subcommandFuncs)
+			g.classifyBodyExpr(expr, constructor, cmd, constants, path, imports, currentPkgPath, varToConstructor, &subcommandFuncs)
 		}
 	}
 
@@ -761,11 +717,11 @@ func (g *Generator) classifyBodyExpr(expr dst.Expr, constructor string, cmd *Man
 	g.extractSubcommandOrMeta(call, cmd, imports, currentPkgPath, varToConstructor, subcommandFuncs)
 }
 
-func (g *Generator) processAssignStmt(s *dst.AssignStmt, cmd *ManifestCommand, imports map[string]string, currentPkgPath string, varToConstructor map[string]string) []dst.Expr {
+func (g *Generator) processAssignStmt(s *dst.AssignStmt, constructor string, cmd *ManifestCommand, imports map[string]string, currentPkgPath string, varToConstructor map[string]string) []dst.Expr {
 	var exprs = make([]dst.Expr, 0, len(s.Rhs))
 
 	for _, rhs := range s.Rhs {
-		g.extractFromCobraLiteral(rhs, cmd)
+		g.extractFromCobraLiteral(rhs, constructor, cmd)
 		exprs = append(exprs, rhs)
 
 		if call, ok := rhs.(*dst.CallExpr); ok {
@@ -785,14 +741,14 @@ func (g *Generator) processAssignStmt(s *dst.AssignStmt, cmd *ManifestCommand, i
 	return exprs
 }
 
-func (g *Generator) processDeclStmt(s *dst.DeclStmt, cmd *ManifestCommand) []dst.Expr {
+func (g *Generator) processDeclStmt(s *dst.DeclStmt, constructor string, cmd *ManifestCommand) []dst.Expr {
 	var exprs []dst.Expr
 
 	if gd, ok := s.Decl.(*dst.GenDecl); ok && gd.Tok == token.VAR {
 		for _, spec := range gd.Specs {
 			if vs, ok := spec.(*dst.ValueSpec); ok {
 				for _, val := range vs.Values {
-					g.extractFromCobraLiteral(val, cmd)
+					g.extractFromCobraLiteral(val, constructor, cmd)
 					exprs = append(exprs, val)
 				}
 			}

@@ -166,65 +166,126 @@ func TestResolveStringValue(t *testing.T) {
 	}
 }
 
-// --- containsCall / extractCallTarget ---------------------------------------
+// --- callsHook -------------------------------------------------------------
 
-func TestContainsCall(t *testing.T) {
+func TestCallsHook(t *testing.T) {
 	t.Parallel()
-
-	g := &Generator{}
 
 	tests := []struct {
 		name    string
 		bodySrc string
-		prefix  string
+		hook    string
 		want    bool
 	}{
 		{
 			name:    "direct PersistentPreRun bare-ident call",
-			bodySrc: "{ PersistentPreRunHook() }",
-			prefix:  "PersistentPreRun",
+			bodySrc: "{ PersistentPreRunSetup() }",
+			hook:    "PersistentPreRun",
 			want:    true,
 		},
 		{
 			name:    "wrapped in ErrorHandler.Fatal",
 			bodySrc: `{ eh.Fatal(PreRunSetup(p), "boom") }`,
-			prefix:  "PreRun",
+			hook:    "PreRun",
 			want:    true,
+		},
+		{
+			name:    "wrapped in ErrorHandler.Fatal after a context",
+			bodySrc: "{ eh.Fatal(cmd.Context(), PreRunSetup(p)) }",
+			hook:    "PreRun",
+			want:    true,
+		},
+		{
+			name:    "returned",
+			bodySrc: "{ return PreRunSetup(p) }",
+			hook:    "PreRun",
+			want:    true,
+		},
+		{
+			name:    "assigned and checked",
+			bodySrc: "{ if err := PreRunSetup(p); err != nil { return err }; return nil }",
+			hook:    "PreRun",
+			want:    true,
+		},
+		{
+			name:    "named without being called",
+			bodySrc: "{ use(PreRunSetup) }",
+			hook:    "PreRun",
+			want:    false,
+		},
+		{
+			name:    "the other hook",
+			bodySrc: "{ return PersistentPreRunSetup(p) }",
+			hook:    "PreRun",
+			want:    false,
 		},
 		{
 			name:    "bare PreRun ident is excluded",
 			bodySrc: "{ PreRun() }",
-			prefix:  "PreRun",
+			hook:    "PreRun",
 			want:    false,
 		},
 		{
 			name:    "bare PersistentPreRun ident is excluded",
 			bodySrc: "{ PersistentPreRun() }",
-			prefix:  "PersistentPreRun",
+			hook:    "PersistentPreRun",
 			want:    false,
+		},
+		{
+			name:    "a helper named like a hook",
+			bodySrc: "{ return PreRunChecks(cmd.Context()) }",
+			hook:    "PreRun",
+		},
+		{
+			name:    "a helper whose name the hook's begins",
+			bodySrc: "{ return PreRunSetupChecks(p) }",
+			hook:    "PreRun",
+		},
+		{
+			name:    "a helper before the hook",
+			bodySrc: "{ if err := PreRunChecks(p); err != nil { return err }; return PreRunSetup(p) }",
+			hook:    "PreRun",
+			want:    true,
+		},
+		{
+			name:    "a helper after the hook",
+			bodySrc: "{ if err := PreRunSetup(p); err != nil { return err }; return PreRunChecks(p) }",
+			hook:    "PreRun",
+			want:    true,
+		},
+		{
+			name:    "beside another call",
+			bodySrc: "{ eh.Fatal(PreRunSetup(p), describe(p)) }",
+			hook:    "PreRun",
+			want:    true,
+		},
+		{
+			name:    "another package's",
+			bodySrc: "{ return checks.PreRunSetup(p) }",
+			hook:    "PreRun",
 		},
 		{
 			name:    "no matching call",
 			bodySrc: "{ somethingElse() }",
-			prefix:  "PreRun",
+			hook:    "PreRun",
 			want:    false,
 		},
 		{
 			name:    "non-expr statement ignored",
 			bodySrc: "{ x := 1; _ = x }",
-			prefix:  "PreRun",
+			hook:    "PreRun",
 			want:    false,
 		},
 		{
 			name:    "non-call expr statement ignored",
 			bodySrc: "{ <-ch }",
-			prefix:  "PreRun",
+			hook:    "PreRun",
 			want:    false,
 		},
 		{
 			name:    "selector-target call (not ident) ignored",
 			bodySrc: "{ a.b() }",
-			prefix:  "PreRun",
+			hook:    "PreRun",
 			want:    false,
 		},
 	}
@@ -234,82 +295,18 @@ func TestContainsCall(t *testing.T) {
 			t.Parallel()
 
 			fn := parseFunc(t, "package p\nfunc f() "+tt.bodySrc+"\n", "f")
-			assert.Equal(t, tt.want, g.containsCall(fn.Body, tt.prefix))
+			assert.Equal(t, tt.want, callsHook(fn.Body, tt.hook, "NewCmdSetup"))
 		})
 	}
 }
 
-func TestContainsCall_NilBody(t *testing.T) {
+func TestCallsHook_NotACommand(t *testing.T) {
 	t.Parallel()
 
-	g := &Generator{}
-	assert.False(t, g.containsCall(nil, "PreRun"))
-}
+	assert.False(t, callsHook(nil, "PreRun", "NewCmdSetup"))
 
-func TestExtractCallTarget(t *testing.T) {
-	t.Parallel()
-
-	g := &Generator{}
-
-	t.Run("plain call returns Fun", func(t *testing.T) {
-		t.Parallel()
-
-		call := parseExpr(t, "doThing()").(*dst.CallExpr)
-		target := g.extractCallTarget(call)
-		id, ok := target.(*dst.Ident)
-		require.True(t, ok)
-		assert.Equal(t, "doThing", id.Name)
-	})
-
-	t.Run("Fatal wrapper unwraps first arg", func(t *testing.T) {
-		t.Parallel()
-
-		call := parseExpr(t, `eh.Fatal(InnerCall(), "msg")`).(*dst.CallExpr)
-		target := g.extractCallTarget(call)
-		id, ok := target.(*dst.Ident)
-		require.True(t, ok)
-		assert.Equal(t, "InnerCall", id.Name)
-	})
-
-	// errorhandling v0.2.0 put a context first. A scanner that reads Args[0]
-	// picks cmd.Context out of this and silently loses the hook — the defect
-	// this case exists to catch, since nothing else about it goes red.
-	t.Run("Fatal with a leading context still finds the hook", func(t *testing.T) {
-		t.Parallel()
-
-		call := parseExpr(t, `eh.Fatal(cmd.Context(), PreRunSetup(p))`).(*dst.CallExpr)
-		target := g.extractCallTarget(call)
-		id, ok := target.(*dst.Ident)
-		require.True(t, ok, "the pre-run hook must still be found past the context")
-		assert.Equal(t, "PreRunSetup", id.Name)
-	})
-
-	t.Run("Fatal carrying only a context finds no hook", func(t *testing.T) {
-		t.Parallel()
-
-		call := parseExpr(t, `eh.Fatal(cmd.Context(), err)`).(*dst.CallExpr)
-		target := g.extractCallTarget(call)
-		_, ok := target.(*dst.Ident)
-		assert.False(t, ok, "a method call is not a pre-run hook")
-	})
-
-	t.Run("Fatal with no args returns Fatal selector", func(t *testing.T) {
-		t.Parallel()
-
-		call := parseExpr(t, "eh.Fatal()").(*dst.CallExpr)
-		target := g.extractCallTarget(call)
-		_, ok := target.(*dst.SelectorExpr)
-		assert.True(t, ok)
-	})
-
-	t.Run("Fatal with non-call first arg returns Fatal selector", func(t *testing.T) {
-		t.Parallel()
-
-		call := parseExpr(t, "eh.Fatal(x)").(*dst.CallExpr)
-		target := g.extractCallTarget(call)
-		_, ok := target.(*dst.SelectorExpr)
-		assert.True(t, ok)
-	})
+	fn := parseFunc(t, "package p\nfunc f() { PreRunNewSetup() }\n", "f")
+	assert.False(t, callsHook(fn.Body, "PreRun", "NewSetup"))
 }
 
 // --- isCobraCommandConstructor / fallbackFindTargetFunction -----------------
@@ -436,7 +433,7 @@ func TestProcessDeclStmt(t *testing.T) {
 
 		declStmt := fn.Body.List[0].(*dst.DeclStmt)
 		cmd := &ManifestCommand{}
-		exprs := g.processDeclStmt(declStmt, cmd)
+		exprs := g.processDeclStmt(declStmt, "NewCmdSetup", cmd)
 
 		assert.Equal(t, "foo", cmd.Name)
 		assert.Len(t, exprs, 1)
@@ -448,7 +445,7 @@ func TestProcessDeclStmt(t *testing.T) {
 		fn := parseFunc(t, "package p\nfunc f() {\n\tconst x = 1\n\t_ = x\n}\n", "f")
 		declStmt := fn.Body.List[0].(*dst.DeclStmt)
 		cmd := &ManifestCommand{}
-		assert.Empty(t, g.processDeclStmt(declStmt, cmd))
+		assert.Empty(t, g.processDeclStmt(declStmt, "NewCmdSetup", cmd))
 	})
 }
 
@@ -501,7 +498,7 @@ func TestProcessCobraKey(t *testing.T) {
 
 		valExpr := parseExpr(t, "func(c *cobra.Command, a []string) error { PersistentPreRunSetup(); return nil }")
 		cmd := &ManifestCommand{}
-		g.processCobraKey("PersistentPreRunE", "", valExpr, cmd)
+		g.processCobraKey("PersistentPreRunE", "", valExpr, "NewCmdSetup", cmd)
 		assert.True(t, cmd.PersistentPreRun)
 	})
 
@@ -510,7 +507,7 @@ func TestProcessCobraKey(t *testing.T) {
 
 		valExpr := parseExpr(t, "someHandler")
 		cmd := &ManifestCommand{}
-		g.processCobraKey("PersistentPreRun", "", valExpr, cmd)
+		g.processCobraKey("PersistentPreRun", "", valExpr, "NewCmdSetup", cmd)
 		assert.True(t, cmd.PersistentPreRun)
 	})
 
@@ -519,7 +516,7 @@ func TestProcessCobraKey(t *testing.T) {
 
 		valExpr := parseExpr(t, "func(c *cobra.Command, a []string) error { PreRunSetup(); return nil }")
 		cmd := &ManifestCommand{}
-		g.processCobraKey("PreRunE", "", valExpr, cmd)
+		g.processCobraKey("PreRunE", "", valExpr, "NewCmdSetup", cmd)
 		assert.True(t, cmd.PreRun)
 	})
 
@@ -528,7 +525,7 @@ func TestProcessCobraKey(t *testing.T) {
 
 		valExpr := parseExpr(t, "handler")
 		cmd := &ManifestCommand{}
-		g.processCobraKey("PreRun", "", valExpr, cmd)
+		g.processCobraKey("PreRun", "", valExpr, "NewCmdSetup", cmd)
 		assert.True(t, cmd.PreRun)
 	})
 
@@ -537,7 +534,7 @@ func TestProcessCobraKey(t *testing.T) {
 
 		valExpr := parseExpr(t, `[]string{"a", "b"}`)
 		cmd := &ManifestCommand{}
-		g.processCobraKey("Aliases", "", valExpr, cmd)
+		g.processCobraKey("Aliases", "", valExpr, "NewCmdSetup", cmd)
 		assert.Equal(t, []string{"a", "b"}, cmd.Aliases)
 	})
 
@@ -546,7 +543,7 @@ func TestProcessCobraKey(t *testing.T) {
 
 		valExpr := parseExpr(t, "cobra.NoArgs")
 		cmd := &ManifestCommand{}
-		g.processCobraKey("Args", "", valExpr, cmd)
+		g.processCobraKey("Args", "", valExpr, "NewCmdSetup", cmd)
 		assert.Equal(t, "NoArgs", cmd.Args)
 	})
 
@@ -554,7 +551,7 @@ func TestProcessCobraKey(t *testing.T) {
 		t.Parallel()
 
 		cmd := &ManifestCommand{}
-		g.processCobraKey("Use", "deploy [target]", nil, cmd)
+		g.processCobraKey("Use", "deploy [target]", nil, "NewCmdSetup", cmd)
 		assert.Equal(t, "deploy", cmd.Name)
 	})
 
@@ -562,7 +559,7 @@ func TestProcessCobraKey(t *testing.T) {
 		t.Parallel()
 
 		cmd := &ManifestCommand{}
-		g.processCobraKey("Example", "whatever", nil, cmd)
+		g.processCobraKey("Example", "whatever", nil, "NewCmdSetup", cmd)
 		assert.Empty(t, cmd.Name)
 	})
 }
@@ -899,7 +896,7 @@ func NewCmdDeploy(p *props.Props) *cobra.Command {
 		Long:    "Deploy all the things",
 		Aliases: []string{"dep"},
 		Args:    cobra.NoArgs,
-		PreRunE: func(c *cobra.Command, a []string) error { PreRunValidate(); return nil },
+		PreRunE: func(c *cobra.Command, a []string) error { PreRunDeploy(); return nil },
 	}
 
 	cmd.Flags().StringP("region", "r", DefaultRegion, "target region")
@@ -1491,7 +1488,7 @@ func TestApplyCobraLiteralFields_SkipsMalformed(t *testing.T) {
 	}`).(*dst.CompositeLit)
 
 	cmd := &ManifestCommand{}
-	g.applyCobraLiteralFields(comp, cmd)
+	g.applyCobraLiteralFields(comp, "NewCmdSetup", cmd)
 	assert.Equal(t, MultilineString("the short"), cmd.Description)
 }
 

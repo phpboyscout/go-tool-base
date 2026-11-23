@@ -187,3 +187,55 @@ func TestResolveStringValue_InterpretsEscapes(t *testing.T) {
 		})
 	}
 }
+
+// A project rebuilt from source keeps both hooks, and only those it has (#234).
+func TestRegenerateManifest_ReadsThePreRunHooksBack(t *testing.T) {
+	t.Parallel()
+
+	for name, cfg := range map[string]Config{
+		"neither":    {},
+		"pre-run":    {PreRun: true},
+		"persistent": {PersistentPreRun: true},
+		"both":       {PreRun: true, PersistentPreRun: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p := flagsHookProject(t)
+			cfg.Name = "stamp"
+			generateFlagsHookCmd(t, p, cfg)
+			require.NoError(t, p.FS.Remove(ManifestPathFor(flagsHookPath)))
+			require.NoError(t, New(p, &Config{Path: flagsHookPath}).RegenerateManifest(context.Background()))
+
+			got := walkCommandPath(loadFlagsHookManifest(t, p).Commands, []string{"stamp"})
+			require.NotNil(t, got)
+			assert.Equal(t, cfg.PreRun, got.PreRun)
+			assert.Equal(t, cfg.PersistentPreRun, got.PersistentPreRun)
+		})
+	}
+}
+
+// A helper an author calls from a pre-run is not the command's own hook.
+func TestRegenerateManifest_LeavesAHelperNamedLikeAHook(t *testing.T) {
+	t.Parallel()
+
+	p := flagsHookProject(t)
+	generateFlagsHookCmd(t, p, Config{Name: "stamp"})
+
+	cmdFile := filepath.Join(flagsHookPath, "pkg", "cmd", "stamp", "cmd.go")
+	src, err := afero.ReadFile(p.FS, cmdFile)
+	require.NoError(t, err)
+
+	edited := strings.Replace(string(src), "PreRunE: func(cmd *cobra.Command, args []string) error {",
+		"PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return PersistentPreRunChecks(cmd) },\n"+
+			"PreRunE: func(cmd *cobra.Command, args []string) error {\nif err := PreRunChecks(cmd); err != nil { return err }\n", 1)
+	require.NotEqual(t, string(src), edited)
+	require.NoError(t, afero.WriteFile(p.FS, cmdFile, []byte(edited), 0o644))
+	require.NoError(t, p.FS.Remove(ManifestPathFor(flagsHookPath)))
+	require.NoError(t, New(p, &Config{Path: flagsHookPath}).RegenerateManifest(context.Background()))
+
+	got := walkCommandPath(loadFlagsHookManifest(t, p).Commands, []string{"stamp"})
+	require.NotNil(t, got)
+	assert.False(t, got.PreRun)
+	assert.False(t, got.PersistentPreRun)
+}
