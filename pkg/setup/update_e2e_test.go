@@ -37,7 +37,7 @@ func newE2EUpdater(t *testing.T, provider forge.Provider) (*SelfUpdater, string)
 	currentBin := "/usr/local/bin/" + e2eToolName
 	require.NoError(t, memFS.MkdirAll(filepath.Dir(currentBin), 0o755))
 	require.NoError(t, afero.WriteFile(memFS, currentBin, []byte("old-binary"), 0o755))
-	require.NoError(t, memFS.MkdirAll(GetDefaultConfigDir(memFS, e2eToolName), 0o755))
+	require.NoError(t, memFS.MkdirAll(ConfigDir(props.Tool{Name: e2eToolName}), 0o755))
 
 	s := &SelfUpdater{
 		Tool:           props.Tool{Name: e2eToolName},

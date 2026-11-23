@@ -42,6 +42,10 @@ func TestChecksRegistered(t *testing.T) {
 // fakeRequestor is a no-network telemetry.DeletionRequestor double.
 type fakeRequestor struct{ err error }
 
+func styledTool(style props.ConfigDir) props.Tool {
+	return props.Tool{Name: "tool", Config: props.ConfigSpec{Dir: style}}
+}
+
 func (f fakeRequestor) RequestDeletion(_ context.Context, _ string) error { return f.err }
 
 func cfgWith(t *testing.T, yaml string) *config.Store {
@@ -53,11 +57,11 @@ func cfgWith(t *testing.T, yaml string) *config.Store {
 // writableProps builds Props whose store routes writes to the tool's default
 // config path on a MemMapFs, so setTelemetryEnabled has a file layer to land
 // in — a missing file is a target the file backend creates.
-func writableProps(t *testing.T, log logger.Logger) (*props.Props, afero.Fs) {
+func writableProps(t *testing.T, style props.ConfigDir, log logger.Logger) (*props.Props, afero.Fs) {
 	t.Helper()
 
 	memfs := afero.NewMemMapFs()
-	dir := setup.GetDefaultConfigDir(memfs, "tool")
+	dir := setup.ConfigDir(styledTool(style))
 	require.NotEmpty(t, dir)
 
 	target := filepath.Join(dir, "config.yaml")
@@ -66,7 +70,7 @@ func writableProps(t *testing.T, log logger.Logger) (*props.Props, afero.Fs) {
 	require.NoError(t, err)
 
 	return &props.Props{
-		Tool:   props.Tool{Name: "tool"},
+		Tool:   styledTool(style),
 		Logger: log,
 		Config: store,
 		FS:     memfs,
@@ -165,7 +169,13 @@ func TestCheckTelemetryConnectivity(t *testing.T) {
 func TestSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T) {
 	t.Parallel()
 
-	p, memfs := writableProps(t, logger.NewNoop())
+	testutil.EachConfigDir(t, testSetTelemetryEnabled_CreatesConfigWhenMissing)
+}
+
+func testSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T, style props.ConfigDir) {
+	t.Parallel()
+
+	p, memfs := writableProps(t, style, logger.NewNoop())
 
 	// No config file exists yet — Apply routes to the declared file layer and
 	// the file backend creates it.
@@ -174,9 +184,14 @@ func TestSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T) {
 	require.NoError(t, setTelemetryEnabled(t.Context(), p, true, &out))
 	assert.Contains(t, out.String(), "Telemetry enabled")
 
-	dir := setup.GetDefaultConfigDir(memfs, "tool")
+	dir := setup.ConfigDir(styledTool(style))
 	exists, _ := afero.Exists(memfs, filepath.Join(dir, "config.yaml"))
 	assert.True(t, exists)
+
+	for _, dir := range []props.ConfigDir{props.ConfigDirHome, props.ConfigDirXDG} {
+		exists, _ = afero.Exists(memfs, setup.ConfigDir(styledTool(dir)))
+		assert.Equal(t, dir == style, exists, "only the tool's own directory is made")
+	}
 }
 
 func TestBuildDeletionRequestor(t *testing.T) {
@@ -220,7 +235,7 @@ func TestNewResetCmd(t *testing.T) {
 	t.Parallel()
 
 	makeResetProps := func(log logger.Logger, reqErr error, forceEnabled bool) *props.Props {
-		p, _ := writableProps(t, log)
+		p, _ := writableProps(t, props.ConfigDirXDG, log)
 		p.Tool.Telemetry = props.TelemetryConfig{
 			ForceEnabled:      forceEnabled,
 			DeletionRequestor: func(*props.Props) any { return fakeRequestor{err: reqErr} },

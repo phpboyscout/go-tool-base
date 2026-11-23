@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -22,21 +23,21 @@ func TestCheckedVersion_RoundTrip(t *testing.T) {
 	const name = "checked-version-tool"
 
 	// Nothing recorded yet.
-	assert.Empty(t, setup.GetCheckedVersion(fs, name))
+	assert.Empty(t, setup.GetCheckedVersion(fs, props.Tool{Name: name}))
 
 	// Recording a version stores it AND refreshes the check timestamp, so the
 	// interval throttle (SkipUpdateCheck) sees a recent check.
-	require.NoError(t, setup.SetCheckedVersion(fs, name, "v2.0.0"))
-	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(fs, name))
+	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool{Name: name}, "v2.0.0"))
+	assert.Equal(t, "v2.0.0", setup.GetCheckedVersion(fs, props.Tool{Name: name}))
 
 	cmd := &cobra.Command{Use: "run"}
-	assert.True(t, setup.SkipUpdateCheck(fs, name, cmd, 24*time.Hour),
+	assert.True(t, setup.SkipUpdateCheck(fs, props.Tool{Name: name}, cmd, 24*time.Hour),
 		"a just-recorded check is within the interval, so the next check is skipped")
 
 	// An empty version clears the body (tool up to date) but keeps stamping.
-	require.NoError(t, setup.SetCheckedVersion(fs, name, ""))
-	assert.Empty(t, setup.GetCheckedVersion(fs, name))
-	assert.True(t, setup.SkipUpdateCheck(fs, name, cmd, 24*time.Hour),
+	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool{Name: name}, ""))
+	assert.Empty(t, setup.GetCheckedVersion(fs, props.Tool{Name: name}))
+	assert.True(t, setup.SkipUpdateCheck(fs, props.Tool{Name: name}, cmd, 24*time.Hour),
 		"clearing the version still refreshes the check timestamp")
 }
 

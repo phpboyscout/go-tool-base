@@ -42,9 +42,12 @@ The declaration order lives in `buildConfigStore` in
 ### Where the default config files live
 
 `~/.<tool>/config.yaml` and `/etc/<tool>/config.yaml`. Note the leading dot on
-the per-user directory. It is **not** `~/.config/<tool>/`. The per-user directory
-is derived from the tool's name (`props.Tool.Name`, lower-cased) and is created
-with owner-only permissions because it routinely holds credentials.
+the per-user directory. It is `~/.config/<tool>/` only for a tool that declares
+`props.ConfigDirXDG` ([config directory](../../how-to/configure-the-config-stack.md#put-the-tools-directory-under-xdg_config_home)),
+where `$XDG_CONFIG_HOME` is honoured too. This page writes `~/.<tool>` for both, and so do the other pages of this site.
+The per-user directory is derived from the tool's name (`props.Tool.Name`,
+lower-cased) and is created with owner-only permissions because it routinely
+holds credentials.
 
 Confirm it for any given tool by running `<tool> --help` and reading the
 `--config` default, or `<tool> config path`.

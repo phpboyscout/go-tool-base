@@ -103,6 +103,33 @@ func TestNew_RefusesAReadOnlyOwnFormat(t *testing.T) {
 	require.ErrorIs(t, err, ErrConfigFormat)
 }
 
+func TestNew_RefusesAnUnknownConfigDir(t *testing.T) {
+	t.Parallel()
+
+	for _, dir := range []ConfigDir{"", ConfigDirHome, ConfigDirXDG} {
+		_, err := New(Tool{Name: "demo", Config: ConfigSpec{Dir: dir}}, logger.NewNoop(), afero.NewMemMapFs())
+		require.NoErrorf(t, err, "%q", dir)
+	}
+
+	_, err := New(Tool{Name: "demo", Config: ConfigSpec{Dir: "~/.demo"}}, logger.NewNoop(), afero.NewMemMapFs())
+	require.ErrorIs(t, err, ErrConfigDir)
+}
+
+func TestNew_RefusesANameThatEscapesTheXDGDirectory(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{".", "..", "../other", "a/b", `a\b`, "a.", "a ", "a\x00b"} {
+		_, err := New(Tool{Name: name, Config: ConfigSpec{Dir: ConfigDirXDG}}, logger.NewNoop(), afero.NewMemMapFs())
+		require.ErrorIsf(t, err, ErrConfigDir, "%q", name)
+	}
+
+	_, err := New(Tool{Name: "my.tool", Config: ConfigSpec{Dir: ConfigDirXDG}}, logger.NewNoop(), afero.NewMemMapFs())
+	require.NoError(t, err)
+
+	_, err = New(Tool{Name: "a/b"}, logger.NewNoop(), afero.NewMemMapFs())
+	require.NoError(t, err, "the rule is the xdg directory's")
+}
+
 func TestValidate_NilProps(t *testing.T) {
 	t.Parallel()
 

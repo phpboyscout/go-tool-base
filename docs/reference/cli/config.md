@@ -211,7 +211,8 @@ mytool config trust --forget   # revoke trust for the discovered/named file
 ```
 
 Trust binds to the file's exact content (a SHA-256 recorded in
-`~/.<tool>/trusted-projects.yaml`): editing a trusted file revokes trust until
+`~/.<tool>/trusted-projects.yaml`, or `trusted-projects.yaml` in the
+[XDG directory](../../how-to/configure-the-config-stack.md#put-the-tools-directory-under-xdg_config_home) of a tool that uses it): editing a trusted file revokes trust until
 you run `config trust` again. An untrusted project-local file is read-only, so
 `config set` in an untrusted repository writes to your own config rather than the
 committed file. CI runs untrusted by default.

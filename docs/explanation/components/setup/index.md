@@ -53,7 +53,7 @@ func main() {
     }
 
     // Get default configuration directory
-    configDir := setup.GetDefaultConfigDir(props.FS, "mytool")
+    configDir := setup.ConfigDir(props.Tool)
 
     // Initialize configuration (interactive setup)
     configFile, err := setup.Initialise(ctx, props, setup.InitOptions{Dir: configDir})
@@ -266,15 +266,26 @@ The Setup package provides a comprehensive middleware system for wrapping CLI co
 
 #### Directory Utilities
 ```go
-func GetDefaultConfigDir(fs afero.Fs, name string) string
+func ConfigDir(tool props.Tool) string
 ```
 
-Resolves and returns the standard configuration directory path:
+Returns the tool's user directory, in the style it declares in `props.Tool.Config.Dir`:
 
-- Linux/macOS: `~/.toolname/`
-- **Pure**: computes and returns the path only; it never creates the directory. Building the command tree (`--help`, completions, default flag values) resolves this path, so a hidden `MkdirAll` here would create `~/.toolname` as a side effect of merely running `--help`. Directory creation is deferred to the writers that actually persist a file under it (the init flow, the update-timestamp marker, and the config writers in `pkg/cmd/config`), each of which `MkdirAll`s its parent at write time.
-- Returns empty string if the home directory is unavailable (callers must treat this as "no config dir" and skip the read/write rather than joining a relative path).
-- The `fs` parameter is retained for API compatibility and is unused.
+| `Config.Dir` | Directory |
+|---|---|
+| empty, or `props.ConfigDirHome` | `~/.<tool>` |
+| `props.ConfigDirXDG` | `$XDG_CONFIG_HOME/<tool>`, or `~/.config/<tool>` when the variable is unset, empty or relative |
+
+- `<tool>` is the lower-cased tool name, and both styles are the same on every platform.
+- The config file, the update-check and pin state, the trusted projects, the applied key rotation record and every
+  `--dir` default follow it. `/etc/<tool>` does not.
+- It only computes the path. Whatever writes under it creates it, so `--help` never leaves a directory behind.
+- It is empty when the directory can't be resolved. Skip the read or write then, since joining a filename onto it
+  would name a file in the working directory.
+- A tool that changes style after release moves its users' files itself: the framework does not migrate
+  `~/.<tool>` or warn that one was left behind.
+- Trusted projects, a pin and an applied key rotation are neither kept nor read in a directory inside a git checkout.
+  With `props.ConfigDirXDG`, that includes a `~/.config` that is itself a git repository.
 
 #### SSH Key Management
 ```go
@@ -307,7 +318,7 @@ func NewCmdInit(p *props.Props) *setup.Command {
             clean, _ := cmd.Flags().GetBool("clean")
 
             if dir == "" {
-                dir = setup.GetDefaultConfigDir(p.FS, p.Tool.Name)
+                dir = setup.ConfigDir(p.Tool)
             }
 
             configFile, err := setup.Initialise(p, setup.InitOptions{
@@ -332,11 +343,11 @@ Integration with root command for periodic update checks:
 ```go
 // In cmd/root/root.go PreRunE
 func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props) error {
-    if setup.SkipUpdateCheck(props.Tool.Name, cmd) {
+    if setup.SkipUpdateCheck(props.FS, props.Tool, cmd, setup.DefaultCheckInterval) {
         return nil
     }
 
-    updater, err := setup.NewUpdater(props, "", false)
+    updater, err := setup.NewUpdater(ctx, props, "", false)
     if err != nil {
         return err
     }
@@ -352,7 +363,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
         // Prompt user for update...
     }
 
-    setup.SetTimeSinceLast(props.Tool.Name, setup.CheckedKey)
+    setup.SetTimeSinceLast(props.FS, props.Tool, setup.CheckedKey)
     return nil
 }
 ```
@@ -477,7 +488,7 @@ See the end-user guide at [How to configure credentials](../../../how-to/configu
 ## Best Practices
 
 ### Initialization
-- Always use `GetDefaultConfigDir()` for consistent configuration placement
+- Always use `ConfigDir()` for consistent configuration placement
 - Implement clean and merge modes for different installation scenarios
 - Provide skip options for automated/CI environments
 - Include proper error handling with user-friendly messages

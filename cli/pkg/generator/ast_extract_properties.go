@@ -322,8 +322,8 @@ func stringSliceLitValue(expr dst.Expr) []string {
 	return out
 }
 
-// extractConfigSpecLiteral recovers the layer set, own format, sources and
-// key case from a props.ConfigSpec literal. The formats are the imports of config.go, read
+// extractConfigSpecLiteral recovers the layer set, own format, user
+// directory, sources and key case from a props.ConfigSpec literal. The formats are the imports of config.go, read
 // separately.
 func extractConfigSpecLiteral(value dst.Expr, c *ManifestConfig) {
 	comp, ok := value.(*dst.CompositeLit)
@@ -355,12 +355,30 @@ func readConfigSpecField(name string, value dst.Expr, c *ManifestConfig) {
 	case "Sources":
 		c.Sources = sourcesFromLiteral(value)
 	case "KeyCase":
-		if sel, ok := value.(*dst.SelectorExpr); ok && sel.Sel.Name == "KeyCaseExact" {
+		if selects(value, "KeyCaseExact") {
 			c.KeyCase = "exact"
 		}
+	case "Dir":
+		c.Dir = configDirFromExpr(value)
 	case "FileOnly":
 		c.FileOnly = stringSliceLitValue(value)
 	}
+}
+
+func selects(value dst.Expr, name string) bool {
+	sel, ok := value.(*dst.SelectorExpr)
+
+	return ok && sel.Sel.Name == name
+}
+
+// configDirFromExpr reads props.ConfigDirXDG, or its hand-written literal, back
+// into the manifest's name. Home is the default and is not recorded.
+func configDirFromExpr(value dst.Expr) string {
+	if v, ok := stringLitValue(value); selects(value, "ConfigDirXDG") || ok && v == "xdg" {
+		return "xdg"
+	}
+
+	return ""
 }
 
 // layersFromLiteral reads []props.ConfigLayer{props.LayerDefaults, ...} back

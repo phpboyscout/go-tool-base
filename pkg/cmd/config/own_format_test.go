@@ -133,7 +133,7 @@ func TestCmdEdit_SeedsTheOwnFormat(t *testing.T) {
 	_, err := configjson.Codec{}.Decode("seed.json", []byte(seenSeed))
 	require.NoError(t, err, "the seed is valid JSON: %q", seenSeed)
 
-	want := filepath.Join(setup.GetDefaultConfigDir(fs, "tool"), "config.json")
+	want := filepath.Join(setup.ConfigDir(props.Tool{Name: "tool"}), "config.json")
 	data, err := afero.ReadFile(fs, want)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "warn")

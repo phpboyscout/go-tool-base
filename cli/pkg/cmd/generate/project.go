@@ -144,6 +144,8 @@ type SkeletonOptions struct {
 	ConfigFormat  string
 	// ConfigKeyCase is the config stack's key mode, folded or exact (spec 0209).
 	ConfigKeyCase string
+	// ConfigDir is the user directory's style, home or xdg (spec 0221).
+	ConfigDir string
 	// ConfigSources are the declared source slots as name=kind, and the two
 	// lists name the optional and the writable ones (spec 0204 D15).
 	ConfigSources         []string
@@ -275,6 +277,7 @@ otherwise supply the flags directly.`,
 	cmd.Flags().StringSliceVar(&opts.ConfigFormats, "config-formats", nil, "Config formats the tool reads beyond YAML: toml, json, hcl, ini, xml, dotenv, properties")
 	cmd.Flags().StringVar(&opts.ConfigFormat, "config-format", "", "The tool's own config file format: yaml (default), toml, json or hcl; must be linked")
 	cmd.Flags().StringVar(&opts.ConfigKeyCase, "config-key-case", "", "How config keys compare: folded (the default; Log.Level is log.level) or exact")
+	cmd.Flags().StringVar(&opts.ConfigDir, "config-dir", "", "Where the tool's user directory lives: home (the default, ~/.<tool>) or xdg ($XDG_CONFIG_HOME/<tool>)")
 	cmd.Flags().StringArrayVar(&opts.ConfigSources, "config-source", nil, "A config source slot as name=kind, e.g. team=consul; repeatable")
 	cmd.Flags().StringSliceVar(&opts.ConfigSourcesOptional, "config-source-optional", nil, "Config source slots the tool may run without")
 	cmd.Flags().StringSliceVar(&opts.ConfigSourcesWritable, "config-source-writable", nil, "Config source slots the tool may write to")
@@ -380,6 +383,10 @@ func (o *SkeletonOptions) validatePostureFields() error {
 	}
 
 	if err := generator.ValidateConfigFormats(o.ConfigFormats, o.ConfigFormat); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateConfigDir(o.ConfigDir); err != nil {
 		return err
 	}
 
@@ -1016,6 +1023,22 @@ func (o *SkeletonOptions) runWizard(ctx context.Context, p *props.Props) error {
 	return o.afterWizard()
 }
 
+// dropConfigDefaults empties the config answers that name the default, so the
+// manifest records only what differs from it.
+func (o *SkeletonOptions) dropConfigDefaults() {
+	if o.ConfigFormat == "yaml" {
+		o.ConfigFormat = ""
+	}
+
+	if o.ConfigDir == string(props.ConfigDirHome) {
+		o.ConfigDir = ""
+	}
+
+	if o.ConfigKeyCase == string(props.KeyCaseFolded) {
+		o.ConfigKeyCase = ""
+	}
+}
+
 // afterWizard makes the form's final state the only state that counts. A
 // group hidden by WithHideFunc keeps whatever the user typed in it before
 // navigating back and changing the answer that hides it, so those values are
@@ -1027,13 +1050,7 @@ func (o *SkeletonOptions) afterWizard() error {
 	o.applyChatToolBridge()
 	o.applyGeneratorAI()
 
-	if o.ConfigFormat == "yaml" {
-		o.ConfigFormat = ""
-	}
-
-	if o.ConfigKeyCase == string(props.KeyCaseFolded) {
-		o.ConfigKeyCase = ""
-	}
+	o.dropConfigDefaults()
 
 	o.NoForge = !o.hosted
 
@@ -2059,6 +2076,7 @@ func (o *SkeletonOptions) skeletonConfig(templates []generator.TemplateSource) g
 		ConfigFormats:         o.ConfigFormats,
 		ConfigFormat:          o.ConfigFormat,
 		ConfigKeyCase:         o.ConfigKeyCase,
+		ConfigDir:             o.ConfigDir,
 		ConfigSources:         o.mustConfigSources(),
 		UpdatePolicy:          o.UpdatePolicy,
 		MCPMode:               o.MCPMode,

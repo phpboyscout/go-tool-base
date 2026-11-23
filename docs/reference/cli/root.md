@@ -59,7 +59,7 @@ them. The exact defaults for a given tool are printed by `<tool> --help`.
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--config` | string array | `/etc/<tool>/config.yaml`, `~/.<tool>/config.yaml` | Config files to use, lowest precedence first. |
+| `--config` | string array | `/etc/<tool>/config.yaml`, `~/.<tool>/config.yaml` (or the [XDG directory](../config/index.md#where-the-default-config-files-live)) | Config files to use, lowest precedence first. |
 | `--debug` | bool | `false` | Force debug-level logging. |
 | `--ci` | bool | `false` | Treat the run as a CI invocation. |
 | `--output` | string | `text` | Output format for commands that render structured results. |

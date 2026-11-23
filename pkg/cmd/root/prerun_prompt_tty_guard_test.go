@@ -120,7 +120,7 @@ func TestCheckForUpdates_CIEnvSuppressesBehindReminder(t *testing.T) {
 
 	// Pre-seed a newer cached latest version so warnIfBehindCached WOULD warn
 	// absent the CI suppression.
-	require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool.Name, "v2.0.0"))
+	require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool, "v2.0.0"))
 
 	checkForUpdates(context.Background(), mkUpdateCmd(t), props, newRootState())
 

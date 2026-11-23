@@ -47,7 +47,7 @@ func Pin(ctx context.Context, props *p.Props, target string, force bool, out io.
 	}
 
 	current := runningVersion(props)
-	if err := setup.SetPinnedVersion(props.FS, props.Tool.Name, current); err != nil {
+	if err := setup.SetPinnedVersion(props.FS, props.Tool, current); err != nil {
 		return nil, err
 	}
 
@@ -59,11 +59,11 @@ func Pin(ctx context.Context, props *p.Props, target string, force bool, out io.
 
 // Unpin clears the pin so updates resume.
 func Unpin(props *p.Props) (*UpdateResult, error) {
-	if err := setup.SetPinnedVersion(props.FS, props.Tool.Name, ""); err != nil {
+	if err := setup.SetPinnedVersion(props.FS, props.Tool, ""); err != nil {
 		return nil, err
 	}
 
-	if setup.CanPin(props.FS, props.Tool.Name) != nil {
+	if setup.CanPin(props.FS, props.Tool) != nil {
 		props.Logger.Info("no pin is kept in a config directory inside a git checkout; nothing to clear, and a pin file left there is ignored")
 	} else {
 		props.Logger.Info("unpinned; updates resume")
@@ -155,7 +155,7 @@ func refuseBeforeInstalling(props *p.Props, req request) error {
 	}
 
 	if req.pin || req.rollback {
-		return setup.CanPin(props.FS, props.Tool.Name)
+		return setup.CanPin(props.FS, props.Tool)
 	}
 
 	return nil
@@ -282,7 +282,7 @@ func movePin(props *p.Props, req request, pin, installed string) string {
 		return pin
 	}
 
-	if err := setup.SetPinnedVersion(props.FS, props.Tool.Name, installed); err != nil {
+	if err := setup.SetPinnedVersion(props.FS, props.Tool, installed); err != nil {
 		props.Logger.Warn(fmt.Sprintf("installed %s but could not pin it: %v", installed, err))
 
 		return pin
@@ -298,7 +298,7 @@ func movePin(props *p.Props, req request, pin, installed string) string {
 }
 
 func currentPin(props *p.Props) string {
-	pin, err := setup.GetPinnedVersion(props.FS, props.Tool.Name)
+	pin, err := setup.GetPinnedVersion(props.FS, props.Tool)
 	if err != nil {
 		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", err))
 	}

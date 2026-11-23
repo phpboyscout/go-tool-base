@@ -187,7 +187,7 @@ func segmentKey(m map[string]any, part string, caseSensitive bool) string {
 func loadWritableSettings(props *p.Props) (string, map[string]any, error) {
 	fs := writableFS(props)
 
-	path := resolveWritableConfigPath(props, fs)
+	path := resolveWritableConfigPath(props)
 	if path == "" {
 		return "", nil, errors.New("could not resolve a writable config path")
 	}

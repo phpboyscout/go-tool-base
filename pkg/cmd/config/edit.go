@@ -104,7 +104,7 @@ flags are not file-backed. For scripted, non-interactive changes use
 func runEdit(cmd *cobra.Command, props *p.Props, ec *editConfig, editorFlag string) error {
 	fs := writableFS(props)
 
-	path := resolveWritableConfigPath(props, fs)
+	path := resolveWritableConfigPath(props)
 	if path == "" {
 		return errors.New("could not resolve a writable config path")
 	}
@@ -278,8 +278,7 @@ func writeConfigAtomic(fs afero.Fs, path string, data []byte) error {
 		fs = afero.NewOsFs()
 	}
 
-	// Create the parent dir lazily at first write — setup.GetDefaultConfigDir
-	// is pure and no longer creates ~/.toolname as a side effect.
+	// setup.ConfigDir does not create the directory.
 	const configDirPerm = 0o700
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := fs.MkdirAll(dir, configDirPerm); err != nil {

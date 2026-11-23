@@ -58,6 +58,9 @@ under `HOME` when that names an existing directory, and under the home directory
 account otherwise. A relative path never counts. With neither there is no per-user file: the tool
 reads only the `/etc` one, and `config set` targets it, with a hint if that fails.
 
+Everywhere on this page, `~/.<tool>` is `$XDG_CONFIG_HOME/<tool>` for a tool that
+[keeps its directory there](../../../how-to/configure-the-config-stack.md#put-the-tools-directory-under-xdg_config_home).
+
 That is the default. A tool can declare its own stack in
 `props.Tool.Config.Layers`, lowest precedence first, by the names `defaults`,
 `files`, `project`, `env` and `flags`, and the store appends the layers in

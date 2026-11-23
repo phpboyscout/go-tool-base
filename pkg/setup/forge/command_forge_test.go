@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -22,6 +23,12 @@ import (
 // without anyone editing a builder.
 
 func TestNewCmdInitForge_DerivesItsSurfaceFromTheProfile(t *testing.T) {
+	t.Parallel()
+
+	testutil.EachConfigDir(t, testNewCmdInitForge_DerivesItsSurfaceFromTheProfile)
+}
+
+func testNewCmdInitForge_DerivesItsSurfaceFromTheProfile(t *testing.T, style props.ConfigDir) {
 	t.Parallel()
 
 	tests := []struct {
@@ -67,10 +74,11 @@ func TestNewCmdInitForge_DerivesItsSurfaceFromTheProfile(t *testing.T) {
 			p := &props.Props{
 				FS:     afero.NewMemMapFs(),
 				Logger: logger.NewNoop(),
-				Tool:   props.Tool{Name: "testtool"},
+				Tool:   props.Tool{Name: "testtool", Config: props.ConfigSpec{Dir: style}},
 			}
 
 			cmd := NewCmdInitForge(p, tt.profile)
+			assert.Equal(t, setup.ConfigDir(p.Tool), cmd.Flag("dir").DefValue)
 			require.NotNil(t, cmd)
 
 			assert.Equal(t, tt.wantUse, cmd.Use)

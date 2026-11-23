@@ -214,5 +214,13 @@ func (p *Props) Validate() error {
 		return err
 	}
 
+	if err := ValidateConfigDir(p.Tool.Config.Dir); err != nil {
+		return err
+	}
+
+	if err := validateConfigDirName(p.Tool); err != nil {
+		return err
+	}
+
 	return p.Tool.MCP.validate()
 }

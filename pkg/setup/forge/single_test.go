@@ -510,15 +510,22 @@ func TestRunGitHubInit_AuthShortCircuitThenSSHError(t *testing.T) {
 func TestNewCmdInitGitHub(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testNewCmdInitGitHub)
+}
+
+func testNewCmdInitGitHub(t *testing.T, style props.ConfigDir) {
+	t.Parallel()
+
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
 		Logger: logger.NewNoop(),
-		Tool:   props.Tool{Name: "testtool"},
+		Tool:   props.Tool{Name: "testtool", Config: props.ConfigSpec{Dir: style}},
 	}
 	cmd := NewCmdInitGitHub(p)
 	require.NotNil(t, cmd)
 	assert.Equal(t, "github", cmd.Use)
 	require.NotNil(t, cmd.Flags().Lookup("dir"))
+	assert.Equal(t, setup.ConfigDir(p.Tool), cmd.Flag("dir").DefValue)
 }
 
 func TestNewCmdInitGitHub_RunE_Error(t *testing.T) {
@@ -592,8 +599,7 @@ func TestSetupRegistration(t *testing.T) {
 func TestDefaultConfigDirUsedForFlag(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	dir := setup.GetDefaultConfigDir(fs, "testtool")
+	dir := setup.ConfigDir(props.Tool{Name: "testtool"})
 	assert.NotEmpty(t, dir)
 	assert.Contains(t, dir, "testtool")
 }

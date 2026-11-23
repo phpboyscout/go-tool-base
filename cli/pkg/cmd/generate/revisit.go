@@ -49,6 +49,7 @@ func optionsFromManifest(m generator.Manifest) *SkeletonOptions {
 		ConfigFormats:         cfg.ConfigFormats,
 		ConfigFormat:          cfg.ConfigFormat,
 		ConfigKeyCase:         cfg.ConfigKeyCase,
+		ConfigDir:             cfg.ConfigDir,
 		CIComponentSource:     cfg.CIComponentSource,
 		ChatProviders:         cfg.Chat.Providers,
 		ChatDefault:           cfg.Chat.Default,

@@ -24,6 +24,7 @@ import (
 	"gitlab.com/phpboyscout/go/forge"
 	mockRelease "gitlab.com/phpboyscout/go/forge/mocks"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -55,6 +56,12 @@ func createTarGz(t *testing.T, filename, content string) []byte {
 }
 
 func TestUpdate_Success(t *testing.T) {
+	t.Parallel()
+
+	testutil.EachConfigDir(t, testUpdate_Success)
+}
+
+func testUpdate_Success(t *testing.T, style props.ConfigDir) {
 	t.Parallel()
 
 	memFS := afero.NewMemMapFs()
@@ -113,7 +120,8 @@ func TestUpdate_Success(t *testing.T) {
 	// Setup Updater
 	props := &props.Props{
 		Tool: props.Tool{
-			Name: toolName,
+			Name:   toolName,
+			Config: props.ConfigSpec{Dir: style},
 			ReleaseSource: props.ReleaseSource{
 				Type:  "github",
 				Owner: "org",
@@ -138,22 +146,7 @@ func TestUpdate_Success(t *testing.T) {
 		execLookPath:   func(_ string) (string, error) { return currentBin, nil },
 	}
 
-	// Mock config directory for timestamps
-	// SetTimeSinceLast uses GetDefaultConfigDir which uses os.UserHomeDir (real OS).
-	// We need to ensure the path returned by GetDefaultConfigDir exists in MEMFS for Create to work?
-	// afero.Fs.Create creates file. Note: parent dir must exist?
-	// afero.MemMapFs creates directories recursively on file creation?
-	// Actually MapFs implicitly handles directories, but MemMapFs structs?
-	// "If you are using MemMapFs, simple Create is fine."
-	// Wait, setup/update.go:
-	// SetTimeSinceLast checks os.Stat. Wait, it uses fs.Stat now (Step 551).
-	// GetDefaultConfigDir(name)
-	// fs.Stat(lastSinceFile)
-	// fs.Create(lastSinceFile)
-
-	// We should probably create the config dir in memFS to be safe, or check if MemMapFs enforces mkdir.
-	// MemMapFs is hierarchical, so mkdir is usually needed.
-	configDir := GetDefaultConfigDir(memFS, toolName)
+	configDir := ConfigDir(props.Tool)
 	err = memFS.MkdirAll(configDir, 0755)
 	require.NoError(t, err)
 
@@ -177,13 +170,14 @@ func TestUpdate_Success(t *testing.T) {
 
 	// Verify timestamps set
 	// CheckedKey
-	keyPath := filepath.Join(configDir, "last_checked")
-	exists, err := afero.Exists(memFS, keyPath)
-	require.NoError(t, err)
-	assert.True(t, exists)
+	for _, marker := range []string{"last_checked", "last_updated"} {
+		exists, err := afero.Exists(memFS, filepath.Join(configDir, marker))
+		require.NoError(t, err)
+		assert.True(t, exists, marker)
+	}
 
 	// Verify GetTimeSinceLast reads from memFS
-	duration := GetTimeSinceLast(memFS, toolName, CheckedKey)
+	duration := GetTimeSinceLast(memFS, props.Tool, CheckedKey)
 	assert.Less(t, duration, time.Minute)
 }
 
@@ -191,30 +185,30 @@ func TestSkipUpdateCheck(t *testing.T) {
 	t.Parallel()
 
 	memFS := afero.NewMemMapFs()
-	toolName := "test-tool"
+	tool := props.Tool{Name: "test-tool"}
 
 	cmd := &cobra.Command{Use: "run"}
 
 	const interval = 24 * time.Hour
 
 	// Case 1: Fresh, no last-checked timestamp -> never skip (first run is due).
-	shouldSkip := SkipUpdateCheck(memFS, toolName, cmd, interval)
+	shouldSkip := SkipUpdateCheck(memFS, tool, cmd, interval)
 	assert.False(t, shouldSkip, "Should not skip if never checked")
 
 	// Case 2: Recently checked -> within the interval, so skip.
-	err := SetTimeSinceLast(memFS, toolName, CheckedKey)
+	err := SetTimeSinceLast(memFS, tool, CheckedKey)
 	require.NoError(t, err)
 
-	shouldSkip = SkipUpdateCheck(memFS, toolName, cmd, interval)
+	shouldSkip = SkipUpdateCheck(memFS, tool, cmd, interval)
 	assert.True(t, shouldSkip, "Should skip if recently checked")
 
 	// Case 2b: interval 0 -> check on every invocation (never skip).
-	shouldSkip = SkipUpdateCheck(memFS, toolName, cmd, 0)
+	shouldSkip = SkipUpdateCheck(memFS, tool, cmd, 0)
 	assert.False(t, shouldSkip, "interval 0 means check every invocation")
 
 	// Case 3: Skippable command -> always skip.
 	cmdSkip := &cobra.Command{Use: "version"}
-	shouldSkip = SkipUpdateCheck(memFS, toolName, cmdSkip, interval)
+	shouldSkip = SkipUpdateCheck(memFS, tool, cmdSkip, interval)
 	assert.True(t, shouldSkip, "Should skip for skippable command")
 }
 

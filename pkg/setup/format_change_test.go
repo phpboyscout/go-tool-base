@@ -76,7 +76,7 @@ func TestDefaultConfigPaths(t *testing.T) {
 	paths := setup.DefaultConfigPaths(p)
 	require.Len(t, paths, 2)
 	assert.Equal(t, filepath.Join(string(filepath.Separator), "etc", "mytool", "config.toml"), paths[0])
-	assert.Equal(t, filepath.Join(setup.GetDefaultConfigDir(p.FS, "mytool"), "config.toml"), paths[1])
+	assert.Equal(t, filepath.Join(setup.ConfigDir(props.Tool{Name: "mytool"}), "config.toml"), paths[1])
 }
 
 // A path relative to the working directory is one anyone can write to.

@@ -14,9 +14,11 @@ import (
 	configafero "gitlab.com/phpboyscout/go/config-afero"
 	configtoml "gitlab.com/phpboyscout/go/config-toml"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // TestCmdSet_EmbeddedMergeContainerPersists proves config set works in the
@@ -25,6 +27,12 @@ import (
 // that does not exist yet. Apply must route the write to that file layer and
 // create the file.
 func TestCmdSet_EmbeddedMergeContainerPersists(t *testing.T) {
+	t.Parallel()
+
+	testutil.EachConfigDir(t, testCmdSet_EmbeddedMergeContainerPersists)
+}
+
+func testCmdSet_EmbeddedMergeContainerPersists(t *testing.T, style props.ConfigDir) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
@@ -36,7 +44,7 @@ func TestCmdSet_EmbeddedMergeContainerPersists(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "settool"}}
+	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "settool", Config: props.ConfigSpec{Dir: style}}}
 	cmd := config.NewCmdSet(p)
 	cmd.SetArgs([]string{"new.key", "hello"})
 
@@ -50,6 +58,10 @@ func TestCmdSet_EmbeddedMergeContainerPersists(t *testing.T) {
 	// The live store already reflects the write — no reload needed.
 	assert.Equal(t, "hello", p.Config.View().GetString("new.key"))
 	assert.Equal(t, "value", p.Config.View().GetString("existing.key"))
+
+	exists, err := afero.DirExists(fs, setup.ConfigDir(p.Tool))
+	require.NoError(t, err)
+	assert.True(t, exists, "the tool's own directory is made ready for the write")
 }
 
 func TestCmdSet_WritesValue(t *testing.T) {

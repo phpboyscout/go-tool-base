@@ -42,6 +42,16 @@ func TestCommandInitializer_ConfigureMatchesInterface(t *testing.T) {
 		"the context must reach the user's Init stub, not be discarded")
 }
 
+// Spec 0221 D2: the initialiser's --dir default follows the tool's directory.
+func TestCommandInitializer_DefaultsToTheToolsConfigDir(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	require.NoError(t, CommandInitializer(CommandData{Package: "foo", Name: "foo", PascalName: "Foo"}).Render(&buf))
+
+	assert.Contains(t, buf.String(), "setup.ConfigDir(p.Tool)")
+}
+
 // TestCommandInitializer_InitStubTakesContext pins the user-editable Init<Name>
 // stub to the same shape, so the generated call site and the stub agree.
 //

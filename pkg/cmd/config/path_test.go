@@ -105,11 +105,11 @@ func TestCmdPath_NoFile(t *testing.T) {
 	p := &props.Props{
 		Config: testutil.StoreFromYAML(t, "log:\n  level: info\n"),
 		FS:     fs,
-		Tool:   props.Tool{Name: "tool"},
+		Tool:   props.Tool{Name: "tool", Config: props.ConfigSpec{Dir: props.ConfigDirXDG}},
 	}
 
 	out := runPath(t, p, "text")
-	want := filepath.Join(setup.GetDefaultConfigDir(fs, "tool"), "config.yaml")
+	want := filepath.Join(setup.ConfigDir(p.Tool), "config.yaml")
 	assert.Contains(t, out, want)
 	assert.Contains(t, out, "no config file is currently loaded")
 }

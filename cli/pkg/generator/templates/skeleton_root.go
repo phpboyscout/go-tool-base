@@ -61,6 +61,9 @@ type SkeletonRootData struct {
 	// ConfigKeyCase is the config stack's key mode. Only "exact" emits a
 	// field: folded is the default, so a folded root renders as before.
 	ConfigKeyCase string
+	// ConfigDir is the user directory's style. Only "xdg" emits a field, since
+	// the empty value is home (spec 0221).
+	ConfigDir string
 	// ConfigFileOnly are the keys no prefixed environment variable may set (spec 0214).
 	ConfigFileOnly []string
 	// ConfigSources are the declared config source slots (spec 0204 D15).
@@ -499,6 +502,10 @@ func buildConfigSpec(data SkeletonRootData) jen.Code {
 
 	if len(data.ConfigSources) > 0 {
 		spec[jen.Id("Sources")] = buildConfigSources(data.ConfigSources)
+	}
+
+	if data.ConfigDir == "xdg" {
+		spec[jen.Id("Dir")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigDirXDG")
 	}
 
 	if data.ConfigKeyCase == "exact" {

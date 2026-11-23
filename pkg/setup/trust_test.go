@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -18,7 +19,7 @@ import (
 func writeProjectFile(t *testing.T, contents string) (afero.Fs, string) {
 	t.Helper()
 
-	// A real HOME so GetDefaultConfigDir resolves and the trust store persists
+	// A real HOME so ConfigDir resolves and the trust store persists
 	// alongside a real, isolated directory.
 	t.Setenv("HOME", t.TempDir())
 
@@ -34,26 +35,26 @@ func TestProjectConfigTrust_RoundTrip(t *testing.T) {
 	fs, path := writeProjectFile(t, "update:\n  require_signature: false\n")
 
 	// Untrusted by default.
-	trusted, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
+	trusted, err := setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.NoError(t, err)
 	assert.False(t, trusted, "a freshly discovered file is untrusted")
 
 	// Trust it.
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, props.Tool{Name: "mytool"}, path))
 
-	trusted, err = setup.IsProjectConfigTrusted(fs, "mytool", path)
+	trusted, err = setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.NoError(t, err)
 	assert.True(t, trusted, "after trust the file is trusted")
 
 	// It appears in the list.
-	list, err := setup.ListTrustedProjects(fs, "mytool")
+	list, err := setup.ListTrustedProjects(fs, props.Tool{Name: "mytool"})
 	require.NoError(t, err)
 	abs, _ := filepath.Abs(path)
 	assert.Contains(t, list, abs)
 
 	// Forgetting revokes trust.
-	require.NoError(t, setup.UntrustProjectConfig(fs, "mytool", path))
-	trusted, err = setup.IsProjectConfigTrusted(fs, "mytool", path)
+	require.NoError(t, setup.UntrustProjectConfig(fs, props.Tool{Name: "mytool"}, path))
+	trusted, err = setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.NoError(t, err)
 	assert.False(t, trusted, "after forget the file is untrusted")
 }
@@ -64,16 +65,16 @@ func TestProjectConfigTrust_RoundTrip(t *testing.T) {
 func TestProjectConfigTrust_EditRevokes(t *testing.T) {
 	fs, path := writeProjectFile(t, "log:\n  level: info\n")
 
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, props.Tool{Name: "mytool"}, path))
 
-	trusted, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
+	trusted, err := setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.NoError(t, err)
 	require.True(t, trusted)
 
 	// Edit the file: trust must lapse until re-trusted.
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: debug\n"), 0o600))
 
-	trusted, err = setup.IsProjectConfigTrusted(fs, "mytool", path)
+	trusted, err = setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.NoError(t, err)
 	assert.False(t, trusted, "editing a trusted file revokes trust")
 }
@@ -81,7 +82,7 @@ func TestProjectConfigTrust_EditRevokes(t *testing.T) {
 func TestIsProjectConfigTrusted_EmptyPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	trusted, err := setup.IsProjectConfigTrusted(afero.NewOsFs(), "mytool", "")
+	trusted, err := setup.IsProjectConfigTrusted(afero.NewOsFs(), props.Tool{Name: "mytool"}, "")
 	require.NoError(t, err)
 	assert.False(t, trusted)
 }
@@ -111,7 +112,7 @@ func TestDiscoverProjectConfig(t *testing.T) {
 func TestTrustProjectConfig_MissingFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	err := setup.TrustProjectConfig(afero.NewOsFs(), "mytool", filepath.Join(t.TempDir(), ".mytool.yaml"))
+	err := setup.TrustProjectConfig(afero.NewOsFs(), props.Tool{Name: "mytool"}, filepath.Join(t.TempDir(), ".mytool.yaml"))
 	require.Error(t, err)
 }
 
@@ -119,7 +120,7 @@ func TestTrustProjectConfig_MissingFile(t *testing.T) {
 func TestTrustProjectConfig_EmptyPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	require.Error(t, setup.TrustProjectConfig(afero.NewOsFs(), "mytool", ""))
+	require.Error(t, setup.TrustProjectConfig(afero.NewOsFs(), props.Tool{Name: "mytool"}, ""))
 }
 
 // TestUntrustProjectConfig_NotTrustedIsNoOp confirms revoking an untrusted (or
@@ -127,15 +128,15 @@ func TestTrustProjectConfig_EmptyPath(t *testing.T) {
 func TestUntrustProjectConfig_NotTrustedIsNoOp(t *testing.T) {
 	fs, path := writeProjectFile(t, "log:\n  level: info\n")
 
-	require.NoError(t, setup.UntrustProjectConfig(fs, "mytool", path), "never trusted -> no-op")
-	require.NoError(t, setup.UntrustProjectConfig(fs, "mytool", ""), "empty path -> no-op")
+	require.NoError(t, setup.UntrustProjectConfig(fs, props.Tool{Name: "mytool"}, path), "never trusted -> no-op")
+	require.NoError(t, setup.UntrustProjectConfig(fs, props.Tool{Name: "mytool"}, ""), "empty path -> no-op")
 }
 
 // TestListTrustedProjects_Empty returns an empty list before anything is trusted.
 func TestListTrustedProjects_Empty(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	list, err := setup.ListTrustedProjects(afero.NewOsFs(), "mytool")
+	list, err := setup.ListTrustedProjects(afero.NewOsFs(), props.Tool{Name: "mytool"})
 	require.NoError(t, err)
 	assert.Empty(t, list)
 }
@@ -151,12 +152,12 @@ func TestIsProjectConfigTrusted_MalformedStore(t *testing.T) {
 	// writeProjectFile resets HOME to a fresh temp, so restore ours afterwards.
 	_, path := writeProjectFile(t, "log:\n  level: info\n")
 	t.Setenv("HOME", home)
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, props.Tool{Name: "mytool"}, path))
 
 	storePath := filepath.Join(home, ".mytool", "trusted-projects.yaml")
 	require.NoError(t, afero.WriteFile(fs, storePath, []byte("trusted: [not-a-map\n"), 0o600))
 
-	_, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
+	_, err := setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.Error(t, err, "a corrupt trust store must not silently resolve to trusted")
 }
 
@@ -183,10 +184,10 @@ func TestTrustProjectConfig_RefusesAStoreInACheckout(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, fs.MkdirAll(filepath.Join(home, ".git"), 0o700))
 
-	err = setup.TrustProjectConfig(fs, "mytool", path)
+	err = setup.TrustProjectConfig(fs, props.Tool{Name: "mytool"}, path)
 	require.ErrorIs(t, err, setup.ErrTrustStoreInCheckout)
 
-	trusted, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
+	trusted, err := setup.IsProjectConfigTrusted(fs, props.Tool{Name: "mytool"}, path)
 	require.NoError(t, err)
 	assert.False(t, trusted)
 }

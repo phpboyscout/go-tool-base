@@ -69,6 +69,8 @@ type SkeletonConfig struct {
 	ConfigSources []ManifestConfigSource
 	// ConfigKeyCase is the config stack's key mode, folded or exact (spec 0209).
 	ConfigKeyCase string
+	// ConfigDir is the user directory's style, home or xdg (spec 0221).
+	ConfigDir string
 	// ConfigFileOnly are the keys no prefixed environment variable may set (spec 0214).
 	ConfigFileOnly []string
 	Signing        ManifestSigning   // self-update signature-verification posture (disabled by default)
@@ -650,6 +652,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		ConfigFormatModules:   configLinkModules(config.ConfigFormats, config.ConfigSources),
 		ConfigSources:         sourceTemplateData(config.ConfigSources),
 		ConfigKeyCase:         normaliseKeyCase(config.ConfigKeyCase),
+		ConfigDir:             normaliseConfigDir(config.ConfigDir),
 		ConfigFileOnly:        config.ConfigFileOnly,
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
@@ -917,6 +920,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			ConfigFormat:          data.ConfigFormat,
 			ConfigSources:         data.ConfigSources,
 			ConfigKeyCase:         data.ConfigKeyCase,
+			ConfigDir:             data.ConfigDir,
 			ConfigFileOnly:        data.ConfigFileOnly,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
@@ -1496,6 +1500,7 @@ func manifestFromSkeletonConfig(config SkeletonConfig, fileHashes map[string]str
 				Format:   normaliseOwnFormat(config.ConfigFormat),
 				Sources:  config.ConfigSources,
 				KeyCase:  normaliseKeyCase(config.ConfigKeyCase),
+				Dir:      normaliseConfigDir(config.ConfigDir),
 				FileOnly: config.ConfigFileOnly,
 			},
 			UpdatePolicy:        config.UpdatePolicy,

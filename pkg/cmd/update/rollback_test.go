@@ -15,6 +15,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/exectest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -71,7 +72,7 @@ func (r *rollbackUpdater) ReleaseBefore(context.Context, string) (string, error)
 func rollbackProps(io p.IO) *p.Props {
 	return &p.Props{
 		FS:      afero.NewMemMapFs(),
-		Tool:    p.Tool{Name: "rollback-tool"},
+		Tool:    p.Tool{Name: "rollback-tool", Config: p.ConfigSpec{Dir: p.ConfigDirXDG}},
 		Logger:  logger.NewBuffer(),
 		Version: version.NewInfo("v1.2.0", "head", "now"),
 		IO:      io,
@@ -89,7 +90,7 @@ func attended(answer string) p.IO {
 func pinned(t *testing.T, props *p.Props) string {
 	t.Helper()
 
-	v, err := setup.GetPinnedVersion(props.FS, props.Tool.Name)
+	v, err := setup.GetPinnedVersion(props.FS, props.Tool)
 	require.NoError(t, err)
 
 	return v
@@ -222,7 +223,14 @@ func TestUpdate_VersionDowngrade(t *testing.T) {
 func TestPin_TheRunningVersion(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testPin_TheRunningVersion)
+}
+
+func testPin_TheRunningVersion(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := rollbackProps(unattended())
+	props.Tool.Config.Dir = style
 	r := &rollbackUpdater{}
 
 	result, err := update.Pin(context.Background(), props, "", false, io.Discard, r.factory(), noRefresh())
@@ -237,7 +245,14 @@ func TestPin_TheRunningVersion(t *testing.T) {
 func TestPin_ANamedVersionInstallsThenPins(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testPin_ANamedVersionInstallsThenPins)
+}
+
+func testPin_ANamedVersionInstallsThenPins(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := rollbackProps(unattended())
+	props.Tool.Config.Dir = style
 	r := &rollbackUpdater{}
 
 	result, err := update.Pin(context.Background(), props, "v1.3.0", false, io.Discard, r.factory(), noRefresh())
@@ -263,8 +278,15 @@ func TestPin_ARefusedVersionIsNotPinned(t *testing.T) {
 func TestUnpin(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testUnpin)
+}
+
+func testUnpin(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := rollbackProps(unattended())
-	require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.1.0"))
+	props.Tool.Config.Dir = style
+	require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.1.0"))
 
 	result, err := update.Unpin(props)
 
@@ -275,11 +297,16 @@ func TestUnpin(t *testing.T) {
 
 // Spec 0104 D7: update while pinned does nothing unless told to.
 func TestUpdate_WhilePinned(t *testing.T) {
+	testutil.EachConfigDir(t, testUpdate_WhilePinned)
+}
+
+func testUpdate_WhilePinned(t *testing.T, style p.ConfigDir) {
 	t.Setenv("CI", "")
 
 	t.Run("no flags is a no-op naming the pin", func(t *testing.T) {
 		props := rollbackProps(unattended())
-		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.2.0"))
+		props.Tool.Config.Dir = style
+		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.2.0"))
 		r := &rollbackUpdater{latest: "v1.3.0"}
 
 		result, err := update.Update(context.Background(), props, "", false, io.Discard, r.factory(), noRefresh())
@@ -293,7 +320,8 @@ func TestUpdate_WhilePinned(t *testing.T) {
 
 	t.Run("force updates and moves the pin", func(t *testing.T) {
 		props := rollbackProps(unattended())
-		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.2.0"))
+		props.Tool.Config.Dir = style
+		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.2.0"))
 		r := &rollbackUpdater{latest: "v1.3.0"}
 
 		result, err := update.Update(context.Background(), props, "", true, io.Discard, r.factory(), noRefresh())
@@ -306,7 +334,8 @@ func TestUpdate_WhilePinned(t *testing.T) {
 
 	t.Run("a named version moves the pin", func(t *testing.T) {
 		props := rollbackProps(unattended())
-		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.2.0"))
+		props.Tool.Config.Dir = style
+		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.2.0"))
 		r := &rollbackUpdater{}
 
 		_, err := update.Update(context.Background(), props, "v1.3.0", false, io.Discard, r.factory(), noRefresh())
@@ -317,7 +346,8 @@ func TestUpdate_WhilePinned(t *testing.T) {
 
 	t.Run("a failed named version leaves the pin", func(t *testing.T) {
 		props := rollbackProps(unattended())
-		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.2.0"))
+		props.Tool.Config.Dir = style
+		require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.2.0"))
 		r := &rollbackUpdater{updateErr: errors.New("checksum mismatch")}
 
 		_, err := update.Update(context.Background(), props, "v1.3.0", false, io.Discard, r.factory(), noRefresh())
@@ -384,7 +414,7 @@ func TestUpdate_ACorruptPinIsIgnored(t *testing.T) {
 	t.Parallel()
 
 	props := rollbackProps(unattended())
-	marker := setup.GetDefaultConfigDir(props.FS, props.Tool.Name) + "/pinned_version"
+	marker := setup.ConfigDir(props.Tool) + "/pinned_version"
 	require.NoError(t, afero.WriteFile(props.FS, marker, []byte("garbage"), 0o600))
 	r := &rollbackUpdater{latest: "v1.3.0"}
 
@@ -399,8 +429,15 @@ func TestUpdate_ACorruptPinIsIgnored(t *testing.T) {
 func TestUpdate_APinThatCannotMoveStaysAndSaysSo(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testUpdate_APinThatCannotMoveStaysAndSaysSo)
+}
+
+func testUpdate_APinThatCannotMoveStaysAndSaysSo(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := rollbackProps(unattended())
-	require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool.Name, "v1.2.0"))
+	props.Tool.Config.Dir = style
+	require.NoError(t, setup.SetPinnedVersion(props.FS, props.Tool, "v1.2.0"))
 	r := &rollbackUpdater{latest: "1.3"}
 
 	result, err := update.Update(context.Background(), props, "", true, io.Discard, r.factory(), noRefresh())
@@ -411,19 +448,25 @@ func TestUpdate_APinThatCannotMoveStaysAndSaysSo(t *testing.T) {
 	assert.True(t, props.Logger.(interface{ Contains(string) bool }).Contains("could not pin"))
 }
 
-// checkoutHome makes the tool's config directory sit inside a git checkout on
-// props' filesystem.
+// checkoutHome makes the tool's own config directory a git checkout on props'
+// filesystem. A .git in a parent would hold the other style's directory too.
 func checkoutHome(t *testing.T, props *p.Props) {
 	t.Helper()
 
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
-	require.NoError(t, props.FS.MkdirAll(filepath.Join(filepath.Dir(dir), ".git"), 0o700))
+	require.NoError(t, props.FS.MkdirAll(filepath.Join(setup.ConfigDir(props.Tool), ".git"), 0o700))
 }
 
 func TestPin_InACheckoutHomeInstallsNothing(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testPin_InACheckoutHomeInstallsNothing)
+}
+
+func testPin_InACheckoutHomeInstallsNothing(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := rollbackProps(unattended())
+	props.Tool.Config.Dir = style
 	checkoutHome(t, props)
 	r := &rollbackUpdater{}
 
@@ -452,7 +495,7 @@ func TestUpdate_AShippedPinInACheckoutHomeIsIgnored(t *testing.T) {
 	props := rollbackProps(unattended())
 	checkoutHome(t, props)
 
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 	require.NoError(t, props.FS.MkdirAll(dir, 0o700))
 	require.NoError(t, afero.WriteFile(props.FS, filepath.Join(dir, "pinned_version"), []byte("v1.2.0\n"), 0o600))
 
@@ -468,7 +511,14 @@ func TestUpdate_AShippedPinInACheckoutHomeIsIgnored(t *testing.T) {
 func TestUnpin_InACheckoutHomeSaysThereIsNothingToClear(t *testing.T) {
 	t.Parallel()
 
+	testutil.EachConfigDir(t, testUnpin_InACheckoutHomeSaysThereIsNothingToClear)
+}
+
+func testUnpin_InACheckoutHomeSaysThereIsNothingToClear(t *testing.T, style p.ConfigDir) {
+	t.Parallel()
+
 	props := rollbackProps(unattended())
+	props.Tool.Config.Dir = style
 	checkoutHome(t, props)
 
 	_, err := update.Unpin(props)

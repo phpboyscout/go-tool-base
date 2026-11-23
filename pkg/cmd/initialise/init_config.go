@@ -51,7 +51,7 @@ func newCmdInitConfigSource(props *p.Props, slot p.ConfigSource) *cobra.Command 
 		},
 	}
 
-	cmd.Flags().String("dir", setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "directory containing the config file")
+	cmd.Flags().String("dir", setup.ConfigDir(props.Tool), "directory containing the config file")
 
 	return cmd
 }

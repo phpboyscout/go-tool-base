@@ -24,6 +24,7 @@ func strandedTool(t *testing.T) (*p.Props, string) {
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	reg := features.NewRegistry()
 	for _, d := range p.DescriptorsIn(features.Default().Snapshot()) {
@@ -35,14 +36,14 @@ func strandedTool(t *testing.T) (*p.Props, string) {
 
 	tool := p.Tool{
 		Name:      "mytool",
-		Config:    p.ConfigSpec{Format: "toml"},
+		Config:    p.ConfigSpec{Format: "toml", Dir: p.ConfigDirXDG},
 		Bootstrap: p.BootstrapPolicy{AutoInitialise: true},
 	}
 
 	props, err := p.New(tool, logger.NewNoop(), afero.NewOsFs(), p.WithFeatures(reg.Snapshot()), p.WithAssets(p.NewAssets()))
 	require.NoError(t, err)
 
-	dir := filepath.Join(home, ".mytool")
+	dir := filepath.Join(home, ".config", "mytool")
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("log:\n  level: debug\n"), 0o600))
 

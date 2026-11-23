@@ -30,7 +30,7 @@ func TestRunAIInit_KeychainMode_WritesReferenceAndStoresSecret(t *testing.T) {
 
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 
 	props.IO = keyIO(t, "openai", credentials.ModeKeychain, "sk-keychain-test")
 	err := RunAIInit(t.Context(), props, dir)

@@ -19,8 +19,9 @@ import (
 func TestCheckConfig_StrandedInThePreviousFormat(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
 
-	dir := filepath.Join(home, ".mytool")
+	dir := filepath.Join(home, ".config", "mytool")
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("log:\n  level: debug\n"), 0o600))
 
@@ -29,7 +30,7 @@ func TestCheckConfig_StrandedInThePreviousFormat(t *testing.T) {
 		FS:     afero.NewOsFs(),
 		Tool: p.Tool{
 			Name:     "mytool",
-			Config:   p.ConfigSpec{Format: "toml"},
+			Config:   p.ConfigSpec{Format: "toml", Dir: p.ConfigDirXDG},
 			Features: p.SetFeatures(p.Enable(p.ConfigCmd)),
 		},
 	}

@@ -178,7 +178,7 @@ func resumableChat(ctx context.Context, p *props.Props, conversationID string) e
         return errors.New("provider does not support persistence")
     }
 
-    store, err := chat.NewFileStore(p.FS, filepath.Join(setup.GetDefaultConfigDir(p.FS, p.Tool.Name), "conversations"))
+    store, err := chat.NewFileStore(p.FS, filepath.Join(setup.ConfigDir(p.Tool), "conversations"))
     if err != nil {
         return err
     }

@@ -586,7 +586,7 @@ func loadUnattendedWithoutConfig(ctx context.Context, props *p.Props, opts Confi
 // AllowEmpty:false so a genuinely broken init surfaces an error rather than
 // silently masking it with embedded defaults.
 func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOptions) (*config.Store, error) {
-	return autoInitialiseConfigIn(ctx, setup.GetDefaultConfigDir(props.FS, props.Tool.Name), props, opts)
+	return autoInitialiseConfigIn(ctx, setup.ConfigDir(props.Tool), props, opts)
 }
 
 func autoInitialiseConfigIn(ctx context.Context, dir string, props *p.Props, opts ConfigLoadOptions) (*config.Store, error) {
@@ -685,7 +685,7 @@ func updatesLeftAlone(props *p.Props) (bool, error) {
 	}
 
 	// A pin is a choice the user already made (spec 0104 D6).
-	pinned, pinErr := setup.GetPinnedVersion(props.FS, props.Tool.Name)
+	pinned, pinErr := setup.GetPinnedVersion(props.FS, props.Tool)
 	if pinned != "" {
 		props.Logger.Debug("update check skipped: pinned", "version", pinned)
 
@@ -731,7 +731,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", pinErr))
 	}
 
-	if age, ok := setup.TimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey); ok {
+	if age, ok := setup.TimeSinceLast(props.FS, props.Tool, setup.CheckedKey); ok {
 		props.Logger.Debug("time since last update check", "duration", age)
 	} else {
 		props.Logger.Debug("no update check recorded yet")
@@ -836,7 +836,7 @@ func updateCheckSkip(props *p.Props, view *config.View, cmd *cobra.Command, stat
 	}
 
 	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, view.GetString(setup.ConfigKeyUpdateCheckInterval))
-	if setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval) {
+	if setup.SkipUpdateCheck(props.FS, props.Tool, cmd, interval) {
 		return updateSkipped
 	}
 
@@ -965,7 +965,7 @@ func warnIfBehindCached(props *p.Props) {
 		return
 	}
 
-	cached := setup.GetCheckedVersion(props.FS, props.Tool.Name)
+	cached := setup.GetCheckedVersion(props.FS, props.Tool)
 	if cached == "" {
 		return
 	}
@@ -989,7 +989,7 @@ func recordCheckedVersion(ctx context.Context, props *p.Props, updater *setup.Se
 		}
 	}
 
-	if err := setup.SetCheckedVersion(props.FS, props.Tool.Name, version); err != nil {
+	if err := setup.SetCheckedVersion(props.FS, props.Tool, version); err != nil {
 		props.Logger.Warn("unable to set last checked time", "error", err)
 	}
 }
@@ -998,8 +998,8 @@ func recordCheckedVersion(ctx context.Context, props *p.Props, updater *setup.Se
 // latest version an earlier check cached. Without it a broken release source
 // is retried on every invocation, and its credential resolved each time.
 func stampFailedCheck(props *p.Props) {
-	cached := setup.GetCheckedVersion(props.FS, props.Tool.Name)
-	if err := setup.SetCheckedVersion(props.FS, props.Tool.Name, cached); err != nil {
+	cached := setup.GetCheckedVersion(props.FS, props.Tool)
+	if err := setup.SetCheckedVersion(props.FS, props.Tool, cached); err != nil {
 		props.Logger.Warn("unable to set last checked time", "error", err)
 	}
 }
@@ -1749,7 +1749,7 @@ func promptTelemetryConsent(ctx context.Context, props *p.Props) {
 	// Persist the choice so we don't prompt again. Apply writes only this key
 	// and creates a missing file; the default config dir may not exist yet
 	// (tools without InitCmd), so ensure it first.
-	if _, err := setup.EnsureDefaultConfigDir(props.FS, props.Tool.Name); err != nil {
+	if _, err := setup.EnsureDefaultConfigDir(props.FS, props.Tool); err != nil {
 		props.Logger.Debug("failed to create config directory", "error", err)
 
 		return

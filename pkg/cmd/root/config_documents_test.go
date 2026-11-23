@@ -22,10 +22,10 @@ const twoDocuments = "log:\n  level: warn\n---\nlog:\n  level: debug\n"
 // later documents over earlier ones, and says so (#181).
 func TestConfigDocuments_AUserFileWithTwoDocumentsWarns(t *testing.T) {
 	fs := afero.NewOsFs()
-	_, userFile := checkoutHome(t, fs, twoDocuments, false)
+	_, userFile := checkoutHome(t, p.ConfigDirXDG, fs, twoDocuments, false)
 
 	log := logger.NewBuffer()
-	view := buildUserStore(t, fs, log, userFile, "").View()
+	view := buildUserStore(t, p.ConfigDirXDG, fs, log, userFile, "").View()
 
 	assert.Equal(t, "debug", view.GetString("log.level"), "the later document still wins")
 	assert.Equal(t, []string{userFile}, extraDocumentWarnings(log), "the extra document is reported, naming the file")
@@ -33,23 +33,23 @@ func TestConfigDocuments_AUserFileWithTwoDocumentsWarns(t *testing.T) {
 
 func TestConfigDocuments_AProjectFileWithTwoDocumentsWarns(t *testing.T) {
 	fs := afero.NewOsFs()
-	_, userFile := checkoutHome(t, fs, "log:\n  level: info\n", false)
+	_, userFile := checkoutHome(t, p.ConfigDirXDG, fs, "log:\n  level: info\n", false)
 
 	project := filepath.Join(t.TempDir(), ".mytool.yaml")
 	require.NoError(t, afero.WriteFile(fs, project, []byte(twoDocuments), 0o600))
 
 	log := logger.NewBuffer()
-	buildUserStore(t, fs, log, userFile, project)
+	buildUserStore(t, p.ConfigDirXDG, fs, log, userFile, project)
 
 	assert.Equal(t, []string{project}, extraDocumentWarnings(log))
 }
 
 func TestConfigDocuments_OneDocumentIsQuiet(t *testing.T) {
 	fs := afero.NewOsFs()
-	_, userFile := checkoutHome(t, fs, "log:\n  level: warn\n", false)
+	_, userFile := checkoutHome(t, p.ConfigDirXDG, fs, "log:\n  level: warn\n", false)
 
 	log := logger.NewBuffer()
-	buildUserStore(t, fs, log, userFile, "")
+	buildUserStore(t, p.ConfigDirXDG, fs, log, userFile, "")
 
 	assert.Empty(t, extraDocumentWarnings(log))
 }
@@ -63,10 +63,10 @@ func TestConfigDocuments_AnEmptyExtraDocumentIsQuiet(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			fs := afero.NewOsFs()
-			_, userFile := checkoutHome(t, fs, body, false)
+			_, userFile := checkoutHome(t, p.ConfigDirXDG, fs, body, false)
 
 			log := logger.NewBuffer()
-			buildUserStore(t, fs, log, userFile, "")
+			buildUserStore(t, p.ConfigDirXDG, fs, log, userFile, "")
 
 			assert.Empty(t, extraDocumentWarnings(log))
 		})
@@ -84,7 +84,7 @@ func TestConfigDocuments_TheWarningKeepsCommentPreservation(t *testing.T) {
 // full store warns: once per file per load.
 func TestConfigDocuments_TheBootstrapPassDoesNotWarn(t *testing.T) {
 	fs := afero.NewOsFs()
-	_, userFile := checkoutHome(t, fs, twoDocuments, false)
+	_, userFile := checkoutHome(t, p.ConfigDirXDG, fs, twoDocuments, false)
 
 	log := logger.NewBuffer()
 	props := &p.Props{Tool: p.Tool{Name: "mytool"}, Logger: log, FS: fs}
@@ -114,9 +114,9 @@ func TestConfigDocuments_AConfigSourceFileWarns(t *testing.T) {
 
 func TestConfigDocuments_AWarnedFileStaysWritable(t *testing.T) {
 	fs := afero.NewOsFs()
-	_, userFile := checkoutHome(t, fs, twoDocuments, false)
+	_, userFile := checkoutHome(t, p.ConfigDirXDG, fs, twoDocuments, false)
 
-	store := buildUserStore(t, fs, logger.NewNoop(), userFile, "")
+	store := buildUserStore(t, p.ConfigDirXDG, fs, logger.NewNoop(), userFile, "")
 
 	_, err := store.Apply(t.Context(), config.Set("telemetry.enabled", true))
 	require.NoError(t, err)

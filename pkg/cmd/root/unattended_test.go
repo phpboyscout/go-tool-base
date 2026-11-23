@@ -57,7 +57,7 @@ func outdatedProps(t *testing.T, policy p.UpdatePolicy, io p.IO) *p.Props {
 }
 
 func checkRan(props *p.Props) bool {
-	_, stamped := setup.TimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey)
+	_, stamped := setup.TimeSinceLast(props.FS, props.Tool, setup.CheckedKey)
 
 	return stamped
 }
@@ -125,7 +125,7 @@ func TestCheckForUpdates_UnattendedSuppressesTheCachedReminder(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			props := outdatedProps(t, p.UpdatePolicyDisabled, tt.io)
-			require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool.Name, "v2.0.0"))
+			require.NoError(t, setup.SetCheckedVersion(props.FS, props.Tool, "v2.0.0"))
 
 			checkForUpdates(context.Background(), mkUpdateCmd(t), props, newRootState())
 
@@ -135,10 +135,15 @@ func TestCheckForUpdates_UnattendedSuppressesTheCachedReminder(t *testing.T) {
 }
 
 func TestCheckForUpdates_PolicyWarningOnlyWhenTheTerminalIsTheReason(t *testing.T) {
+	testutil.EachConfigDir(t, testCheckForUpdates_PolicyWarningOnlyWhenTheTerminalIsTheReason)
+}
+
+func testCheckForUpdates_PolicyWarningOnlyWhenTheTerminalIsTheReason(t *testing.T, style p.ConfigDir) {
 	t.Run("CI skips without the warning", func(t *testing.T) {
 		t.Setenv("CI", "true")
 
 		props := outdatedProps(t, p.UpdatePolicyEnabled, nonInteractiveIO())
+		props.Tool.Config.Dir = style
 
 		checkForUpdates(context.Background(), mkUpdateCmd(t), props, newRootState())
 
@@ -149,8 +154,9 @@ func TestCheckForUpdates_PolicyWarningOnlyWhenTheTerminalIsTheReason(t *testing.
 		t.Setenv("CI", "")
 
 		props := outdatedProps(t, p.UpdatePolicyEnabled, nonInteractiveIO())
+		props.Tool.Config.Dir = style
 		props.Tool.UpdateCheckInterval = 24 * time.Hour
-		require.NoError(t, setup.SetTimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey))
+		require.NoError(t, setup.SetTimeSinceLast(props.FS, props.Tool, setup.CheckedKey))
 
 		checkForUpdates(context.Background(), mkUpdateCmd(t), props, newRootState())
 
@@ -161,6 +167,7 @@ func TestCheckForUpdates_PolicyWarningOnlyWhenTheTerminalIsTheReason(t *testing.
 		t.Setenv("CI", "")
 
 		props := outdatedProps(t, p.UpdatePolicyEnabled, nonInteractiveIO())
+		props.Tool.Config.Dir = style
 		cmd := setup.MarkSkipUpdateCheck(mkUpdateCmd(t))
 
 		checkForUpdates(context.Background(), cmd, props, newRootState())
@@ -208,7 +215,7 @@ func TestPreRun_UnattendedMissingConfig(t *testing.T) {
 			require.NotNil(t, props.Config)
 			assert.Equal(t, "info", props.Config.View().GetString("log.level"), "the embedded defaults are loaded")
 			assert.True(t, loggedAt(t, props, logger.InfoLevel, tt.logLine))
-			assert.False(t, exists(t, props.FS, autoInitConfigPath(props.FS, "unattended-tool")), "nothing is written")
+			assert.False(t, exists(t, props.FS, autoInitConfigPath(p.ConfigDirXDG, props.FS, "unattended-tool")), "nothing is written")
 		})
 	}
 }
@@ -238,6 +245,6 @@ func TestPreRun_UnattendedAutoInitialiseStillWrites(t *testing.T) {
 	child := &cobra.Command{Use: "child", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
 
 	require.NoError(t, execChild(t, props, child))
-	assert.True(t, exists(t, props.FS, autoInitConfigPath(props.FS, "unattended-autoinit-tool")),
+	assert.True(t, exists(t, props.FS, autoInitConfigPath(p.ConfigDirXDG, props.FS, "unattended-autoinit-tool")),
 		"a tool that auto-initialises keeps doing so unattended")
 }

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
@@ -51,7 +52,7 @@ service:
 		FS:      afero.NewMemMapFs(),
 		Config:  store,
 		Version: version.Info{Version: "1.2.3", Commit: "abc", Date: "2026-06-22"},
-		Tool:    props.Tool{Name: "demo", Summary: "demo tool"},
+		Tool:    props.Tool{Name: "demo", Summary: "demo tool", Config: props.ConfigSpec{Dir: props.ConfigDirXDG}},
 	}
 }
 
@@ -84,11 +85,21 @@ func TestCollectBundle_RedactsAllSecrets(t *testing.T) {
 func TestCollectBundle_PopulatesSections(t *testing.T) {
 	t.Parallel()
 
-	bundle := CollectBundle(context.Background(), reportSecretProps(t))
+	testutil.EachConfigDir(t, testCollectBundle_PopulatesSections)
+}
+
+func testCollectBundle_PopulatesSections(t *testing.T, style props.ConfigDir) {
+	t.Parallel()
+
+	p := reportSecretProps(t)
+	p.Tool.Config.Dir = style
+
+	bundle := CollectBundle(context.Background(), p)
 
 	assert.Equal(t, "demo", bundle.Tool.Name)
 	assert.Equal(t, "1.2.3", bundle.Tool.Version)
 	assert.Equal(t, "abc", bundle.Tool.Commit)
+	assert.Equal(t, setup.ConfigDir(p.Tool), bundle.Paths.ConfigDir)
 	assert.NotEmpty(t, bundle.Runtime.Go)
 	assert.NotEmpty(t, bundle.Runtime.OS)
 	assert.NotEmpty(t, bundle.Runtime.Arch)

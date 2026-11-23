@@ -29,7 +29,9 @@ Configuration keys resolve in the following priority order (highest to lowest):
    format the tool links; two in one directory are refused. Suppressed
    entirely when `--config` names files explicitly.
 4. **Config Files**: the `--config` paths if given (repeatable; later files
-   win), otherwise `~/.<tool>/config.yaml` then `/etc/<tool>/config.yaml`.
+   win), otherwise `~/.<tool>/config.yaml` (or the
+   [XDG directory](../how-to/configure-the-config-stack.md#put-the-tools-directory-under-xdg_config_home)) then
+   `/etc/<tool>/config.yaml`.
 5. **The tool's explicit embedded config assets** (`ConfigPaths`).
 6. **Embedded Defaults**: `assets/config.yaml` merged across every registered
    asset bundle: the framework baseline, enabled features, and the tool's

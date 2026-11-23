@@ -641,7 +641,7 @@ mode is refused when running under CI.`,
 		},
 	}
 
-	cmd.Flags().String("dir", setup.GetDefaultConfigDir(p.FS, p.Tool.Name), "directory containing the config file")
+	cmd.Flags().String("dir", setup.ConfigDir(p.Tool), "directory containing the config file")
 
 	return cmd
 }

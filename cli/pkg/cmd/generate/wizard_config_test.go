@@ -438,6 +438,21 @@ func TestSettingsNote_WithoutInit(t *testing.T) {
 	assert.Contains(t, note, "~/.moo/config.yaml", "a user may still override them")
 }
 
+// An xdg tool's user keeps the file under ~/.config, with or without init.
+func TestSettingsNote_XDG(t *testing.T) {
+	t.Parallel()
+
+	for _, feature := range []string{"init", "doctor"} {
+		o := &SkeletonOptions{
+			Name: "moo", ConfigDir: "xdg", Features: []string{feature}, sourceSlots: []wizardSource{{Kind: "vault"}},
+		}
+		note := shownNote(t, o.settingsNote(0))
+
+		assert.Contains(t, note, "~/.config/moo/config.yaml", feature)
+		assert.NotContains(t, note, "~/.moo", feature)
+	}
+}
+
 // The note follows the features and the name as well as the slot, since
 // they are answered pages earlier and may be changed after.
 func TestSettingsNoteBinding_TracksTheFeatures(t *testing.T) {

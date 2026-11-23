@@ -185,6 +185,10 @@ func TestCmdEdit_NilConfig(t *testing.T) {
 // written file is not one of the store's layers, so the post-save reload is a
 // no-op — matching a reader-only (embedded defaults) store.
 func TestCmdEdit_SeedsNewFile(t *testing.T) {
+	testutil.EachConfigDir(t, testCmdEdit_SeedsNewFile)
+}
+
+func testCmdEdit_SeedsNewFile(t *testing.T, style props.ConfigDir) {
 	// Not parallel: pins HOME so the default writable path is deterministic
 	// and every write lands on the memmap FS, never a real home directory.
 	t.Setenv("HOME", t.TempDir())
@@ -193,7 +197,7 @@ func TestCmdEdit_SeedsNewFile(t *testing.T) {
 	p := &props.Props{
 		Config: testutil.StoreFromYAML(t, "log:\n  level: info\n"),
 		FS:     fs,
-		Tool:   props.Tool{Name: "seedtool"},
+		Tool:   props.Tool{Name: "seedtool", Config: props.ConfigSpec{Dir: style}},
 	}
 
 	var seenSeed string
@@ -215,7 +219,7 @@ func TestCmdEdit_SeedsNewFile(t *testing.T) {
 	assert.Contains(t, seenSeed, "# seedtool configuration")
 	assert.NotContains(t, seenSeed, "info")
 
-	want := filepath.Join(setup.GetDefaultConfigDir(fs, "seedtool"), "config.yaml")
+	want := filepath.Join(setup.ConfigDir(p.Tool), "config.yaml")
 	data, err := afero.ReadFile(fs, want)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "warn")

@@ -222,7 +222,7 @@ func (f editingTrustFilter) Decode(path string, src []byte) ([]map[string]any, e
 // highest-precedence writable YAML layer; an untrusted one is decoded through
 // trustFilterCodec so its security-sensitive keys are ignored.
 func projectLayerBackend(props *p.Props, fsys config.FS, projectPath string, codec config.Codec) config.Backend {
-	trusted, err := setup.IsProjectConfigTrusted(props.FS, props.Tool.Name, projectPath)
+	trusted, err := setup.IsProjectConfigTrusted(props.FS, props.Tool, projectPath)
 	if err != nil {
 		props.Logger.Debug("project config trust check failed; treating as untrusted", "error", err)
 	}
@@ -306,7 +306,7 @@ func (f editingSourcePointerFilter) Decode(path string, src []byte) ([]map[strin
 // user's config directory while that directory is inside a git checkout, as it
 // is when the home directory is a CI job's working tree.
 func userConfigInCheckout(props *p.Props) func(path string) bool {
-	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	dir := setup.ConfigDir(props.Tool)
 	if !setup.DirInCheckout(props.FS, dir) {
 		return func(string) bool { return false }
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -249,16 +250,16 @@ func (m *mockStatFs) Stat(name string) (os.FileInfo, error) {
 
 func TestCheckPermissions_EmptyDir(t *testing.T) {
 	// Not parallel: modifies HOME environment variable via t.Setenv.
-	// GetDefaultConfigDir calls os.UserHomeDir which reads $HOME on Linux.
+	// ConfigDir calls os.UserHomeDir which reads $HOME on Linux.
 	tempHome := t.TempDir() // real OS dir, owned by test runner with 0700 perms
 	t.Setenv("HOME", tempHome)
 
-	// Pre-create the config dir with correct owner permissions. GetDefaultConfigDir
+	// Pre-create the config dir with correct owner permissions. ConfigDir
 	// is now pure (it never creates the directory), so the diagnostic check only
 	// passes when the dir already exists — directory creation is a write-time
 	// concern, not something a read-only doctor check should trigger.
 	fs := afero.NewOsFs()
-	configDir := setup.GetDefaultConfigDir(fs, "emptydirtest")
+	configDir := setup.ConfigDir(p.Tool{Name: "emptydirtest"})
 	require.NoError(t, fs.MkdirAll(configDir, 0o700))
 
 	props := &p.Props{
@@ -274,7 +275,7 @@ func TestCheckPermissions_EmptyDir(t *testing.T) {
 }
 
 func TestCheckPermissions_MissingDirWarns(t *testing.T) {
-	// Not parallel: modifies HOME. With the pure GetDefaultConfigDir, merely
+	// Not parallel: modifies HOME. With the pure ConfigDir, merely
 	// running the diagnostic must NOT create ~/.toolname; a missing dir warns.
 	tempHome := t.TempDir()
 	t.Setenv("HOME", tempHome)
@@ -292,7 +293,7 @@ func TestCheckPermissions_MissingDirWarns(t *testing.T) {
 	assert.Contains(t, result.Message, "not created yet")
 
 	// The check must not have created the directory as a side effect.
-	configDir := setup.GetDefaultConfigDir(fs, "missingdirtest")
+	configDir := setup.ConfigDir(p.Tool{Name: "missingdirtest"})
 	exists, err := afero.DirExists(fs, configDir)
 	require.NoError(t, err)
 	assert.False(t, exists, "the read-only check must not create the config dir")
@@ -328,7 +329,7 @@ func TestCheckPermissions_NotADirectory(t *testing.T) {
 		FS:   fs,
 	}
 
-	configDir := setup.GetDefaultConfigDir(fs, "test-file-tool")
+	configDir := setup.ConfigDir(p.Tool{Name: "test-file-tool"})
 	_ = fs.Remove(configDir)
 	_ = afero.WriteFile(fs, configDir, []byte("file data"), 0644)
 
@@ -347,7 +348,7 @@ func TestCheckPermissions_ValidDir(t *testing.T) {
 		FS:   fs,
 	}
 
-	configDir := setup.GetDefaultConfigDir(fs, "test-tool-valid")
+	configDir := setup.ConfigDir(p.Tool{Name: "test-tool-valid"})
 	_ = fs.MkdirAll(configDir, 0700)
 
 	result := checkPermissions(context.Background(), props)
@@ -486,4 +487,30 @@ func TestDiscoverChecks_DisabledFeature(t *testing.T) {
 		result := check(context.Background(), props)
 		assert.NotEqual(t, "Should not appear", result.Name, "disabled feature checks should not be discovered")
 	}
+}
+
+// Spec 0221 D4: the permission check looks where the tool writes.
+func TestCheckPermissions_ToolsDirectory(t *testing.T) {
+	testutil.EachConfigDir(t, testCheckPermissions_ToolsDirectory)
+}
+
+func testCheckPermissions_ToolsDirectory(t *testing.T, style p.ConfigDir) {
+	// Not parallel: modifies the environment.
+	home, xdg := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	dir := map[p.ConfigDir]string{
+		p.ConfigDirHome: filepath.Join(home, ".permtest"),
+		p.ConfigDirXDG:  filepath.Join(xdg, "permtest"),
+	}[style]
+	require.NoError(t, os.Mkdir(dir, 0o700))
+
+	result := checkPermissions(context.Background(), &p.Props{
+		FS:   afero.NewOsFs(),
+		Tool: p.Tool{Name: "permtest", Config: p.ConfigSpec{Dir: style}},
+	})
+
+	assert.Equal(t, CheckPass, result.Status)
+	assert.Contains(t, result.Message, dir)
 }

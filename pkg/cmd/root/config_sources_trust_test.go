@@ -12,7 +12,9 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -34,13 +36,14 @@ log:
 // project file, whatever the source is called.
 func TestProjectLocalTrust_UntrustedCannotPointAtASource(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewOsFs()
 	path := filepath.Join(t.TempDir(), ".mytool.yaml")
 	require.NoError(t, afero.WriteFile(fs, path, []byte(sourcePointers), 0o600))
 
 	log := logger.NewBuffer()
-	view := buildProjectStore(t, fs, log, path).Config.View()
+	view := buildProjectStore(t, p.ConfigDirXDG, fs, log, path).Config.View()
 
 	assert.False(t, view.IsSet("config.sources"), "no source pointer from an untrusted project file")
 	assert.Equal(t, "kept", view.GetString("config.other"), "the rest of config is not a pointer")
@@ -53,15 +56,20 @@ func TestProjectLocalTrust_UntrustedCannotPointAtASource(t *testing.T) {
 // Every other key of a trusted file still applies, and the file stays
 // writable.
 func TestProjectLocalTrust_TrustDoesNotReadmitSources(t *testing.T) {
+	testutil.EachConfigDir(t, testProjectLocalTrust_TrustDoesNotReadmitSources)
+}
+
+func testProjectLocalTrust_TrustDoesNotReadmitSources(t *testing.T, style p.ConfigDir) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 
 	fs := afero.NewOsFs()
 	path := filepath.Join(t.TempDir(), ".mytool.yaml")
 	require.NoError(t, afero.WriteFile(fs, path, []byte(sourcePointers+"telemetry:\n  enabled: true\n"), 0o600))
-	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+	require.NoError(t, setup.TrustProjectConfig(fs, styledTool(style), path))
 
 	log := logger.NewBuffer()
-	props := buildProjectStore(t, fs, log, path)
+	props := buildProjectStore(t, style, fs, log, path)
 	view := props.Config.View()
 
 	assert.False(t, view.IsSet("config.sources"), "trust does not admit source pointers")

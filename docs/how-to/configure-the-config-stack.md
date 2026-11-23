@@ -39,6 +39,22 @@ format that can be written back: `yaml`, `toml`, `json` or `hcl`. On an
 existing project, `gtb set config.formats toml` and `gtb set config.format toml`
 do the same.
 
+### Put the tool's directory under XDG_CONFIG_HOME
+
+By default a tool keeps its config, update state and trust data in `~/.<tool>`.
+To keep them in `$XDG_CONFIG_HOME/<tool>`, or `~/.config/<tool>` when that
+variable is unset:
+
+```bash
+gtb generate project --config-dir xdg ...
+```
+
+On an existing project, `gtb set config.dir xdg` does the same. The tool's name
+must be usable as a single directory name, or the tool refuses to start. The location is
+the same on Linux, macOS and Windows. Choose before your first release, because
+nothing moves an existing user's `~/.<tool>` for you. See
+[Directory utilities](../explanation/components/setup/index.md#directory-utilities).
+
 ### Keep keys' case, if they need it
 
 By default the tool folds every key to lower case, so a user who writes

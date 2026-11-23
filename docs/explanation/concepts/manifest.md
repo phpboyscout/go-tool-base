@@ -108,7 +108,8 @@ the generated Go source does not fully encode:
     `props.Tool.Config`; absent means the framework default. `formats` are the
     config formats the tool links beyond YAML, each a blank import in
     `cmd/<name>/config.go`, which exists only while one is listed. `format` is
-    the tool's own config file format, empty for YAML. `sources` are the
+    the tool's own config file format, empty for YAML. `dir` is where the
+    tool's user directory lives, `home` or `xdg`, empty for home. `sources` are the
     tool's config source slots, each `{name, kind, required, writable}`: a
     named place in the stack that each operator configures with
     `<tool> init config <name>`. A slot's layer is its name, and with no

@@ -12,6 +12,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/signing/verify"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // rotationStoreFilename is the applied rotation record, beside the trust store
@@ -42,8 +44,8 @@ func newRotationStore(fs afero.Fs, dir string) verify.RotationStore {
 
 // CheckRotationRecord loads the applied rotation record the updater would load
 // for tool, so doctor reports a corrupt one before an update refuses on it.
-func CheckRotationRecord(ctx context.Context, fs afero.Fs, tool string) error {
-	_, err := newRotationStore(fs, GetDefaultConfigDir(fs, tool)).Load(ctx)
+func CheckRotationRecord(ctx context.Context, fs afero.Fs, tool props.Tool) error {
+	_, err := newRotationStore(fs, ConfigDir(tool)).Load(ctx)
 
 	return err
 }

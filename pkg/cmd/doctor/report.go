@@ -113,7 +113,7 @@ func CollectBundle(ctx context.Context, props *p.Props) *SupportBundle {
 	bundle.Tool.Date = props.Version.GetDate()
 
 	if props.FS != nil {
-		if dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name); dir != "" {
+		if dir := setup.ConfigDir(props.Tool); dir != "" {
 			bundle.Paths.ConfigDir = redact.String(dir)
 		}
 	}
