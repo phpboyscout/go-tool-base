@@ -137,7 +137,7 @@ func NewCmdRoot() (*cobra.Command, *setup.Command) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.want, parentImportAlias(f, tc.importPath, commandPackageName(path.Base(tc.importPath)), tc.alias))
+			assert.Equal(t, tc.want, parentImportAlias(f, tc.importPath, commandPackageName(path.Base(tc.importPath)), tc.alias, nil))
 		})
 	}
 }
@@ -161,7 +161,12 @@ func removeFromParent(t *testing.T, name, parentSrc string) string {
 func wireInParent(t *testing.T, name, parentSrc string, wire func(*Generator) error) string {
 	t.Helper()
 
-	fs := afero.NewMemMapFs()
+	return wireInParentOn(t, afero.NewMemMapFs(), name, parentSrc, wire)
+}
+
+func wireInParentOn(t *testing.T, fs afero.Fs, name, parentSrc string, wire func(*Generator) error) string {
+	t.Helper()
+
 	parentFile := filepath.Join("/work", "pkg/cmd/parent/cmd.go")
 	require.NoError(t, fs.MkdirAll(filepath.Join("/work", "pkg/cmd/parent", name), 0o755))
 	require.NoError(t, afero.WriteFile(fs, "/work/go.mod", []byte("module test-tool\n"), 0o644))
@@ -293,4 +298,130 @@ func NewCmdParent(props *props.Props) *cobra.Command {
 	removed := removeFromParent(t, "deploy", registered)
 	assert.NotContains(t, removed, "deploycmd")
 	assert.Contains(t, removed, "deploy.Prepare()")
+}
+
+// A name another file of the parent's package declares cannot be an import in
+// cmd.go as well (#227).
+func TestParentImportAlias_AvoidsWhatOtherFilesDeclare(t *testing.T) {
+	t.Parallel()
+
+	const parent = `package parent
+
+import "github.com/spf13/cobra"
+
+func NewCmdParent(props *props.Props) *cobra.Command {
+	cmd := &cobra.Command{Use: "parent"}
+	return cmd
+}
+`
+
+	tests := map[string]struct {
+		file, src string
+		want      string
+	}{
+		"func":               {"helpers.go", "package parent\n\nfunc deploy() {}\n", "deploycmd"},
+		"var in a group":     {"helpers.go", "package parent\n\nvar (\n\ta, deploy int\n)\n", "deploycmd"},
+		"const":              {"helpers.go", "package parent\n\nconst deploy = 1\n", "deploycmd"},
+		"type":               {"helpers.go", "package parent\n\ntype deploy struct{}\n", "deploycmd"},
+		"both candidates":    {"helpers.go", "package parent\n\nvar deploy, deploycmd int\n", "deploycmdcmd"},
+		"internal test":      {"helpers_test.go", "package parent\n\nfunc deploy() {}\n", "deploycmd"},
+		"method":             {"helpers.go", "package parent\n\ntype x int\n\nfunc (x) deploy() {}\n", "deploy"},
+		"local":              {"helpers.go", "package parent\n\nfunc x() { deploy := 1; _ = deploy }\n", "deploy"},
+		"import":             {"helpers.go", "package parent\n\nimport deploy \"fmt\"\n\nvar _ = deploy.Sprint\n", "deploy"},
+		"external test":      {"helpers_test.go", "package parent_test\n\nfunc deploy() {}\n", "deploy"},
+		"file that is no Go": {"helpers.go", "not go\n", "deploy"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/parent/"+tc.file, []byte(tc.src), 0o644))
+
+			out := wireInParentOn(t, fs, "deploy", parent, (*Generator).RegisterSubcommand)
+			assert.Contains(t, out, tc.want+` "test-tool/pkg/cmd/parent/deploy"`)
+			assert.Contains(t, out, "cmd.Register("+tc.want+".NewCmdDeploy(props))")
+		})
+	}
+}
+
+func TestDeclaredBeside_ReadsEveryFileAndDeclaration(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	for name, src := range map[string]string{
+		"a.go":      "not go\n",
+		"a_test.go": "package parent_test\n\nfunc external() {}\n",
+		"b.go":      "package parent\n\nfunc first() {}\n\nfunc (x) method() {}\n\ntype x int\n",
+		"c.go":      "package parent\n\nvar last int\n",
+		"cmd.go":    "package parent\n\nfunc own() {}\n",
+		"notes.txt": "package parent\n\nfunc text() {}\n",
+	} {
+		require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/parent/"+name, []byte(src), 0o644))
+	}
+
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/work"})
+
+	assert.Equal(t, map[string]bool{"first": true, "x": true, "last": true}, g.declaredBeside("/work/pkg/cmd/parent/cmd.go"))
+}
+
+func TestBuildSkeletonSubcommands_AvoidsWhatOtherRootFilesDeclare(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	const project = "/work [old]"
+
+	require.NoError(t, afero.WriteFile(fs, project+"/go.mod", []byte("module test-tool\n"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, project+"/pkg/cmd/root/helpers.go", []byte("package root\n\nfunc deploy() {}\n"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, project+"/pkg/cmd/root/cmd.go", []byte("package root\n\nfunc publish() {}\n"), 0o644))
+
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: project})
+	subs, err := g.buildSkeletonSubcommands(&Manifest{Commands: []ManifestCommand{{Name: "deploy"}, {Name: "publish"}}})
+	require.NoError(t, err)
+	require.Len(t, subs, 2)
+	assert.Equal(t, "deploycmd", subs[0].PkgAlias)
+	assert.Equal(t, "publish", subs[1].PkgAlias, "regenerate rewrites cmd.go, so its own names are free")
+}
+
+func TestPrepareAndVerify_RefusesAChildOfVendor(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]bool{
+		"":               false,
+		"root":           false,
+		"vendors":        false,
+		"deploy":         false,
+		"vendor":         true,
+		"/vendor/":       true,
+		"deploy/vendor":  true,
+		"vendor/widgets": true,
+	}
+
+	for parent, refused := range tests {
+		t.Run(parent, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			require.NoError(t, fs.MkdirAll(filepath.Join("/work/pkg/cmd", parent), 0o755))
+
+			raw, err := yaml.Marshal(Manifest{Commands: []ManifestCommand{
+				{Name: "vendors"},
+				{Name: "deploy", Commands: []ManifestCommand{{Name: "vendor"}}},
+				{Name: "vendor", Commands: []ManifestCommand{{Name: "widgets"}}},
+			}})
+			require.NoError(t, err)
+			require.NoError(t, afero.WriteFile(fs, "/work/.gtb/manifest.yaml", raw, 0o644))
+
+			g := New(&props.Props{FS: fs, Logger: logger.NewNoop(), Config: emptyTestStore(t)},
+				&Config{Path: "/work", Name: "vendor", Parent: parent})
+
+			_, err = g.prepareAndVerify()
+			if refused {
+				require.ErrorIs(t, err, ErrVendorParent)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

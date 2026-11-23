@@ -220,6 +220,10 @@ func (g *Generator) prepareAndVerify() (string, error) {
 		return "", err
 	}
 
+	if err := g.checkVendorParent(); err != nil {
+		return "", err
+	}
+
 	if err := g.checkSiblingPackage(); err != nil {
 		return "", err
 	}

@@ -115,8 +115,9 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 // parentImportAlias is the alias the parent file imports the command under. A
 // parent that already imports it keeps its alias, or the package name when it
 // has none (generators before cli/v0.41.0 wrote no alias), so its registration
-// is still found. Otherwise a name the file uses takes a "cmd" suffix.
-func parentImportAlias(f *dst.File, importPath, pkgName, alias string) string {
+// is still found. Otherwise a name the file uses, or another file in its
+// package declares, takes a "cmd" suffix.
+func parentImportAlias(f *dst.File, importPath, pkgName, alias string, declared map[string]bool) string {
 	quoted := strconv.Quote(importPath)
 
 	for _, imp := range f.Imports {
@@ -130,7 +131,7 @@ func parentImportAlias(f *dst.File, importPath, pkgName, alias string) string {
 	}
 
 	used := usedNames(f)
-	for used[alias] {
+	for used[alias] || declared[alias] {
 		alias += "cmd"
 	}
 
@@ -159,7 +160,8 @@ func usedNames(f *dst.File) map[string]bool {
 // resolveImportAlias settles the alias against what the parent file already
 // imports, so registering and removing a command name it the same way.
 func (g *Generator) resolveImportAlias(f *dst.File, ctx *subcommandContext) {
-	ctx.setImportAlias(parentImportAlias(f, ctx.importPath, commandPackageName(g.config.Name), ctx.pkgName))
+	ctx.setImportAlias(parentImportAlias(f, ctx.importPath, commandPackageName(g.config.Name), ctx.pkgName,
+		g.declaredBeside(ctx.parentFile)))
 }
 
 func (ctx *subcommandContext) setImportAlias(alias string) {

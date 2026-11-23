@@ -523,14 +523,15 @@ func (g *Generator) warnOnKeyCaseChange(rootCmdPath, next string) {
 // buildSkeletonSubcommands converts the top-level manifest commands into the
 // SkeletonSubcommand descriptors that SkeletonRoot uses to render the
 // gtbRoot.NewCmdRoot(p, sub1.NewCmdSub1(p), ...) call. An alias an external
-// command holds takes a "cmd" suffix, as generate's reading of the file gives it.
+// command holds, or another root file declares, takes a "cmd" suffix, as
+// generate's reading of the files gives it.
 func (g *Generator) buildSkeletonSubcommands(m *Manifest) ([]templates.SkeletonSubcommand, error) {
 	moduleName, err := g.getModuleName()
 	if err != nil {
 		return nil, err
 	}
 
-	taken := make(map[string]bool)
+	taken := g.declaredBeside(filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go"))
 	for _, ext := range buildSkeletonExternalCommands(m.Properties.ExternalCommands) {
 		taken[ext.PkgAlias] = true
 	}

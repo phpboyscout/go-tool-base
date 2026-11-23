@@ -72,7 +72,7 @@ func TestBuildSkeletonSubcommands_AliasesAsGenerateDoes(t *testing.T) {
 	for name, want := range map[string]string{
 		"releasetools": "releasetoolscmd", "deploy": "deploycmdcmd", "time": "timecmdcmd", "status": "status",
 	} {
-		generated := parentImportAlias(f, "example.com/acme/widget/pkg/cmd/"+name, commandPackageName(name), commandImportAlias(name))
+		generated := parentImportAlias(f, "example.com/acme/widget/pkg/cmd/"+name, commandPackageName(name), commandImportAlias(name), nil)
 
 		subs, err := g.buildSkeletonSubcommands(&Manifest{
 			Properties: ManifestProperties{ExternalCommands: externals},

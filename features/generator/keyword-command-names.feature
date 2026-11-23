@@ -74,3 +74,13 @@ Feature: Commands named after Go reserved words
     When I run gtb in the project with "regenerate project"
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "documentationcmd.NewCmdDocumentation("
+
+  Scenario: a child of a command named vendor is refused
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name vendor --short sell-it"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "vendor.NewCmdVendor("
+    When I run gtb in the project with "generate command --name widget --parent vendor --short a-widget"
+    Then the project exit code is not zero
+    And the project output contains "Go cannot import a package below a directory named vendor"
+    And the generated "pkg/cmd/vendor/widget/cmd.go" file does not exist

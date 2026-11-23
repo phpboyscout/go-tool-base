@@ -122,6 +122,16 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 		addCmd(t, p, path, name, "deploy")
 	}
 
+	// #227: a name another file of the parent's package declares.
+	for _, parent := range []string{"root", "deploy"} {
+		require.NoError(t, os.WriteFile(filepath.Join(path, "pkg", "cmd", parent, "publish.go"),
+			[]byte("package "+parent+"\n\nfunc publish() string { return \"\" }\n\nvar _ = publish()\n"), 0o600))
+		addCmd(t, p, path, "publish", parent)
+	}
+
+	// A vendor command with no children builds; only a child of it is refused.
+	addCmd(t, p, path, "vendor", "deploy")
+
 	// #145: the initialiser, validation and assets scaffolds build as
 	// emitted. Golden strings did not catch init.go drifting from
 	// setup.InitialiserProvider; only a build does.

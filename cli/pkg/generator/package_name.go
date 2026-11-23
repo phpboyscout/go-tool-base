@@ -1,8 +1,12 @@
 package generator
 
 import (
+	"go/ast"
+	"go/parser"
 	"go/token"
 	"go/types"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -14,6 +18,12 @@ import (
 // already has: the parent would import both under one alias and not compile.
 var ErrPackageNameCollision = errors.NewSentinel("gtb.generator.package_name_collision",
 	"another command under the same parent has the same Go import name")
+
+// ErrVendorParent is a new command somewhere below one named vendor.
+var ErrVendorParent = errors.NewSentinel("gtb.generator.vendor_parent",
+	"Go cannot import a package below a directory named vendor")
+
+const vendorDir = "vendor"
 
 // unimportablePackages are package names that compile but cannot be imported:
 // main is a program, and go build skips every file in package documentation.
@@ -57,6 +67,80 @@ func commandImportAlias(name string) string {
 	}
 
 	return pkg
+}
+
+// declaredBeside is every package-level name the other files in file's package
+// declare. An import bound to one of them does not compile. A file that does
+// not parse is skipped.
+func (g *Generator) declaredBeside(file string) map[string]bool {
+	declared := make(map[string]bool)
+
+	dir := filepath.Dir(file)
+
+	entries, err := afero.ReadDir(g.props.FS, dir)
+	if err != nil {
+		return declared
+	}
+
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+		if path == file || filepath.Ext(path) != ".go" {
+			continue
+		}
+
+		src, err := afero.ReadFile(g.props.FS, path)
+		if err != nil {
+			continue
+		}
+
+		f, err := parser.ParseFile(token.NewFileSet(), path, src, parser.SkipObjectResolution)
+		if err != nil || isExternalTest(path, f.Name.Name) {
+			continue
+		}
+
+		for _, decl := range f.Decls {
+			addDeclared(declared, decl)
+		}
+	}
+
+	return declared
+}
+
+// isExternalTest reports a foo_test package, whose names are its own.
+func isExternalTest(path, pkg string) bool {
+	return strings.HasSuffix(path, "_test.go") && strings.HasSuffix(pkg, "_test")
+}
+
+func addDeclared(declared map[string]bool, decl ast.Decl) {
+	switch d := decl.(type) {
+	case *ast.FuncDecl:
+		if d.Recv == nil {
+			declared[d.Name.Name] = true
+		}
+	case *ast.GenDecl:
+		for _, spec := range d.Specs {
+			switch s := spec.(type) {
+			case *ast.TypeSpec:
+				declared[s.Name.Name] = true
+			case *ast.ValueSpec:
+				for _, name := range s.Names {
+					declared[name.Name] = true
+				}
+			}
+		}
+	}
+}
+
+// checkVendorParent refuses a child of a command named vendor: Go will not
+// import a package below a vendor directory.
+func (g *Generator) checkVendorParent() error {
+	if !slices.Contains(g.getParentPathParts(), vendorDir) {
+		return nil
+	}
+
+	return errors.WithHintf(
+		errors.Wrapf(ErrVendorParent, "%s", g.config.Name),
+		"Put %s under a parent whose path has no command named vendor.", g.config.Name)
 }
 
 // checkSiblingPackage refuses a command whose package name a sibling in the
