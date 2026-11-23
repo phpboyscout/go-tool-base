@@ -39,6 +39,8 @@ The root command automatically registers the following subcommands:
 
 See the [Commands Overview](index.md) for the full list and which commands are default-enabled versus opt-in.
 
+A tool's own command with the name of one of these is skipped, with a warning, while that one is on the root. An alias with one of these names is dropped, with a warning. Disable the feature to use the name.
+
 !!! tip "Disabling Built-in Commands"
     Use the `Features` property to remove optional commands from your tool:
     ```go

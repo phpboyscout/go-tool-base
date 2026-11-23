@@ -68,6 +68,8 @@ Both forms work and have the same effect, pick whichever reads better in your tr
 | Pass as variadic to `NewCmdRoot(p, child1, child2, ...)` | The set of top-level commands is known at construction time. The generated skeleton uses this form. |
 | Call `rootCmd.Register(child)` after construction | Adding plugins conditionally, or attaching commands from another package after `NewCmdRoot` runs. |
 
+A command passed to `NewCmdRoot` is skipped, with a warning, when the root already has one of its name, and loses an alias that is another command's name. See [Composing the tree](../explanation/components/setup/command-tree.md#composing-the-tree).
+
 ## 3. Add subcommands
 
 Subcommands work the same way. Inside your parent's constructor, call `Register` on the parent before returning:
