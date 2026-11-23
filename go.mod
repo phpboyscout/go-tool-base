@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	charm.land/bubbles/v2 v2.2.1
-	charm.land/bubbletea/v2 v2.1.1
+	charm.land/bubbletea/v2 v2.1.2
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.1.1
@@ -20,7 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.19
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.10
 	github.com/charmbracelet/keygen v0.5.4
-	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/charmbracelet/x/ansi v0.11.10
 	github.com/creack/pty v1.1.24
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -69,10 +69,10 @@ require (
 	gitlab.com/phpboyscout/go/mcp v0.2.6
 	gitlab.com/phpboyscout/go/observability v0.6.1
 	gitlab.com/phpboyscout/go/output v0.2.6
-	gitlab.com/phpboyscout/go/redact v0.3.3
+	gitlab.com/phpboyscout/go/redact v0.3.5
 	gitlab.com/phpboyscout/go/regexutil v0.2.3
 	gitlab.com/phpboyscout/go/repo v0.9.3
-	gitlab.com/phpboyscout/go/signing v0.15.1
+	gitlab.com/phpboyscout/go/signing v0.15.2
 	gitlab.com/phpboyscout/go/tls v0.2.3
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6

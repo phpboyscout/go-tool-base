@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	charm.land/bubbles/v2 v2.2.1
-	charm.land/bubbletea/v2 v2.1.1
+	charm.land/bubbletea/v2 v2.1.2
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/ProtonMail/go-crypto v1.5.2
@@ -35,12 +35,12 @@ require (
 	gitlab.com/phpboyscout/go/features v0.1.1
 	gitlab.com/phpboyscout/go/forge v0.39.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.19.2
-	gitlab.com/phpboyscout/go/forge-gitea v0.32.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.32.1
 	gitlab.com/phpboyscout/go/forge-github v0.31.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.32.1
-	gitlab.com/phpboyscout/go/redact v0.3.3
+	gitlab.com/phpboyscout/go/forge-gitlab v0.32.2
+	gitlab.com/phpboyscout/go/redact v0.3.5
 	gitlab.com/phpboyscout/go/repo v0.9.3
-	gitlab.com/phpboyscout/go/signing v0.15.1
+	gitlab.com/phpboyscout/go/signing v0.15.2
 	gitlab.com/phpboyscout/go/transit v0.3.2
 	gitlab.com/phpboyscout/go/transport v0.6.6
 	gitlab.com/phpboyscout/go/workspace v0.2.3
@@ -91,7 +91,7 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/keygen v0.5.4 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
-	github.com/charmbracelet/x/ansi v0.11.9 // indirect
+	github.com/charmbracelet/x/ansi v0.11.10 // indirect
 	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20260913004009-c615ff2f7805 // indirect
 	github.com/charmbracelet/x/exp/strings v0.1.0 // indirect
@@ -178,7 +178,7 @@ require (
 	github.com/yuin/goldmark v1.8.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v3 v3.51.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v3 v3.53.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.4 // indirect
 	gitlab.com/phpboyscout/go/authn v0.3.1 // indirect
 	gitlab.com/phpboyscout/go/awsclient v0.1.5 // indirect
