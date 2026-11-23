@@ -196,7 +196,9 @@ rotation manifest signed by your rotation-authority key moves installed
 copies to the new key: see
 [Generate the rotation-authority key](generate-rotation-key.md#what-happens-when-you-need-to-use-it).
 A copy can only follow a manifest if it was built with that key
-embedded.
+embedded, and if its updates come from
+[a channel that carries the manifest](generate-rotation-key.md#which-channels-carry-the-manifest).
+GitLab releases don't yet.
 
 ## Related
 
