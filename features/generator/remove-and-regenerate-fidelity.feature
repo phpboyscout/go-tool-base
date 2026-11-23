@@ -59,3 +59,18 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     Then the project exit code is 0
     And the generated "docs/reference/cli/a/run.md" file contains "run"
     And the generated "docs/reference/cli/b/run.md" file contains "run"
+
+  Scenario: Generating a command again keeps what the second call leaves out
+    # Issue #230: the aliases left the manifest but stayed in cmd.go until the
+    # next regenerate, and an MCP exclusion left cmd.go but not the manifest.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name deploy --short dep --long ships-it --alias ship --mcp-enabled=false"
+    And I run gtb in the project with "generate command --name deploy --short dep --force"
+    Then the project exit code is 0
+    And the project manifest contains "- ship"
+    And the project manifest contains "long_description: ships-it"
+    And the generated "pkg/cmd/deploy/cmd.go" file contains "ships-it"
+    And the generated "pkg/cmd/deploy/cmd.go" file contains "setup.ExcludeFromMCP(cmd)"
+    When I run gtb in the project with "regenerate project --force"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/deploy/cmd.go" file contains "Aliases: []string{"

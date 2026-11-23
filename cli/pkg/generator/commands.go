@@ -110,6 +110,8 @@ func (g *Generator) generate(ctx context.Context) error {
 
 	g.props.Logger.Info("generating command", "command", g.config.Name, "path", cmdDir)
 
+	g.keepRecordedSettings()
+
 	flags := g.resolveGenerationFlags()
 	data := g.prepareGenerationData(flags)
 
@@ -191,6 +193,8 @@ func (g *Generator) GenerateDryRun(ctx context.Context) (*DryRunResult, error) {
 	}
 
 	g.props.Logger.Info("dry run: previewing command", "command", g.config.Name, "path", cmdDir)
+
+	g.keepRecordedSettings()
 
 	return g.withDryRunOverlay(ctx, g.config.Path, func() error {
 		flags := g.resolveGenerationFlags()
@@ -334,37 +338,18 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 	persistentFlags, normalFlags := g.categorizeFlags(flags)
 	ancestralPersistentFlags := g.resolveAncestralFlags()
 
-	aliases := g.config.Aliases
-	desc := g.config.Short
-	longDesc := g.config.Long
-	args := g.config.Args
-
 	if cmd, err := g.findManifestCommand(); err == nil {
 		hasSubcommands = len(cmd.Commands) > 0
-		if len(aliases) == 0 {
-			aliases = cmd.Aliases
-		}
-
-		if desc == "" {
-			desc = string(cmd.Description)
-		}
-
-		if longDesc == "" {
-			longDesc = string(cmd.LongDescription)
-		}
-
-		if args == "" {
-			args = cmd.Args
-		}
 	}
 
 	data := templates.CommandData{
 		Name:                     g.config.Name,
 		PascalName:               PascalCase(g.config.Name),
-		Short:                    desc,
-		Long:                     longDesc,
-		Aliases:                  aliases,
-		Args:                     args,
+		Short:                    g.config.Short,
+		Long:                     g.config.Long,
+		Aliases:                  g.config.Aliases,
+		Args:                     g.config.Args,
+		Hidden:                   g.config.Hidden,
 		Package:                  commandPackageName(g.config.Name),
 		WithAssets:               g.config.WithAssets,
 		PersistentPreRun:         g.config.PersistentPreRun,

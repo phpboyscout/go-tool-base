@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"cmp"
 	"path/filepath"
 	"strings"
 
@@ -135,8 +136,6 @@ func (g *Generator) loadFlagsFromManifest() ([]CommandFlag, error) {
 		return nil, err
 	}
 
-	g.syncConfigWithCommand(cmd)
-
 	flags := make([]CommandFlag, 0, len(cmd.Flags))
 	for _, f := range cmd.Flags {
 		flags = append(flags, CommandFlag{
@@ -169,21 +168,40 @@ func (g *Generator) findManifestCommand() (*ManifestCommand, error) {
 	return cmd, nil
 }
 
-func (g *Generator) syncConfigWithCommand(cmd *ManifestCommand) {
-	g.syncDisplayConfig(cmd)
+// keepRecordedSettings fills what the caller left unstated from the command's
+// manifest entry, so cmd.go and the manifest are written from one answer (#230).
+// An on/off option stays as given: leaving it out is how it is turned off.
+func (g *Generator) keepRecordedSettings() {
+	c := g.config
 
-	if g.config.Args == "" && cmd.Args != "" {
-		g.config.Args = cmd.Args
+	if cmd, err := g.findManifestCommand(); err == nil {
+		c.keepRecorded(cmd)
 	}
+
+	c.Long = cmp.Or(c.Long, c.Short)
 }
 
-func (g *Generator) syncDisplayConfig(cmd *ManifestCommand) {
-	if g.config.Short == "" && cmd.Description != "" {
-		g.config.Short = string(cmd.Description)
+func (c *Config) keepRecorded(cmd *ManifestCommand) {
+	c.Short = cmp.Or(c.Short, string(cmd.Description))
+
+	// A long description equal to the short one was never stated, so it
+	// follows a new short one.
+	if cmd.LongDescription != cmd.Description {
+		c.Long = cmp.Or(c.Long, string(cmd.LongDescription))
 	}
 
-	if g.config.Long == "" && cmd.LongDescription != "" {
-		g.config.Long = string(cmd.LongDescription)
+	c.Args = cmp.Or(c.Args, cmd.Args)
+	c.MCPEnabled = cmp.Or(c.MCPEnabled, cmd.MCPEnabled)
+
+	// generate command has no flag for hiding a command.
+	c.Hidden = c.Hidden || cmd.Hidden
+
+	if len(c.Aliases) == 0 {
+		c.Aliases = cmd.Aliases
+	}
+
+	if c.MCPHints.IsZero() {
+		c.MCPHints = cmd.MCPHints.Setup()
 	}
 }
 

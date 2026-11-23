@@ -398,9 +398,6 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 func (g *Generator) prepareRegenerationData(cmd ManifestCommand) templates.CommandData {
 	flags := g.resolveGenerationFlags()
 	data := g.prepareGenerationData(flags)
-	data.Aliases = g.config.Aliases
-	data.Args = g.config.Args
-	data.Hidden = g.config.Hidden
 	data.MutuallyExclusive = cmd.MutuallyExclusive
 	data.RequiredTogether = cmd.RequiredTogether
 

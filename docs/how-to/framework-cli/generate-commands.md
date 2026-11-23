@@ -46,6 +46,8 @@ A command named `init`, or after a predeclared identifier (`error`, `string`, `n
 
 Two commands under the same parent can't share an import name, because the parent imports both. `generate command` refuses a name that reduces to a sibling's: `my_cmd` beside `my-cmd`, `typecmd` beside `type`, or `errorcmd` beside `error`.
 
+Generating a command again keeps what you leave out: its descriptions, aliases, `--args`, whether it's hidden, and its MCP exposure and hints. Its flags are kept too unless you pass any `--flag`, which replaces the set. A long description you never gave follows the short one. An empty `--long` or `--args` counts as left out. An option such as `--assets` is the exception, because leaving it out is how you turn it off. To take an alias away, remove it from the command's entry in `.gtb/manifest.yaml` and run `gtb regenerate project`.
+
 !!! note "Separation of Concerns"
     We separate the boilerplate (`cmd.go`) from your logic (`main.go`) so that we can regenerate the boilerplate as you add flags or change configurations without overwriting your hard work!
 

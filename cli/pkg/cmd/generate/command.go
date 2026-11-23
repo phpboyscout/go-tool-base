@@ -406,7 +406,7 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 			})),
 		huh.NewText().
 			Title("Long Description").
-			Description("Optional — leave blank to use short description").
+			Description("Optional. Blank keeps a recorded one, or uses the short description").
 			Value(&o.Long).
 			Validate(formpage.ValidateAnswer(&o.Long, func(s string) error {
 				return hintedValidation(generator.ValidateLongDescription(s))
@@ -692,10 +692,6 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		WithConfigValidation: o.WithConfigValidation,
 		Protected:            o.Protected,
 		MCPEnabled:           o.MCPEnabled,
-	}
-
-	if cfg.Long == "" {
-		cfg.Long = cfg.Short
 	}
 
 	cfg.AI, cfg.NoAI = o.shared.ai()
