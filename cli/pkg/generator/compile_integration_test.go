@@ -114,6 +114,14 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 		addCmd(t, p, path, name, "deploy")
 	}
 
+	// #222: names the compiler or go build refuses to import.
+	addCmd(t, p, path, "init", "deploy")
+
+	for _, name := range []string{"main", "documentation"} {
+		addCmd(t, p, path, name, "root")
+		addCmd(t, p, path, name, "deploy")
+	}
+
 	// #145: the initialiser, validation and assets scaffolds build as
 	// emitted. Golden strings did not catch init.go drifting from
 	// setup.InitialiserProvider; only a build does.

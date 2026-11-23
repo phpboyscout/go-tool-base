@@ -15,12 +15,16 @@ import (
 var ErrPackageNameCollision = errors.NewSentinel("gtb.generator.package_name_collision",
 	"another command under the same parent has the same Go import name")
 
-// commandPackageName is the Go package a command's code lives in. A name that
-// is a Go keyword takes a "cmd" suffix, since `package import` cannot compile;
-// the command's name, directory and constructor keep the name (spec 0216).
+// unimportablePackages are package names that compile but cannot be imported:
+// main is a program, and go build skips every file in package documentation.
+var unimportablePackages = map[string]bool{"main": true, "documentation": true}
+
+// commandPackageName is the Go package a command's code lives in. A Go keyword
+// or an unimportable name takes a "cmd" suffix; the command's name, directory
+// and constructor keep the name (spec 0216).
 func commandPackageName(name string) string {
 	pkg := strings.ReplaceAll(name, "-", "_")
-	if token.IsKeyword(pkg) {
+	if token.IsKeyword(pkg) || unimportablePackages[pkg] {
 		return pkg + "cmd"
 	}
 
@@ -43,11 +47,11 @@ var parentNames = map[string]bool{
 
 // commandImportAlias is the name a parent imports a command's package under.
 // A predeclared identifier or one of the parent's own names takes a "cmd"
-// suffix, so the import cannot shadow what the parent file uses; the package
-// itself keeps its name (#189).
+// suffix, so the import cannot shadow what the parent file uses, and so does
+// init, which Go lets only a func declare. The package keeps its name (#189).
 func commandImportAlias(name string) string {
 	pkg := commandPackageName(name)
-	if parentNames[pkg] || types.Universe.Lookup(pkg) != nil {
+	if pkg == "init" || parentNames[pkg] || types.Universe.Lookup(pkg) != nil {
 		return pkg + "cmd"
 	}
 

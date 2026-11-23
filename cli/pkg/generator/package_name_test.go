@@ -24,9 +24,13 @@ func TestCommandPackageName(t *testing.T) {
 		"import":     "importcmd",
 		"type":       "typecmd",
 		"go":         "gocmd",
+		"main":       "maincmd",
+		"init":       "init",
 		"importcmd":  "importcmd",
 		"my-import":  "my_import",
 		"snake_case": "snake_case",
+
+		"documentation": "documentationcmd",
 	}
 
 	for name, want := range tests {
@@ -47,6 +51,8 @@ func TestCommandImportAlias(t *testing.T) {
 		"deploy":   "deploy",
 		"import":   "importcmd",
 		"error":    "errorcmd",
+		"init":     "initcmd",
+		"main":     "maincmd",
 		"string":   "stringcmd",
 		"nil":      "nilcmd",
 		"len":      "lencmd",

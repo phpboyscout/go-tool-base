@@ -7,7 +7,8 @@ Feature: Commands named after Go reserved words
 
   A command named after a predeclared identifier or a name its parent's file
   already uses keeps its package name, and the parent imports it under a cmd
-  suffix instead (#189).
+  suffix instead (#189). So is init. A package Go cannot import, main or
+  documentation, takes the suffix itself, as a keyword does (#222).
 
   Scenario: a keyword-named subcommand keeps its name everywhere but its package
     Given a freshly generated gtb project
@@ -44,3 +45,23 @@ Feature: Commands named after Go reserved words
     When I run gtb in the project with "regenerate project"
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "errorcmd.NewCmdError("
+
+  Scenario: a command named init, main or documentation keeps its name and can be imported
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name handover --short hand-over"
+    Then the project exit code is 0
+    When I run gtb in the project with "generate command --name init --parent handover --short start-it"
+    Then the project exit code is 0
+    When I run gtb in the project with "generate command --name main --parent handover --short main-it"
+    Then the project exit code is 0
+    When I run gtb in the project with "generate command --name documentation --short document-it"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/handover/init/cmd.go" file contains "package init"
+    And the generated "pkg/cmd/handover/cmd.go" file contains "initcmd.NewCmdInit("
+    And the generated "pkg/cmd/handover/main/cmd.go" file contains "package maincmd"
+    And the generated "pkg/cmd/handover/main/cmd.go" file contains 'Use:   "main"'
+    And the generated "pkg/cmd/handover/cmd.go" file contains "maincmd.NewCmdMain("
+    And the generated "pkg/cmd/documentation/cmd.go" file contains "package documentationcmd"
+    When I run gtb in the project with "regenerate project"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains "documentationcmd.NewCmdDocumentation("
