@@ -71,12 +71,14 @@ endpoint, so the generator doesn't switch it on uninvited.
 
 ## Add your keys
 
-The `keys/` directory starts empty. Copy in the public key you minted, and put
-the rotation authority in `authority/` beside it:
+The `keys/` directory starts empty. Copy in the public key you minted, put
+the rotation authority in `authority/` beside it, and the manifest authority
+in `rotation/`:
 
 ```bash
 cp signing-key-v1.asc internal/trustkeys/keys/
 cp rotation-authority.asc internal/trustkeys/authority/
+cp manifest-authority.pub internal/trustkeys/rotation/
 go build ./...
 ```
 
@@ -90,7 +92,13 @@ Every key in `keys/` is trusted to sign a release, so the rotation authority
 goes next door in `internal/trustkeys/authority/`. Keys there join the trust
 set, and the updater refuses a release signed by one.
 
-Put it in one directory, never both. A key in both counts twice in the embedded
+The manifest authority in `rotation/` is a minisign key, so it never joins the
+OpenPGP trust set and can't sign a release. It's what lets this build follow a
+rotation manifest later. A copy built without it keeps the trust it shipped
+with, so embed it now, before your first signed release. A tool generated
+before gtb had `rotation/` gets it from `gtb regenerate project`.
+
+Put the rotation authority in one directory, never both. A key in both counts twice in the embedded
 set, so it no longer matches the WKD bucket, and a release built that way
 refuses every later update. If you followed an older version of this page and
 copied it into `keys/`, move it. A tool generated before v0.50.4 has no

@@ -117,6 +117,34 @@ embeds. Give it a different email and it drops out of that bucket, the
 published and embedded key sets stop matching, and every update fails the
 check you'll set up in the next part.
 
+### And a manifest authority
+
+The OpenPGP rotation authority anchors trust, but it can't sign a rotation
+manifest, the file that moves installed copies to a new key when the old one
+is lost. A manifest is signed with minisign, by its own Ed25519 key. Make that
+one now as well, on the same trusted machine:
+
+```bash
+sigillum keys generate \
+    --algorithm ed25519 --private-format pem \
+    --name "Acme Manifest Authority" \
+    --email release@acme.dev \
+    --output manifest-authority.asc
+sigillum keys minisign --backend local --key-id manifest-authority.pem \
+    > manifest-authority.pub
+rm manifest-authority.asc
+```
+
+`--private-format pem` writes the private half as `manifest-authority.pem`,
+the form `sigillum keys rotate` signs with. `manifest-authority.pub` is the
+one-line minisign public key your tool embeds in the next part. The OpenPGP
+`.asc` isn't used, so it goes. This key is never published on WKD and never
+joins the trust set, so its email doesn't matter the way the other one's does.
+
+Move `manifest-authority.pem` offline beside the other private half.
+[Generate the rotation-authority key](../how-to/generate-rotation-key.md#move-the-private-half-offline)
+covers the storage and the paper-backup test.
+
 ## Build the WKD tree
 
 A Web Key Directory is how a client finds a public key from an email address:
