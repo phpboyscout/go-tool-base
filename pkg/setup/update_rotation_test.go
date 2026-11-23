@@ -219,6 +219,62 @@ func TestVerifyManifestSignature_ARotationThatFailsFailsTheUpdate(t *testing.T) 
 	}
 }
 
+// Rotation files that are listed but cannot be fetched fail the update rather
+// than install the release as if it listed none.
+func TestVerifyManifestSignature_ARotationThatCannotBeFetchedFailsTheUpdate(t *testing.T) {
+	t.Parallel()
+
+	f := newRotationFixture(t)
+	manifest, sig := compromiseManifest(t, f.authority, 1, f.replacement, f.compromised)
+
+	cases := map[string]struct {
+		file string
+		body []byte
+		want error
+		msg  string
+	}{
+		"the manifest does not download":  {file: verify.RotationManifestFile, msg: "fetching the rotation manifest"},
+		"the signature does not download": {file: verify.RotationSignatureFile, msg: "fetching the rotation signature"},
+		"the manifest is too large": {
+			file: verify.RotationManifestFile, body: make([]byte, verify.MaxRotationManifestSize+1),
+			want: verify.ErrRotationManifestTooLarge, msg: "fetching the rotation manifest",
+		},
+		"the signature is too large": {
+			file: verify.RotationSignatureFile, body: make([]byte, verify.MaxSignatureSize+1),
+			want: verify.ErrSignatureTooLarge, msg: "fetching the rotation signature",
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			f := f
+			f.store = verify.NewMemoryRotationStore()
+			rel, provider, checksums := rotationRelease(t, f.compromised, manifest, sig)
+
+			if tc.body == nil {
+				delete(provider.assetBodies, tc.file)
+			} else {
+				provider.assetBodies[tc.file] = tc.body
+			}
+
+			s := f.updater(t, provider, true)
+			s.requireSignature = false
+			err := s.verifyManifestSignature(context.Background(), rel, checksums)
+			require.ErrorContains(t, err, tc.msg)
+
+			if tc.want != nil {
+				require.ErrorIs(t, err, tc.want)
+			}
+
+			rec, err := f.store.Load(context.Background())
+			require.NoError(t, err)
+			assert.Zero(t, rec.Epoch, "a refused manifest changes nothing")
+		})
+	}
+}
+
 // A stored rotation record that cannot be read, or that will not apply, fails
 // the update even when signatures are optional: proceeding would drop the
 // revokes it holds and install a release signed by an untrusted key.

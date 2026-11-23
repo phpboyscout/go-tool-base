@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
@@ -53,6 +54,7 @@ type rotationChannel struct {
 	kind        string
 	releases    []giteaRelease
 	server      *httptest.Server
+	objectsMu   sync.RWMutex // the server reads objects while a step publishes
 	objects     map[string][]byte
 	base        string
 	binary      string
@@ -60,6 +62,22 @@ type rotationChannel struct {
 	replacement *openpgp.Entity
 	rotation    []byte
 	rotationSig []byte
+}
+
+func (ch *rotationChannel) object(path string) ([]byte, bool) {
+	ch.objectsMu.RLock()
+	defer ch.objectsMu.RUnlock()
+
+	body, ok := ch.objects[path]
+
+	return body, ok
+}
+
+func (ch *rotationChannel) putObject(path string, body []byte) {
+	ch.objectsMu.Lock()
+	defer ch.objectsMu.Unlock()
+
+	ch.objects[path] = body
 }
 
 func initRotationSteps(ctx *godog.ScenarioContext) {
@@ -107,7 +125,7 @@ func aChannelWhoseReleaseKeyWasCompromised(ctx context.Context, kind string) (co
 	}
 
 	ch.server = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		body, ok := ch.objects[r.URL.Path]
+		body, ok := ch.object(r.URL.Path)
 		if !ok {
 			http.NotFound(rw, r)
 
@@ -233,7 +251,7 @@ func theChannelPublishes(ctx context.Context, tag, signer, withManifest string) 
 func (ch *rotationChannel) publishStatic(tag string, files []releaseFile, withManifest bool) error {
 	prefix := "/acme/gtb/" + tag + "/"
 	for _, f := range files {
-		ch.objects[prefix+f.name] = f.body
+		ch.putObject(prefix+f.name, f.body)
 	}
 
 	archive := files[0]
@@ -294,7 +312,7 @@ func (ch *rotationChannel) publishForge(tag string, files []releaseFile) error {
 
 	for i, f := range files {
 		path := "/acme/gtb/releases/download/" + tag + "/" + f.name
-		ch.objects[path] = f.body
+		ch.putObject(path, f.body)
 		rel.Assets = append(rel.Assets, giteaAttachment{
 			ID: int64(i + 1), Name: f.name, Size: int64(len(f.body)), DownloadURL: ch.server.URL + path,
 		})
@@ -324,7 +342,7 @@ func (ch *rotationChannel) putJSON(path string, doc any) error {
 		return err
 	}
 
-	ch.objects[path] = body
+	ch.putObject(path, body)
 
 	return nil
 }
