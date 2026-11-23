@@ -95,10 +95,55 @@ func TestParseYAMLMapping(t *testing.T) {
 		"":                               false,
 		"- a\n":                          false,
 		"version: 2\n---\n- not a map\n": false,
+		"version: 2\nversion: 2\n":       false,
+		"version: 2\nbuilds:\n  - id: a\n    id: b\n": false,
+		"version: 2\nbuilds:\n  - id: a\n  - id: a\n": true,
 	} {
-		_, ok := parseYAMLMapping([]byte(body))
-		assert.Equal(t, want, ok, "%q", body)
+		_, refusal := parseYAMLMapping([]byte(body))
+		assert.Equal(t, want, refusal == "", "%q", body)
 	}
+}
+
+// goreleaser refuses a file with a duplicate key, so splicing into one would
+// leave a release config that still fails to load (#219).
+func TestApplyGoreleaserSigns_ADuplicateKeyIsLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewBuffer()
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: log}, &Config{Path: "/work"})
+	body := "version: 2\nbuilds:\n  - id: a\n    id: b\n"
+	require.NoError(t, afero.WriteFile(fs, "/work/.goreleaser.yaml", []byte(body), DefaultFileMode))
+
+	m := goreleaserManifest()
+	m.Properties.Signing = ManifestSigning{Enabled: true, KeyID: "alias/release"}
+
+	require.NoError(t, g.applyGoreleaserSigns(m))
+
+	got, err := afero.ReadFile(fs, "/work/.goreleaser.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, body, string(got))
+	assert.True(t, log.Contains("add the following top-level block"))
+	assert.True(t, loggedReason(log, `it repeats a key, which goreleaser refuses: line 4: mapping key "id" already defined at line 3`),
+		"the advisory names the repeat goreleaser will reject")
+}
+
+func TestApplyGoreleaserSigns_DisableLeavesADuplicateKeyAlone(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewBuffer()
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: log}, &Config{Path: "/work"})
+	body := "version: 2\nsigns:\n  - cmd: sigillum\n    cmd: other\n"
+	require.NoError(t, afero.WriteFile(fs, "/work/.goreleaser.yaml", []byte(body), DefaultFileMode))
+
+	require.NoError(t, g.applyGoreleaserSigns(goreleaserManifest()))
+
+	got, err := afero.ReadFile(fs, "/work/.goreleaser.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, body, string(got))
+	assert.True(t, loggedReason(log, `it repeats a key, which goreleaser refuses: line 4: mapping key "cmd" already defined at line 3`),
+		"disable advises rather than editing")
 }
 
 func TestApplyGoreleaserSigns_DisableLeavesASecondDocumentAlone(t *testing.T) {

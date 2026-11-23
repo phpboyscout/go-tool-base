@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -68,9 +69,9 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 		return errors.Newf("failed to read %s: %w", relPath, err)
 	}
 
-	root, ok := parseYAMLMapping(content)
-	if !ok {
-		return g.adviseUnspliceableGoreleaser(fullPath, relPath, content, m, enable)
+	root, refusal := parseYAMLMapping(content)
+	if refusal != "" {
+		return g.adviseUnspliceableGoreleaser(fullPath, relPath, content, m, enable, refusal)
 	}
 
 	hasSigns := topLevelKeyPresent(root, "signs")
@@ -90,13 +91,13 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 
 // adviseUnspliceableGoreleaser advises both edits for a file that is not safe
 // to splice. Disabling has nothing to remove from text with no signs key.
-func (g *Generator) adviseUnspliceableGoreleaser(fullPath, relPath string, content []byte, m *Manifest, enable bool) error {
+func (g *Generator) adviseUnspliceableGoreleaser(fullPath, relPath string, content []byte, m *Manifest, enable bool, refusal string) error {
 	if _, err := g.applyRotationWiring(fullPath, relPath, content, m, false); err != nil {
 		return err
 	}
 
 	if enable || bytes.Contains(content, []byte("signs:")) {
-		g.adviseGoreleaserSigns(relPath, m, enable, "it is not a single YAML mapping")
+		g.adviseGoreleaserSigns(relPath, m, enable, refusal)
 	}
 
 	return nil
@@ -269,38 +270,51 @@ func (g *Generator) recordGoreleaserEdit(relPath string, before, after []byte, m
 // line, followed by nothing, whitespace or a comment.
 var documentEndMarker = regexp.MustCompile(`(?m)^\.\.\.(?:[ \t]|\r?$)`)
 
-// parseYAMLMapping decodes content and returns the root mapping node when the
-// file is a single YAML mapping, reporting false otherwise (empty,
-// unparseable, a non-mapping top level, a second document, or a document-end
-// marker) — the shapes injection must refuse. goreleaser reads only the first
-// document, and a block appended to the file lands after the end of it (#216).
-func parseYAMLMapping(content []byte) (*yaml.Node, bool) {
+// parseYAMLMapping returns the root mapping node of a file injection can edit,
+// or the reason it can't: unparseable, empty or not a mapping, a second
+// document or a document-end marker (goreleaser reads only the first, and an
+// appended block lands after it, #216), or a repeated key, which goreleaser
+// refuses to load (#219).
+func parseYAMLMapping(content []byte) (*yaml.Node, string) {
+	const notAMapping = "it is not a single YAML mapping"
+
 	if documentEndMarker.Match(content) {
-		return nil, false
+		return nil, "it holds more than one YAML document"
 	}
 
 	dec := yaml.NewDecoder(bytes.NewReader(content))
 
 	var doc yaml.Node
 	if err := dec.Decode(&doc); err != nil {
-		return nil, false
+		return nil, notAMapping
 	}
 
 	var next yaml.Node
 	if !errors.Is(dec.Decode(&next), io.EOF) {
-		return nil, false
+		return nil, "it holds more than one YAML document"
 	}
 
-	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return nil, false
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 || doc.Content[0].Kind != yaml.MappingNode {
+		return nil, notAMapping
 	}
 
-	root := doc.Content[0]
-	if root.Kind != yaml.MappingNode {
-		return nil, false
+	// A Node decode keeps duplicate keys; a value decode refuses them, as goreleaser's own load does.
+	var strict any
+	if err := doc.Decode(&strict); err != nil {
+		return nil, "it repeats a key, which goreleaser refuses: " + yamlErrorLines(err)
 	}
 
-	return root, true
+	return doc.Content[0], ""
+}
+
+// yamlErrorLines flattens a yaml.v3 error's per-line list onto one line.
+func yamlErrorLines(err error) string {
+	lines := strings.Split(strings.TrimPrefix(err.Error(), "yaml: unmarshal errors:"), "\n")
+	for i := range lines {
+		lines[i] = strings.TrimSpace(lines[i])
+	}
+
+	return strings.Join(slices.DeleteFunc(lines, func(l string) bool { return l == "" }), "; ")
 }
 
 // topLevelKeyPresent reports whether the mapping node has the given top-level

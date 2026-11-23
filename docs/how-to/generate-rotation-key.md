@@ -238,6 +238,7 @@ regenerate kept its own `.goreleaser.yaml` picks them up by running
 for you to add when it can't place them safely, which covers:
 
 - a file in `.gtb/ignore`, or one with a `signs:` block of your own;
+- a file that repeats a key anywhere, which goreleaser refuses to load;
 - a `before:` whose first entry isn't `hooks:`, or a `release:` that already
   lists `extra_files`;
 - a `before:` or `release:` key written any other way: with anything after
