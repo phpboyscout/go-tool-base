@@ -46,7 +46,7 @@ A command named `init`, or after a predeclared identifier (`error`, `string`, `n
 
 Two commands under the same parent can't share an import name, because the parent imports both. `generate command` refuses a name that reduces to a sibling's: `my_cmd` beside `my-cmd`, `typecmd` beside `type`, or `errorcmd` beside `error`.
 
-Generating a command again keeps what you leave out: its descriptions, aliases, `--args`, whether it's hidden, and its MCP exposure and hints. Its flags are kept too unless you pass any `--flag`, which replaces the set. A long description you never gave follows the short one. An empty `--long` or `--args` counts as left out. An option such as `--assets` is the exception, because leaving it out is how you turn it off. To take an alias away, remove it from the command's entry in `.gtb/manifest.yaml` and run `gtb regenerate project`.
+Generating a command again keeps what you leave out: its descriptions, aliases, `--args`, whether it's hidden, and its MCP exposure and hints. Its flags are kept too unless you pass any `--flag`, which replaces the set and takes a flag that has gone out of its `mutually_exclusive` and `required_together` groups. A long description you never gave follows the short one. An empty `--long` or `--args` counts as left out. An option such as `--assets` is the exception, because leaving it out is how you turn it off. To take an alias away, remove it from the command's entry in `.gtb/manifest.yaml` and run `gtb regenerate project`.
 
 A command named `vendor` builds, but it can't have children. Go refuses to import a package below a directory of that name, so `generate command` refuses one whose parent path contains `vendor`.
 

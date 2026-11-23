@@ -154,6 +154,7 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 
 	g.props.Logger.Debug("rendering registration template", "path", cmdPath)
 
+	groupEdits := renderDeclaredGroups(&data)
 	regFile := templates.CommandRegistration(data)
 
 	var buf bytes.Buffer
@@ -171,6 +172,8 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 
 		return decision.RecordHash, true, nil
 	}
+
+	g.warnGroupsRendered(groupEdits)
 
 	// Logged after the decision, so the line says what happened (#32).
 	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), cmdPath))

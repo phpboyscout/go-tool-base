@@ -51,6 +51,13 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 
 	g.props.Logger.Debug("manifest update", "parent", pathParts, "flags", len(mFlags), "hashes", len(hashes))
 
+	var groupEdits []groupEdit
+
+	// Only a call that replaced the flags edits the recorded groups.
+	if recorded := walkCommandPath(m.Commands, joinCommandPath(pathParts, g.config.Name)); recorded != nil && len(g.config.Flags) > 0 {
+		groupEdits = recordDeclaredGroups(recorded, mFlags)
+	}
+
 	if len(pathParts) == 0 {
 		g.updateRootCommand(m, mFlags, hashes)
 	} else if !updateCommandRecursive(&m.Commands, pathParts, ManifestCommandUpdate{
@@ -78,6 +85,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 		return err
 	}
 
+	g.warnGroupsRecorded(groupEdits)
 	g.props.Logger.Debug("manifest "+g.manifestWritePast()+" successfully", "path", manifestPath)
 
 	return nil

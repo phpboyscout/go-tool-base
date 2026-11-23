@@ -74,8 +74,8 @@ commands:
     - **persistentPreRun**: Whether to generate a persistent pre-run hook.
     - **preRun**: Whether to generate a pre-run hook.
     - **withInitializer**: Whether to generate a config Initializer for this command (`init.go` + `Init<Name>` stub in `main.go`).
-    - **mutuallyExclusive**: A list of flag groups where only one flag can be set (e.g., `[["json", "yaml"]]`).
-    - **requiredTogether**: A list of flag groups that must be set together.
+    - **mutually_exclusive**: A list of flag groups where only one flag can be set (e.g., `[["json", "yaml"]]`).
+    - **required_together**: A list of flag groups that must be set together.
     - **flags**: A list of flags associated with the command.
         - **name**: The flag name (e.g., `port`).
         - **type**: The data type (`string`, `int`, `bool`, `float64`, `stringSlice`, `intSlice`).
