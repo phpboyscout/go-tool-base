@@ -44,6 +44,12 @@ project without `mcp.go` ships without `go/mcp` and the MCP SDK (unless its
 `go/chat-mcptools`, the tool bridge those providers need, and
 `chat.tool_bridge` is not `false`).
 
+Enabling a feature is refused when the project has its own top-level command
+with the feature's command name, or an alias of it, because only one of them
+could run. `gtb wizard` refuses it too. Remove the command, or generate it under
+another name, first. For an alias, remove it from the command's entry in
+`.gtb/manifest.yaml` and run `gtb regenerate project`, then enable the feature.
+
 With **no feature argument**, an interactive multi-select of the candidate
 features (those not already in the target state) is shown. In a
 non-interactive session or under CI there is nothing to prompt with, so the

@@ -66,7 +66,7 @@ func TestDiffAuthorSettings(t *testing.T) {
 	cfg.Bootstrap.SkipConfigCheck = []string{"version"}
 
 	after := *before
-	applyAuthorSettings(&after, cfg)
+	require.NoError(t, applyAuthorSettings(&after, cfg))
 
 	diff := DiffAuthorSettings(before, &after)
 	assert.Equal(t, []string{

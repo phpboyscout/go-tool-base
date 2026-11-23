@@ -42,7 +42,9 @@ func (g *Generator) ApplyAuthorSettings(ctx context.Context, cfg SkeletonConfig)
 		return err
 	}
 
-	applyAuthorSettings(m, cfg)
+	if err := applyAuthorSettings(m, cfg); err != nil {
+		return err
+	}
 
 	if err := ValidateManifest(m); err != nil {
 		return err
@@ -52,16 +54,20 @@ func (g *Generator) ApplyAuthorSettings(ctx context.Context, cfg SkeletonConfig)
 }
 
 // ApplyAuthorSettingsTo overlays cfg's author settings onto m without writing
-// anything, for a dry run's diff.
-func ApplyAuthorSettingsTo(m *Manifest, cfg SkeletonConfig) {
-	applyAuthorSettings(m, cfg)
+// anything, for a dry run's diff. It refuses a feature ApplyAuthorSettings would.
+func ApplyAuthorSettingsTo(m *Manifest, cfg SkeletonConfig) error {
+	return applyAuthorSettings(m, cfg)
 }
 
 // applyAuthorSettings overlays the author-settable fields of a fresh mapping
 // of cfg onto m, leaving the rest of m as it is. The fields listed here are
 // the ones ManifestFromSkeletonConfig writes.
-func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) {
+func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) error {
 	fresh := manifestFromSkeletonConfig(cfg, nil, "")
+
+	if err := checkEnabledFeatureNames(m.Properties.Features, fresh.Properties.Features, m.Commands); err != nil {
+		return err
+	}
 
 	m.Properties.Description = fresh.Properties.Description
 	m.Properties.Features = fresh.Properties.Features
@@ -87,6 +93,8 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) {
 	m.Properties.ForgeCredentials = fresh.Properties.ForgeCredentials
 	m.ReleaseSource = fresh.ReleaseSource
 	m.Version.Go = fresh.Version.Go
+
+	return nil
 }
 
 // DiffAuthorSettings lists the author settings that differ between two

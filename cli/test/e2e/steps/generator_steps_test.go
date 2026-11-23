@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -203,6 +204,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
 	ctx.Step(`^the project has a file "([^"]*)"$`, theProjectHasAFile)
 	ctx.Step(`^I set the project manifest chat providers to none$`, iSetTheProjectManifestChatProvidersToNone)
+	ctx.Step(`^I remove the line "([^"]*)" from the project manifest$`, iRemoveTheLineFromTheProjectManifest)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
@@ -909,6 +911,31 @@ func iSetTheProjectManifestChatProvidersToNone(ctx context.Context) error {
 	rewritten := block.ReplaceAll(content, []byte("  chat:\n    providers: []\n"))
 
 	return os.WriteFile(path, rewritten, 0o600) //nolint:gosec // G703: the path is the scenario's own scratch project
+}
+
+func iRemoveTheLineFromTheProjectManifest(ctx context.Context, line string) error {
+	project, err := os.OpenRoot(getGeneratorWorld(ctx).projectDir)
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+
+	defer func() { _ = project.Close() }()
+
+	const manifest = ".gtb/manifest.yaml"
+
+	content, err := project.ReadFile(manifest)
+	if err != nil {
+		return fmt.Errorf("read manifest: %w", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+	kept := slices.DeleteFunc(slices.Clone(lines), func(l string) bool { return strings.TrimSpace(l) == line })
+
+	if len(kept) != len(lines)-1 {
+		return fmt.Errorf("want one line %q in the manifest, found %d:\n%s", line, len(lines)-len(kept), content)
+	}
+
+	return project.WriteFile(manifest, []byte(strings.Join(kept, "\n")), 0o600)
 }
 
 func manifestContains(ctx context.Context, substr string, want bool) error {

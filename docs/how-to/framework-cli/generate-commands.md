@@ -48,6 +48,10 @@ Two commands under the same parent can't share an import name, because the paren
 
 Generating a command again keeps what you leave out: its descriptions, aliases, `--args`, whether it's hidden, and its MCP exposure and hints. Its flags are kept too unless you pass any `--flag`, which replaces the set. A long description you never gave follows the short one. An empty `--long` or `--args` counts as left out. An option such as `--assets` is the exception, because leaving it out is how you turn it off. To take an alias away, remove it from the command's entry in `.gtb/manifest.yaml` and run `gtb regenerate project`.
 
+A top-level command can't have the name of a built-in the project has, because only one of them could run. `generate command` refuses `update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `config`, `man` and `telemetry` while that feature is enabled. Run `gtb disable update` to use the name `update` yourself. `version` and `help` have no feature to disable, so they are always refused. `completion` is allowed. The same goes for a top-level command's aliases, because the tool answers to either. A nested command can have any of these names.
+
+A project that already has such a command keeps it. `regenerate project` warns, and so does generating that command again.
+
 !!! note "Separation of Concerns"
     We separate the boilerplate (`cmd.go`) from your logic (`main.go`) so that we can regenerate the boilerplate as you add flags or change configurations without overwriting your hard work!
 

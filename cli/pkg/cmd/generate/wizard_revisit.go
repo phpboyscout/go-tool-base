@@ -109,23 +109,7 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 	cfg := so.skeletonConfig(before.Properties.Templates)
 
 	if o.DryRun {
-		after := *before
-		generator.ApplyAuthorSettingsTo(&after, cfg)
-
-		diff := generator.DiffAuthorSettings(before, &after)
-		for _, change := range so.mcpSurfaceChanges() {
-			diff = append(diff, change.describe())
-		}
-
-		if len(diff) == 0 {
-			_, _ = fmt.Fprintln(out, "no changes")
-
-			return nil
-		}
-
-		_, _ = fmt.Fprintln(out, "would change:\n  "+strings.Join(diff, "\n  "))
-
-		return nil
+		return so.printDryRun(out, before, cfg)
 	}
 
 	if err := g.ApplyAuthorSettings(ctx, cfg); err != nil {
@@ -139,6 +123,28 @@ func (o *WizardOptions) Run(ctx context.Context, p *props.Props, out io.Writer) 
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (o *SkeletonOptions) printDryRun(out io.Writer, before *generator.Manifest, cfg generator.SkeletonConfig) error {
+	after := *before
+	if err := generator.ApplyAuthorSettingsTo(&after, cfg); err != nil {
+		return err
+	}
+
+	diff := generator.DiffAuthorSettings(before, &after)
+	for _, change := range o.mcpSurfaceChanges() {
+		diff = append(diff, change.describe())
+	}
+
+	if len(diff) == 0 {
+		_, _ = fmt.Fprintln(out, "no changes")
+
+		return nil
+	}
+
+	_, _ = fmt.Fprintln(out, "would change:\n  "+strings.Join(diff, "\n  "))
 
 	return nil
 }

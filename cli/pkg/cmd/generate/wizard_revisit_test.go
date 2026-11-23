@@ -94,6 +94,27 @@ func TestWizardRun(t *testing.T) {
 		assert.Equal(t, "old", string(m.Properties.Description))
 	})
 
+	t.Run("a dry run refuses what the real run would", func(t *testing.T) {
+		t.Parallel()
+
+		manifest := revisitManifestHead + "commands:\n  - name: config\n    description: my own\n"
+
+		for _, dryRun := range []bool{false, true} {
+			p, fs := revisitProjectFrom(t, manifest)
+			o := &WizardOptions{Path: "/work", DryRun: dryRun, runForm: func(so *SkeletonOptions) error {
+				so.Features = append(so.Features, "config")
+
+				return so.afterWizard()
+			}}
+
+			require.ErrorIs(t, o.Run(context.Background(), p, &bytes.Buffer{}), generator.ErrBuiltinCommandName)
+
+			raw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+			require.NoError(t, err)
+			assert.Equal(t, manifest, string(raw), "a refusal writes nothing")
+		}
+	})
+
 	t.Run("an answer the flags would refuse is refused", func(t *testing.T) {
 		t.Parallel()
 

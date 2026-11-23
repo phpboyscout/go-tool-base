@@ -163,6 +163,8 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return errors.Newf("manifest validation failed: %w", err)
 	}
 
+	g.warnBuiltinCommandNames(m)
+
 	g.props.Logger.Info("Regenerating project from manifest...")
 	g.props.Logger.Debug("manifest loaded", "name", m.Properties.Name, "commands", len(m.Commands))
 

@@ -173,6 +173,10 @@ func (g *Generator) ApplyFeatures(ctx context.Context, desired map[string]bool) 
 		return changed, nil
 	}
 
+	if err := checkEnabledFeatureNames(m.Properties.Features, features, m.Commands); err != nil {
+		return nil, err
+	}
+
 	m.Properties.Features = features
 
 	// One command leaves a consistent tree: the root's SetFeatures wiring,
@@ -186,9 +190,7 @@ func (g *Generator) ApplyFeatures(ctx context.Context, desired map[string]bool) 
 		return nil, err
 	}
 
-	if slices.Contains(changed, string(props.AiCmd)) && !desired[string(props.AiCmd)] {
-		g.warnProvidersOutliveAi(m)
-	}
+	g.warnProvidersOutliveAi(m, changed)
 
 	// On a real filesystem, format/fix the re-rendered root so the tree stays
 	// building and lint-clean. Skipped on in-memory fs (unit tests).
@@ -256,7 +258,12 @@ func upsertOrClearFeature(features []ManifestFeature, name string, enabled bool)
 // warnProvidersOutliveAi: the provider list is the author's record of linked
 // modules and outlives the ai feature (#94); a default project that ran
 // `enable ai` once would otherwise carry every module without a word.
-func (g *Generator) warnProvidersOutliveAi(m *Manifest) {
+func (g *Generator) warnProvidersOutliveAi(m *Manifest, changed []string) {
+	ai := string(props.AiCmd)
+	if !slices.Contains(changed, ai) || featureEnabledIn(m.Properties.Features, ai) {
+		return
+	}
+
 	linked := chatProvidersFor(m.Properties.Chat.Providers)
 	if len(linked) == 0 {
 		return

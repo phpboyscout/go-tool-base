@@ -224,6 +224,10 @@ func (g *Generator) prepareAndVerify() (string, error) {
 		return "", err
 	}
 
+	if err := g.checkBuiltinName(); err != nil {
+		return "", err
+	}
+
 	if err := g.checkProtection(); err != nil {
 		if errors.Is(err, ErrCommandProtected) {
 			g.props.Logger.Warn("Command is protected. Skipping generation.")

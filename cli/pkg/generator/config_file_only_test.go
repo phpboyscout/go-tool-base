@@ -113,7 +113,7 @@ func TestApplyAuthorSettings_KeepsTheFileOnlyList(t *testing.T) {
 	cfg := SkeletonConfigFromManifest(*m)
 	cfg.ConfigFileOnly = nil
 	cfg.ConfigKeyCase = ""
-	ApplyAuthorSettingsTo(m, cfg)
+	require.NoError(t, ApplyAuthorSettingsTo(m, cfg))
 
 	assert.Equal(t, []string{"update.**"}, m.Properties.Config.FileOnly)
 	assert.Empty(t, m.Properties.Config.KeyCase, "the rest of the block still takes the wizard's answers")

@@ -229,6 +229,29 @@ func TestApplyFeatures_DisableAiKeepsProvidersAndSaysSo(t *testing.T) {
 	assert.True(t, buf.Contains("still links"), "the author is told the modules stay: %s", buf.String())
 }
 
+func TestApplyFeatures_WarnsOfProvidersOnlyWhenAiGoesOff(t *testing.T) {
+	t.Parallel()
+
+	g, _ := newFeatureProject(t)
+	buf := logger.NewBuffer()
+	g.props.Logger = buf
+
+	_, err := g.ApplyFeatures(context.Background(), map[string]bool{"ai": true})
+	require.NoError(t, err)
+	assert.False(t, buf.Contains("still links"), "turning ai on")
+
+	_, err = g.ApplyFeatures(context.Background(), map[string]bool{"ai": false})
+	require.NoError(t, err)
+	require.True(t, buf.Contains("still links"))
+
+	buf = logger.NewBuffer()
+	g.props.Logger = buf
+
+	_, err = g.ApplyFeatures(context.Background(), map[string]bool{"telemetry": true})
+	require.NoError(t, err)
+	assert.False(t, buf.Contains("still links"), "ai was already off")
+}
+
 // #105: a feature enabled after generation lands in the canonical order, so
 // the manifest matches what a from-scratch rebuild writes.
 func TestApplyFeatures_KeepsTheCanonicalOrder(t *testing.T) {
