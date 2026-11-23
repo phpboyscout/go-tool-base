@@ -244,6 +244,10 @@ func (g *Generator) EnableSigning(ctx context.Context, signing ManifestSigning) 
 		return err
 	}
 
+	if err := g.requireOverlapKeyFile(signing); err != nil {
+		return err
+	}
+
 	return g.applySigningPosture(ctx, signing)
 }
 

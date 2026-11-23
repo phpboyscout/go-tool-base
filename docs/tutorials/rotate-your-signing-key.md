@@ -48,7 +48,8 @@ bucket that holds the larger set.
   `acme-release-signing-v2`, applied as in
   [Put the signing key in AWS KMS](put-the-signing-key-in-kms.md). Don't edit
   the v1 module: its `name` and `key_spec` are fixed, and v1 has to keep
-  signing until the end.
+  signing until the end. The v1 signer role signs with both keys during the
+  overlap, so the v2 key has to let it. The next section shows how.
 - **An inventory of every key you've embedded**: fingerprint, user ID email,
   and creation time for each. For a key file:
 
@@ -66,8 +67,10 @@ gpg --show-keys --with-colons signing-key-v1.asc | \
   `internal/trustkeys/authority/`. A minisign manifest authority in
   `internal/trustkeys/rotation/`, if your tool has one, isn't part of this
   procedure and stays in the safe.
-- **gtb v0.50.4 or later**, for the `gtb enable signing` steps. Earlier
-  releases don't give a generated tool its `authority/` directory.
+- **A gtb whose `enable signing` has `--overlap-key-id`**, for the
+  `gtb enable signing` steps. Run `gtb enable signing --help` to check. Earlier
+  releases need the hand-written script this page used to describe, and
+  releases before v0.50.4 don't give a generated tool its `authority/` directory.
 - **sigillum.** The `keys` and `sign` commands below use the flags of sigillum **v0.6.0**,
   with local keys standing in for KMS. Install it with
   `go install gitlab.com/phpboyscout/sigillum/cmd/sigillum@latest`. They used to be
@@ -116,6 +119,39 @@ sigillum keys mint \
 
 Record the creation time it logs beside the alias. It's now part of v2's
 fingerprint for good.
+
+## Let the v1 signer role sign with v2
+
+Your release job assumes one role, the one in the `SIGNER_ROLE_ARN` CI
+variable. Through the overlap it signs with both keys, so that role needs
+`kms:Sign` on v2 as well as v1.
+
+The module's key policy refuses `kms:Sign` from anyone but the key's own
+signer role and the principals in `mint_principal_arns`, and only the
+automation role may change it. So the grant goes in the v2 module, from
+version 0.3.0:
+
+```hcl
+module "signing_kms_v2" {
+  source  = "gitlab.com/phpboyscout/signing-kms/aws"
+  version = "0.3.0"
+
+  name = "acme-release-signing-v2"
+  # ... the same inputs as v1 ...
+
+  # The overlap's one signer role. Remove it when the window closes.
+  mint_principal_arns = [module.signing_kms.signer_role_arn]
+}
+```
+
+A mint principal may sign only a SHA-256 digest with RSASSA PKCS#1 v1.5, which
+is exactly what a release signature is. The input is documented for a mint
+ceremony role, and a dedicated input for a rotation's second signer is
+[requested](https://gitlab.com/phpboyscout/iac/terraform-aws-signing-kms/-/work_items/5).
+Until it exists, this is the grant to use.
+
+A v2 key in another AWS account needs that account's key policy to trust the
+v1 role, and the v1 role's own policy to allow `kms:Sign` on the v2 key ARN.
 
 ## Give the rotation authority the new identity
 
@@ -213,72 +249,55 @@ they need to be able to verify the release that brings them v2.
 
 For the overlap window, every release carries two signatures in one
 `checksums.txt.sig`: one from v1 for the installed copies, one from v2 for the
-new ones. `sigillum sign --append` adds a second signature packet to an existing
-signature file, and verifiers skip a packet whose key they don't have.
+new ones. Verifiers skip a packet whose key they don't have.
 
-The generated signs block calls `sigillum sign` once and can't name a second key
-yet ([#156](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/156)).
-For the window, replace it with a script, `scripts/sign-release.sh`:
-
-```sh
-#!/bin/sh
-# Usage: sign-release.sh <signature> <artifact>
-set -eu
-sig=$1 artifact=$2
-
-sigillum --ci sign --backend "$SIGN_BACKEND" --key-id "$SIGN_KEY_ID" \
-  --public-key "$SIGN_PUBLIC_KEY" --output "$sig" "$artifact"
-
-if [ -n "${SIGN_KEY_ID_2:-}" ]; then
-  AWS_ROLE_ARN="${AWS_ROLE_ARN_2:-${AWS_ROLE_ARN:-}}" \
-    sigillum --ci sign --append --backend "$SIGN_BACKEND" --key-id "$SIGN_KEY_ID_2" \
-    --public-key "$SIGN_PUBLIC_KEY_2" --output "$sig" "$artifact"
-fi
-```
-
-Make it executable, point the signs block at it, and tell gtb to leave the
-release config alone while it's hand-edited:
-
-```yaml
-signs:
-  - id: checksums
-    cmd: scripts/sign-release.sh
-    env:
-      - "AWS_ACCESS_KEY_ID="
-      - "AWS_SECRET_ACCESS_KEY="
-    args: ["${signature}", "${artifact}"]
-    artifacts: checksum
-    signature: "${artifact}.sig"
-    output: true
-```
-
-Keep the `env:` lines on GitLab, where the generated block has them too. The
-goreleaser component hands the job the release store's keys, and static keys
-outrank the OIDC token, so both signatures would otherwise fail. On GitHub leave
-them out, because the role step supplies its credentials through those variables.
+Open the window by naming v2 as the overlap key:
 
 ```bash
-chmod +x scripts/sign-release.sh
-gtb ignore add .goreleaser.yaml
+gtb enable signing \
+    --overlap-key-id alias/acme-release-signing-v2 \
+    --overlap-public-key internal/trustkeys/keys/signing-key-v2.asc
 ```
 
-In the release job, set the first key to v1 and the second to v2:
+The manifest records v2 beside v1:
 
 ```yaml
-  variables:
-    SIGN_BACKEND: aws-kms
-    SIGN_KEY_ID: alias/acme-release-signing-v1
-    SIGN_PUBLIC_KEY: internal/trustkeys/keys/signing-key-v1.asc
-    SIGN_KEY_ID_2: alias/acme-release-signing-v2
-    SIGN_PUBLIC_KEY_2: internal/trustkeys/keys/signing-key-v2.asc
-    AWS_ROLE_ARN: ${SIGNER_ROLE_ARN}
-    AWS_ROLE_ARN_2: ${SIGNER_ROLE_ARN_V2}
+signing:
+  enabled: true
+  backend: aws-kms
+  key_id: alias/acme-release-signing-v1
+  public_key: internal/trustkeys/keys/signing-key-v1.asc
+  overlap:
+    key_id: alias/acme-release-signing-v2
+    public_key: internal/trustkeys/keys/signing-key-v2.asc
 ```
 
-The same OIDC token works for both roles, because both trust your project's
-tag pipelines. `sigillum sign` reads the key's region from `--kms-region`, which
-defaults to `eu-west-2`; add it to both commands in the script if yours
-differs.
+The generated `signs:` entry now runs `sigillum sign` twice, through `sh`. The
+second run carries `--append`, which adds v2's packet to the file v1 just
+wrote. A failure in the first run fails the entry, so a release can't ship with
+v2's packet alone. Add `--overlap-kms-region` when v2 lives in a different
+region from v1.
+
+`gtb enable signing` refuses an overlap key outside `internal/trustkeys/keys/`,
+or one that isn't there yet. It can't see your releases, so the order is
+yours to keep: the release that embeds v2 ships before the window opens.
+
+### Coming from the hand-written script
+
+Earlier versions of this page replaced the signs block with
+`scripts/sign-release.sh` and put `.goreleaser.yaml` under `.gtb/ignore`. gtb
+never rewrites a signs block it didn't write, so hand it back first:
+
+```bash
+gtb ignore remove .goreleaser.yaml
+rm scripts/sign-release.sh
+```
+
+Delete the `signs:` block from `.goreleaser.yaml` and the `SIGN_*` and
+`AWS_ROLE_ARN_2` variables from the release job. Then run the
+`gtb enable signing --overlap-key-id ...` command above, which writes a fresh
+block. The job's `AWS_ROLE_ARN` stays, because the one role now signs with both
+keys.
 
 ## Prove both generations verify
 
@@ -322,11 +341,19 @@ Leave the overlap running until you're confident the slow movers have
 updated: weeks, not hours, depending on how often your users run the tool.
 Then:
 
-1. **Stop signing with v1.** Delete the `_2` variables and set the first key
-   to v2. The script's second pass goes quiet.
-2. **Hand the release config back to gtb**, if you like:
-   `gtb ignore remove .goreleaser.yaml`, then
-   `gtb enable signing --key-id alias/acme-release-signing-v2 --public-key internal/trustkeys/keys/signing-key-v2.asc`.
+1. **Stop signing with v1.** Promote the overlap key:
+
+   ```bash
+   gtb enable signing --promote-overlap
+   ```
+
+   v2 becomes the only signing key, and the signs block calls `sigillum sign`
+   once again. If you abandon the rotation instead, `--end-overlap` keeps v1
+   and drops v2.
+2. **Move signing to v2's own role.** Point the `SIGNER_ROLE_ARN` CI variable
+   at `acme-release-signing-v2-signer`, the role the v2 module made. Then take
+   the v1 signer role out of the v2 module's `mint_principal_arns` and apply.
+   In that order, a release never runs without a role that can sign.
 3. **Only now retire the v1 KMS key.** Destroying it any earlier strands every
    copy that hasn't updated.
 

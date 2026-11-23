@@ -325,6 +325,8 @@ gtb-embedded-assets:
 # The templates line builds and runs the generated trustkeys accessors, the
 # only test that sees a fail-open key reader there. The duplicate trust key
 # test runs a signing scaffold's own go test, the only proof its check fails.
+# The overlap line signs with a generated rotation-overlap entry and verifies
+# under each key (spec 0222).
 # go-tools: the scaffold targets the toolchain that
 # generated it (go 1.27 today), and only go-tools carries a golangci-lint
 # built against a Go new enough to lint that target; the repo's own lint
@@ -341,6 +343,7 @@ generated-project-builds:
   script:
     - go test ./cli/pkg/generator/ -run 'TestGenerated.*Compiles$|^TestGeneratedTrustKeysTest_RefusesAKeyInBothDirectories$' -count=1 -v
     - go test ./cli/pkg/generator/templates/ -run 'AsBuilt$' -count=1 -v
+    - go test ./cli/pkg/generator/ -run '^TestGeneratedOverlapSignatureVerifiesWithEitherKey$' -count=1 -v
 
 # home-resolution — where a release build finds the user's home. The matrix
 # compiles its own probe with CGO_ENABLED=0, matching .goreleaser.yaml, and swaps

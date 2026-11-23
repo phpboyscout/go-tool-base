@@ -157,7 +157,15 @@ checksum:
 # GitHub workflow does for a pull request.
 signs:
   - id: checksums
+    {{- if .Signing.SignsWithOverlap }}
+    # A key rotation is open, so the signature carries a packet from each key.
+    # Both come from this one entry because goreleaser runs two entries over
+    # the same file in no fixed order. goreleaser expands $name in args itself,
+    # so the script's own dollars are goreleaser templates.
+    cmd: sh
+    {{- else }}
     cmd: sigillum
+    {{- end }}
     {{- if and .GitLabCI .Signing.SignsWithKMS }}
     # The goreleaser component's release store keys outrank the job's OIDC
     # identity in the AWS SDK's chain, so the signer doesn't get them.
@@ -166,6 +174,13 @@ signs:
       - "AWS_SECRET_ACCESS_KEY="
     {{- end }}
     args:
+      {{- if .Signing.SignsWithOverlap }}
+      - "-c"
+      - {{ .Signing.OverlapSignScript | escapeYAML }}
+      - "sh"
+      - "${signature}"
+      - "${artifact}"
+      {{- else }}
       - "--ci"
       - "sign"
       - "--backend"
@@ -181,6 +196,7 @@ signs:
       - "--output"
       - "${signature}"
       - "${artifact}"
+      {{- end }}
     artifacts: checksum
     signature: "${artifact}.sig"
     output: true

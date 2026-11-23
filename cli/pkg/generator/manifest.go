@@ -399,6 +399,25 @@ type ManifestSigning struct {
 	// Defaults to the embedded-key convention
 	// internal/trustkeys/keys/signing-key-v1.asc.
 	PublicKey string `yaml:"public_key,omitempty"`
+	// Overlap is the second key a release is also signed with through a key
+	// rotation, on the primary's backend. Set while the window is open; nil
+	// signs with the primary alone (spec 0222).
+	Overlap *ManifestSigningOverlap `yaml:"overlap,omitempty"`
+}
+
+// ManifestSigningOverlap is the incoming key of a rotation overlap.
+type ManifestSigningOverlap struct {
+	// KeyID is the backend-specific identifier of the new key.
+	KeyID string `yaml:"key_id"`
+	// PublicKey is the new key's armored public key, under internal/trustkeys/keys/.
+	PublicKey string `yaml:"public_key"`
+	// KMSRegion is the new key's AWS region when it differs from the primary's.
+	KMSRegion string `yaml:"kms_region,omitempty"`
+}
+
+// SignsWithOverlap reports whether each release is signed with both keys.
+func (s ManifestSigning) SignsWithOverlap() bool {
+	return s.SignsReleases() && s.Overlap != nil
 }
 
 // SignsReleases reports whether the release pipeline signs. A key id is what

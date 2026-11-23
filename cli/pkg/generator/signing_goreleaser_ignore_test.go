@@ -307,6 +307,34 @@ func TestEnableSigning_AdvisesWhenSignsBlockPresent(t *testing.T) {
 	assert.FileExists(t, filepath.Join(filepath.Dir(goreleaserPath), "internal", "trustkeys", "trustkeys.go"))
 }
 
+// TestEnableSigning_OverlapAdvisoryNamesTheWayBack covers a project already on
+// the hand-written rotation route (spec 0222 D5): gtb leaves its block alone
+// and says how to hand the block back.
+func TestEnableSigning_OverlapAdvisoryNamesTheWayBack(t *testing.T) {
+	t.Parallel()
+
+	const overlapPublicKey = "internal/trustkeys/keys/signing-key-v2.asc"
+
+	gen, goreleaserPath, buf := scaffoldProjectWithGoreleaser(t, authorSignsGoreleaser, false)
+	keyFile := filepath.Join(filepath.Dir(goreleaserPath), filepath.FromSlash(overlapPublicKey))
+	require.NoError(t, os.MkdirAll(filepath.Dir(keyFile), 0o755))
+	require.NoError(t, os.WriteFile(keyFile, []byte("placeholder"), 0o600))
+
+	require.NoError(t, gen.EnableSigning(context.Background(), ManifestSigning{
+		KeyID: "alias/acme-release-signing-v1",
+		Overlap: &ManifestSigningOverlap{
+			KeyID:     "alias/acme-release-signing-v2",
+			PublicKey: overlapPublicKey,
+		},
+	}))
+
+	got, err := os.ReadFile(goreleaserPath)
+	require.NoError(t, err)
+	assert.Equal(t, authorSignsGoreleaser, string(got))
+	assert.True(t, buf.Contains("cmd: sh"), "the advisory prints the overlap block")
+	assert.True(t, buf.Contains("remove the hand-written signs: block and any script it calls"))
+}
+
 // TestDisableSigning_RemovesOnlyGtbInjectedBlock proves the disable side is the
 // inverse of injection: enabling then disabling on a customised, non-ignored
 // file restores it byte-for-byte (only the gtb-injected block is removed), and

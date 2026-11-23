@@ -24,6 +24,14 @@ var ErrInvalidKeySource = errors.NewSentinel("gtb.enable.invalid_key_source", "i
 // with.
 var ErrInvalidBackend = errors.NewSentinel("gtb.enable.invalid_backend", "invalid --backend: not a backend sigillum signs with")
 
+// ErrOverlapFlagsConflict is returned when one invocation both opens and
+// closes a rotation overlap, or closes it two ways.
+var ErrOverlapFlagsConflict = errors.NewSentinel("gtb.enable.overlap_flags_conflict", "conflicting rotation overlap flags")
+
+// ErrNoOverlapOpen is returned when --promote-overlap or --end-overlap is
+// given and no overlap is open.
+var ErrNoOverlapOpen = errors.NewSentinel("gtb.enable.no_overlap_open", "no rotation overlap is open")
+
 // validKeySources lists the accepted --key-source values.
 var validKeySources = map[string]bool{"embedded": true, "external": true, "both": true}
 
@@ -40,6 +48,12 @@ type signingOptions struct {
 	KeyID     string
 	KMSRegion string
 	PublicKey string
+	// Rotation overlap (spec 0222): the incoming key, and how the window closes.
+	OverlapKeyID     string
+	OverlapPublicKey string
+	OverlapKMSRegion string
+	PromoteOverlap   bool
+	EndOverlap       bool
 }
 
 // NewCmdEnableSigning returns the `gtb enable signing` subcommand. It
@@ -65,7 +79,13 @@ no part in rotation.
 
 --require-signature stays off by default and must only be flipped once a
 signed release has shipped (the N+1 rollout); re-run this command with the
-flag to do so.`,
+flag to do so.
+
+To rotate the release key, first release a version that embeds the new public
+key in internal/trustkeys/keys/. Then --overlap-key-id and --overlap-public-key
+open the overlap: every release is signed with both keys, so copies that trust
+either one verify it. --promote-overlap closes it on the new key, and
+--end-overlap closes it on the old one.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runEnableSigning(cmd, p, &opts)
 		},
@@ -80,6 +100,11 @@ flag to do so.`,
 	cmd.Flags().StringVar(&opts.Backend, "backend", "", "Signing backend for the release pipeline (default aws-kms when --key-id is set)")
 	cmd.Flags().StringVar(&opts.KMSRegion, "kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
 	cmd.Flags().StringVar(&opts.PublicKey, "public-key", "", "Path to the embedded public key the signature identifies (default internal/trustkeys/keys/signing-key-v1.asc)")
+	cmd.Flags().StringVar(&opts.OverlapKeyID, "overlap-key-id", "", "Open a rotation overlap: the new key the release is also signed with, on the same backend")
+	cmd.Flags().StringVar(&opts.OverlapPublicKey, "overlap-public-key", "", "The new key's public key, under internal/trustkeys/keys/, already embedded in a released version")
+	cmd.Flags().StringVar(&opts.OverlapKMSRegion, "overlap-kms-region", "", "AWS region of the new key, when it differs from the primary's")
+	cmd.Flags().BoolVar(&opts.PromoteOverlap, "promote-overlap", false, "Close the rotation overlap on the new key: it becomes the only signing key")
+	cmd.Flags().BoolVar(&opts.EndOverlap, "end-overlap", false, "Close the rotation overlap on the old key, abandoning the rotation")
 
 	return setup.Wrap("", cmd)
 }
@@ -97,6 +122,14 @@ type signingFlagSet struct {
 	keyID             bool
 	kmsRegion         bool
 	publicKey         bool
+	overlapKeyID      bool
+	overlapPublicKey  bool
+	overlapKMSRegion  bool
+}
+
+// opensOverlap reports whether any flag that records the overlap key was given.
+func (s signingFlagSet) opensOverlap() bool {
+	return s.overlapKeyID || s.overlapPublicKey || s.overlapKMSRegion
 }
 
 // validateSigningFlags checks the flag values this invocation actually
@@ -110,6 +143,26 @@ func validateSigningFlags(opts *signingOptions, set signingFlagSet) error {
 
 	if set.backend && opts.Backend != "" && !slices.Contains(generator.SigningBackends(), opts.Backend) {
 		return errors.Wrapf(ErrInvalidBackend, "%q (available: %s)", opts.Backend, strings.Join(generator.SigningBackends(), ", "))
+	}
+
+	return nil
+}
+
+// validateOverlapFlags refuses an invocation that would open and close the
+// overlap at once, close it two ways, or close one that is not open.
+func validateOverlapFlags(opts *signingOptions, set signingFlagSet, current generator.ManifestSigning) error {
+	closes := opts.PromoteOverlap || opts.EndOverlap
+
+	switch {
+	case opts.PromoteOverlap && opts.EndOverlap:
+		return errors.WithHint(ErrOverlapFlagsConflict,
+			"--promote-overlap keeps the new key and --end-overlap keeps the old one; choose one")
+	case closes && set.opensOverlap():
+		return errors.WithHint(ErrOverlapFlagsConflict,
+			"open the overlap and close it in separate runs, with releases signed by both keys in between")
+	case closes && current.Overlap == nil:
+		return errors.WithHint(ErrNoOverlapOpen,
+			"open one with --overlap-key-id and --overlap-public-key first")
 	}
 
 	return nil
@@ -152,6 +205,42 @@ func mergeSigning(current generator.ManifestSigning, opts *signingOptions, set s
 		m.PublicKey = opts.PublicKey
 	}
 
+	return mergeOverlap(m, opts, set)
+}
+
+// mergeOverlap opens, edits or closes the rotation overlap. The flags
+// provided overlay an overlap already open.
+func mergeOverlap(m generator.ManifestSigning, opts *signingOptions, set signingFlagSet) generator.ManifestSigning {
+	switch {
+	case opts.PromoteOverlap:
+		return m.PromoteOverlap()
+	case opts.EndOverlap:
+		m.Overlap = nil
+
+		return m
+	case !set.opensOverlap():
+		return m
+	}
+
+	overlap := generator.ManifestSigningOverlap{}
+	if m.Overlap != nil {
+		overlap = *m.Overlap
+	}
+
+	if set.overlapKeyID {
+		overlap.KeyID = opts.OverlapKeyID
+	}
+
+	if set.overlapPublicKey {
+		overlap.PublicKey = opts.OverlapPublicKey
+	}
+
+	if set.overlapKMSRegion {
+		overlap.KMSRegion = opts.OverlapKMSRegion
+	}
+
+	m.Overlap = &overlap
+
 	return m
 }
 
@@ -189,6 +278,9 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 		keyID:             cmd.Flags().Changed("key-id"),
 		kmsRegion:         cmd.Flags().Changed("kms-region"),
 		publicKey:         cmd.Flags().Changed("public-key"),
+		overlapKeyID:      cmd.Flags().Changed("overlap-key-id"),
+		overlapPublicKey:  cmd.Flags().Changed("overlap-public-key"),
+		overlapKMSRegion:  cmd.Flags().Changed("overlap-kms-region"),
 	}
 
 	gen := generator.New(p, &generator.Config{Path: opts.Path, Overwrite: "allow"})
@@ -209,6 +301,10 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 		return err
 	}
 
+	if err := validateOverlapFlags(opts, set, current); err != nil {
+		return err
+	}
+
 	merged := mergeSigning(current, opts, set)
 
 	if err := gen.EnableSigning(cmd.Context(), merged); err != nil {
@@ -218,6 +314,8 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 	p.Logger.Info("Signing enabled.")
 	p.Logger.Info("Drop your minted public key(s) into internal/trustkeys/keys/*.asc, then commit.")
 	p.Logger.Info("A minisign key-rotation authority, when you have one, goes in internal/trustkeys/rotation/*.pub.")
+
+	logOverlap(p, current, merged)
 
 	if !merged.RequireSignature {
 		p.Logger.Info("require_signature stays off until a signed release has shipped — re-run with --require-signature to flip it.")
@@ -274,4 +372,15 @@ func isCI(cmd *cobra.Command, p props.ConfigProvider) bool {
 	}
 
 	return false
+}
+
+// logOverlap says what changed about the rotation overlap, if anything.
+func logOverlap(p *props.Props, before, after generator.ManifestSigning) {
+	switch {
+	case after.Overlap != nil:
+		p.Logger.Info("Rotation overlap open: each release is signed with both keys. Close it with --promote-overlap once enough copies trust the new key.",
+			"key_id", after.KeyID, "overlap_key_id", after.Overlap.KeyID)
+	case before.Overlap != nil:
+		p.Logger.Info("Rotation overlap closed: releases are signed with one key.", "key_id", after.KeyID)
+	}
 }

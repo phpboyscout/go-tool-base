@@ -223,6 +223,12 @@ func (g *Generator) adviseGoreleaserSigns(relPath string, m *Manifest, enable bo
 		"path", relPath, "reason", reason)
 	// Emit the block itself as its own record so it is cleanly pasteable.
 	g.props.Logger.Warn(block)
+
+	if m.Properties.Signing.SignsWithOverlap() {
+		g.props.Logger.Warn(
+			"To have gtb keep the rotation's signs: block in step, remove the hand-written signs: block and any script it calls, take the file out of .gtb/ignore if it is there, and run gtb enable signing again.",
+			"path", relPath)
+	}
 }
 
 // renderGoreleaserSignsBlock renders the embedded skeleton with the current

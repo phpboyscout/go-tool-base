@@ -1487,7 +1487,11 @@ func validateManifestSigning(s *ManifestSigning) error {
 		return err
 	}
 
-	return ValidateSigningPublicKey(s.PublicKey)
+	if err := ValidateSigningPublicKey(s.PublicKey); err != nil {
+		return err
+	}
+
+	return validateOverlap(*s)
 }
 
 // validateManifestProperties groups the Properties-level validations

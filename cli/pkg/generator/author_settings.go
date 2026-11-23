@@ -69,6 +69,7 @@ var authorSettings = []AuthorSetting{
 	{Field: "Signing.KeyID", Kind: KindSetting, Flag: "signing-key-id", Wizard: "signing-key-id", Manifest: "properties.signing.key_id"},
 	{Field: "Signing.KMSRegion", Kind: KindSetting, Flag: "signing-kms-region", Manifest: "properties.signing.kms_region"},
 	{Field: "Signing.PublicKey", Kind: KindSetting, Flag: "signing-public-key", Manifest: "properties.signing.public_key"},
+	{Field: "Signing.Overlap", Kind: KindSetting, Manifest: "properties.signing.overlap"},
 	{Field: "Chat.Providers", Kind: KindSetting, Flag: "chat-providers", Wizard: "chat-providers", Manifest: "properties.chat.providers"},
 	{Field: "Chat.ToolBridge", Kind: KindSetting, Flag: "chat-tool-bridge", Wizard: "chat-tool-bridge", Manifest: "properties.chat.tool_bridge"},
 	{Field: "Chat.Default.Provider", Kind: KindSetting, Flag: "chat-default-provider", Wizard: "chat-default", Manifest: "properties.chat.default.provider"},

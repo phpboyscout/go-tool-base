@@ -201,6 +201,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project output contains "([^"]*)"$`, theProjectOutputContains)
 	ctx.Step(`^the project output does not contain "([^"]*)"$`, theProjectOutputDoesNotContain)
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
+	ctx.Step(`^the project has a file "([^"]*)"$`, theProjectHasAFile)
 	ctx.Step(`^I set the project manifest chat providers to none$`, iSetTheProjectManifestChatProvidersToNone)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
@@ -869,6 +870,17 @@ func aLocalTemplateOverlayDirectory(ctx context.Context, dir, file string) error
 
 func theProjectManifestContains(ctx context.Context, substr string) error {
 	return manifestContains(ctx, substr, true)
+}
+
+// theProjectHasAFile stands in for a file the author commits by hand, such as
+// a release key gtb checks for but never writes.
+func theProjectHasAFile(ctx context.Context, rel string) error {
+	path := filepath.Join(getGeneratorWorld(ctx).projectDir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(rel), err)
+	}
+
+	return os.WriteFile(path, []byte("placeholder\n"), 0o600)
 }
 
 func theProjectManifestDoesNotContain(ctx context.Context, substr string) error {

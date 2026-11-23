@@ -73,6 +73,20 @@ paste.
 | `--backend` | *(aws-kms when `--key-id` set)* | Signing backend for the release pipeline: `aws-kms` or `local`, the two `sigillum` links. |
 | `--kms-region` | `eu-west-2` | AWS region for the `aws-kms` backend. |
 | `--public-key` | *(embedded signing-key)* | Path to the embedded public key the signature identifies. |
+| `--overlap-key-id` | — | Opens a rotation overlap: the new key each release is also signed with, on the same backend. |
+| `--overlap-public-key` | — | The new key's public key. It must be in `internal/trustkeys/keys/`, and a released version should already embed it. |
+| `--overlap-kms-region` | *(the primary's)* | AWS region of the new key, when it differs from the primary's. |
+| `--promote-overlap` | `false` | Closes the overlap on the new key, which becomes the only signing key. |
+| `--end-overlap` | `false` | Closes the overlap on the old key, abandoning the rotation. |
+
+While an overlap is open, the `signs:` entry runs `sigillum sign` twice through
+`sh`, and `checksums.txt.sig` holds a signature from each key. The manifest
+records the new key under `properties.signing.overlap`. `enable signing`
+refuses an overlap with no primary `--key-id`, a public key outside
+`internal/trustkeys/keys/` or not in the tree, both closing flags at once, a
+closing flag with an `--overlap-*` flag, and a closing flag with no overlap open.
+[Rotate your signing key](../../tutorials/rotate-your-signing-key.md) walks the
+whole rotation.
 
 See [Secure Releases](../../how-to/secure-releases.md).
 

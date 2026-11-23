@@ -64,3 +64,28 @@ Feature: Enable and disable release-signing verification end-to-end
     When I run gtb in the project with "disable signing"
     Then the project exit code is 0
     And the generated ".github/workflows/goreleaser.yaml" file does not contain "SIGNER_ROLE_ARN"
+
+  Scenario: A rotation overlap signs with both keys until the new key is promoted
+    Given a freshly generated gtb project
+    When I run gtb in the project with "enable signing --key-id alias/acme-release-signing-v1"
+    Then the project exit code is 0
+    Given the project has a file "internal/trustkeys/keys/signing-key-v2.asc"
+    When I run gtb in the project with "enable signing --overlap-key-id alias/acme-release-signing-v2 --overlap-public-key internal/trustkeys/keys/signing-key-v2.asc"
+    Then the project exit code is 0
+    And the project manifest contains "key_id: alias/acme-release-signing-v2"
+    And the generated ".goreleaser.yaml" file contains "cmd: sh"
+    And the generated ".goreleaser.yaml" file contains "sign --append"
+    When I run gtb in the project with "enable signing --promote-overlap"
+    Then the project exit code is 0
+    And the project manifest does not contain "overlap:"
+    And the generated ".goreleaser.yaml" file contains "cmd: sigillum"
+    And the generated ".goreleaser.yaml" file does not contain "alias/acme-release-signing-v1"
+
+  Scenario: An overlap key the tool does not yet embed is refused
+    Given a freshly generated gtb project
+    When I run gtb in the project with "enable signing --key-id alias/acme-release-signing-v1"
+    Then the project exit code is 0
+    When I run gtb in the project with "enable signing --overlap-key-id alias/acme-release-signing-v2 --overlap-public-key internal/trustkeys/keys/signing-key-v2.asc"
+    Then the project exit code is not zero
+    And the project output contains "release it before opening the overlap"
+    And the project manifest does not contain "overlap:"
