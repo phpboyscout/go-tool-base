@@ -1,6 +1,6 @@
 version: 2
 project_name: {{ .Name | escapeYAML }}
-{{ if .Hosted -}}
+{{ if and .Hosted .ForgeTokenType -}}
 force_token: {{ .ForgeTokenType }}
 {{ end -}}
 before:
@@ -118,7 +118,7 @@ uploads:
     custom_headers:
       JOB-TOKEN: "{{ "{{" }} .Env.CI_JOB_TOKEN {{ "}}" }}"
 {{ end }}
-{{ else if .Hosted -}}
+{{ else if and .Hosted .ForgeTokenType -}}
 release:
   use_existing_draft: true
   replace_existing_artifacts: true
@@ -128,8 +128,8 @@ release:
   mode: keep-existing
 {{ else -}}
 release:
-  # Not hosted on a forge: there is no release object to create. The
-  # binaries are published by the blobs pipe below.
+  # Not hosted on a forge goreleaser can release to: there is no release
+  # object to create. The binaries are published by the blobs pipe below.
   disable: true
 {{ end -}}
 
@@ -272,12 +272,17 @@ publishers:
     output: true
 
 {{ end -}}
-{{ if not .Hosted -}}
+{{ if or (not .Hosted) (not .ForgeTokenType) -}}
 {{ else if eq .ForgeTokenType "github" -}}
 github_urls:
   api: https://{{ .Host }}/api/v3/
   upload: https://{{ .Host }}/api/uploads/
   download: https://{{ .Host }}/
+  skip_tls_verify: false
+{{ else if eq .ForgeTokenType "gitea" -}}
+gitea_urls:
+  api: https://{{ .Host }}/api/v1/
+  download: https://{{ .Host }}
   skip_tls_verify: false
 {{ else -}}
 gitlab_urls:

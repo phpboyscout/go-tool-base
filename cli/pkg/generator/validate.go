@@ -123,9 +123,6 @@ var signingKeySources = map[string]bool{
 	"both":     true,
 }
 
-// releaseSourceTypes is the set of release-source providers the skeleton
-// asset sets actually support. "gitea" and "bitbucket" are reserved for
-// the forge adapters but rejected until skeleton assets exist for them.
 // releaseSourceTypes is every type a generated tool can release from: each
 // forge the generator can host a project on (spec 0195 D4) plus the static
 // channel (spec 0203 D1). Empty is a project that is not hosted and does not
@@ -568,9 +565,7 @@ func ValidateSigningKeySource(source string) error {
 }
 
 // ValidateReleaseSourceType restricts the manifest release-source provider
-// to the enum the skeleton assets support: "github", "gitlab", or empty
-// for the host-derived default. "gitea" and "bitbucket" are reserved for
-// the forge adapters and rejected until skeleton asset sets exist.
+// to releaseSourceTypes, refusing the withdrawn direct channel by name.
 func ValidateReleaseSourceType(sourceType string) error {
 	if norm.NFC.String(sourceType) == releaseChannelDirect {
 		return rejectf("ReleaseSourceType",
@@ -1315,9 +1310,9 @@ func splitHostPort(h string) (host, port string, hasPort bool) {
 // populated; empty fields short-circuit to nil, matching the
 // forgiving behaviour of the fine-grained validators above.
 // ManifestWarnings are the things a manifest is allowed to say that an author
-// should still hear about: none of them stops a generate. Today that is a
-// telemetry endpoint over plain HTTP, which is a legitimate setup for a
-// collector on a private network and a mistake for one on the internet.
+// should still hear about: none of them stops a generate. Each is a setup that
+// is legitimate somewhere and a mistake elsewhere, such as a telemetry
+// endpoint over plain HTTP, or a forge goreleaser cannot release to.
 func ManifestWarnings(m *Manifest) []string {
 	var out []string
 
@@ -1329,6 +1324,10 @@ func ManifestWarnings(m *Manifest) []string {
 		if u, err := url.Parse(endpoint); err == nil && u.Scheme == "http" {
 			out = append(out, key+" uses plain HTTP ("+endpoint+"): usage events travel unencrypted; use https unless the collector is on a private network")
 		}
+	}
+
+	if rs := m.ReleaseSource; rs.Type != "" && rs.Type != props.ReleaseSourceStatic && !forgeCanRelease(rs.Type) {
+		out = append(out, "release_source.type is "+strconv.Quote(rs.Type)+": goreleaser cannot publish a release there, so the release config disables it; set release_source.type to static with release_source.static.base_url")
 	}
 
 	if rs := m.ReleaseSource; rs.Static.BaseURL != "" && rs.Type != props.ReleaseSourceStatic {

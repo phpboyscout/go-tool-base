@@ -47,7 +47,7 @@ manifest.
 |------|---------|-------------|
 | `--name, -n` | — | Project name (e.g. `als`). |
 | `--repo, -r` | — | Repository in `org/repo` format. |
-| `--forge-backend` | `github` | The forge the project is hosted on: `github`, `gitlab`, `gitea`, `codeberg` or `bitbucket`. Decides the release source, the host default and the CI skeleton (only GitHub and GitLab ship one; the others get no CI files and the run says so). Recorded as `release_source.backend` and enables the forge's feature. Replaces `--git-backend`, which is gone. |
+| `--forge-backend` | `github` | The forge the project is hosted on: `github`, `gitlab`, `gitea`, `codeberg` or `bitbucket`. Decides the release source, the host default, the CI skeleton (only GitHub and GitLab ship one; the others get no CI files and the run says so) and the release config. Gitea and Codeberg release through goreleaser's Gitea API (`gitea_urls`, token type `gitea`). goreleaser cannot release to Bitbucket, so a Bitbucket project's `.goreleaser.yaml` disables the forge release, and generate and every command that writes the manifest warn: release such a tool on the static channel (`--release-channel static`). Recorded as `release_source.backend` and enables the forge's feature. Replaces `--git-backend`, which is gone. |
 | `--no-forge` | `false` | The project is not hosted on a forge: no backend, no repository; requires `--module`. |
 | `--module` | *(`<host>/<org>/<repo>`)* | Go module path. Required with `--no-forge`; otherwise an override for a vanity import path. Recorded as `module_path`. |
 | `--forge-credentials` | — | Further forges to enable for credential capture (their `init <forge>` wizard and adapter), never the release source. |

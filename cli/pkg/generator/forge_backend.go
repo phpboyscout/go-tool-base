@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
 // Release channels a self-updating tool can be generated with (spec 0195 D7,
@@ -53,6 +54,26 @@ func ForgeBackends() []props.FeatureID {
 	}
 
 	return backends
+}
+
+// goreleaserTokenType maps a forge to the token type goreleaser releases
+// through. Codeberg is a Gitea host. goreleaser has no Bitbucket release
+// support, so Bitbucket has none.
+func goreleaserTokenType(backend string) string {
+	switch props.FeatureID(backend) {
+	case forge.GithubFeature, forge.GitlabFeature:
+		return backend
+	case forge.GiteaFeature, forge.CodebergFeature:
+		return string(forge.GiteaFeature)
+	default:
+		return ""
+	}
+}
+
+// forgeCanRelease reports whether goreleaser can publish a release on the
+// forge, which the forge release channel needs.
+func forgeCanRelease(backend string) bool {
+	return goreleaserTokenType(backend) != ""
 }
 
 // ValidateForgeBackend accepts a registered forge or empty (not hosted).

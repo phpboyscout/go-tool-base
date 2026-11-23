@@ -649,15 +649,17 @@ func (d skeletonTemplateData) StaticChannel() bool {
 	return d.ReleaseProvider == props.ReleaseSourceStatic
 }
 
-// ForgeTokenType is the forge whose token goreleaser reads: the release
-// provider on the forge channel, the backend when the tool releases on the
-// static channel but is still hosted.
+// ForgeTokenType is goreleaser's token type for the project's forge: the
+// release provider on the forge channel, the backend when the tool releases
+// on the static channel but is still hosted. Empty is a forge goreleaser
+// cannot release to.
 func (d skeletonTemplateData) ForgeTokenType() string {
+	backend := d.ReleaseProvider
 	if d.StaticChannel() {
-		return string(d.ForgeBackend)
+		backend = string(d.ForgeBackend)
 	}
 
-	return d.ReleaseProvider
+	return goreleaserTokenType(backend)
 }
 
 // Hosted reports whether the project lives on a forge; a project that is not
