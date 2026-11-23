@@ -1,5 +1,112 @@
 # Changelog
 
+## [v0.52.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.52.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.51.1...v0.52.0)
+
+### Notes
+
+- The install script now says when GitLab refuses the release lookup, for example on a rate limit, and what to do about it, rather than failing with a jq parse error.
+
+- gtb generate project --forge-backend gitea now needs --host, since every Gitea instance is somebody's own. It used to generate the project against github.com.
+
+- The commands index no longer splices its table into a code fence that quotes the gtb:commands markers. A marker must sit on a line of its own.
+
+- A project generated for Gitea or Codeberg now gets a release config that releases through goreleaser's Gitea API. A Bitbucket project's release config disables the forge release, because goreleaser cannot release to Bitbucket, and gtb warns when it generates the project or writes its manifest; release such a tool on the static channel. Run gtb regenerate project to update an existing project.
+
+- A config store over a filtered YAML file (a user config inside a git checkout, or a project-local file) now reports that edits keep comments, as they do.
+
+- gtb no longer prints part of a refused release base URL. From cli/v0.45.0 to cli/v0.51.1, gtb generate project --release-base-url, gtb set release_source.static.base_url and gtb regenerate project (reading it from the manifest) could print a credential embedded in that URL. If you passed one carrying a token or password and it was refused, rotate that credential.
+
+- On Windows, the first regenerate rewrites the hashes keys in .gtb/manifest.yaml from backslash to slash paths, so the committed manifest reads the same on every OS; commit the one-time change.
+
+- releasemanifest now fails the before_publish hook when release.json would exceed 1 MiB, the most update reads, instead of publishing a release nobody can update to; shorten the release's notes if it does.
+
+- A project generated or regenerated with signing gains internal/trustkeys/rotation/: drop a minisign rotation-authority .pub there and the tool follows emergency key rotations. It ships empty, so nothing changes until a key is added. Regenerating needs go-tool-base v0.52.0 or later.
+
+- releasemanifest takes --rotation <dir> and --rotation-authority <dir>, and carries a committed rotate-keys.json and its .minisig onto the release once it verifies against an authority key and has 30 days left; a committed manifest with --rotation-authority unset stops the release. Generated static-channel projects pass both. It needs go-tool-base v0.52.0 or later pinned in the project's go.mod.
+
+- A tool can now follow an emergency release-key rotation: list minisign rotation authority keys in props.Tool.Signing.RotationAuthorityKeys and the updater applies the signed rotate-keys.json a release carries before verifying it. Turn it off with update.rotation.enabled: false.
+
+- regenerate project no longer discards prose around a commands index's gtb:commands markers, and removing a .gtb/ignore rule once more raises a conflict instead of overwriting the edit it protected.
+
+- `gtb sign` and `gtb keys` are removed. Use `sigillum sign` and `sigillum keys` (https://sigillum.phpboyscout.uk), which take the same flags. Self-update and generated projects are unaffected.
+
+- When the static release channel cannot be reached, `update` now says so and suggests checking the connection, instead of printing a bare network error.
+
+- A config file holding more than one YAML document now logs a warning naming the file. Later documents still override earlier ones.
+
+- A static-channel release on a macOS runner without coreutils now moves the latest.json pointer, using shasum when sha256sum is absent.
+
+- Static release channel requests from update and doctor now send User-Agent: <tool>/<version>, so a release store can count update checks per release.
+
+- A generated GitLab project's release now appears with its archives, checksums and signature already attached; regenerate moves an existing project across (see the migration note "a generated GitLab project releases with its assets attached").
+
+- gtb regenerate project no longer reformats pkg/cmd/root/cmd.go straight after gtb generate command.
+
+- gtb set release_source.type static now moves a hosted project to the static release channel instead of refusing it with an error about the organisation name.
+
+- gtb set, gtb unset and the gtb wizard revisit now update the CI file, .goreleaser.yaml, zensical.toml and the other files a setting feeds, so no gtb regenerate project is needed after them. A file you have edited is left as it is, with a warning naming it.
+
+- A package manager can now tell any gtb-based tool its install is managed: set GTB_INSTALL_MANAGER (or <PREFIX>_INSTALL_MANAGER for one tool), and optionally GTB_INSTALL_UPGRADE with the upgrade command. The tool then stops checking for and reminding about updates, and update refuses, naming the manager.
+
+- A command can now be named after a Go keyword, such as `import`, `type` or `go`. Its Go package takes a `cmd` suffix (`package importcmd`), and the command, its directory, help and docs keep the name.
+
+- A command's page in the Diátaxis docs layout now moves to <command>/index.md when the command gains its first subcommand, and back when it loses its last. Run `gtb regenerate project` once to move pages an older gtb left behind.
+
+- gtb update shows the notes of each static-channel release it crosses, and prints no empty heading for a release without notes. A generated project on the static channel gets its notes published by adding `--changelog CHANGELOG.md` to the releasemanifest hook in .goreleaser.yaml, or by regenerating it.
+
+- Generated GitLab projects now run the homebrew-tap job on images/ci-base:v0.3.5 instead of the archived images/dev-tools:v0.3.4. An existing project should change that job's image the same way.
+
+- A tool can now declare config keys that no variable under its env prefix may set, with `props.ConfigSpec.FileOnly` (for example `update.**`). Every spelling of a `MYTOOL_` variable aimed at one, and a bare section variable such as `MYTOOL_UPDATE=x`, is ignored with a warning, and `doctor` lists the patterns. Variables the framework reads by name, such as `TELEMETRY_ENABLED`, are not covered.
+
+### Features
+
+- **generator**: warn when regenerate splits a GitLab project's release files ([b12b1b9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b12b1b953714bb0284786a08eac23bf67b4e43ff))
+- **generator**: give a signed project a key-rotation authority directory ([773963b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/773963b95e258593ccb800344b5211286235c6b3))
+- **release**: carry a committed key-rotation manifest onto every release ([ea4b1bb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ea4b1bbb6f455e1db8ca47bf0022cc07f7a5df01))
+- **setup**: follow a signed key-rotation manifest on self-update ([bfd010f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bfd010f91d9948da1d9f24fd2083551542483fd6))
+- **cli**: move the sign and keys commands to sigillum ([32ec760](https://gitlab.com/phpboyscout/go-tool-base/-/commit/32ec760dd80411f2c1f56d6aa3f6388a4bfcfcd8))
+- **setup**: name the tool and its version on static release channel reads ([60a7485](https://gitlab.com/phpboyscout/go-tool-base/-/commit/60a74858bf8889e52173ed6ff47586abd41a5793))
+- **generator**: release a GitLab project with its assets already attached ([02a1faa](https://gitlab.com/phpboyscout/go-tool-base/-/commit/02a1faa36df63a61ff03a721514a89d70975fcb2))
+- **update**: let an installer say a tool's install is managed ([42d6af5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/42d6af523906faa3370377e5005737fb7aac930e))
+- **generator**: allow a command named after a Go keyword ([248c217](https://gitlab.com/phpboyscout/go-tool-base/-/commit/248c217a70a9adb78a86ab299b9a9bcb3cd53d03))
+- **config**: refuse file-only patterns that would protect nothing ([759ef33](https://gitlab.com/phpboyscout/go-tool-base/-/commit/759ef330203b42089044b5596783726386817b75))
+- **generator**: carry properties.config.file_only into the root ([85706d0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/85706d072bc16a849f7e2b6a81d1dcea7e4a9737))
+- **config**: let a tool keep config keys out of the environment ([905487d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/905487d210dbc2afe8762b4930890b7031665aa5))
+
+### Bug Fixes
+
+- **install**: report a failed release lookup by its HTTP status ([947e570](https://gitlab.com/phpboyscout/go-tool-base/-/commit/947e5707b85fb662cadbd54646c8e6d90b723164))
+- **generator**: require a host for a forge that has no default one ([9e166b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9e166b292bc10981e0af6d2761da4aaedace3a9e))
+- **generator**: ignore commands index markers quoted in a code fence ([0100187](https://gitlab.com/phpboyscout/go-tool-base/-/commit/01001870c2818aee773c46673132abdbd81da7de))
+- **generator**: give each forge a release config goreleaser can use ([8ccbd5d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8ccbd5d414ccb072f5287e867b68fd10093acbe7))
+- **config**: keep comment preservation visible through the trust filters ([c4fd3f0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c4fd3f09cf32d63817b66146a1b34f175f7c6760))
+- **generator**: explain a refused release base URL in release terms, quoting none of it ([ff8b2de](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ff8b2de9a9099eec6756f83f174e17b380733f16))
+- **generator**: key manifest hashes by slash path on every OS ([5d907bd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5d907bd1ebe5c36c28fb3479bd407837d98cc05c))
+- **releasemanifest**: read dated and CRLF changelog sections, and refuse an oversized manifest ([2949e44](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2949e44616a0b818eb583fbb1a44958a3385f1b1))
+- **deps**: update go modules ([d89feee](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d89feee38007a63129962390997bb3d1b4adb714))
+- **generator**: refuse a command whose package name a sibling already has ([94c4ff5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/94c4ff52329dbce024397f81be7c4afc1e4ee59d))
+- **config**: print config path's paths whole, however narrow the output ([b0e12bb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b0e12bb23deaa28dfe9a7715aa08c6add4dbf041))
+- **generator**: keep hand-written prose on the commands index and on un-ignored files ([d40fa34](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d40fa34a8e14154b9d522afb153453f114334e36))
+- **update**: say when the release channel cannot be reached ([060ae57](https://gitlab.com/phpboyscout/go-tool-base/-/commit/060ae57cbd4765aa67e001be2be8861754121fef))
+- **config**: warn when a config file holds more than one YAML document ([fb1592a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fb1592acd31b49714f5e227fc7eb934eb18f2224))
+- **release**: move the static pointer on a runner that has only shasum ([ef0538a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ef0538a72fc8a05feed8cbaac54916b82d123a4d))
+- **generator**: stop writing empty forge fields into a static manifest ([77f838b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/77f838b62136624294856438c758398119bce01e))
+- **generator**: write no CODEOWNERS rule when the project names no owner ([88d9ef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/88d9ef50c4094510eae518d4bf62d2763a7f368e))
+- **generator**: register a root command on the line regenerate renders it ([72437a7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/72437a7bbb7bf8c4d8b1afa333ba4a52b7a1dd27))
+- **generator**: check a release owner against the forge, not the channel ([63eacc9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/63eacc9f3beda8c71dd4a1e038d1cab358fed33d))
+- **generator**: bring every file a setting feeds up to date on set ([9002a77](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9002a77ab246301340482ce7d1ebf1b9bcac88e9))
+- **deps**: update go modules ([e8f39b1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e8f39b11f6c43869a3bbac1387aa9456bdc599ec))
+- **generator**: move a command's page when it gains or loses subcommands ([7308c6f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7308c6fe9fe2127381023986e36b75e869250e18))
+- **update**: show each static-channel release's notes ([6b55b60](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6b55b6031f31c5e75ebd69dd3503cfda9abd585c))
+- **generator**: scaffold homebrew-tap on ci-base, not the archived dev-tools ([6373fef](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6373fef2b8fd340159952f6036dc43dc20a5567f))
+- **deps**: update module github.com/aws/aws-sdk-go-v2/config to v1.33.19 ([417d8a5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/417d8a59325e54d56cf828eb2956b8b89dc593c2))
+
+### Other
+
+- **generator**: return each render's outcome instead of storing it ([a7e03e0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a7e03e01ea0a7525b5c3caebc1593c85957a4eeb))
+
 ## [v0.51.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.51.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.51.0...v0.51.1)
