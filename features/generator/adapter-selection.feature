@@ -32,6 +32,12 @@ Feature: A generated tool links only the adapters it selects
     And the generated ".github/workflows" file does not exist
     And the generated "cmd/feattool/forge.go" file contains "forge-gitlab"
 
+  Scenario: A forge with no default host needs one
+    Given I generate a gtb project with forge backend "gitea" and no host
+    Then the project exit code is not zero
+    And the project output contains "no default host"
+    And the project output contains "--host"
+
   Scenario: A backend without a CI skeleton is offered and writes no CI files
     Given I generate a gtb project with forge backend "gitea" on host "git.example.com"
     Then the project exit code is 0

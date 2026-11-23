@@ -386,3 +386,32 @@ func TestValidateCoreFields_UpdateCheckInterval(t *testing.T) {
 	require.ErrorIs(t, err, generator.ErrInvalidInput)
 	assert.Contains(t, strings.Join(errors.GetAllHints(err), " "), "UpdateCheckInterval")
 }
+
+// #217: Gitea has no canonical host, so leaving --host empty must not fall
+// through to github.com.
+func TestValidateCoreFields_AHostlessForgeNeedsAHost(t *testing.T) {
+	t.Parallel()
+
+	o := &SkeletonOptions{Name: "mytool", Description: "a tool", Repo: "myorg/mytool", ForgeBackend: "gitea"}
+
+	err := o.validateCoreFields()
+	require.ErrorIs(t, err, generator.ErrHostRequired)
+	assert.Contains(t, strings.Join(errors.GetAllHints(err), " "), "--host")
+
+	o.Host = "git.example.com"
+	require.NoError(t, o.validateCoreFields())
+
+	o.Host, o.ForgeBackend = "", "codeberg"
+	require.NoError(t, o.validateCoreFields(), "codeberg has a default host")
+}
+
+func TestValidateHostAnswer(t *testing.T) {
+	t.Parallel()
+
+	gitea := &SkeletonOptions{ForgeBackend: "gitea"}
+	require.Error(t, gitea.validateHostAnswer(""), "gitea needs a host")
+	require.NoError(t, gitea.validateHostAnswer("git.example.com"))
+	require.Error(t, gitea.validateHostAnswer("not a host"))
+
+	require.NoError(t, (&SkeletonOptions{ForgeBackend: "github"}).validateHostAnswer(""), "github has a default")
+}

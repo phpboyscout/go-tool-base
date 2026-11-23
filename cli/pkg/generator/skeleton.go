@@ -600,7 +600,10 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 	}
 
 	if config.Host == "" && config.hosted() {
-		config.Host = "github.com"
+		config.Host = DefaultHost(config.ForgeBackend)
+		if config.Host == "" {
+			return HostRequired(forgeLabel(config.ForgeBackend))
+		}
 	}
 
 	config = withImpliedForge(config)
