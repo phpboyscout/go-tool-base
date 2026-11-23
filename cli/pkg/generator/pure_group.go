@@ -74,9 +74,9 @@ func (g *Generator) pureGroup(cmdDir string, data templates.CommandData) bool {
 //
 // Every command used to define at least Run<Name>, so the question never arose.
 // A pure group has no run function, which leaves main.go holding only the hooks
-// the command asked for — and with none of those, an empty file.
+// and initialiser the command asked for — and with none of those, an empty file.
 func mainFileHasContent(data templates.CommandData) bool {
-	return !data.PureGroup || data.PersistentPreRun || data.PreRun || data.FlagsHook
+	return !data.PureGroup || data.PersistentPreRun || data.PreRun || data.FlagsHook || data.WithInitializer
 }
 
 // noteGroupBehaviourChange records that this run is about to change what a

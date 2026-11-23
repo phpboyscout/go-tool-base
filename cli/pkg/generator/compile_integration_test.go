@@ -581,3 +581,43 @@ func TestGeneratedProjectWithPostureBuilds(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "version:\n%s", out)
 }
+
+// TestGeneratedPureGroupInitialiserCompiles builds a tool whose group has an
+// initialiser and lost its main.go (#235).
+func TestGeneratedPureGroupInitialiserCompiles(t *testing.T) {
+	t.Parallel()
+
+	testutil.SkipIfNotIntegration(t, "generator", "generator_build")
+
+	path := t.TempDir()
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: emptyTestStore(t)}
+
+	g := New(p, &Config{Path: path})
+	g.runCommand = func(context.Context, string, string, ...string) ([]byte, error) { return nil, nil }
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name: "init-tool", Repo: "test/init-tool", Host: "github.com", Description: "d", Path: path,
+	}))
+
+	addCmd(t, p, path, "greet", "root", func(c *Config) { c.WithInitializer = true })
+	addCmd(t, p, path, "child", "greet")
+
+	mainFile := filepath.Join(path, "pkg", "cmd", "greet", "main.go")
+	require.NoError(t, os.Remove(mainFile))
+
+	injectGoToolBaseReplace(t, path, localGoToolBasePath(t))
+
+	regen := New(p, &Config{Path: path})
+	regen.runCommand = func(context.Context, string, string, ...string) ([]byte, error) { return nil, nil }
+	require.NoError(t, regen.RegenerateProject(context.Background()))
+
+	src, err := os.ReadFile(mainFile)
+	require.NoError(t, err)
+	assert.NotContains(t, string(src), "RunGreet", "a pure group's main.go holds the initialiser alone")
+
+	runGo(t, path, "mod", "tidy")
+
+	bin := filepath.Join(t.TempDir(), "init-tool")
+	runGo(t, path, "build", "-buildvcs=false", "-o", bin, "./cmd/init-tool")
+	runGo(t, path, "vet", "./...")
+	assertInitialiserIsWired(t, bin)
+}

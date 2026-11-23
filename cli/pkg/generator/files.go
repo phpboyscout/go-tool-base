@@ -121,11 +121,12 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	data.Hashes["cmd.go"] = hash
 	data.RegistrationKept = kept
 
-	if err := g.handleExecutionFile(ctx, cmdDir, data); err != nil {
+	// Before main.go, which leaves out whatever a kept init.go declares.
+	if err := g.handleInitializerFile(cmdDir, data); err != nil {
 		return err
 	}
 
-	if err := g.handleInitializerFile(cmdDir, data); err != nil {
+	if err := g.handleExecutionFile(ctx, cmdDir, data); err != nil {
 		return err
 	}
 
@@ -214,12 +215,13 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 		return nil
 	}
 
+	wanted := g.withoutDeclared(cmdDir, *data)
 	exists, _ := afero.Exists(g.props.FS, mainFile)
 
 	// A pure group has no run function, so main.go exists only to hold whatever
 	// hooks the command asked for. With none, there is nothing to put in it and
 	// creating it would leave a file defining nothing.
-	if !exists && !mainFileHasContent(*data) {
+	if !exists && !mainFileHasContent(wanted) {
 		g.props.Logger.Debug("no execution file needed: the command defines no functions of its own",
 			"path", mainFile)
 
@@ -229,7 +231,7 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 	if !exists || g.config.Force {
 		g.props.Logger.Info(fmt.Sprintf("%s execution file: %s", g.writeVerb(), mainFile))
 
-		if err := g.generateExecutionFile(ctx, cmdDir, *data); err != nil {
+		if err := g.generateExecutionFile(ctx, cmdDir, wanted); err != nil {
 			return err
 		}
 
@@ -240,12 +242,12 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 		// AI-written content holds Run<Name> and none of the hooks cmd.go calls.
 		// No Run stub: one it misnamed has to fail to compile for the repair
 		// agent to see it.
-		return g.ensureStubs(ctx, mainFile, *data, false)
+		return g.ensureStubs(ctx, mainFile, wanted, false)
 	}
 
 	// main.go is being preserved — inject any hook stubs that the options
 	// require but that don't yet exist in the file.
-	return g.ensureHookStubs(ctx, mainFile, *data)
+	return g.ensureHookStubs(ctx, mainFile, wanted)
 }
 
 func (g *Generator) handleInitializerFile(cmdDir string, data *templates.CommandData) error {

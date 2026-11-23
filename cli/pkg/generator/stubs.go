@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
+	"io"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/dave/dst"
+	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -224,10 +229,86 @@ func isUntouchedStub(f *dst.File, funcName string, sentinels ...string) bool {
 	return false
 }
 
+// withoutDeclared is data without the hooks and initialiser that another file of
+// the command's package declares, which a stub in main.go would redeclare (#235).
+// A file that cannot be read declares nothing, so that it stops no generation.
+func (g *Generator) withoutDeclared(cmdDir string, data templates.CommandData) templates.CommandData {
+	files, err := afero.ReadDir(g.props.FS, cmdDir)
+	if err != nil {
+		return data
+	}
+
+	for _, file := range files {
+		f, ok := g.parseBesideMainFile(cmdDir, file.Name())
+		if !ok || f.Name.Name != data.Package {
+			continue
+		}
+
+		for prefix, enabled := range map[string]*bool{
+			"PersistentPreRun": &data.PersistentPreRun,
+			"PreRun":           &data.PreRun,
+			"Flags":            &data.FlagsHook,
+			"Init":             &data.WithInitializer,
+		} {
+			*enabled = *enabled && !declares(f, prefix+data.PascalName)
+		}
+	}
+
+	return data
+}
+
+// parseBesideMainFile parses the named file when this system's build compiles it
+// along with main.go.
+func (g *Generator) parseBesideMainFile(cmdDir, name string) (*dst.File, bool) {
+	if name == "main.go" || strings.HasSuffix(name, "_test.go") {
+		return nil, false
+	}
+
+	gobuild := build.Default
+	gobuild.OpenFile = func(path string) (io.ReadCloser, error) { return g.props.FS.Open(path) }
+
+	if built, err := gobuild.MatchFile(cmdDir, name); err != nil || !built {
+		return nil, false
+	}
+
+	src, err := afero.ReadFile(g.props.FS, filepath.Join(cmdDir, name))
+	if err != nil {
+		return nil, false
+	}
+
+	f, err := decorator.Parse(src)
+
+	return f, err == nil
+}
+
+// declares reports whether f declares name at package level, as a function or
+// as anything else a function of that name would clash with.
+func declares(f *dst.File, name string) bool {
+	for _, d := range f.Decls {
+		group, ok := d.(*dst.GenDecl)
+		if ok && slices.ContainsFunc(group.Specs, func(spec dst.Spec) bool { return specDeclares(spec, name) }) {
+			return true
+		}
+	}
+
+	return declaresFunc(f, name)
+}
+
+func specDeclares(spec dst.Spec, name string) bool {
+	switch spec := spec.(type) {
+	case *dst.ValueSpec:
+		return slices.ContainsFunc(spec.Names, func(id *dst.Ident) bool { return id.Name == name })
+	case *dst.TypeSpec:
+		return spec.Name.Name == name
+	default:
+		return false
+	}
+}
+
 // declaresFunc reports whether f declares a function with the given name.
 func declaresFunc(f *dst.File, funcName string) bool {
 	for _, d := range f.Decls {
-		if fn, ok := d.(*dst.FuncDecl); ok && fn.Name.Name == funcName {
+		if fn, ok := d.(*dst.FuncDecl); ok && fn.Recv == nil && fn.Name.Name == funcName {
 			return true
 		}
 	}
