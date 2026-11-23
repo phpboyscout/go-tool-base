@@ -42,7 +42,9 @@ This creates:
 
 A command can be named after a Go keyword, such as `import`, `type` or `go`. Its Go package then takes a `cmd` suffix, so `pkg/cmd/import/main.go` starts with `package importcmd`. The command, its directory, its help and its docs page all keep the name `import`.
 
-Two commands under the same parent can't share a package name, because the parent imports both. `generate command` refuses a name that reduces to a sibling's: `my_cmd` beside `my-cmd`, or `typecmd` beside `type`.
+A command named after a predeclared identifier (`error`, `string`, `nil`) or a name its parent's `cmd.go` already uses (`cobra`, `setup`, `props`, `tool`, `cmd`) keeps its own package name. The parent imports it under a `cmd` suffix, `errorcmd` for `error`, so the import can't shadow what the parent file uses. The same goes for a name that clashes with an import you added to the parent yourself. `generate command` and `remove command` work with whatever alias a parent already imports a command under. `regenerate project` renders the root afresh, so a top-level command an older gtb imported as `version` is imported as `versioncmd` from then on.
+
+Two commands under the same parent can't share an import name, because the parent imports both. `generate command` refuses a name that reduces to a sibling's: `my_cmd` beside `my-cmd`, `typecmd` beside `type`, or `errorcmd` beside `error`.
 
 !!! note "Separation of Concerns"
     We separate the boilerplate (`cmd.go`) from your logic (`main.go`) so that we can regenerate the boilerplate as you add flags or change configurations without overwriting your hard work!

@@ -29,6 +29,8 @@ func TestPrepareAndVerify_RefusesASiblingPackageCollision(t *testing.T) {
 		{"the same command again is not a collision", "my-cmd", "", false},
 		{"a distinct name", "other", "", false},
 		{"a collision under another parent is not a sibling", "my_cmd", "group", false},
+		{"a predeclared name beside its suffixed form", "errorcmd", "", true},
+		{"a predeclared name beside a free one", "string", "", false},
 	}
 
 	for _, tc := range tests {
@@ -41,6 +43,7 @@ func TestPrepareAndVerify_RefusesASiblingPackageCollision(t *testing.T) {
 			raw, err := yaml.Marshal(Manifest{Commands: []ManifestCommand{
 				{Name: "type"},
 				{Name: "my-cmd"},
+				{Name: "error"},
 				{Name: "group", Commands: []ManifestCommand{{Name: "my_cmd"}}},
 			}})
 			require.NoError(t, err)
@@ -58,7 +61,7 @@ func TestPrepareAndVerify_RefusesASiblingPackageCollision(t *testing.T) {
 			}
 
 			require.ErrorIs(t, err, ErrPackageNameCollision)
-			assert.Contains(t, err.Error(), commandPackageName(tc.command))
+			assert.Contains(t, err.Error(), commandImportAlias(tc.command))
 		})
 	}
 }

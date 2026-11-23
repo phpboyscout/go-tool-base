@@ -533,7 +533,7 @@ func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]temp
 	subs := make([]templates.SkeletonSubcommand, 0, len(commands))
 
 	for _, cmd := range commands {
-		pkgAlias := commandPackageName(cmd.Name)
+		pkgAlias := commandImportAlias(cmd.Name)
 		importPath := fmt.Sprintf("%s/pkg/cmd/%s", moduleName, cmd.Name)
 		constructor := "NewCmd" + PascalCase(cmd.Name)
 
