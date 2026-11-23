@@ -235,7 +235,8 @@ one `huh` group, so **shift+tab** goes back a page and **ctrl+c** cancels.
 **Forge** *(hosted on a forge: yes)*
 : Forge Backend (GitHub, GitLab, Gitea, Codeberg or Bitbucket), the host
   (leave empty for the backend's own host, shown as the placeholder; set it
-  for a self-managed instance), the repository as `org/repo` (or
+  for a self-managed instance, and always for Gitea, which has no default
+  host), the repository as `org/repo` (or
   `group/subgroup/repo` on GitLab), whether it is private, and any *other
   forges to capture credentials for* (their `init <forge>` wizard and
   adapter, never the release source). Only GitHub and GitLab have a CI
@@ -334,7 +335,7 @@ also asks whether to require a signature.
 | `--name` | `-n` | Name of your CLI tool | — |
 | `--repo` | `-r` | Repository in `org/repo` format | — |
 | `--forge-backend` | | Forge the project is hosted on (`github`, `gitlab`, `gitea`, `codeberg`, `bitbucket`) | `github` |
-| `--host` | | Git host (overrides backend default, for self-hosted instances) | — |
+| `--host` | | Git host (overrides backend default, for self-hosted instances; required for `gitea`) | — |
 | `--private` | | Mark the repository as private (requires a token for updates) | `false` |
 | `--description` | `-d` | Short description of the tool | `A tool built with gtb` |
 | `--path` | `-p` | Destination path for the generated project | `.` |
@@ -379,7 +380,7 @@ gtb generate project --name "my-tool" --repo "org/my-tool" --dry-run
 This materialises all generated files into a temporary directory, runs `go mod tidy` and `golangci-lint run --fix`, then shows a summary of files that would be created or modified along with unified diffs.
 
 !!! tip
-    The `--host` flag is only needed for a self-managed instance. For `github.com`, `gitlab.com`, `gitea.com`, `codeberg.org` or `bitbucket.org`, the host follows `--forge-backend`.
+    The `--host` flag is only needed for a self-managed instance, and for Gitea, which has no default host: pass `--host gitea.com` for the public instance. For `github.com`, `gitlab.com`, `codeberg.org` or `bitbucket.org`, the host follows `--forge-backend`.
 
 ### Into an existing repository
 

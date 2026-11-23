@@ -12,7 +12,41 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
+
+// ErrHostRequired is returned for a hosted project on a forge with no
+// canonical host, such as Gitea, when no host was given.
+var ErrHostRequired = errors.NewSentinel("gtb.generator.host_required", "the forge has no default host, so the project needs one")
+
+// DefaultHost is the host a hosted project on backend is generated against
+// when none is given: the forge's canonical host, github.com for a project
+// recorded before the backend existed, and "" for a forge with none.
+func DefaultHost(backend props.FeatureID) string {
+	if backend == "" {
+		return "github.com"
+	}
+
+	d, _ := forge.DisplayFor(backend)
+
+	return d.Host
+}
+
+// forgeLabel is backend's display name, or the backend itself when it has none.
+func forgeLabel(backend props.FeatureID) string {
+	if d, ok := forge.DisplayFor(backend); ok && d.Label != "" {
+		return d.Label
+	}
+
+	return string(backend)
+}
+
+// HostRequired is ErrHostRequired for a forge labelled label, with the hint
+// to give a host.
+func HostRequired(label string) error {
+	return errors.WithHintf(errors.Wrapf(ErrHostRequired, "forge %s", label),
+		"every %s instance is somebody's own: pass --host with yours, such as git.example.com", label)
+}
 
 // Release channels a self-updating tool can be generated with (spec 0195 D7,
 // spec 0203 D1).

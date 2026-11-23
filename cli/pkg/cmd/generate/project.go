@@ -420,6 +420,8 @@ func (o *SkeletonOptions) validateHostingFields() error {
 		if err := generator.ValidateHost(o.Host); err != nil {
 			return err
 		}
+	} else if err := requireHostFor(o.ForgeBackend); err != nil {
+		return err
 	}
 
 	// Derive org from repo for validation so a bad org fails early
@@ -747,6 +749,24 @@ func backendLabel(backend string) string { return backendDisplay(backend).Label 
 
 // hostForBackend is the default host for a git backend value.
 func hostForBackend(backend string) string { return backendDisplay(backend).Host }
+
+// requireHostFor refuses an empty host on a forge that has no default one.
+func requireHostFor(backend string) error {
+	if generator.DefaultHost(props.FeatureID(backend)) != "" {
+		return nil
+	}
+
+	return generator.HostRequired(backendLabel(backend))
+}
+
+// validateHostAnswer checks the wizard's host field against the chosen forge.
+func (o *SkeletonOptions) validateHostAnswer(host string) error {
+	if host == "" {
+		return hintedValidation(requireHostFor(o.ForgeBackend))
+	}
+
+	return hintedValidation(generator.ValidateHost(host))
+}
 
 // resolvedHost is the host the project is generated against: the one the user
 // gave, or the backend's canonical host when they left it empty.
@@ -1717,11 +1737,17 @@ func (o *SkeletonOptions) forgeGroup() *huh.Group {
 		huh.NewInput().
 			Title("Git Host").
 			DescriptionFunc(func() string {
+				if hostForBackend(o.ForgeBackend) == "" {
+					return fmt.Sprintf("The %s host. %s has no default host, so enter your instance's.",
+						backendLabel(o.ForgeBackend), backendLabel(o.ForgeBackend))
+				}
+
 				return fmt.Sprintf("The %s host. Leave empty for %s; set it only for a self-hosted instance.",
 					backendLabel(o.ForgeBackend), hostForBackend(o.ForgeBackend))
 			}, &o.ForgeBackend).
 			PlaceholderFunc(func() string { return hostForBackend(o.ForgeBackend) }, &o.ForgeBackend).
-			Value(&o.Host),
+			Value(&o.Host).
+			Validate(formpage.ValidateAnswer(&o.Host, o.validateHostAnswer)),
 		huh.NewInput().
 			Key("repo").
 			Title("Repository").

@@ -179,6 +179,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I remember the generated "([^"]*)" file$`, iRememberTheGeneratedFile)
 	ctx.Step(`^the generated "([^"]*)" file is unchanged$`, theGeneratedFileIsUnchanged)
 	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" on host "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendOnHost)
+	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" and no host$`, iGenerateAGTBProjectWithForgeBackendAndNoHost)
 	ctx.Step(`^I generate a gtb project with forge backend "([^"]*)" and forge credentials "([^"]*)"$`, iGenerateAGTBProjectWithForgeBackendAndCredentials)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)" and chat providers "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesAndChatProviders)
 	ctx.Step(`^I generate a gtb project with features "([^"]*)", chat providers "([^"]*)" and chat default "([^"]*)"$`, iGenerateAGTBProjectWithFeaturesChatProvidersAndDefault)
@@ -455,6 +456,10 @@ func iGenerateAGTBProjectWithTheFlags(ctx context.Context, flags string) (contex
 
 func iGenerateAGTBProjectWithForgeBackendOnHost(ctx context.Context, backend, host string) (context.Context, error) {
 	return ctx, scaffoldProject(ctx, "gtb-e2e-backend-*", "--forge-backend", backend, "--host", host)
+}
+
+func iGenerateAGTBProjectWithForgeBackendAndNoHost(ctx context.Context, backend string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-backend-*", "--forge-backend", backend)
 }
 
 func iGenerateAGTBProjectWithForgeBackendAndCredentials(ctx context.Context, backend, credentials string) (context.Context, error) {
