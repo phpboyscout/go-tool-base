@@ -115,6 +115,20 @@ gtb disable mcp sign config/trust   # withheld by path, from the next build
 gtb enable mcp sign                 # back on the surface
 ```
 
+`--overwrite` (`ask` by default, or `allow` or `deny`) says what to do with a
+generated `cmd.go` that you have edited by hand. It needs at least one path.
+
+- A kept `cmd.go` fails the run. The manifest records the decision, the file
+  does not change, and one warning per kept command gives the command to run to
+  apply it. The other paths are still done, and the summary counts only those.
+- `--overwrite allow` replaces an edited file. `.gtb/ignore` still wins: take
+  the file out of it first.
+- A path on the list is carried by the root's `cmd.go`. If `.gtb/ignore` covers
+  that file, the run fails until the root carries the list. Take it out of
+  `.gtb/ignore` and run the command again, or edit the root by hand.
+- `ask` prompts at a terminal. With no terminal, or with `--ci`, it keeps the
+  file.
+
 For a path on the list:
 
 - It covers the command and everything beneath it, and no marker overrules it.

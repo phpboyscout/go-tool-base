@@ -32,6 +32,7 @@ gtb annotate <command-path> [flags]
 | `--idempotent[=false]` | Repeating the call with the same arguments has no further effect. |
 | `--open-world[=false]` | The command reaches outside the tool (a provider, a release source). |
 | `--clear` | Remove every recorded annotation. Cannot be combined with a hint flag. |
+| `--overwrite <mode>` | What to do with a `cmd.go` that was edited by hand: `ask` (default), `allow` or `deny`. |
 | `--path, -p` | Project root (default `.`). |
 
 Each hint flag is **tri-state**. Given bare (`--read-only`) it records `true`;
@@ -72,6 +73,10 @@ manifest).
   says nothing about its children. Exposure (`enable`/`disable mcp`) inherits,
   hints do not.
 - **A protected command is refused.** Unprotect it first.
+- **A kept `cmd.go` fails the run.** The manifest records the annotations, the
+  file does not change, and a warning gives the command to run to apply them.
+  `--overwrite allow` replaces a file you edited by hand. One that `.gtb/ignore`
+  covers is kept whatever the mode.
 - **The title follows the description rules**: at most 500 bytes, no control
   characters, no `{{` or `}}`.
 - **Built-ins already carry hints.** `version`, `docs`, `changelog`, `doctor`,

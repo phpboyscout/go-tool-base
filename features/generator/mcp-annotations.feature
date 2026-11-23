@@ -38,6 +38,18 @@ Feature: MCP tool annotations a consumer can set
     And the project manifest does not contain "mcp_hints"
     And the generated "pkg/cmd/post/cmd.go" file does not contain "AnnotateMCP"
 
+  Scenario: a kept cmd.go fails annotate, and the same command with overwrite applies it
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I hand-edit the generated "pkg/cmd/post/cmd.go" file
+    And I run gtb in the project with "annotate post --title Publish"
+    Then the project exit code is not zero
+    And the project manifest contains "title: Publish"
+    And the generated "pkg/cmd/post/cmd.go" file does not contain "AnnotateMCP"
+    When I run gtb in the project with "annotate post --title Publish --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/post/cmd.go" file contains 'setup.AnnotateMCP(cmd, setup.MCPHints{Title: "Publish"})'
+
   Scenario: annotations survive a regenerate and reconstruct from the code
     Given a gtb project with a "post" command
     When I run gtb in the project with "annotate post --title Publish --open-world"

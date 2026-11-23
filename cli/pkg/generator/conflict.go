@@ -166,6 +166,17 @@ func (l *conflictLog) recordIgnored(relPath string) {
 	l.ignored = append(l.ignored, relPath)
 }
 
+// keptReason is why relPath was kept during this run, or empty.
+func (l *conflictLog) keptReason(relPath string) string {
+	for _, k := range l.kept {
+		if k.RelPath == relPath {
+			return k.Reason
+		}
+	}
+
+	return ""
+}
+
 // wasKept reports whether relPath was kept during this run.
 func (l *conflictLog) wasKept(relPath string) bool {
 	for _, k := range l.kept {
@@ -291,10 +302,10 @@ func (g *Generator) resolveConflict(fullPath, relPath, storedHash string, newCon
 	foreign := storedHash == ""
 
 	if foreign {
-		g.props.Logger.Warn("conflict detected: file exists and was not created by gtb",
+		g.logConflict(relPath, "conflict detected: file exists and was not created by gtb",
 			"path", relPath, "hint", ignoreConflictHint(relPath))
 	} else {
-		g.props.Logger.Warn("conflict detected: file has been manually modified",
+		g.logConflict(relPath, "conflict detected: file has been manually modified",
 			"path", relPath, "hint", ignoreConflictHint(relPath))
 	}
 
@@ -309,7 +320,7 @@ func (g *Generator) resolveConflict(fullPath, relPath, storedHash string, newCon
 		reason = keepReasonNotCreatedByGtb + ", " + reason
 	}
 
-	g.props.Logger.Warn("skipping overwrite", "path", relPath, "reason", reason)
+	g.logConflict(relPath, "skipping overwrite", "path", relPath, "reason", reason)
 	g.conflicts.recordKeep(relPath, reason)
 
 	// The stored hash is preserved rather than refreshed (D3): recording the
@@ -317,6 +328,19 @@ func (g *Generator) resolveConflict(fullPath, relPath, storedHash string, newCon
 	// file would never conflict again and the next run would destroy it
 	// without asking.
 	return conflictDecision{Outcome: conflictKeep, Reason: reason, RecordHash: storedHash}
+}
+
+// logConflict warns, except about the cmd.go of a targeted edit. That edit warns
+// once itself, and these lines offer an ignore rule, the opposite of what it was
+// asked for (#174).
+func (g *Generator) logConflict(relPath, msg string, keyvals ...any) {
+	if g.editingCommand && filepath.Base(relPath) == "cmd.go" {
+		g.props.Logger.Debug(msg, keyvals...)
+
+		return
+	}
+
+	g.props.Logger.Warn(msg, keyvals...)
 }
 
 // keepReason names why the resolver declined an overwrite, for the summary.

@@ -307,6 +307,12 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 // regenerated cmd.go are preserved by the pipeline's reRegisterChildCommands
 // step.
 func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
+	_, err := g.regenerateCommand(ctx, cmd, parentPath)
+
+	return err
+}
+
+func (g *Generator) regenerateCommand(ctx context.Context, cmd ManifestCommand, parentPath []string) (templates.CommandData, error) {
 	cmdCtx := buildCommandContext(g.config, cmd, parentPath)
 
 	savedConfig := g.config
@@ -316,21 +322,21 @@ func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, 
 
 	cmdDir, err := g.getCommandPath()
 	if err != nil {
-		return err
+		return templates.CommandData{}, err
 	}
 
 	if err := g.checkFlagsHook(g.resolveGenerationFlags()); err != nil {
-		return err
+		return templates.CommandData{}, err
 	}
 
 	if err := g.props.FS.MkdirAll(cmdDir, DefaultDirMode); err != nil {
-		return errors.Newf("failed to create command directory: %w", err)
+		return templates.CommandData{}, errors.Newf("failed to create command directory: %w", err)
 	}
 
 	data := g.prepareRegenerationData(cmd)
 
 	if err := g.performGeneration(ctx, cmdDir, &data); err != nil {
-		return err
+		return templates.CommandData{}, err
 	}
 
 	// Skip documentation generation: add-flag is a flag-set change, not a docs
@@ -339,7 +345,7 @@ func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, 
 	// refreshed cmd.go hash and the full flag set.
 	_, err = newCommandPipeline(g, PipelineOptions{SkipDocumentation: true}).Run(ctx, data, cmdDir)
 
-	return err
+	return data, err
 }
 
 func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
@@ -458,11 +464,13 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 	}
 }
 
+const rootCommandRelPath = "pkg/cmd/root/cmd.go"
+
 func (g *Generator) regenerateRootCommand(m Manifest) error {
 	// The root carries no hash, so it cannot conflict, but a rule still
 	// outranks the write (#32): `sealed` is "never written, wiring included",
 	// and a plain rule is "leave it alone". Recorded so the summary is true.
-	if !g.managedGeneratedFile("pkg/cmd/root/cmd.go") {
+	if !g.managedGeneratedFile(rootCommandRelPath) {
 		return nil
 	}
 

@@ -37,10 +37,62 @@ Feature: MCP command exposure gating
     And I run gtb in the project with "generate command --name list --parent worklist --short list-them"
     And I hand-edit the generated "pkg/cmd/hook/cmd.go" file
     And I run gtb in the project with "disable mcp hook worklist"
-    Then the project exit code is 0
+    Then the project exit code is not zero
+    And the project output contains "1 command(s) withheld"
+    And the project output contains "run gtb disable mcp hook --overwrite allow"
     And the generated "pkg/cmd/hook/cmd.go" file contains "hand-edited, do not clobber"
     And the generated "pkg/cmd/worklist/cmd.go" file contains "setup.ExcludeFromMCP(cmd)"
     And the generated "pkg/cmd/worklist/cmd.go" file contains "Register(list.NewCmdList"
+
+  Scenario: a kept cmd.go fails the command, and the same command with overwrite applies it
+    # Issue #174: the run ended in success with the command still on the surface.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I hand-edit the generated "pkg/cmd/post/cmd.go" file
+    And I run gtb in the project with "disable mcp post"
+    Then the project exit code is not zero
+    And the project manifest contains "mcp_enabled: false"
+    And the project output does not contain "command(s) withheld"
+    When I run gtb in the project with "disable mcp post --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/post/cmd.go" file contains "setup.ExcludeFromMCP(cmd)"
+    When I hand-edit the generated "pkg/cmd/post/cmd.go" file
+    And I run gtb in the project with "enable mcp post"
+    Then the project exit code is not zero
+    And the project output contains "run gtb enable mcp post --overwrite allow"
+    When I run gtb in the project with "enable mcp post --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/post/cmd.go" file contains "setup.IncludeInMCP(cmd)"
+
+  Scenario: a path on the list does not cost a hand-edited command its edit
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name hook --short hooks"
+    And I hand-edit the generated "pkg/cmd/hook/cmd.go" file
+    And I run gtb in the project with "disable mcp hook sign --overwrite deny"
+    Then the project exit code is not zero
+    And the project output contains "Withheld by path: sign."
+    And the generated "pkg/cmd/hook/cmd.go" file contains "hand-edited, do not clobber"
+
+  Scenario: an ignored root fails a listed path until the root carries it
+    Given a freshly generated gtb project
+    When I run gtb in the project with "ignore add pkg/cmd/root/cmd.go"
+    And I run gtb in the project with "disable mcp sign"
+    And I run gtb in the project with "disable mcp sign"
+    Then the project exit code is not zero
+    And the project output does not contain "Already withheld"
+    When I run gtb in the project with "ignore remove pkg/cmd/root/cmd.go"
+    And I run gtb in the project with "disable mcp sign"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/root/cmd.go" file contains 'Withhold: []string{"sign"}'
+
+  Scenario: an ignored cmd.go fails the command whatever the overwrite mode
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I run gtb in the project with "ignore add pkg/cmd/post/cmd.go"
+    And I run gtb in the project with "disable mcp post --overwrite allow"
+    Then the project exit code is not zero
+    And the project output contains "take the file out of .gtb/ignore"
+    And the generated "pkg/cmd/post/cmd.go" file does not contain "ExcludeFromMCP"
 
   Scenario: a built-in or attached command is withheld by path
     Given a freshly generated gtb project

@@ -6,9 +6,19 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
+
+// ErrOverwriteWithoutPaths is --overwrite on a feature toggle, which edits no
+// command.
+var ErrOverwriteWithoutPaths = errors.NewSentinel("gtb.cmd.overwrite_without_paths",
+	"--overwrite needs a command path")
+
+// OverwriteUsage is the --overwrite usage of the commands that edit one cmd.go.
+const OverwriteUsage = "What to do with a cmd.go that was edited by hand: allow, deny, or ask"
 
 // RunMCPCommand implements the dual behaviour of `gtb enable/disable mcp`:
 //
@@ -20,22 +30,34 @@ import (
 //     path goes on properties.mcp.withhold (spec 0213).
 //
 // enable selects expose (true) vs. exclude (false) for both behaviours.
-func RunMCPCommand(cmd *cobra.Command, p *props.Props, path string, commandPaths []string, enable bool) error {
+//
+// overwrite says what to do with a generated cmd.go that was edited by hand. The
+// feature toggle has no use for it, so it is refused there.
+func RunMCPCommand(cmd *cobra.Command, p *props.Props, path, overwrite string, commandPaths []string, enable bool) error {
+	mode, err := generator.ParseOverwriteMode(overwrite)
+	if err != nil {
+		return err
+	}
+
 	if len(commandPaths) == 0 {
+		if cmd.Flags().Changed("overwrite") {
+			return ErrOverwriteWithoutPaths
+		}
+
 		return RunFeatureToggle(cmd, p, path, []string{"mcp"}, enable)
 	}
 
 	resolved := ResolveProjectPath(p, path)
-	gen := generator.New(p, &generator.Config{Path: resolved})
+	gen := generator.New(p, &generator.Config{Path: resolved, Overwrite: mode})
 
 	report, err := gen.SetMCPExposure(cmd.Context(), commandPaths, enable)
-	if err != nil {
+	if err != nil && !errors.Is(err, generator.ErrCommandFileKept) {
 		return err
 	}
 
 	reportMCPExposure(p, report, enable)
 
-	return nil
+	return err
 }
 
 func reportMCPExposure(p *props.Props, report generator.MCPExposureReport, enable bool) {

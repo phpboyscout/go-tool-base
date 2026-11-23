@@ -2,6 +2,8 @@ package generator
 
 import (
 	"context"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -10,6 +12,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func newSetEnabledFixture(t *testing.T) (*props.Props, string, afero.Fs) {
@@ -81,6 +84,132 @@ func TestSetMCPEnabled_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "missing")
 }
 
+// A kept cmd.go leaves the decision recorded and fails the edit, with one warning
+// that says how to apply it (#174).
+func TestEditManifestCommand_KeptFile(t *testing.T) {
+	t.Parallel()
+
+	const edited = "package hello\n\n// edited by hand\n"
+
+	mcp := func(enabled bool) func(*Generator) error {
+		return func(g *Generator) error { return g.SetMCPEnabled(context.Background(), "hello", enabled) }
+	}
+	annotate := func(g *Generator) error {
+		return g.SetMCPHints(context.Background(), "hello", setup.MCPHints{Title: "Hello"}, false)
+	}
+
+	for name, tt := range map[string]struct {
+		overwrite OverwriteMode
+		ignore    string
+		edit      func(*Generator) error
+		recorded  string
+		want      string
+	}{
+		"disable": {
+			overwrite: OverwriteDeny, edit: mcp(false), recorded: "mcp_enabled: false",
+			want: "hello: kept pkg/cmd/hello/cmd.go (not created by gtb, --overwrite deny), so its MCP exposure did not change. " +
+				"The manifest records the change. To apply it and lose the edits in that file, run gtb disable mcp hello --overwrite allow.",
+		},
+		"enable": {
+			overwrite: OverwriteDeny, edit: mcp(true), recorded: "mcp_enabled: true",
+			want: "run gtb enable mcp hello --overwrite allow.",
+		},
+		"annotate": {
+			overwrite: OverwriteDeny, edit: annotate, recorded: "title: Hello",
+			want: "so its MCP annotations did not change",
+		},
+		"nobody to ask": {
+			overwrite: OverwriteAsk, edit: mcp(false), recorded: "mcp_enabled: false",
+			want: "kept pkg/cmd/hello/cmd.go (not created by gtb, ",
+		},
+		"ignored": {
+			overwrite: OverwriteDeny, ignore: "pkg/cmd/hello/cmd.go\n", edit: mcp(false), recorded: "mcp_enabled: false",
+			want: "hello: kept pkg/cmd/hello/cmd.go (covered by .gtb/ignore), so its MCP exposure did not change. The manifest records the change. " +
+				"To apply it, take the file out of .gtb/ignore, then run gtb disable mcp hello --overwrite allow.",
+		},
+		"ignored outranks allow": {
+			overwrite: OverwriteAllow, ignore: "pkg/cmd/hello/cmd.go\n", edit: mcp(false), recorded: "mcp_enabled: false",
+			want: "(covered by .gtb/ignore)",
+		},
+		"allowed": {overwrite: OverwriteAllow, edit: mcp(false), recorded: "mcp_enabled: false"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fs, log := newPerimeterTestProject(t, wizardManifest)
+			g.props.IO = props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+			g.config.Overwrite = tt.overwrite
+			cmdFile := "/work/pkg/cmd/hello/cmd.go"
+
+			require.NoError(t, fs.MkdirAll("/work/pkg/cmd/hello", 0o755))
+			require.NoError(t, afero.WriteFile(fs, cmdFile, []byte(edited), 0o644))
+			require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte(tt.ignore), 0o644))
+
+			err := tt.edit(g)
+			assert.Contains(t, manifestSource(t, fs), tt.recorded)
+
+			src, readErr := afero.ReadFile(fs, cmdFile)
+			require.NoError(t, readErr)
+
+			if tt.want == "" {
+				require.NoError(t, err)
+				assert.NotEqual(t, edited, string(src))
+				assert.Equal(t, []string{"overwriting modified file"}, warnings(t, log))
+
+				return
+			}
+
+			require.ErrorIs(t, err, ErrCommandFileKept)
+			require.ErrorContains(t, err, "hello")
+			assert.Equal(t, edited, string(src))
+			require.Len(t, warnings(t, log), 1)
+			assert.Contains(t, warnings(t, log)[0], tt.want)
+		})
+	}
+}
+
+// Only the cmd.go a targeted edit re-renders is left to that edit's own warning.
+func TestLogConflict(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range map[string]struct {
+		editing bool
+		relPath string
+		want    []string
+	}{
+		"the edited cmd.go":      {editing: true, relPath: "pkg/cmd/hello/cmd.go"},
+		"another file of it":     {editing: true, relPath: "pkg/cmd/hello/init.go", want: []string{"kept"}},
+		"a cmd.go, regenerating": {relPath: "pkg/cmd/hello/cmd.go", want: []string{"kept"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, _, log := newPerimeterTestProject(t, wizardManifest)
+			g.editingCommand = tt.editing
+			g.logConflict(tt.relPath, "kept")
+
+			assert.Equal(t, tt.want, warnings(t, log))
+		})
+	}
+}
+
+func warnings(t *testing.T, log logBuffer) []string {
+	t.Helper()
+
+	entries, ok := log.(interface{ Entries() []logger.Entry })
+	require.True(t, ok)
+
+	var messages []string
+
+	for _, e := range entries.Entries() {
+		if e.Level >= logger.WarnLevel {
+			messages = append(messages, e.Message)
+		}
+	}
+
+	return messages
+}
+
 // A cmd.go kept for one command must not stop a later command in the same run
 // getting its children re-registered (#167).
 func TestSetMCPEnabled_KeptFileDoesNotCostLaterCommandsTheirChildren(t *testing.T) {
@@ -109,7 +238,7 @@ func TestSetMCPEnabled_KeptFileDoesNotCostLaterCommandsTheirChildren(t *testing.
 
 	g := New(p, &Config{Path: root, Overwrite: OverwriteDeny})
 
-	require.NoError(t, g.SetMCPEnabled(context.Background(), "hook", false))
+	require.ErrorIs(t, g.SetMCPEnabled(context.Background(), "hook", false), ErrCommandFileKept)
 	require.NoError(t, g.SetMCPEnabled(context.Background(), "worklist", false))
 
 	kept, err := afero.ReadFile(fs, root+"/pkg/cmd/hook/cmd.go")

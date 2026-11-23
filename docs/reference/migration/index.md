@@ -67,6 +67,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [`gtb sign` and `gtb keys` moved to sigillum](v0.x-sign-and-keys-moved-to-sigillum.md) |
 | v0.x | v0.x | [A name on the root is taken once](v0.x-root-command-names-are-taken-once.md) |
 | v0.x | v0.x | [`setup.ConfigDir` takes the tool, and replaces `GetDefaultConfigDir`](v0.x-config-dir-takes-the-tool.md) |
+| v0.x | v0.x | [`enable mcp`, `disable mcp` and `annotate` fail when a `cmd.go` was kept](v0.x-kept-command-files-fail.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 
