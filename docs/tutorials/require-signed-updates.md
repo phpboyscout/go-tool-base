@@ -102,7 +102,9 @@ Put the rotation authority in one directory, never both. A key in both counts
 twice in the embedded set, so it no longer matches the WKD bucket, and a release
 built that way refuses every later update. From gtb v0.53.0 the generated
 `internal/trustkeys/trustkeys_test.go` fails `go test` when a key is in both
-directories, or twice in one, so your CI catches it before a release does.
+directories, or twice in one, so your CI catches it before a release does. It
+fails too when a key is bound as another key's subkey, because a release key
+carrying the authority as a signing subkey signs releases with it.
 `gtb regenerate project` or `gtb enable signing` adds that test to an existing
 tool. A `trustkeys_test.go` of your own is kept, and the run says so: call
 `setup.CheckTrustKeys(Keys(), AuthorityKeys())` from it instead. If you
