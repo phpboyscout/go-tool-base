@@ -1424,26 +1424,89 @@ func (g *Generator) mergeCommandsIndex(indexPath, relPath, table string) (string
 
 	g.props.Logger.Warn(
 		"commands index has diverged from its generated form; preserving it "+
-			"(wrap the command table in the gtb:commands markers, or list it in .gtb/ignore, to manage it)",
+			"(to manage it, put each gtb:commands marker around the command table on a line of its own, "+
+			"outside a code fence, or list the page in .gtb/ignore)",
 		"path", relPath)
 
 	return "", false
 }
 
 // commandsIndexRegion finds the gtb:commands markers in content, returning
-// where the start marker begins and the end marker begins.
+// where the start marker begins and the end marker begins. A marker counts only
+// on a line of its own outside a code fence, so a page that quotes the markers
+// in an example keeps the example.
 func commandsIndexRegion(content string) (start, end int, ok bool) {
-	start = strings.Index(content, commandsIndexMarkerStart)
-	end = strings.Index(content, commandsIndexMarkerEnd)
+	start = -1
 
-	return start, end, start != -1 && end > start
+	var fence string
+
+	for at := 0; at < len(content); {
+		line, next := content[at:], len(content)
+		if nl := strings.IndexByte(line, '\n'); nl >= 0 {
+			line, next = line[:nl], at+nl+1
+		}
+
+		trimmed := strings.TrimSpace(line)
+
+		switch {
+		case fence != "":
+			if closesFence(trimmed, fence) {
+				fence = ""
+			}
+		case openingFence(trimmed) != "":
+			fence = openingFence(trimmed)
+		case trimmed == commandsIndexMarkerStart && start == -1:
+			start = at + strings.Index(line, commandsIndexMarkerStart)
+		case trimmed == commandsIndexMarkerEnd && start != -1:
+			return start, at + strings.Index(line, commandsIndexMarkerEnd), true
+		}
+
+		at = next
+	}
+
+	return start, -1, false
 }
 
+// openingFence returns the run of three or more backticks or tildes that opens
+// a CommonMark code fence on line, or "" when line opens none. A backtick
+// fence's info string may not hold a backtick, so ```x``` is inline code.
+func openingFence(line string) string {
+	if line == "" || (line[0] != '`' && line[0] != '~') {
+		return ""
+	}
+
+	run := line[:len(line)-len(strings.TrimLeft(line, line[:1]))]
+	if len(run) < 3 || (run[0] == '`' && strings.Contains(line[len(run):], "`")) {
+		return ""
+	}
+
+	return run
+}
+
+// closesFence reports whether line closes the fence opened by open: the same
+// character, at least as many of it, and nothing after.
+func closesFence(line, open string) bool {
+	return strings.TrimLeft(line, open[:1]) == "" && len(line) >= len(open)
+}
+
+// hasCommandsIndexMarkers is the loose test regenerate uses to leave a page
+// to the index update: the first start marker anywhere before the first end.
+// It is looser than commandsIndexRegion on purpose, so a page an older gtb
+// treated as marked is never overwritten for falling outside the splice.
+func hasCommandsIndexMarkers(content string) bool {
+	start := strings.Index(content, commandsIndexMarkerStart)
+
+	return start != -1 && strings.Index(content, commandsIndexMarkerEnd) > start
+}
+
+// skeletonCommandsIndex is the commands index the skeleton ships.
+const skeletonCommandsIndex = "docs/reference/cli/index.md"
+
 // isCommandsIndexPath reports whether relPath is a commands index in either
-// docs layout.
+// docs layout. A custom template overlay may ship the flat one.
 func isCommandsIndexPath(relPath string) bool {
 	switch filepath.ToSlash(relPath) {
-	case "docs/commands/index.md", "docs/reference/cli/index.md":
+	case "docs/commands/index.md", skeletonCommandsIndex:
 		return true
 	}
 

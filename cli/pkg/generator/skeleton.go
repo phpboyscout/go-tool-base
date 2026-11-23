@@ -1147,7 +1147,7 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 			return nil
 		}
 
-		// Check ignore rules — skip generation but hash on-disk content
+		// Ignored: skip generation and note it in the conflict log
 		if rules.IsIgnored(relPath) {
 			g.props.Logger.Debug("ignored by .gtb/ignore", "path", relPath)
 			g.hashIgnoredFile(relPath)
@@ -1329,10 +1329,11 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 
 // preservedPageHash reports whether an existing file is one regenerate leaves
 // as it stands (an operator-owned seed file, or a commands index holding its
-// markers and not ignored), and if so the hash of the page on disk.
+// markers), and if so the hash of the page on disk. Ignored paths never get
+// here: the skeleton walk skips them first.
 func (g *Generator) preservedPageHash(fullPath, relPath string) (string, bool, error) {
 	seed := isUserOwnedSeedFile(relPath)
-	if !seed && (!isCommandsIndexPath(relPath) || g.ignoreRules().IsIgnored(relPath)) {
+	if !seed && !isCommandsIndexPath(relPath) {
 		return "", false, nil
 	}
 
@@ -1347,7 +1348,7 @@ func (g *Generator) preservedPageHash(fullPath, relPath string) (string, bool, e
 		return calculateHash(existing), true, nil
 	}
 
-	if _, _, marked := commandsIndexRegion(string(existing)); !marked {
+	if !hasCommandsIndexMarkers(string(existing)) {
 		return "", false, nil
 	}
 

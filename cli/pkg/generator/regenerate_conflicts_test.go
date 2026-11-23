@@ -12,6 +12,7 @@ package generator
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 	"testing"
 
@@ -592,6 +593,42 @@ func TestRegenerateConflicts_AMarkedCommandsIndexIsLeftToTheIndexUpdate(t *testi
 			assert.Equal(t, markedIndexWithProse, string(got), "the prose around the markers is kept")
 			assert.Equal(t, CalculateHash(got), hash)
 			assert.False(t, buf.ContainsLevel(logger.WarnLevel, "conflict detected"), "a marked index is not a conflict")
+		})
+	}
+}
+
+// A page gtb has always treated as marked stays left to the index update even
+// where the splice finds no region, or regenerate would overwrite it unasked.
+func TestRegenerateConflicts_ALooselyMarkedIndexWithAnAdoptedHashIsKept(t *testing.T) {
+	t.Parallel()
+
+	const (
+		s = commandsIndexMarkerStart
+		e = commandsIndexMarkerEnd
+	)
+
+	for name, tc := range map[string]struct{ rel, page string }{
+		"a marker sharing a line": {skeletonCommandsIndex, "# CLI\n\nTable: " + s + "\n| a |\n" + e + "\n"},
+		"an unclosed fence first": {skeletonCommandsIndex, "# CLI\n\n```\n" + s + "\n| a |\n" + e + "\n"},
+		"inline code on a line":   {skeletonCommandsIndex, "# CLI\n\n```x``` " + s + "\n| a |\n" + e + "\n"},
+		"an overlay's flat index": {"docs/commands/index.md", "# CLI\n\n" + s + "\n| a |\n" + e + "\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fs, _ := newIssue13Project(t, "deny", "")
+
+			rel, page := tc.rel, tc.page
+
+			require.NoError(t, fs.MkdirAll(path.Dir("/work/"+rel), 0o755))
+			require.NoError(t, afero.WriteFile(fs, "/work/"+rel, []byte(page), 0o644))
+
+			_, err := g.writeRenderedSkeletonFile("/work/"+rel, rel, []byte("# stub\n"), map[string]string{rel: CalculateHash([]byte(page))})
+			require.NoError(t, err)
+
+			got, err := afero.ReadFile(fs, "/work/"+rel)
+			require.NoError(t, err)
+			assert.Equal(t, page, string(got))
 		})
 	}
 }

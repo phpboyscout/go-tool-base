@@ -295,7 +295,9 @@ handled specially so hand-added prose is never silently discarded:
   ```
 
   Only the region **between** the markers is rewritten. Any prose you add before
-  or after them is preserved. Scaffolded projects ship the index with an empty
+  or after them is preserved. Each marker must sit on a line of its own, and
+  markers inside a code fence don't count, so a page can quote them in an
+  example like the one above. Scaffolded projects ship the index with an empty
   marker pair already in place. `regenerate project` leaves an index holding its
   markers as it stands rather than comparing it with the scaffold, so the prose
   around them never raises a conflict there either.
