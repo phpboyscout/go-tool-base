@@ -104,6 +104,16 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	addCmd(t, p, path, "import", "deploy")
 	addCmd(t, p, path, "go", "root")
 
+	// #189: a name the parent's cmd.go already uses is imported under an alias,
+	// as a child and at the root. Each of these broke the parent's build.
+	for _, name := range []string{"error", "props", "afero", "logger", "os", "tool", "setup"} {
+		addCmd(t, p, path, name, "root")
+	}
+
+	for _, name := range []string{"string", "nil", "cobra", "cmd", "setup"} {
+		addCmd(t, p, path, name, "deploy")
+	}
+
 	// #145: the initialiser, validation and assets scaffolds build as
 	// emitted. Golden strings did not catch init.go drifting from
 	// setup.InitialiserProvider; only a build does.

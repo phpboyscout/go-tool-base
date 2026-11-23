@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/dave/dst"
@@ -81,6 +84,8 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 		return parentUntouched, errors.Wrap(err, "failed to parse parent command file")
 	}
 
+	g.resolveImportAlias(f, ctx)
+
 	g.props.Logger.Debug("adding import", "import", ctx.importPath)
 	g.addSubcommandImport(f, ctx.importPath, ctx.pkgName)
 
@@ -109,6 +114,68 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 	return written, nil
 }
 
+// parentImportAlias is the alias the parent file imports the command under. A
+// parent that already imports it keeps its alias, or the package name when it
+// has none (generators before cli/v0.41.0 wrote no alias), so its registration
+// is still found. Otherwise an alias another import in the file holds takes a
+// "cmd" suffix.
+func parentImportAlias(f *dst.File, importPath, pkgName, alias string) string {
+	quoted := strconv.Quote(importPath)
+	taken := make(map[string]bool, len(f.Imports))
+
+	for _, imp := range f.Imports {
+		if imp.Path.Value == quoted {
+			if imp.Name == nil {
+				return pkgName
+			}
+
+			return imp.Name.Name
+		}
+
+		taken[importName(imp)] = true
+	}
+
+	for taken[alias] {
+		alias += "cmd"
+	}
+
+	return alias
+}
+
+// importName is the name an import binds in the file. Without an alias that
+// is the package's own name, which this approximates from the path: a major
+// version element (foo/v2) or suffix (gopkg.in/yaml.v3) is not part of it.
+func importName(imp *dst.ImportSpec) string {
+	if imp.Name != nil {
+		return imp.Name.Name
+	}
+
+	p, _ := strconv.Unquote(imp.Path.Value)
+
+	base := path.Base(p)
+	if majorVersionElement.MatchString(base) {
+		base = path.Base(path.Dir(p))
+	}
+
+	return majorVersionSuffix.ReplaceAllString(base, "")
+}
+
+var (
+	majorVersionElement = regexp.MustCompile(`^v[0-9]+$`)
+	majorVersionSuffix  = regexp.MustCompile(`\.v[0-9]+$`)
+)
+
+// resolveImportAlias settles the alias against what the parent file already
+// imports, so registering and removing a command name it the same way.
+func (g *Generator) resolveImportAlias(f *dst.File, ctx *subcommandContext) {
+	ctx.setImportAlias(parentImportAlias(f, ctx.importPath, commandPackageName(g.config.Name), ctx.pkgName))
+}
+
+func (ctx *subcommandContext) setImportAlias(alias string) {
+	ctx.pkgName = alias
+	ctx.subCmdVar = alias + "Cmd"
+}
+
 func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
 	parentParts := g.getParentPathParts()
 	isRoot := len(parentParts) == 0
@@ -122,7 +189,7 @@ func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
 		cmdVarName:        "cmd",
 		rootCmdInitIdx:    -1,
 		firstAllAssetsIdx: -1,
-		pkgName:           commandPackageName(g.config.Name),
+		pkgName:           commandImportAlias(g.config.Name),
 	}
 
 	var parentRelPath string
@@ -161,7 +228,7 @@ func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
 	}
 
 	ctx.importPath = fmt.Sprintf("%s/%s", moduleName, relCmdPath)
-	ctx.subCmdVar = ctx.pkgName + "Cmd"
+	ctx.setImportAlias(ctx.pkgName)
 	ctx.funcNameToBeCalled = "NewCmd" + PascalCase(g.config.Name)
 
 	return ctx, nil
@@ -835,6 +902,8 @@ func (g *Generator) deregisterSubcommand() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to parse parent command file")
 	}
+
+	g.resolveImportAlias(f, ctx)
 
 	g.props.Logger.Debug("removing import", "import", ctx.importPath)
 	g.removeSubcommandImport(f, ctx.importPath)
