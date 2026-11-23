@@ -140,7 +140,7 @@ module appends to it. The module require is pinned at the given version.`,
 	cmd.Flags().BoolVar(&opts.wrap, "wrap", false, "Wrap the constructor's *cobra.Command return in setup.Wrap (omit if it returns *setup.Command)")
 	cmd.Flags().StringVar(&opts.importPath, "import-path", "", "Package import path when it differs from the module path")
 	cmd.Flags().StringVar(&opts.alias, "alias", "", "Import alias for the package in the generated root")
-	cmd.Flags().StringVar(&opts.name, "name", "", "Expected top-level command name (for collision detection)")
+	cmd.Flags().StringVar(&opts.name, "name", "", "Name the constructor gives its command; refused when a built-in or the project's own command has it")
 
 	_ = cmd.MarkFlagRequired("constructor")
 

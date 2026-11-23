@@ -40,6 +40,10 @@ func (g *Generator) AttachExternalCommand(ctx context.Context, spec ExternalComm
 		return err
 	}
 
+	if err := checkAttachedNames(spec.Attach, m); err != nil {
+		return err
+	}
+
 	// Merge into an existing entry for the same module (so a second `attach
 	// command` for the same module appends another constructor) or append a new
 	// entry. A version mismatch is an error — detach first to change the pin.
