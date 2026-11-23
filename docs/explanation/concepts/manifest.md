@@ -38,10 +38,10 @@ version:
 commands:
   - name: root
     description: The root command
-    withAssets: true
+    with_assets: true
   - name: server
     description: Manage the server
-    longDescription: |
+    long_description: |
       The server command allows you to start, stop, and configure
       the backend server for the application.
     flags:
@@ -64,16 +64,16 @@ commands:
 - **commands**: A recursive list of all commands in your tool.
     - **name**: The command name (e.g., `server`).
     - **description**: The short description used in help text.
-    - **longDescription**: A detailed explanation of the command.
-    - **withAssets**: Whether the command bundles static assets.
+    - **long_description**: A detailed explanation of the command.
+    - **with_assets**: Whether the command bundles static assets.
     - **aliases**: A list of alternative names for the command.
     - **hidden**: Whether the command is hidden from help text.
     - **args**: Positional argument validation (e.g., `ExactArgs(1)`, `ArbitraryArgs`).
     - **hash**: SHA256 hash of the generated `cmd.go` content (used for change detection).
     - **protected**: Whether the command is write-protected (preventing overwrite).
-    - **persistentPreRun**: Whether to generate a persistent pre-run hook.
-    - **preRun**: Whether to generate a pre-run hook.
-    - **withInitializer**: Whether to generate a config Initializer for this command (`init.go` + `Init<Name>` stub in `main.go`).
+    - **persistent_pre_run**: Whether to generate a persistent pre-run hook.
+    - **pre_run**: Whether to generate a pre-run hook.
+    - **with_initializer**: Whether to generate a config Initializer for this command (`init.go` + `Init<Name>` stub in `main.go`).
     - **mutually_exclusive**: A list of flag groups where only one flag can be set (e.g., `[["json", "yaml"]]`).
     - **required_together**: A list of flag groups that must be set together.
     - **flags**: A list of flags associated with the command.
