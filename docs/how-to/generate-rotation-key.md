@@ -12,7 +12,9 @@ The rotation-authority key is your **break-glass key**. It's never
 used in normal operation. It exists so that, if a release signing key
 is ever lost or compromised, you can sign a rotation manifest that
 tells installed copies of your tool which release keys to trust,
-without asking anyone to reinstall.
+without asking anyone to reinstall. That works on
+[the channels that carry the manifest](#which-channels-carry-the-manifest);
+GitLab releases don't yet.
 
 This is a 5-minute one-off operation. Do it now, store the private
 half offline, and forget about it (until you don't have to). A copy
@@ -208,7 +210,9 @@ with `--backend local --key-id` pointing at the recovered PEM. It
 writes `rotate-keys.json` and `rotate-keys.json.minisig`, which add
 replacement release keys and, after a compromise, revoke the old one.
 Commit both files to `release/rotation/` in your repository, and every
-release from then on carries them, on the channels that can:
+release from then on carries them, on the channels that can.
+
+### Which channels carry the manifest
 
 - **The static channel** stages them into the release and lists them in
   `release.json`.

@@ -376,8 +376,14 @@ and every release signed with the new key alone.
 Copies that only trust v1 can't verify those releases, so they'll refuse to
 update. If those copies embed the manifest authority from
 [Publish your public key](publish-your-public-key.md#and-a-manifest-authority),
-a rotation manifest moves them to the new key without a reinstall. A key that
-is lost but not compromised needs nothing revoked, so the manifest only adds
+and your releases are published on a channel that carries it, a rotation
+manifest moves them to the new key without a reinstall. The static channel
+carries it, and so do GitHub, Gitea and Codeberg releases. GitLab releases
+don't yet, and copies that update from them need the reinstall at the end of
+this section. See
+[which channels carry a manifest](../how-to/generate-rotation-key.md#which-channels-carry-the-manifest).
+
+A key that is lost but not compromised needs nothing revoked, so the manifest only adds
 the new key: `sigillum keys rotate --reason scheduled` with `--not-after` set
 and `--add` naming it. If you've already published a manifest, such as the
 fire drill, `--previous` names the latest one. The first manifest needs none.
