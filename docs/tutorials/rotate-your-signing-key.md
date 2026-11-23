@@ -343,8 +343,9 @@ from the top: a new identity and a new WKD bucket, the new key set embedded,
 and every release signed with the new key alone.
 
 Copies that only trust v1 can't verify those releases, so they'll refuse to
-update. If those copies embed a minisign manifest authority, a rotation
-manifest moves them to the new key without a reinstall. A key that is lost but
+update. If those copies embed the manifest authority from
+[Publish your public key](publish-your-public-key.md#and-a-manifest-authority),
+a rotation manifest moves them to the new key without a reinstall. A key that is lost but
 not compromised needs nothing revoked, so the manifest only adds the new key:
 `sigillum keys rotate --reason scheduled` with `--not-after` set, `--add` naming it, and
 `--previous` naming the last manifest you published, such as the fire drill.
