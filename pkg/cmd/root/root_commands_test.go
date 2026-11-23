@@ -117,3 +117,236 @@ func TestRootCommands_CollisionIsSkippedAndLogged(t *testing.T) {
 	assert.True(t, log.ContainsLevel(logger.WarnLevel, "root-collider"), "the warn names the contributing feature")
 	assert.True(t, log.ContainsLevel(logger.WarnLevel, "version"), "the warn names the command")
 }
+
+func shortsNamed(root *setup.Command, name string) []string {
+	var shorts []string
+
+	for _, c := range root.Commands() {
+		if c.Name() == name {
+			shorts = append(shorts, c.Short)
+		}
+	}
+
+	return shorts
+}
+
+func toolCommand(name, short string) *setup.Command {
+	return setup.Wrap(p.FeatureID(name), &cobra.Command{Use: name, Short: short, RunE: func(*cobra.Command, []string) error { return nil }})
+}
+
+// A tool's own command loses a name already on the root, whichever way cobra
+// would have sorted the two (spec 0202, #224).
+func TestRootCommands_ToolCommandCollisionIsSkippedAndLogged(t *testing.T) {
+	t.Parallel()
+
+	const (
+		plugin    = p.FeatureID("root-probe")
+		updateOne = "Update to the latest available version"
+		versionIt = "Print version, commit, and build date"
+	)
+
+	on, off := p.Enable(p.UpdateCmd), p.Disable(p.UpdateCmd)
+
+	for _, tc := range []struct {
+		name     string
+		update   p.FeatureState
+		commands []*setup.Command
+		want     map[string]string
+		warnings []string
+	}{
+		{
+			name: "a feature's command", update: on,
+			commands: []*setup.Command{toolCommand("update", "own")},
+			want:     map[string]string{"update": updateOne},
+			warnings: []string{`the tool's own "update" command is skipped: feature "update" already provides one; rename yours, or disable that feature`},
+		},
+		{
+			name: "a command with no feature", update: on,
+			commands: []*setup.Command{toolCommand("version", "own")},
+			want:     map[string]string{"version": versionIt},
+			warnings: []string{`the tool's own "version" command is skipped: every tool has one; rename yours`},
+		},
+		{
+			name: "two in one root", update: on,
+			commands: []*setup.Command{toolCommand("version", "own"), toolCommand("update", "own")},
+			want:     map[string]string{"version": versionIt, "update": updateOne},
+			warnings: []string{`own "version" command is skipped`, `own "update" command is skipped`},
+		},
+		{
+			name: "a command a feature contributes", update: on,
+			commands: []*setup.Command{toolCommand("probe", "own")},
+			want:     map[string]string{"probe": "contributed"},
+			warnings: []string{`the tool's own "probe" command is skipped: feature "root-probe" already provides one`},
+		},
+		{
+			name: "two of the tool's own", update: on,
+			commands: []*setup.Command{toolCommand("deploy", "first"), toolCommand("deploy", "second")},
+			want:     map[string]string{"deploy": "first"},
+			warnings: []string{`the tool's own "deploy" command is skipped: the tool has another of that name; rename one of them`},
+		},
+		{
+			name: "a disabled feature leaves the name free", update: off,
+			commands: []*setup.Command{toolCommand("update", "own")},
+			want:     map[string]string{"update": "own"},
+		},
+		{
+			name: "a name differing in case is another name", update: on,
+			commands: []*setup.Command{toolCommand("Update", "own")},
+			want:     map[string]string{"update": updateOne, "Update": "own"},
+		},
+		{
+			name: "a missing command", update: on,
+			commands: []*setup.Command{nil, {}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			reg := rootCommandsRegistry(t, plugin, func(*p.Props) *setup.Command {
+				return setup.Wrap("", &cobra.Command{Use: "probe", Short: "contributed", RunE: func(*cobra.Command, []string) error { return nil }})
+			})
+
+			log := logger.NewBuffer()
+			props := &p.Props{
+				Tool:   p.Tool{Name: "owned", Features: p.SetFeatures(tc.update, p.Enable(plugin))},
+				Logger: log,
+				FS:     afero.NewMemMapFs(),
+				Assets: p.NewAssets(),
+			}
+			root := NewCmdRootWithOptions(props, WithRegistry(reg), WithSubcommands(append(tc.commands, toolCommand("after", "after"))...))
+
+			for name, short := range tc.want {
+				assert.Equal(t, []string{short}, shortsNamed(root, name))
+			}
+
+			for _, w := range tc.warnings {
+				assert.True(t, log.ContainsLevel(logger.WarnLevel, w), w)
+			}
+
+			if len(tc.warnings) == 0 {
+				assert.False(t, log.ContainsLevel(logger.WarnLevel, "is skipped"))
+			}
+
+			assert.Equal(t, []string{"after"}, shortsNamed(root, "after"), "the commands after a skipped one are attached")
+		})
+	}
+}
+
+// A name on the root beats an alias: the alias goes, the command stays (spec
+// 0202, #224).
+func TestRootCommands_AnAliasThatIsANameIsDropped(t *testing.T) {
+	t.Parallel()
+
+	const plugin = p.FeatureID("root-probe")
+
+	aliased := func(name string, aliases ...string) *setup.Command {
+		c := toolCommand(name, "own")
+		c.Aliases = aliases
+
+		return c
+	}
+
+	for _, tc := range []struct {
+		name        string
+		update      p.FeatureState
+		contributed []string
+		commands    []*setup.Command
+		runs        map[string]string
+		warnings    []string
+	}{
+		{
+			name: "a feature's command", update: p.Enable(p.UpdateCmd),
+			commands: []*setup.Command{aliased("apply", "ap", "update")},
+			runs:     map[string]string{"update": "update", "apply": "apply", "ap": "apply"},
+			warnings: []string{`the alias "update" of the "apply" command is dropped: feature "update" provides a command of that name`},
+		},
+		{
+			name: "a command with no feature, and two in one root", update: p.Enable(p.UpdateCmd),
+			commands: []*setup.Command{aliased("apply", "version", "update")},
+			runs:     map[string]string{"update": "update", "version": "version", "apply": "apply"},
+			warnings: []string{
+				`the alias "version" of the "apply" command is dropped: every tool has a command of that name`,
+				`the alias "update" of the "apply" command is dropped`,
+			},
+		},
+		{
+			name: "a feature's contributed command", update: p.Enable(p.UpdateCmd),
+			commands: []*setup.Command{aliased("apply", "probe")},
+			runs:     map[string]string{"probe": "probe"},
+			warnings: []string{`the alias "probe" of the "apply" command is dropped: feature "root-probe" provides a command of that name`},
+		},
+		{
+			name: "a contribution's own alias", update: p.Enable(p.UpdateCmd), contributed: []string{"pr", "update"},
+			runs:     map[string]string{"update": "update", "pr": "probe"},
+			warnings: []string{`the alias "update" of the "probe" command is dropped`},
+		},
+		{
+			name: "the tool's own, whichever came first", update: p.Enable(p.UpdateCmd),
+			commands: []*setup.Command{aliased("apply", "ship"), aliased("ship", "deploy"), aliased("deploy")},
+			runs:     map[string]string{"ship": "ship", "deploy": "deploy"},
+			warnings: []string{
+				`the alias "ship" of the "apply" command is dropped: the tool has a command of that name`,
+				`the alias "deploy" of the "ship" command is dropped: the tool has a command of that name`,
+			},
+		},
+		{
+			name: "a disabled feature leaves the name free", update: p.Disable(p.UpdateCmd),
+			commands: []*setup.Command{aliased("apply", "update")},
+			runs:     map[string]string{"update": "apply"},
+		},
+		{
+			name: "its own name", update: p.Enable(p.UpdateCmd),
+			commands: []*setup.Command{aliased("apply", "apply")},
+			runs:     map[string]string{"apply": "apply"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			reg := rootCommandsRegistry(t, plugin, func(*p.Props) *setup.Command {
+				return setup.Wrap("", &cobra.Command{Use: "probe", Aliases: tc.contributed, RunE: func(*cobra.Command, []string) error { return nil }})
+			})
+
+			log := logger.NewBuffer()
+			props := &p.Props{
+				Tool:   p.Tool{Name: "owned", Features: p.SetFeatures(tc.update, p.Enable(plugin))},
+				Logger: log,
+				FS:     afero.NewMemMapFs(),
+				Assets: p.NewAssets(),
+			}
+			root := NewCmdRootWithOptions(props, WithRegistry(reg), WithSubcommands(tc.commands...))
+
+			for word, want := range tc.runs {
+				got, _, err := root.Find([]string{word})
+				require.NoError(t, err, word)
+				assert.Equal(t, want, got.Name(), word)
+			}
+
+			for _, w := range tc.warnings {
+				assert.True(t, log.ContainsLevel(logger.WarnLevel, w), w)
+			}
+
+			if len(tc.warnings) == 0 {
+				assert.False(t, log.ContainsLevel(logger.WarnLevel, "is dropped"))
+			}
+		})
+	}
+}
+
+func TestRootCommands_DroppingAnAliasLeavesTheCallersSliceAlone(t *testing.T) {
+	t.Parallel()
+
+	aliases := []string{"update", "ap"}
+	cmd := toolCommand("apply", "own")
+	cmd.Aliases = aliases
+
+	NewCmdRoot(&p.Props{
+		Tool:   p.Tool{Name: "owned", Features: p.SetFeatures(p.Enable(p.UpdateCmd))},
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+		Assets: p.NewAssets(),
+	}, cmd)
+
+	assert.Equal(t, []string{"ap"}, cmd.Aliases)
+	assert.Equal(t, []string{"update", "ap"}, aliases)
+}

@@ -56,6 +56,8 @@ func NewCmdRoot(p *props.Props) *setup.Command {
 
 `Register` wires global middleware *and* any feature-specific middleware registered for the child's key. Each command is wrapped exactly once with **its own** feature. The parent's feature is never propagated downward.
 
+A name on the root is taken once. The commands passed to `NewCmdRoot` are attached after the built-ins and the commands features contribute. One whose name is already there is skipped with a warning, so a tool's own `update` can't hide self-update. To use the name, disable the feature that holds it: `props.Disable(props.UpdateCmd)`. `version` has no feature, so its name is always taken. An alias that is another root command's name is dropped, with a warning, and its command still runs under its own name. A command you `Register` on the root yourself, after `NewCmdRoot` returns, isn't checked. Nor are `help` and `completion`, which cobra adds when the tool runs.
+
 ## Rationale
 
 ### 1. Explicit Dependency Injection

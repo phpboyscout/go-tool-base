@@ -1099,7 +1099,8 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 	wrapped.UseChain(rootChain(props, o))
 	registerFeatureCommands(wrapped, props)
 
-	wrapped.Register(o.subcommands...)
+	own := registerToolCommands(wrapped, props, o.subcommands)
+	dropTakenAliases(wrapped, props, own)
 
 	// Once the full tree is assembled, warn (once, at debug) if any downstream
 	// command defines its own PersistentPreRunE so authors understand it runs
@@ -1586,6 +1587,74 @@ func registerContributedCommands(rootCmd *setup.Command, props *p.Props) {
 	}
 }
 
+// registerToolCommands puts the tool's own commands on the root. A name already
+// there wins, as it does for a contribution: with both attached, cobra runs
+// whichever its unstable sort puts first (spec 0202, #224). It returns the names
+// it attached.
+func registerToolCommands(rootCmd *setup.Command, props *p.Props, commands []*setup.Command) map[string]bool {
+	own := make(map[string]bool)
+
+	for _, cmd := range commands {
+		if cmd == nil || cmd.Command == nil {
+			continue
+		}
+
+		name := cmd.Name()
+
+		owner := commandNamed(rootCmd, name)
+		if owner == "" {
+			rootCmd.Register(cmd)
+
+			own[name] = true
+
+			continue
+		}
+
+		var reason string
+
+		switch {
+		case own[name]:
+			reason = "the tool has another of that name; rename one of them"
+		case owner == rootOwner:
+			reason = "every tool has one; rename yours"
+		default:
+			reason = owner + " already provides one; rename yours, or disable that feature"
+		}
+
+		props.Logger.Warn(fmt.Sprintf("the tool's own %q command is skipped: %s", name, reason))
+	}
+
+	return own
+}
+
+// dropTakenAliases drops a root command's alias that is another's name, which
+// cobra would otherwise run in its place (spec 0202, #224).
+func dropTakenAliases(rootCmd *setup.Command, props *p.Props, own map[string]bool) {
+	for _, cmd := range rootCmd.Commands() {
+		cmd.Aliases = slices.DeleteFunc(slices.Clone(cmd.Aliases), func(alias string) bool {
+			owner := commandNamed(rootCmd, alias)
+			if owner == "" || alias == cmd.Name() {
+				return false
+			}
+
+			reason := owner + " provides a command of that name"
+
+			switch {
+			case own[alias]:
+				reason = "the tool has a command of that name"
+			case owner == rootOwner:
+				reason = "every tool has a command of that name"
+			}
+
+			props.Logger.Warn(fmt.Sprintf("the alias %q of the %q command is dropped: %s", alias, cmd.Name(), reason))
+
+			return true
+		})
+	}
+}
+
+const rootOwner = "the root"
+
 // commandNamed reports who already owns a child of that name on root: the
 // feature that wrapped it, or "the root" for one with no feature stamp.
 func commandNamed(root *setup.Command, name string) string {
@@ -1598,7 +1667,7 @@ func commandNamed(root *setup.Command, name string) string {
 			return fmt.Sprintf("feature %q", f)
 		}
 
-		return "the root"
+		return rootOwner
 	}
 
 	return ""
