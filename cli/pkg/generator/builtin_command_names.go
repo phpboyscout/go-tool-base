@@ -14,6 +14,11 @@ import (
 var ErrBuiltinCommandName = errors.NewSentinel("gtb.generator.builtin_command_name",
 	"a top-level command would share its name with a built-in")
 
+// ErrAttachedCommandName is an attached command and one of the project's own
+// with one name or alias.
+var ErrAttachedCommandName = errors.NewSentinel("gtb.generator.attached_command_name",
+	"an attached command would share its name with one of the project's own")
+
 // featureCommandNames are the features whose root command has the feature's name.
 var featureCommandNames = map[string]bool{
 	"update": true, "init": true, "mcp": true, "docs": true, "doctor": true,
@@ -103,6 +108,42 @@ func checkEnabledFeatureNames(before, after []ManifestFeature, commands []Manife
 
 	return nil
 }
+
+// checkAttachedNames refuses to attach a command that declares a name a built-in
+// or a top-level command of the project has (#229).
+func checkAttachedNames(attach []ManifestExternalAttach, m *Manifest) error {
+	for _, a := range attach {
+		if a.Name == "" {
+			continue
+		}
+
+		if _, held := builtinHoldsName(a.Name, m.Properties.Features); held {
+			hint := "Every tool has that command."
+			if featureCommandNames[a.Name] {
+				hint = fmt.Sprintf("Run `gtb disable %s` first.", a.Name)
+			}
+
+			return errors.WithHint(errors.Wrap(ErrBuiltinCommandName, a.Name), hint+" "+attachRenamed)
+		}
+
+		for _, c := range m.Commands {
+			if !slices.Contains(rootNames(c), a.Name) {
+				continue
+			}
+
+			hint := fmt.Sprintf("This project has its own %s command.", a.Name)
+			if a.Name != c.Name {
+				hint = fmt.Sprintf("In this project %s is an alias of its %s command.", a.Name, c.Name)
+			}
+
+			return errors.WithHint(errors.Wrap(ErrAttachedCommandName, a.Name), hint+" "+attachRenamed)
+		}
+	}
+
+	return nil
+}
+
+const attachRenamed = "To attach it under another name, use `gtb attach adapter` and set the command's Use there."
 
 func (g *Generator) warnBuiltinCommandNames(m *Manifest) {
 	for _, c := range m.Commands {

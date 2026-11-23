@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 func sigillumSpec() ExternalCommandSpec {
@@ -212,4 +214,64 @@ func TestAttachExternalCommand_SurvivesRegenerate(t *testing.T) {
 	require.NoError(t, g.RegenerateProject(context.Background()))
 
 	assert.Contains(t, readRootCmd(t, fs), "signingcli.NewCmdSign(p.GetLogger())")
+}
+
+// A declared name that a built-in or the project's own command has is refused
+// before anything is written (#229).
+func TestAttachExternalCommand_RefusesADeclaredNameThatIsTaken(t *testing.T) {
+	t.Parallel()
+
+	own := []ManifestCommand{{Name: "sign", Aliases: []string{"stamp"}, Commands: []ManifestCommand{{Name: "keys"}}}}
+
+	for name, tt := range map[string]struct {
+		declared string
+		off      string
+		want     error
+		hint     string
+	}{
+		"a built-in's":               {declared: "update", want: ErrBuiltinCommandName, hint: "gtb disable update"},
+		"a disabled built-in's":      {declared: "update", off: "update"},
+		"one every tool has":         {declared: "version", want: ErrBuiltinCommandName, hint: "gtb attach adapter"},
+		"the project's own":          {declared: "sign", want: ErrAttachedCommandName, hint: "gtb attach adapter"},
+		"an alias of the project's":  {declared: "stamp", want: ErrAttachedCommandName, hint: "alias of its sign command"},
+		"a subcommand's, not a root": {declared: "keys"},
+		"free":                       {declared: "publish"},
+		"none declared":              {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, fs := newFeatureProject(t)
+			m := readWorkManifest(t, fs)
+			m.Commands = own
+
+			if tt.off != "" {
+				m.Properties.Features = append(m.Properties.Features, ManifestFeature{Name: tt.off, Enabled: false})
+			}
+
+			require.NoError(t, g.writeManifest(m))
+
+			before := readRootCmd(t, fs)
+			err := g.AttachExternalCommand(context.Background(), ExternalCommandSpec{
+				Module:  "example.com/release-tools",
+				Version: "v1.0.0",
+				Attach: []ManifestExternalAttach{
+					{Constructor: "NewCmdNotes", Wrap: true},
+					{Constructor: "NewCmdOther", Wrap: true, Name: tt.declared},
+				},
+			})
+
+			if tt.want == nil {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, tt.want)
+			assert.Contains(t, err.Error(), tt.declared)
+			assert.Contains(t, errors.FlattenHints(err), tt.hint)
+			assert.Empty(t, readWorkManifest(t, fs).Properties.ExternalCommands)
+			assert.Equal(t, before, readRootCmd(t, fs))
+		})
+	}
 }
