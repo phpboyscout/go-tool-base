@@ -49,10 +49,15 @@ mytool mcp stream [--host <host>] [--port <port>] [--origin <origin>]... [--log-
 
 | Flag | Default | Description |
 | :--- | :--- | :--- |
-| `--host` | all interfaces | Interface to bind |
+| `--host` | `127.0.0.1` | Host to listen on. Empty means the default. |
 | `--port` | `8080` | Port to serve on |
 | `--origin` | none | A browser origin to trust besides the server's own (repeatable). Any other browser origin is refused with 403; clients that are not browsers send no `Origin`. |
 | `--log-level` | | Log level |
+
+By default only programs on this machine can connect. The command adds no
+authentication, so a wider host offers every exposed command to anyone who can
+reach it. `--host 0.0.0.0` listens on every IPv4 interface. A server in a
+container needs a wider host before anything outside the container can connect.
 
 Use `mcp start` for editor and desktop integrations that launch your tool as a
 subprocess; use `mcp stream` for a client that connects to a running endpoint.
@@ -86,7 +91,11 @@ editor's MCP configuration (Claude Desktop's `claude_desktop_config.json`,
 `~/.cursor/mcp.json`, VS Code's user `mcp.json`; `--workspace` uses the
 project's `.cursor/mcp.json` or `.vscode/mcp.json`). Other entries are
 preserved, running it again replaces this entry only, `disable` removes it, and
-a file that is not valid JSON is refused untouched.
+a file that is not valid JSON is refused untouched. When the
+user's own file depends on a home directory and there is no absolute one, the
+command fails; pass `--config-path`, or `--workspace` for Cursor and VS Code.
+Claude Desktop and VS Code need none where `XDG_CONFIG_HOME` (Linux) or
+`APPDATA` (Windows) is an absolute path. A relative one is ignored.
 
 ## Gating sensitive commands
 

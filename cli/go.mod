@@ -191,7 +191,7 @@ require (
 	gitlab.com/phpboyscout/go/credentials v0.3.5 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.5 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.6 // indirect
-	gitlab.com/phpboyscout/go/mcp v0.2.6 // indirect
+	gitlab.com/phpboyscout/go/mcp v0.2.7 // indirect
 	gitlab.com/phpboyscout/go/observability v0.6.1 // indirect
 	gitlab.com/phpboyscout/go/output v0.2.6 // indirect
 	gitlab.com/phpboyscout/go/regexutil v0.2.3 // indirect

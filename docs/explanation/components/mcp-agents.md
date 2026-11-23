@@ -32,8 +32,10 @@ integrations such as Claude Desktop:
 mytool mcp start
 ```
 
-For networked clients, `mcp stream` serves the same tools over a streamable-HTTP
-endpoint (configurable via `--host` and `--port`):
+For a client that connects to a running endpoint, `mcp stream` serves the same
+tools over streamable HTTP. It listens on `127.0.0.1:8080` unless `--host` or
+`--port` says otherwise, and it adds no authentication, so widen the host only
+on a network you trust:
 
 ```bash
 mytool mcp stream
