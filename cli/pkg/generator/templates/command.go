@@ -503,17 +503,6 @@ func generateCommandFields(data CommandData) []jen.Code {
 			jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
 			jen.Id("args").Index().String(),
 		).Error().Block(
-			jen.If(
-				jen.Id("cmd").Dot("Parent").Call().Op("!=").Nil().
-					Op("&&").Id("cmd").Dot("Parent").Call().Dot("PersistentPreRunE").Op("!=").Nil(),
-			).Block(
-				jen.If(
-					jen.Id("err").Op(":=").Id("cmd").Dot("Parent").Call().Dot("PersistentPreRunE").Call(jen.Id("cmd"), jen.Id("args")).Op(";").
-						Id("err").Op("!=").Nil(),
-				).Block(
-					jen.Return(jen.Id("err")),
-				),
-			),
 			jen.Return(
 				jen.Id("PersistentPreRun"+data.PascalName).Call(
 					jen.Id("cmd").Dot("Context").Call(),

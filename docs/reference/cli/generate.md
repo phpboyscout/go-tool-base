@@ -247,7 +247,7 @@ Generate a new command or subcommand (optionally AI-converted from a script).
 | `--prompt` | — | Natural-language description (or a file path) to generate from. Mutually exclusive with `--script`. |
 | `--max-steps` | `0` (→20) | Max repair-agent reasoning steps. |
 | `--non-interactive` | *(true when `CI` is set)* | Never pause for input: disables the repair agent's `query_user` tool. |
-| `--persistent-pre-run` / `--pre-run` | `false` | Generate the corresponding hook. |
+| `--persistent-pre-run` / `--pre-run` | `false` | Generate the corresponding hook. A persistent pre-run also runs for every command below, once each, outermost first and after the framework's own. |
 | `--flags-hook` | `false` | Generate a `Flags<Name>` hook, called while the command is built, that can add flags to it ([Add flags from your own code](../../how-to/framework-cli/generate-commands.md#4c-add-flags-from-your-own-code)). |
 | `--with-initializer` | `false` | Generate an Initializer for this command. |
 | `--with-config-validation` | `false` | Generate a config-validation stub for this command. |

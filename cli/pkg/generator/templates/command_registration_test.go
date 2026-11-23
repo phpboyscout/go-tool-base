@@ -251,7 +251,7 @@ func TestCommandRegistration_CommandFields(t *testing.T) {
 	assert.Contains(t, src, "Hidden:  true")
 	assert.Contains(t, src, "Long: `multi\nline`")
 	assert.Contains(t, src, "PersistentPreRunE: func(cmd *cobra.Command, args []string) error {")
-	assert.Contains(t, src, "cmd.Parent().PersistentPreRunE(cmd, args)")
+	assert.NotContains(t, src, ".Parent()", "cobra runs the ancestors' hooks")
 	assert.Contains(t, src, "return PersistentPreRunWidget(cmd.Context(), props, opts, args)")
 	assert.Contains(t, src, "return PreRunWidget(cmd.Context(), props, opts, args)")
 	assert.Contains(t, src, `if v, err := cmd.Flags().GetString("region"); err == nil {`)
