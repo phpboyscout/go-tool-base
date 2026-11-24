@@ -27,6 +27,45 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     And the generated "pkg/cmd/serve/cmd.go" file does not contain "status.NewCmdStatus"
     And the generated "pkg/cmd/serve/main.go" file exists
 
+  Scenario: removing a command leaves a hand-edited parent's edit
+    # Issue #252: the edit was recorded as generated, and the last removal replaced it.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name serve --short serve-it"
+    And I run gtb in the project with "generate command --name status --parent serve --short status-it"
+    And I run gtb in the project with "generate command --name health --parent serve --short health-it"
+    And I hand-edit the generated "pkg/cmd/serve/cmd.go" file
+    And I run gtb in the project with "remove command --name health --parent serve"
+    Then the project exit code is 0
+    And the project output contains "has been modified since it was generated"
+    And the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "health.NewCmdHealth"
+    When I run gtb in the project with "remove command --name status --parent serve --force"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "status.NewCmdStatus"
+    When I run gtb in the project with "regenerate project --overwrite deny"
+    Then the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+
+  Scenario: removing a command leaves a parent gtb has no hash for
+    # A rebuilt manifest records no hashes, and regenerate keeps a file it has none for.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name serve --short serve-it"
+    And I run gtb in the project with "generate command --name status --parent serve --short status-it"
+    And I run gtb in the project with "generate command --name health --parent serve --short health-it"
+    And I hand-edit the generated "pkg/cmd/serve/cmd.go" file
+    And I delete the generated ".gtb/manifest.yaml" file
+    And I run gtb in the project with "regenerate manifest"
+    And I run gtb in the project with "remove command --name health --parent serve"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "health.NewCmdHealth"
+    When I run gtb in the project with "remove command --name status --parent serve --force"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "status.NewCmdStatus"
+    When I run gtb in the project with "regenerate project --overwrite deny"
+    Then the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+
   Scenario: remove refuses a protected command unless forced
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name guarded --short guarded-widget --protected"

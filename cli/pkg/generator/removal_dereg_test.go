@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"path/filepath"
@@ -55,7 +56,8 @@ func NewCmdRoot(p *props.Props) *setup.Command {
 	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	g := New(p, &Config{Path: workDir, Name: "foo"}) // Parent empty => root-level
 
-	require.NoError(t, g.deregisterSubcommand())
+	_, err := g.deregisterSubcommand()
+	require.NoError(t, err)
 
 	out, err := afero.ReadFile(fs, filepath.Join(workDir, "pkg/cmd/root/cmd.go"))
 	require.NoError(t, err)
@@ -116,4 +118,130 @@ func TestRemove_RefusesProtectedCommand(t *testing.T) {
 
 	exists, _ = afero.Exists(fs, filepath.Join(workDir, "pkg/cmd/secret"))
 	assert.False(t, exists, "--force must remove the protected command")
+}
+
+// Removing a command recorded its parent's edited cmd.go as generated, so the
+// last child's removal replaced it (#252).
+func TestRemove_LeavesAHandEditedParentAlone(t *testing.T) {
+	t.Parallel()
+
+	const (
+		source = `package serve
+
+import (
+	"github.com/acme/demo/pkg/cmd/serve/health"
+	"github.com/acme/demo/pkg/cmd/serve/status"
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+
+func NewCmdServe(p *props.Props) *setup.Command {
+	cmd := setup.Wrap("serve", &cobra.Command{Use: "serve", RunE: setup.GroupRunE})
+	cmd.Register(health.NewCmdHealth(p))
+	cmd.Register(status.NewCmdStatus(p))
+
+	return cmd
+}
+`
+		edit   = "\n// mine\n"
+		parent = "/work/pkg/cmd/serve/cmd.go"
+	)
+
+	type project struct {
+		unrecorded, sealed bool
+	}
+
+	removeIn := func(t *testing.T, pr project, onDisk string, children []string, force bool) (content, recorded string) {
+		t.Helper()
+
+		fs := afero.NewMemMapFs()
+		m := Manifest{
+			Properties: ManifestProperties{Name: "demo"},
+			Commands:   []ManifestCommand{{Name: "serve", Hashes: map[string]string{"cmd.go": calculateHash([]byte(source))}}},
+		}
+
+		if pr.unrecorded {
+			m.Commands[0].Hashes = nil
+		}
+
+		if pr.sealed {
+			require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte("pkg/cmd/serve/cmd.go sealed\n"), 0o644))
+		}
+
+		for _, child := range children {
+			m.Commands[0].Commands = append(m.Commands[0].Commands, ManifestCommand{Name: child})
+			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/serve/"+child+"/cmd.go", []byte("package "+child+"\n"), 0o644))
+		}
+
+		data, err := yaml.Marshal(m)
+		require.NoError(t, err)
+		require.NoError(t, afero.WriteFile(fs, "/work/.gtb/manifest.yaml", data, 0o644))
+		require.NoError(t, afero.WriteFile(fs, "/work/go.mod", []byte("module github.com/acme/demo\n"), 0o644))
+		require.NoError(t, afero.WriteFile(fs, parent, []byte(onDisk), 0o644))
+
+		p := &props.Props{FS: fs, Logger: logger.NewNoop(), Tool: props.Tool{Name: "demo"}}
+		require.NoError(t, New(p, &Config{Path: "/work", Name: "health", Parent: "serve", Force: force}).Remove(context.Background()))
+
+		out, err := afero.ReadFile(fs, parent)
+		require.NoError(t, err)
+
+		var after Manifest
+		data, err = afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+		require.NoError(t, err)
+		require.NoError(t, yaml.Unmarshal(data, &after))
+
+		return string(out), after.Commands[0].Hashes["cmd.go"]
+	}
+
+	remove := func(t *testing.T, onDisk string, children []string, force bool) (content, recorded string) {
+		t.Helper()
+
+		return removeIn(t, project{}, onDisk, children, force)
+	}
+
+	for name, children := range map[string][]string{
+		"another child stays": {"health", "status"},
+		"the last child":      {"health"},
+	} {
+		for _, force := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, force %v", name, force), func(t *testing.T) {
+				t.Parallel()
+
+				content, recorded := remove(t, source+edit, children, force)
+				assert.Contains(t, content, "// mine")
+				assert.NotContains(t, content, "NewCmdHealth")
+				assert.Equal(t, calculateHash([]byte(source)), recorded, "the edit is not gtb's to record")
+			})
+		}
+
+		for _, force := range []bool{false, true} {
+			// regenerate manifest records no hashes, and regenerate project
+			// keeps a file it has no hash for.
+			t.Run(fmt.Sprintf("%s, no recorded hash, force %v", name, force), func(t *testing.T) {
+				t.Parallel()
+
+				content, recorded := removeIn(t, project{unrecorded: true}, source+edit, children, force)
+				assert.Contains(t, content, "// mine")
+				assert.NotContains(t, content, "NewCmdHealth")
+				assert.Empty(t, recorded, "a file gtb has no hash for stays unrecorded")
+			})
+		}
+
+		t.Run(name+", sealed", func(t *testing.T) {
+			t.Parallel()
+
+			content, recorded := removeIn(t, project{sealed: true}, source+edit, children, true)
+			assert.Equal(t, source+edit, content, "a sealed parent is not written")
+			assert.Equal(t, calculateHash([]byte(source)), recorded)
+		})
+
+		t.Run(name+", unedited", func(t *testing.T) {
+			t.Parallel()
+
+			content, recorded := remove(t, source, children, false)
+			assert.NotContains(t, content, "NewCmdHealth")
+			assert.Equal(t, calculateHash([]byte(content)), recorded)
+		})
+	}
 }
