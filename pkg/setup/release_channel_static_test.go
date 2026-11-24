@@ -393,7 +393,7 @@ func TestExplainRefusal_StaticChannel(t *testing.T) {
 	assert.Contains(t, hint, "https://pkg.example.internal/acme/mytool")
 	assert.Contains(t, hint, "internet connection")
 
-	for _, sentinel := range []error{static.ErrBrokenChain, static.ErrEscapesBase, static.ErrUnsupportedSchema} {
+	for _, sentinel := range []error{static.ErrBrokenChain, static.ErrEscapesBase, static.ErrUnsupportedSchema, static.ErrTooManyRedirects} {
 		err = s.explainRefusal(context.Background(), errors.Wrap(sentinel, "x"))
 		assert.Contains(t, hintOf(t, err), "publisher", sentinel.Error())
 	}

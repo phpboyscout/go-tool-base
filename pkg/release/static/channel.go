@@ -20,6 +20,8 @@ const (
 	// DefaultListLimit is the page List returns for limit <= 0, a match for
 	// the forge providers' first page so callers see the same shape.
 	DefaultListLimit = 30
+	// MaxRedirects is the most redirects one request follows.
+	MaxRedirects = 10
 )
 
 // Sentinels the reader answers with, namespaced gtb.release.static.
@@ -37,6 +39,8 @@ var (
 	ErrBrokenChain = errors.NewSentinel("gtb.release.static.broken_chain", "the release chain does not resolve")
 	// ErrTooLarge: a document exceeded its bound.
 	ErrTooLarge = errors.NewSentinel("gtb.release.static.too_large", "a channel document exceeded its size bound")
+	// ErrTooManyRedirects: one request was redirected more than MaxRedirects times.
+	ErrTooManyRedirects = errors.NewSentinel("gtb.release.static.too_many_redirects", "the channel redirected too many times")
 	// ErrUnreachable: no answer came back from the channel's host at all.
 	ErrUnreachable = errors.NewSentinel("gtb.release.static.unreachable", "the release channel could not be reached")
 	// ErrUnexpectedStatus: a status that is neither success nor 404.
@@ -66,9 +70,13 @@ func New(base string, client *http.Client) (*Channel, error) {
 	c := &Channel{base: b.String()}
 
 	// A redirect is a URL the document did not name. It is held to the same
-	// rule as every URL that was.
+	// rule as every URL that was. Replacing the policy drops the client's own limit.
 	cp := *client
-	cp.CheckRedirect = func(req *http.Request, _ []*http.Request) error {
+	cp.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) > MaxRedirects {
+			return errors.Wrapf(ErrTooManyRedirects, "stopped after %d redirects", MaxRedirects)
+		}
+
 		return underBase(c.base, req.URL.String(), "redirect to")
 	}
 	c.client = &cp
@@ -219,7 +227,7 @@ func (c *Channel) fetch(ctx context.Context, rawURL string, maxBytes int64) ([]b
 
 // get is one GET with the channel's status contract: 200 is the body, 404 is
 // ErrNotFound, anything else is ErrUnexpectedStatus; a refused redirect
-// surfaces as the ErrEscapesBase the redirect policy returned.
+// surfaces as the ErrEscapesBase or ErrTooManyRedirects the redirect policy returned.
 func (c *Channel) get(ctx context.Context, rawURL string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
