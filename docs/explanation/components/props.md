@@ -90,7 +90,8 @@ prompts, and answers piped in that run out before the questions do fail with
 Every huh form in the framework runs through `setup.RunForm(ctx, p, form)`,
 which reads the IO, so a test drives a real wizard by setting `Props.IO` and
 nothing else (see [Testing huh forms](../../development/testing/huh-form-testing.md)),
-and a tool can redirect its terminal by supplying its own `IO`. `Interactive`
+and a tool can redirect its terminal by supplying its own `IO`. A prompt reached
+from code that carries no context runs through `setup.RunFormDetached(io, form)`. `Interactive`
 is decided by "is stdin a terminal", not "is stdin a character device", which
 is why a `/dev/null` stdin no longer opens a wizard. No package under `pkg/`
 names `os.Stdin`, `os.Stdout` or `os.Stderr` directly; a guard in

@@ -36,13 +36,23 @@ func RunForm(ctx context.Context, p *props.Props, f *huh.Form) error {
 // RunFormOn is RunForm for a caller that holds the streams rather than the
 // Props (the self-updater, built without them).
 func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
+	return runFormOn(io, f, func(f *huh.Form) error { return f.RunWithContext(ctx) })
+}
+
+// RunFormDetached is RunFormOn for a prompt reached from code that carries no
+// context: the person at the prompt is what ends it.
+func RunFormDetached(io props.IO, f *huh.Form) error {
+	return runFormOn(io, f, (*huh.Form).Run)
+}
+
+func runFormOn(io props.IO, f *huh.Form, run func(*huh.Form) error) error {
 	if !Promptable(io) {
 		return errors.WithHint(ErrNonInteractive,
 			"Run this from a terminal, or pass --accessible (or set GTB_ACCESSIBLE=true) to answer its prompts one line at a time on a piped stdin.")
 	}
 
 	f, answers := prepareForm(io, f)
-	if err := runForm(ctx, f, answers); err != nil {
+	if err := runForm(f, answers, run); err != nil {
 		return err
 	}
 
@@ -57,7 +67,7 @@ func RunFormOn(ctx context.Context, io props.IO, f *huh.Form) error {
 // ErrInputEnded. huh re-prompts a select after an out-of-range choice, finds
 // no next line, and indexes its options with the rejected number (huh v2.0.3,
 // #126). Any other panic is not ours to swallow.
-func runForm(ctx context.Context, f *huh.Form, answers *lineReader) (err error) {
+func runForm(f *huh.Form, answers *lineReader, run func(*huh.Form) error) (err error) {
 	defer func() {
 		if answers == nil || !answers.ranOut {
 			return
@@ -68,7 +78,7 @@ func runForm(ctx context.Context, f *huh.Form, answers *lineReader) (err error) 
 		}
 	}()
 
-	return f.RunWithContext(ctx)
+	return run(f)
 }
 
 func inputEnded() error {
@@ -77,8 +87,10 @@ func inputEnded() error {
 
 // PrepareForm binds f to the IO's streams the way RunFormOn does, without
 // running it: the accessible decision, the theme, and the headless program
-// options. It is for the few prompts reached from code that carries no
-// context, which then call Run themselves; everything else uses RunFormOn.
+// options.
+//
+// Deprecated: use RunFormOn or RunFormDetached. Run on the prepared form panics or takes a default
+// when an accessible form's input ends (#253).
 func PrepareForm(io props.IO, f *huh.Form) *huh.Form {
 	f, _ = prepareForm(io, f)
 

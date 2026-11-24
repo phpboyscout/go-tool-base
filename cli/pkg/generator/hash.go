@@ -124,7 +124,7 @@ func (g *Generator) askOverwriteAction(path string, existing, newContent []byte)
 
 		// Reached from the file-walk helpers, which carry no context; a person
 		// at the prompt bounds it.
-		if err := setup.PrepareForm(g.props.GetIO(), form).Run(); err != nil {
+		if err := setup.RunFormDetached(g.props.GetIO(), form); err != nil {
 			g.props.Logger.Warn(fmt.Sprintf("Prompt failed (non-interactive?): %v. Skipping overwrite.", err))
 
 			return false
@@ -136,7 +136,11 @@ func (g *Generator) askOverwriteAction(path string, existing, newContent []byte)
 		case "no":
 			return false
 		case "view":
-			return runDiffPager(path, existing, newContent)
+			if !g.props.GetIO().Accessible() {
+				return runDiffPager(path, existing, newContent)
+			}
+
+			g.printDiff(path, existing, newContent)
 		}
 	}
 }

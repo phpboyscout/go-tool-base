@@ -127,13 +127,7 @@ func coloriseDiff(diff string) string {
 // runDiffPager shows a full-screen scrollable diff between existing and new
 // content and returns true if the user chose to overwrite, false to keep.
 func runDiffPager(path string, existing, newContent []byte) bool {
-	diff, err := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
-		A:        difflib.SplitLines(string(existing)),
-		B:        difflib.SplitLines(string(newContent)),
-		FromFile: path + " (current)",
-		ToFile:   path + " (incoming)",
-		Context:  diffContextLines,
-	})
+	diff, err := overwriteDiff(path, existing, newContent)
 	if err != nil || diff == "" {
 		return false
 	}
@@ -148,4 +142,26 @@ func runDiffPager(path string, existing, newContent []byte) bool {
 	}
 
 	return final.(diffPagerModel).result == diffResultOverwrite
+}
+
+// printDiff writes the diff where the line prompts are written.
+func (g *Generator) printDiff(path string, existing, newContent []byte) {
+	diff, err := overwriteDiff(path, existing, newContent)
+	if err != nil {
+		g.props.Logger.Warn("failed to compare the two versions", "path", path, "error", err)
+
+		return
+	}
+
+	_, _ = fmt.Fprintln(g.props.GetIO().Err(), diff)
+}
+
+func overwriteDiff(path string, existing, newContent []byte) (string, error) {
+	return difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
+		A:        difflib.SplitLines(string(existing)),
+		B:        difflib.SplitLines(string(newContent)),
+		FromFile: path + " (current)",
+		ToFile:   path + " (incoming)",
+		Context:  diffContextLines,
+	})
 }

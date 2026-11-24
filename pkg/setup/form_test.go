@@ -21,6 +21,31 @@ import (
 // invocation's streams, refuses a stdin that is neither a terminal nor in
 // accessible mode before the form opens, and drives a real form headlessly
 // when it is.
+func TestRunFormDetached(t *testing.T) {
+	t.Parallel()
+
+	run := func(accessible bool, answers ...string) (string, error) {
+		var mode string
+
+		err := RunFormDetached(
+			props.StdIO{Stdin: formtest.Answers(answers...), Stdout: io.Discard, Stderr: io.Discard, AccessibleMode: accessible},
+			huh.NewForm(huh.NewGroup(huh.NewSelect[string]().Title("Mode").
+				Options(huh.NewOption("Env", "env"), huh.NewOption("Keychain", "keychain")).Value(&mode))))
+
+		return mode, err
+	}
+
+	mode, err := run(true, "2")
+	require.NoError(t, err)
+	assert.Equal(t, "keychain", mode)
+
+	_, err = run(true, "9")
+	require.ErrorIs(t, err, ErrInputEnded)
+
+	_, err = run(false, "2")
+	require.ErrorIs(t, err, ErrNonInteractive)
+}
+
 func TestRunForm(t *testing.T) {
 	t.Parallel()
 

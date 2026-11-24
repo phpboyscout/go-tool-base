@@ -11,8 +11,10 @@ package generator
 // and runs over afero.NewMemMapFs() / in-memory inputs.
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -24,6 +26,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // newPureGenerator returns a Generator over an empty MemMapFs with the given
@@ -231,6 +234,45 @@ func TestPromptOverwrite_NonInteractiveEnv(t *testing.T) {
 
 	g, _ := newPureGenerator(t, &Config{Overwrite: "ask"})
 	assert.False(t, g.promptOverwrite("f", nil, nil))
+}
+
+// The line-by-line conflict prompt panicked when its input ended (#253).
+func TestAskOverwriteAction_Accessible(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		answers   string
+		overwrite bool
+		warned    bool
+		diffs     int
+	}{
+		"yes":                           {answers: "1\n", overwrite: true},
+		"no":                            {answers: "2\n"},
+		"the default":                   {answers: "\n"},
+		"nothing":                       {warned: true},
+		"an answer out of range":        {answers: "9\n", warned: true},
+		"yes after one out of range":    {answers: "9\n1\n", overwrite: true},
+		"the diff, then yes":            {answers: "3\n1\n", overwrite: true, diffs: 1},
+		"the diff twice, then no":       {answers: "3\n3\n2\n", diffs: 2},
+		"the diff, then nothing":        {answers: "3\n", warned: true, diffs: 1},
+		"the diff, then one not listed": {answers: "3\n9\n", warned: true, diffs: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, _ := newPureGenerator(t, &Config{})
+			log := logger.NewBuffer()
+			g.props.Logger = log
+
+			var out bytes.Buffer
+
+			g.props.IO = props.StdIO{Stdin: strings.NewReader(tc.answers), Stdout: io.Discard, Stderr: &out, AccessibleMode: true}
+
+			assert.Equal(t, tc.overwrite, g.askOverwriteAction("f.go", []byte("mine\n"), []byte("theirs\n")))
+			assert.Equal(t, tc.warned, log.Contains(setup.ErrInputEnded.Error()))
+			assert.Equal(t, tc.diffs, strings.Count(out.String(), "-mine\n+theirs\n"))
+		})
+	}
 }
 
 // ---------------------------------------------------------------------------
