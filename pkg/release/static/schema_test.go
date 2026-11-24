@@ -98,6 +98,8 @@ func TestManifest_Validate(t *testing.T) {
 			"path":           "https://pkg.example.internal/other/fixtool",
 			"a longer name":  base + "2",
 			"a shorter path": "https://pkg.example.internal/acme",
+			"further in":     "https://pkg.example.internal/evil/acme/fixtool",
+			"letter case":    "https://pkg.example.internal/Acme/fixtool",
 		} {
 			m := manifest()
 			m.Checksums = other + "/checksums.txt"
@@ -112,17 +114,35 @@ func TestManifest_Validate(t *testing.T) {
 			"/../other/checksums.txt", "/v1.2.0/../../other/checksums.txt", "/v1.2.0/..", "/./checksums.txt",
 			"/%2e%2e/other/checksums.txt", "/.%2E/other/checksums.txt", "/%2e/checksums.txt",
 			"/v1.2.0%2f..%2f..%2fother", `/..\other`, "/..%5cother",
+			"/..;/other/checksums.txt", "/..%3bx=1/other", "/..%20/other", "/..%20%20;x/other", "/..;a;b/other", "/..%20", "/.;x/checksums.txt", "/.%20/checksums.txt",
 		} {
 			m := manifest()
 			m.Checksums = base + path
 			require.ErrorIs(t, m.Validate(base), static.ErrEscapesBase, path)
 		}
 
-		for _, path := range []string{"/v1.2.0/a..b", "/.../checksums.txt", "/..v1/checksums.txt", "/v1.2.0/.hidden", "/v1.2.0/x?d=../.."} {
+		for _, path := range []string{"/v1.2.0/a..b", "/.../checksums.txt", "/..v1/checksums.txt", "/v1.2.0/.hidden", "/v1.2.0/x?d=../..",
+			"/v1.2.0/a;..", "/v1.2.0/a;b", "/v1.2.0/..%20a", "/v1.2.0/..a;b", "/v1.2.0/a%20b"} {
 			m := manifest()
 			m.Checksums = base + path
 			require.NoError(t, m.Validate(base), path)
 		}
+	})
+
+	t.Run("the base's path is compared as it is sent", func(t *testing.T) {
+		t.Parallel()
+
+		const encoded = "https://pkg.example.internal/acme%2ffixtool"
+
+		under := func(base, at string) error {
+			return static.Pointer{Schema: static.SchemaVersion, Tool: "fixtool", Tag: "v1.2.0", Manifest: at + "/v1.2.0/release.json"}.Validate(base)
+		}
+
+		require.NoError(t, under(encoded, encoded))
+		require.NoError(t, under("https://pkg.example.internal/a b", "https://pkg.example.internal/a%20b"))
+		require.ErrorIs(t, under(base, encoded), static.ErrEscapesBase)
+		require.ErrorIs(t, under(encoded, base), static.ErrEscapesBase)
+		require.ErrorIs(t, under(encoded, encoded+"/a b"), static.ErrEscapesBase, "a raw space makes Go send the slash decoded")
 	})
 
 	t.Run("dot segments in the base are its own", func(t *testing.T) {

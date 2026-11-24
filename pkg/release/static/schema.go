@@ -211,8 +211,9 @@ func underBase(base, raw, what string) error {
 		return errors.Wrapf(ErrInvalidManifest, "%s URL %q: %v", what, raw, err)
 	}
 
-	rest, under := strings.CutPrefix(u.Path, b.Path+"/")
-	if u.Scheme != b.Scheme || u.Host != b.Host || !under || hasDotSegment(rest) {
+	// Escaped, because a server need not read %2f as a slash.
+	under := strings.HasPrefix(u.EscapedPath(), b.EscapedPath()+"/")
+	if u.Scheme != b.Scheme || u.Host != b.Host || !under || hasDotSegment(strings.TrimPrefix(u.Path, b.Path)) {
 		return errors.Wrapf(ErrEscapesBase, "%s %q is not under %q", what, raw, base)
 	}
 
@@ -220,10 +221,16 @@ func underBase(base, raw, what string) error {
 }
 
 // hasDotSegment splits a decoded path as a server may: an encoded slash has
-// become one, and a backslash is read as one.
+// become one, a backslash is read as one, and a path parameter or trailing
+// spaces are dropped.
 func hasDotSegment(path string) bool {
 	return slices.ContainsFunc(strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' }),
-		func(segment string) bool { return segment == "." || segment == ".." })
+		func(segment string) bool {
+			name, _, _ := strings.Cut(segment, ";")
+			name = strings.TrimRight(name, " ")
+
+			return name == "." || name == ".."
+		})
 }
 
 // DecodeManifest parses and validates a manifest fetched from under base.

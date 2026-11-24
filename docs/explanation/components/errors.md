@@ -227,7 +227,7 @@ URL that failed.
 | `ErrTooLarge` | a channel document exceeded its size bound | A document exceeded its bound and was not read further. |
 | `ErrInvalidManifest` | release manifest is not well formed | A document parses but is not a well-formed manifest. |
 | `ErrUnsupportedSchema` | unsupported release manifest schema | A document's schema is newer than this binary knows. Install a newer release by hand. |
-| `ErrEscapesBase` | release manifest names a URL outside the channel's base | A manifest or a redirect named a URL outside the channel's base, or one with a `.` or `..` segment after it, so it was refused: the channel cannot send the tool anywhere the author did not name. Treat it as tampering until shown otherwise. |
+| `ErrEscapesBase` | release manifest names a URL outside the channel's base | A manifest or a redirect named a URL outside the channel's base (the same path percent-encoded another way counts as outside), or one with a `.` or `..` segment after it, with or without a `;` parameter, so it was refused: the channel cannot send the tool anywhere the author did not name. Treat it as tampering until shown otherwise. |
 
 ---
 
