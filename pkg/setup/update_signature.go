@@ -180,10 +180,14 @@ func (s *SelfUpdater) handleResolveError(err error) error {
 }
 
 // verifyAgainstTrustSet fetches the detached signature and verifies it
-// against the resolved trust set. A present-but-invalid signature is
-// always fatal; an absent signature is gated by requireSignature.
+// against the resolved trust set. A present-but-invalid signature and a refused
+// redirect are always fatal; an absent signature is gated by requireSignature.
 func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel forge.Release, manifest []byte, trustSet *verify.TrustSet) error {
 	sig, err := s.fetchSignature(ctx, rel)
+	if redirectRefused(err) {
+		return s.explainRefusal(ctx, errors.Wrap(err, "failed to retrieve signature"))
+	}
+
 	if err != nil {
 		if s.requireSignature {
 			return errors.Wrap(err, "failed to retrieve signature (require_signature is enabled)")

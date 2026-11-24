@@ -194,7 +194,7 @@ Remote updates via `Update()` automatically verify the downloaded binary against
 
 **Fail-open by default, fail-closed by opt-in:**
 
-The library defaults to fail-open: a release without `checksums.txt` logs a warning and proceeds, preserving backward compatibility with legacy releases. Tool authors who want fail-closed verification from day one set:
+The library defaults to fail-open: a release without `checksums.txt` logs a warning and proceeds, preserving backward compatibility with legacy releases. A redirect the [static release channel](../../../reference/static-release-channel.md) refuses to follow is the exception: it stops the update either way. Tool authors who want fail-closed verification from day one set:
 
 ```go
 func main() {

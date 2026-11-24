@@ -965,7 +965,8 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 //
 // Returns nil when the asset matches its manifest entry, or when no
 // manifest was present AND requireChecksum is false. Any verification
-// failure (mismatch, malformed manifest, asset-not-listed) is fatal.
+// failure (mismatch, malformed manifest, asset-not-listed) is fatal, and so is
+// a redirect the static channel refused.
 func (s *SelfUpdater) verifyAssetChecksum(
 	ctx context.Context,
 	rel forge.Release,
@@ -973,6 +974,10 @@ func (s *SelfUpdater) verifyAssetChecksum(
 	data []byte,
 ) error {
 	manifest, err := s.fetchChecksumsManifest(ctx, rel)
+	if redirectRefused(err) {
+		return s.explainRefusal(ctx, errors.Wrap(err, "failed to retrieve checksums manifest"))
+	}
+
 	if err != nil {
 		if s.requireChecksum || s.requireSignature {
 			return errors.Wrap(err, "failed to retrieve checksums manifest (require_checksum/require_signature is enabled)")
