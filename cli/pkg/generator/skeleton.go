@@ -475,6 +475,9 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 		return nil
 	}
 
+	// Before the lint, so a difference is an edit made by hand and not the lint's.
+	edited := g.editedCommandFiles(path)
+
 	failed := g.verifyTree(ctx, path, lintFix)
 
 	// The lint pass rewrites command files as readily as skeleton ones, so the
@@ -484,7 +487,7 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 	// by construction, instead of correct only where somebody remembered
 	// (issue #14). Callers refresh the project namespace themselves, because
 	// only they know which files this run actually wrote.
-	if err := g.refreshCommandFileHashes(path); err != nil {
+	if err := g.refreshCommandFileHashes(path, edited); err != nil {
 		g.props.Logger.Warn("Failed to refresh command file hashes after post-processing", "error", err)
 	}
 
@@ -774,7 +777,10 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 // so it is correct for any writer that runs before it. Resist narrowing this to
 // a specific pass without evidence — a targeted fix would silently stop
 // covering the next one.
-func (g *Generator) refreshCommandFileHashes(projectPath string) error {
+//
+// edited are the files to leave recorded as they are: this run did not write
+// them, so their bytes are the developer's and not a new baseline.
+func (g *Generator) refreshCommandFileHashes(projectPath string, edited map[string]bool) error {
 	manifestPath := ManifestPathFor(projectPath)
 
 	// Post-processing also runs on paths that have no manifest yet. Nothing to
@@ -789,18 +795,51 @@ func (g *Generator) refreshCommandFileHashes(projectPath string) error {
 		return err
 	}
 
-	if !g.refreshCommandTree(m.Commands, nil) {
+	if !g.refreshCommandTree(m.Commands, nil, edited) {
 		return nil
 	}
 
 	return g.marshalManifestFile(manifestPath, m)
 }
 
+// editedCommandFiles are the command files that differ from their recorded hash,
+// by project path.
+func (g *Generator) editedCommandFiles(projectPath string) map[string]bool {
+	m, err := g.decodeManifestFile(ManifestPathFor(projectPath))
+	if err != nil {
+		return nil
+	}
+
+	edited := map[string]bool{}
+	g.collectEditedCommandFiles(m.Commands, nil, edited)
+
+	return edited
+}
+
+func (g *Generator) collectEditedCommandFiles(cmds []ManifestCommand, parents []string, edited map[string]bool) {
+	for _, cmd := range cmds {
+		path := append(slices.Clone(parents), cmd.Name)
+
+		if cmdDir, err := g.containedCommandPath(filepath.Join(path...)); err == nil {
+			for filename, recorded := range cmd.Hashes {
+				fullPath := filepath.Join(cmdDir, filename)
+
+				content, err := afero.ReadFile(g.props.FS, fullPath)
+				if err == nil && calculateHash(content) != recorded {
+					edited[g.relProjectPath(fullPath)] = true
+				}
+			}
+		}
+
+		g.collectEditedCommandFiles(cmd.Commands, path, edited)
+	}
+}
+
 // refreshCommandTree walks the manifest command tree depth-first, refreshing
 // each command's tracked files, and reports whether any hash changed. Commands
 // are addressed by index so the refresh mutates the manifest in place rather
 // than a copy.
-func (g *Generator) refreshCommandTree(cmds []ManifestCommand, parents []string) bool {
+func (g *Generator) refreshCommandTree(cmds []ManifestCommand, parents []string, edited map[string]bool) bool {
 	changed := false
 
 	for i := range cmds {
@@ -810,11 +849,11 @@ func (g *Generator) refreshCommandTree(cmds []ManifestCommand, parents []string)
 		path = append(path, parents...)
 		path = append(path, cmd.Name)
 
-		if g.refreshOneCommandFiles(cmd, path) {
+		if g.refreshOneCommandFiles(cmd, path, edited) {
 			changed = true
 		}
 
-		if g.refreshCommandTree(cmd.Commands, path) {
+		if g.refreshCommandTree(cmd.Commands, path, edited) {
 			changed = true
 		}
 	}
@@ -826,7 +865,7 @@ func (g *Generator) refreshCommandTree(cmds []ManifestCommand, parents []string)
 // command, reporting whether any recorded hash changed. It adds nothing to the
 // tracked set: a file the manifest does not describe is not this function's to
 // start tracking.
-func (g *Generator) refreshOneCommandFiles(cmd *ManifestCommand, path []string) bool {
+func (g *Generator) refreshOneCommandFiles(cmd *ManifestCommand, path []string, edited map[string]bool) bool {
 	if len(cmd.Hashes) == 0 {
 		return false
 	}
@@ -850,7 +889,7 @@ func (g *Generator) refreshOneCommandFiles(cmd *ManifestCommand, path []string) 
 		// baseline would forget the divergence and overwrite it next run with
 		// no prompt (0187 D3). An ignored or sealed path is likewise not ours
 		// to re-baseline.
-		if g.conflicts.wasKept(relPath) || g.ignoreRules().IsIgnored(relPath) {
+		if edited[relPath] || g.conflicts.wasKept(relPath) || g.ignoreRules().IsIgnored(relPath) {
 			g.props.Logger.Debug("not refreshing hash for a file we did not write", "path", relPath)
 
 			continue

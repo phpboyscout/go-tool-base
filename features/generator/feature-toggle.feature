@@ -70,3 +70,13 @@ Feature: Enable and disable built-in features post-generation
     When I run gtb in the project with "enable signing --email release@acme.test"
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "Signing:"
+
+  Scenario: a toggle does not take a hand-edited command as gtb's own
+    # Issue #246: the toggle recorded the edit, so the next run replaced it.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I hand-edit the generated "pkg/cmd/post/cmd.go" file
+    And I run gtb in the project with "enable man"
+    Then the project exit code is 0
+    When I run gtb in the project with "annotate post --title Publish"
+    Then the generated "pkg/cmd/post/cmd.go" file contains "hand-edited, do not clobber"
