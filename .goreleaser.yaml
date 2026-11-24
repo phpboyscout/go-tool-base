@@ -101,6 +101,25 @@ archives:
       - src: LICENSE
         info:
           mode: 0644
+
+# The apt and yum packages (spec 0097 D1). Unsigned, since apt and dnf verify
+# the repository metadata and checksums.txt lists each package. /usr/bin is a
+# path internal/pkgmanager asks dpkg and rpm about, so `gtb update` leaves the
+# install to them.
+nfpms:
+  - id: packages
+    ids: [gtb]
+    package_name: gtb
+    file_name_template: "{{ .ConventionalFileName }}"
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    vendor: phpboyscout
+    maintainer: "phpboyscout <release-v2@phpboyscout.uk>"
+    homepage: "https://gitlab.com/phpboyscout/go-tool-base"
+    description: "A helper utility for interacting and managing gtb repos and resources"
+    license: MIT
+    section: devel
+
 sboms:
   - artifacts: archive
 
