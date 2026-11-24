@@ -144,6 +144,8 @@ func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel forge.Rel
 		return nil
 	}
 
+	s.warnRotationNotKept()
+
 	if err := s.applyRotation(ctx, rel); err != nil {
 		return err
 	}

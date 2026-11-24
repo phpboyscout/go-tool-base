@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/signing/verify"
 )
 
@@ -100,6 +101,21 @@ func TestRotationStore_InCheckoutIsNeverReadOrWritten(t *testing.T) {
 	data, err := afero.ReadFile(fs, path)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"epoch":9}`, string(data), "nothing is written into the checkout")
+}
+
+func TestCanKeepRotationRecordIn(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, fs.MkdirAll("/repo/.git", 0o755))
+
+	require.NoError(t, canKeepRotationRecordIn(fs, rotationTestDir))
+
+	for dir, hint := range map[string]string{"": "Set HOME", "/repo/.config/testtool": "outside any git checkout"} {
+		err := canKeepRotationRecordIn(fs, dir)
+		require.ErrorIs(t, err, ErrRotationRecordNotKept)
+		assert.Contains(t, errors.FlattenHints(err), hint)
+	}
 }
 
 func TestRotationStore_NoConfigDirKeepsTheRecordInMemory(t *testing.T) {

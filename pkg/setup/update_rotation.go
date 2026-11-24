@@ -71,6 +71,18 @@ func (s *SelfUpdater) applyRotation(ctx context.Context, rel forge.Release) erro
 	return nil
 }
 
+// warnRotationNotKept runs on every verified update, since one whose release
+// carries no manifest is where the lost record is missed.
+func (s *SelfUpdater) warnRotationNotKept() {
+	if s.rotationNotKept == nil {
+		return
+	}
+
+	s.logger.Warn("a key rotation applies to this update only, so a release key the maintainers revoked is trusted again "+
+		"when a release carries no rotation manifest",
+		"reason", s.rotationNotKept)
+}
+
 func findAssetNamed(rel forge.Release, name string) (forge.ReleaseAsset, bool) {
 	for _, asset := range rel.GetAssets() {
 		if asset.GetName() == name {

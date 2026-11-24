@@ -117,6 +117,21 @@ func testCheckKeyRotation(t *testing.T, style p.ConfigDir) {
 		}
 	})
 
+	t.Run("a config directory in a git checkout warns that a revoke is forgotten", func(t *testing.T) {
+		t.Parallel()
+
+		props := withAuthority("{}\n")
+		props.FS = afero.NewMemMapFs()
+		dir := setup.ConfigDir(props.Tool)
+		require.NoError(t, props.FS.MkdirAll(filepath.Join(filepath.Dir(dir), ".git"), 0o700))
+
+		res := checkKeyRotation(context.Background(), props)
+		require.Equal(t, CheckWarn, res.Status, res.Message)
+		assert.Contains(t, res.Message, "trusted again")
+		assert.Contains(t, res.Message, dir+" is inside a git checkout")
+		assert.Contains(t, res.Details, "outside any git checkout")
+	})
+
 	t.Run("no rotation record yet passes", func(t *testing.T) {
 		t.Parallel()
 
