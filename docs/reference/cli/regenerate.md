@@ -184,4 +184,13 @@ forge feature the project enables, else the release source's type, so a
 generate, delete-manifest, `regenerate manifest`, `regenerate project` round
 trip reproduces the manifest byte for byte.
 
+A Go file or directory under `pkg/cmd` that cannot be read or parsed stops the
+run before the manifest is written, and the error names it. Without that, the
+manifest would lose the command and everything beneath it. The scan leaves out
+test files and files whose names start with `.` or `_`, which Go never builds
+into the tool. A directory named that way, or `testdata`, is built only when
+something imports it. One that cannot be read or parsed stops the run when a
+command in the tool registers it or a package beneath it, and is left out with a
+warning otherwise.
+
 > Run any subcommand with `--help` for the complete, authoritative flag set.

@@ -22,6 +22,17 @@ Feature: regenerate preserves nested subcommands
     Then the project exit code is 0
     And the generated "pkg/cmd/reel/cmd.go" file contains "Register(build.NewCmdBuild"
 
+  Scenario: A command that is not valid Go stops regenerate manifest
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name reel --short reels"
+    And I run gtb in the project with "generate command --name build --parent reel --short build-a-reel"
+    And I break the generated "pkg/cmd/reel/cmd.go" file
+    And I record the state of the generated project
+    And I run gtb in the project with "regenerate manifest"
+    Then the project exit code is 1
+    And the project output contains "pkg/cmd/reel/cmd.go"
+    And the generated project is unchanged
+
   Scenario: A regenerate straight after generate command leaves the root alone
     # Issue #147: generate command put each root registration on its own line
     # and regenerate joined them, so every new command left a diff behind.

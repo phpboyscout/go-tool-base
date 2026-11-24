@@ -47,6 +47,9 @@ func countCommandsWithAssets(commands []ManifestCommand) int {
 	return count
 }
 
+// errNoConstructor is a Go file that declares no command.
+var errNoConstructor = errors.NewSentinel("gtb.generator.no_constructor", "could not find command constructor")
+
 func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, string, []string, error) {
 	fsrc, err := afero.ReadFile(g.props.FS, path)
 	if err != nil {
@@ -76,7 +79,7 @@ func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, strin
 	}
 
 	if targetFunc == nil {
-		return nil, "", nil, errors.Newf("could not find command constructor in %s", path)
+		return nil, "", nil, errors.Wrapf(errNoConstructor, "%s", path)
 	}
 
 	imports := parseImports(f)

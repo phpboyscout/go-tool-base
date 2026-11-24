@@ -210,6 +210,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
+	ctx.Step(`^I break the generated "([^"]*)" file$`, iBreakTheGeneratedFile)
 	ctx.Step(`^I give the generated "([^"]*)" command a hand-written run body$`, iGiveTheCommandAHandWrittenRunBody)
 	ctx.Step(`^I write a flags hook adding "([^"]*)" with default "([^"]*)" to the generated "([^"]*)" command$`, iWriteAFlagsHook)
 	ctx.Step(`^I build the generated project$`, iBuildTheGeneratedProject)
@@ -654,6 +655,15 @@ commands:
 // on-disk content no longer matches the hash the manifest recorded — the drift
 // that used to make `regenerate project` unable to finish (issue #13).
 func iHandEditTheGeneratedFile(ctx context.Context, relPath string) error {
+	return appendToGeneratedFile(ctx, relPath, "\n// hand-edited, do not clobber\n")
+}
+
+// iBreakTheGeneratedFile leaves the file invalid Go.
+func iBreakTheGeneratedFile(ctx context.Context, relPath string) error {
+	return appendToGeneratedFile(ctx, relPath, "\nfunc {\n")
+}
+
+func appendToGeneratedFile(ctx context.Context, relPath, text string) error {
 	w := getGeneratorWorld(ctx)
 
 	full := filepath.Join(w.projectDir, relPath)
@@ -664,7 +674,7 @@ func iHandEditTheGeneratedFile(ctx context.Context, relPath string) error {
 	}
 
 	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
-	return os.WriteFile(full, append(content, []byte("\n// hand-edited, do not clobber\n")...), 0o644)
+	return os.WriteFile(full, append(content, text...), 0o644)
 }
 
 // iGiveTheCommandAHandWrittenRunBody replaces the generated sentinel return in a
