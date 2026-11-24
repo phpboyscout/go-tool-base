@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -17,6 +18,11 @@ import (
 // ErrNoCommandsDirectory is a manifest rebuild pointed at a directory with no
 // pkg/cmd to scan.
 var ErrNoCommandsDirectory = errors.NewSentinel("gtb.generator.no_commands_directory", "pkg/cmd directory not found")
+
+// ErrCommandSourceUnreadable is a manifest rebuild that met a Go file or a
+// directory under pkg/cmd it could not read or parse. Nothing is written,
+// because the manifest would lose the command and everything beneath it.
+var ErrCommandSourceUnreadable = errors.NewSentinel("gtb.generator.command_source_unreadable", "command source cannot be read")
 
 func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
@@ -174,8 +180,14 @@ func mergeScannedCommands(existing, scanned []ManifestCommand) []ManifestCommand
 }
 
 func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
-	roots, err := g.scanRecursive(dir)
+	var unread []unreadDir
+
+	roots, err := g.scanRecursive(dir, &unread)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := g.checkUnread(unread, roots); err != nil {
 		return nil, err
 	}
 
@@ -213,70 +225,149 @@ func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
 	return commands, nil
 }
 
-func (g *Generator) scanRecursive(dir string) ([]*commandEntry, error) {
+func (g *Generator) scanRecursive(dir string, unread *[]unreadDir) ([]*commandEntry, error) {
 	entries, err := afero.ReadDir(g.props.FS, dir)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read commands directory")
+		return nil, unreadableSource(dir, err)
 	}
 
-	allCommands := g.scanFileSystem(dir, entries)
+	allCommands, err := g.scanFileSystem(dir, entries, unread)
+	if err != nil {
+		return nil, err
+	}
 
 	childSet := g.linkParentChild(allCommands)
 
 	return g.findRoots(allCommands, childSet), nil
 }
 
-func (g *Generator) scanFileSystem(dir string, entries []os.FileInfo) []*commandEntry {
+func (g *Generator) scanFileSystem(dir string, entries []os.FileInfo, unread *[]unreadDir) ([]*commandEntry, error) {
 	var allCommands []*commandEntry
 
 	for _, entry := range entries {
+		var (
+			cmds []*commandEntry
+			err  error
+		)
+
 		if entry.IsDir() {
-			if cmds := g.processDirectoryEntry(dir, entry); len(cmds) > 0 {
-				allCommands = append(allCommands, cmds...)
-			}
+			cmds, err = g.processDirectoryEntry(dir, entry, unread)
 		} else {
-			if cmd := g.processFileEntry(dir, entry); cmd != nil {
-				allCommands = append(allCommands, cmd)
-			}
+			cmds, err = g.processFileEntry(dir, entry)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		allCommands = append(allCommands, cmds...)
+	}
+
+	return allCommands, nil
+}
+
+// unreadDir is a directory outside the go command's patterns that could not be
+// read. Whether that loses a command depends on what registers it.
+type unreadDir struct {
+	path string
+	err  error
+}
+
+// checkUnread stops the scan at an unread directory the tool builds: one that a
+// command under the root registers.
+func (g *Generator) checkUnread(unread []unreadDir, roots []*commandEntry) error {
+	var registered []string
+
+	for _, root := range roots {
+		if root.cmd.Name == "root" {
+			registered = append(registered, root.registers()...)
 		}
 	}
 
-	return allCommands
-}
+	for _, dir := range unread {
+		pkg := "/" + g.relProjectPath(dir.path)
 
-func (g *Generator) processDirectoryEntry(dir string, entry os.FileInfo) []*commandEntry {
-	if entry.Name() == "assets" || entry.Name() == "internal" || entry.Name() == "external" {
-		return nil
-	}
+		for _, constructor := range registered {
+			if strings.Contains(constructor, pkg+".") || strings.Contains(constructor, pkg+"/") {
+				return dir.err
+			}
+		}
 
-	children, err := g.scanRecursive(filepath.Join(dir, entry.Name()))
-	if err == nil && len(children) > 0 {
-		return children
+		g.props.Logger.Warn("left out a directory no command is seen to register, because it cannot be read", "path", dir.path, "error", dir.err)
 	}
 
 	return nil
 }
 
-func (g *Generator) processFileEntry(dir string, entry os.FileInfo) *commandEntry {
+// registers lists every constructor the command and those beneath it register.
+func (e *commandEntry) registers() []string {
+	constructors := slices.Clone(e.subcommandFuncs)
+
+	for _, child := range e.children {
+		constructors = append(constructors, child.registers()...)
+	}
+
+	return constructors
+}
+
+func hiddenFromGo(name string) bool {
+	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
+}
+
+// outsidePatterns reports whether the go command leaves the directory out of
+// patterns. A build still takes a package there that another imports.
+func outsidePatterns(name string) bool {
+	return name == "testdata" || hiddenFromGo(name)
+}
+
+func unreadableSource(path string, err error) error {
+	return errors.WithHintf(errors.Newf("%w: %s: %w", ErrCommandSourceUnreadable, path, err),
+		"Fix or remove %s and run it again. The manifest has not been changed.", path)
+}
+
+func (g *Generator) processDirectoryEntry(dir string, entry os.FileInfo, unread *[]unreadDir) ([]*commandEntry, error) {
+	if entry.Name() == "assets" || entry.Name() == "internal" || entry.Name() == "external" {
+		return nil, nil
+	}
+
+	path := filepath.Join(dir, entry.Name())
+
+	cmds, err := g.scanRecursive(path, unread)
+	if err != nil && outsidePatterns(entry.Name()) {
+		*unread = append(*unread, unreadDir{path: path, err: err})
+
+		return nil, nil
+	}
+
+	return cmds, err
+}
+
+func (g *Generator) processFileEntry(dir string, entry os.FileInfo) ([]*commandEntry, error) {
 	if !strings.HasSuffix(entry.Name(), ".go") {
-		return nil
+		return nil, nil
 	}
 
 	name := entry.Name()
-	if name == "main.go" || name == "root.go" || name == provenanceFileName || strings.HasSuffix(name, "_test.go") {
-		return nil
+	if name == "main.go" || name == "root.go" || name == provenanceFileName || strings.HasSuffix(name, "_test.go") || hiddenFromGo(name) {
+		return nil, nil
 	}
 
-	cmd, cName, subFuncs, err := g.extractCommandMetadata(filepath.Join(dir, name))
-	if err == nil {
-		return &commandEntry{
-			cmd:             cmd,
-			constructorName: cName,
-			subcommandFuncs: subFuncs,
-		}
+	path := filepath.Join(dir, name)
+
+	cmd, cName, subFuncs, err := g.extractCommandMetadata(path)
+	if errors.Is(err, errNoConstructor) {
+		return nil, nil
 	}
 
-	return nil
+	if err != nil {
+		return nil, unreadableSource(path, err)
+	}
+
+	return []*commandEntry{{
+		cmd:             cmd,
+		constructorName: cName,
+		subcommandFuncs: subFuncs,
+	}}, nil
 }
 
 func (g *Generator) linkParentChild(allCommands []*commandEntry) map[*commandEntry]bool {
