@@ -250,7 +250,7 @@ func (g *Generator) prepareAndVerify() (string, error) {
 		return "", err
 	}
 
-	if err := g.checkBuiltinName(); err != nil {
+	if err := g.checkRootNames(); err != nil {
 		return "", err
 	}
 

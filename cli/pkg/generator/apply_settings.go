@@ -65,7 +65,7 @@ func ApplyAuthorSettingsTo(m *Manifest, cfg SkeletonConfig) error {
 func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) error {
 	fresh := manifestFromSkeletonConfig(cfg, nil, "")
 
-	if err := checkEnabledFeatureNames(m.Properties.Features, fresh.Properties.Features, m.Commands); err != nil {
+	if err := checkEnabledFeatureNames(m, fresh.Properties.Features); err != nil {
 		return err
 	}
 

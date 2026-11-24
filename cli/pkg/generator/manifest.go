@@ -719,9 +719,8 @@ type ManifestExternalAttach struct {
 	// attached directly. It describes the constructor's return type, not gating
 	// — declarative attachments are un-gated (always-on) in v1.
 	Wrap bool `yaml:"wrap"`
-	// Name, if set, is the command's declared name, which attach refuses when a
-	// built-in or the project's own command has it. It does not affect the
-	// rendered call.
+	// Name, if set, is the command's declared name: one no other command may have
+	// on the root. It does not affect the rendered call.
 	Name string `yaml:"name,omitempty"`
 }
 
