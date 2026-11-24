@@ -51,6 +51,7 @@ tells gtb which project's .gtb/manifest.yaml to edit.
 
 A cmd.go you keep (edited by hand, or covered by .gtb/ignore) records the flag
 without adding it, and the run fails: --overwrite allow replaces an edited one.
+A protected command is refused: unprotect it first.
 
 Examples:
   # Add --verbose to the top-level 'deploy' command
@@ -188,6 +189,10 @@ func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {
 	cmd, parentPath, err := findCommand(m.Commands, pathParts, []string{})
 	if err != nil {
 		return err
+	}
+
+	if cmd.Protected != nil && *cmd.Protected {
+		return errors.Wrap(generator.ErrCommandProtected, o.CommandName)
 	}
 
 	o.updateCommandFlag(cmd)

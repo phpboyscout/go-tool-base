@@ -180,6 +180,34 @@ func TestAddFlagRun_Failures(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("protected command", func(t *testing.T) {
+		t.Parallel()
+
+		p, fs := commandProjectWithDeploy(t)
+		opts := &AddFlagOptions{CommandName: "deploy", FlagName: "env", FlagType: "string", Path: commandProjectRoot, Overwrite: generator.OverwriteAllow}
+		protect := func(protected bool) {
+			require.NoError(t, generator.New(p, &generator.Config{Path: commandProjectRoot}).SetProtection(context.Background(), "deploy", protected))
+		}
+
+		protect(true)
+
+		file := filepath.Join(commandProjectRoot, "pkg/cmd/deploy/cmd.go")
+		before, err := afero.ReadFile(fs, file)
+		require.NoError(t, err)
+
+		err = opts.Run(context.Background(), p)
+		require.ErrorIs(t, err, generator.ErrCommandProtected)
+		require.ErrorContains(t, err, "deploy")
+		assert.Empty(t, findManifestCommand(t, loadCommandManifest(t, p), "deploy").Flags, "nothing was recorded")
+
+		after, err := afero.ReadFile(fs, file)
+		require.NoError(t, err)
+		assert.Equal(t, string(before), string(after))
+
+		protect(false)
+		require.NoError(t, opts.Run(context.Background(), p))
+	})
+
 	t.Run("manifest cannot be written", func(t *testing.T) {
 		t.Parallel()
 
