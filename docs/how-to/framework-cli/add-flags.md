@@ -42,6 +42,8 @@ A `cmd.go` you keep does not get the flag. The manifest records it, one warning 
 - `--overwrite deny` keeps it. `ask`, the default, asks, and keeps it when there is no terminal.
 - A file `.gtb/ignore` covers is kept whatever the mode. Take it out of the file first.
 
+A protected command is refused and nothing is recorded. Run `gtb generate command unprotect <path>` first.
+
 ## Supported Types
 
 You can use any of the following types for your flags:

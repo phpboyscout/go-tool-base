@@ -44,3 +44,16 @@ Feature: add-flag preserves command metadata
     When I run gtb in the project with "generate add-flag --command post --name loud --type bool --overwrite allow"
     Then the project exit code is 0
     And the generated "pkg/cmd/post/cmd.go" file contains '"loud"'
+
+  Scenario: add-flag refuses a protected command
+    # Issue #239: the protected cmd.go was rewritten.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I run gtb in the project with "generate command protect post"
+    And I run gtb in the project with "generate add-flag --command post --name loud --type bool"
+    Then the project exit code is not zero
+    And the project manifest does not contain "name: loud"
+    And the generated "pkg/cmd/post/cmd.go" file does not contain "loud"
+    When I run gtb in the project with "generate command unprotect post"
+    And I run gtb in the project with "generate add-flag --command post --name loud --type bool"
+    Then the project exit code is 0
