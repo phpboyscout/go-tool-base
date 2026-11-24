@@ -36,7 +36,8 @@ type subcommandContext struct {
 	registered           bool
 }
 
-// parentRegistration is what registering a command did to its parent's cmd.go.
+// parentRegistration is what registering or deregistering a command did to its
+// parent's cmd.go.
 type parentRegistration int
 
 const (
@@ -45,6 +46,9 @@ const (
 	parentWritten
 	// parentWrittenOverEdit: the parent had been edited since it was generated.
 	parentWrittenOverEdit
+	// parentWrittenUnrecorded: the manifest records no hash for the parent, so
+	// gtb cannot say the file is its own.
+	parentWrittenUnrecorded
 )
 
 func (g *Generator) registerSubcommand() (parentRegistration, error) {
@@ -70,10 +74,7 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 	// writes into it; the hash is refreshed afterwards only when it did.
 	// Recording the hash of a hand-edited parent made the edit read as
 	// generated, and the reshape or the next regenerate overwrote it (F23).
-	written := parentWrittenOverEdit
-	if g.parentMatchesRecordedHash(fsrc) {
-		written = parentWritten
-	}
+	written := g.registrationOver(fsrc)
 
 	g.props.Logger.Debug("Parsing parent command AST...")
 
@@ -110,6 +111,39 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 	}
 
 	return written, nil
+}
+
+// registrationOver is what writing into a parent holding content does to it.
+func (g *Generator) registrationOver(content []byte) parentRegistration {
+	if g.parentMatchesRecordedHash(content) {
+		return parentWritten
+	}
+
+	return parentWrittenOverEdit
+}
+
+// deregistrationOver is registrationOver for a removal, which leaves a parent
+// with no recorded hash unrecorded: regenerate treats such a file as not created
+// by gtb, and the leaf reshape after the last child goes is a regenerate.
+func (g *Generator) deregistrationOver(content []byte) parentRegistration {
+	if len(g.getParentPathParts()) > 0 && !g.parentHashRecorded() {
+		return parentWrittenUnrecorded
+	}
+
+	return g.registrationOver(content)
+}
+
+// parentHashRecorded reports whether the manifest records a hash for the
+// parent's cmd.go.
+func (g *Generator) parentHashRecorded() bool {
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
+	if err != nil {
+		return false
+	}
+
+	cmd := walkCommandPath(m.Commands, g.getParentPathParts())
+
+	return cmd != nil && cmd.Hashes["cmd.go"] != ""
 }
 
 // parentImportAlias is the alias the parent file imports the command under. A
@@ -872,28 +906,30 @@ func joinContained(root, rel string) (target, contained string, err error) {
 	return target, contained, nil
 }
 
-func (g *Generator) deregisterSubcommand() error {
+func (g *Generator) deregisterSubcommand() (parentRegistration, error) {
 	g.props.Logger.Debug("deregistering subcommand", "command", g.config.Name)
 
 	ctx, err := g.prepareSubcommandContext()
 	if err != nil {
-		return err
+		return parentUntouched, err
 	}
 
 	if g.wiringSealed(ctx.parentFile, "deregistering subcommand "+g.config.Name) {
-		return nil
+		return parentUntouched, nil
 	}
 
 	g.props.Logger.Debug("reading parent command file for deregistration", "path", ctx.parentFile)
 
 	fsrc, err := afero.ReadFile(g.props.FS, ctx.parentFile)
 	if err != nil {
-		return errors.Wrap(err, "failed to read parent command file")
+		return parentUntouched, errors.Wrap(err, "failed to read parent command file")
 	}
+
+	written := g.deregistrationOver(fsrc)
 
 	f, err := decorator.Parse(fsrc)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse parent command file")
+		return parentUntouched, errors.Wrap(err, "failed to parse parent command file")
 	}
 
 	g.resolveImportAlias(f, ctx)
@@ -903,13 +939,17 @@ func (g *Generator) deregisterSubcommand() error {
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)
 	if err != nil {
-		return err
+		return parentUntouched, err
 	}
 
 	g.props.Logger.Debug("Removing subcommand registration statements")
 	g.removeSubcommandRegistration(targetFunc, ctx)
 
-	return g.saveAstFile(f, ctx.parentFile)
+	if err := g.saveAstFile(f, ctx.parentFile); err != nil {
+		return parentUntouched, err
+	}
+
+	return written, nil
 }
 
 func (g *Generator) removeSubcommandImport(f *dst.File, path string) {

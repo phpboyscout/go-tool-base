@@ -67,10 +67,21 @@ func (g *Generator) Remove(ctx context.Context) error {
 
 func (g *Generator) performRemoval(cmdDir string) error {
 	// 1. Deregister from parent
-	if err := g.deregisterSubcommand(); err != nil {
+	written, err := g.deregisterSubcommand()
+
+	switch {
+	case err != nil:
 		g.props.Logger.Warn("failed to deregister subcommand", "error", err)
-	} else if err := g.updateParentCmdHash(); err != nil {
-		g.props.Logger.Warn("failed to update parent command hash after deregistration", "error", err)
+	case written == parentWrittenOverEdit:
+		g.props.Logger.Warn("removed the command from a parent that has been modified since it was generated; the parent's recorded hash is left as it was, so the next regenerate reports the conflict",
+			"parent", filepath.Join(g.getParentPathParts()...))
+	case written == parentWrittenUnrecorded:
+		g.props.Logger.Info("removed the command from a parent the manifest records no hash for; the parent stays unrecorded, so regenerate keeps it",
+			"parent", filepath.Join(g.getParentPathParts()...))
+	case written == parentWritten:
+		if err := g.updateParentCmdHash(); err != nil {
+			g.props.Logger.Warn("failed to update parent command hash after deregistration", "error", err)
+		}
 	}
 
 	// 2. Remove from manifest
@@ -171,5 +182,11 @@ func (g *Generator) reshapeParentIfLeafAgain(ctx context.Context) error {
 
 	g.moveCommandDocForShape(m, parentParts, false)
 
-	return g.RegenerateCommand(ctx, *parent, grandparent)
+	// --force is for the removed command's protection, not the parent's edits.
+	force := g.config.Force
+	g.config.Force = false
+	err = g.RegenerateCommand(ctx, *parent, grandparent)
+	g.config.Force = force
+
+	return err
 }

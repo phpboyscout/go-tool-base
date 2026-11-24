@@ -10,5 +10,7 @@ func (g *Generator) RegisterSubcommand() error {
 }
 
 func (g *Generator) DeregisterSubcommand() error {
-	return g.deregisterSubcommand()
+	_, err := g.deregisterSubcommand()
+
+	return err
 }
