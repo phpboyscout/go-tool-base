@@ -1,5 +1,63 @@
 # Changelog
 
+## [v0.54.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.54.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.53.0...v0.54.0)
+
+### Notes
+
+- update refuses a release whose binary was built as another version (setup.ErrVersionMismatch), and releasemanifest refuses to publish one. Build releases in a checkout whose HEAD carries the tag. A tool that requires signatures is refused a release that records no version, rollbacks included, and one whose tag isn't a full version such as v1.2.3 (cli/v1.2.3 isn't one). See docs/reference/migration/v0.x-update-checks-the-binarys-version.md.
+
+- `gtb regenerate project` writes a main.go for a command group that has an initialiser and no Init function.
+
+- `gtb regenerate manifest` keeps a command's pre_run and persistent_pre_run. A manifest it rebuilt before now may be missing them.
+
+- A command generated with --persistent-pre-run no longer overflows the stack when a child runs, nor runs the framework's pre-run twice. Run `gtb regenerate project` to update its cmd.go; in a protected or hand-edited one, delete the block that calls cmd.Parent().PersistentPreRunE.
+
+- gtb generate command --flags-hook lets a command's own code add flags while the command is built, and read from opts.FlagSet which flags were set.
+
+- The static release channel follows at most 10 redirects for one request. A channel that needs more is refused with `static.ErrTooManyRedirects`.
+
+- A tool's `mcp stream` now listens on 127.0.0.1 by default. Pass `--host` (`--host 0.0.0.0` for every IPv4 interface) if anything connects to it from another machine or from outside its container.
+
+- gtb generate command --flag now takes a removed flag out of the command's mutually_exclusive and required_together groups, and says what it did to each. Before, a stale group could leave the built tool panicking on start. Regenerating a project already in that state renders cmd.go without the missing flag and warns about it.
+
+- An external command attached under a name the generated root uses itself, such as tool or p, now compiles. The root imports it with a cmd suffix.
+
+- gtb generate command no longer leaves a project unable to build when another file beside the parent's cmd.go declares the command's name, and refuses a child of a command named vendor, which Go cannot import.
+
+- gtb generate command refuses a top-level command whose name or alias is an enabled built-in's (update, init, docs and so on), and version and help always; gtb enable and gtb wizard refuse the reverse. Disable the feature to use its name. generator.ApplyAuthorSettingsTo now returns an error.
+
+- gtb generate command run again for an existing command keeps its descriptions, aliases, args, hidden state and MCP exposure and hints unless it states new ones. Earlier versions put a command withheld from MCP back on the MCP surface, and could drop its aliases, args, long description and hidden state from the manifest. For a command generated twice, restore what is missing in .gtb/manifest.yaml and then run gtb regenerate project.
+
+- regenerate project imports a command named time, trustkeys, forge or raw, or named as an attached external command's alias, under a cmd suffix (timecmd). Nothing the tool's users see changes.
+
+- A command named init, main or documentation no longer leaves the project unable to build. Run gtb regenerate project to fix one generated earlier. For main or documentation, then change the package clause to maincmd or documentationcmd in every hand-written file in its directory (main.go, config.go and your own tests). If regenerate keeps a parent cmd.go you edited, change the import alias there yourself.
+
+- A tool's own top-level command is now skipped with a warning when the root already has one of its name: an enabled built-in, a command a plugin feature contributes, or an earlier command of the tool's own. A top-level alias that is another command's name is dropped with a warning. Before, either of the two could run. Rename yours, or disable the feature that holds the name.
+
+### Features
+
+- **update**: refuse a release whose binary is another version ([945a878](https://gitlab.com/phpboyscout/go-tool-base/-/commit/945a878ce9bb2734829758310ea7546575dab3c8))
+- **generator**: let hand-written command code add flags and read which were set ([021c189](https://gitlab.com/phpboyscout/go-tool-base/-/commit/021c189583672faabe895339ea2107d9933bfecd))
+- **generator**: refuse a top-level command with a built-in's name ([9020354](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9020354478f67fd6d9bccee1de609b5555b25e21))
+- **root**: skip a tool's command whose name is already on the root ([d91e3f6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d91e3f6b4baa5dde6da1706485225e8036a4270a))
+
+### Bug Fixes
+
+- **generator**: write main.go for a group whose initialiser needs it ([a314f33](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a314f336a1c0457e5ce7aa612f956e6f4ba1d606))
+- **generator**: read the pre-run hooks back from source ([c209bd8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c209bd83581772a8477d4d280a6b791e71da3e98))
+- **generator**: run a generated persistent pre-run once ([4a80445](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4a8044522117c548c6a7749fd4a6959284dbdcf7))
+- **update**: bound redirects on the static release channel ([58bf124](https://gitlab.com/phpboyscout/go-tool-base/-/commit/58bf12478b522647d0b15c677e9b71a2237dfd3b))
+- **deps**: update go/mcp to v0.2.7 ([53beaba](https://gitlab.com/phpboyscout/go-tool-base/-/commit/53beaba20417961ad73f4c3b4ce5b05e6d85c780))
+- **deps**: update go modules ([edc3efe](https://gitlab.com/phpboyscout/go-tool-base/-/commit/edc3efea644cdc7cd23d3864797909fdfd1960ba))
+- **generator**: take a replaced flag out of the command's flag groups ([40e3b9d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/40e3b9d02a46a1f003bdc9e8151d5d1f80283d5a))
+- **generator**: keep an attached command's alias clear of the root's own names ([a38fa44](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a38fa44759f38c6cdabe5433510ac8ca0f9f122a))
+- **generator**: keep a command's import clear of the parent's other files ([94d8467](https://gitlab.com/phpboyscout/go-tool-base/-/commit/94d8467ef4e3533c1b4a1ef6541358fad5b7b7d1))
+- **generator**: keep a command's recorded settings when it is generated again ([e7cfb90](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e7cfb90e5b5c6d5ccae5789a4cd3688ba0e16850))
+- **generator**: alias a command that clashes with any name its parent uses ([3f531d3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3f531d3f4242cc89e1046cc97cfd184d3fe6a253))
+- **generator**: make a command named init, main or documentation importable ([b25a3bd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b25a3bd95bb03a5a74b746981d8c628b2fa174ad))
+
 ## [v0.53.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.53.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.52.0...v0.53.0)
