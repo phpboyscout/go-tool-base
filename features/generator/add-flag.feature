@@ -30,3 +30,17 @@ Feature: add-flag preserves command metadata
     And the project manifest contains "name: output"
     And the project manifest contains "shorthand: o"
     And the generated "pkg/cmd/deploy/cmd.go" file contains "StringVarP"
+
+  Scenario: a kept cmd.go fails add-flag, and the same command with overwrite applies it
+    # Issue #238: the run ended in success and the tool had no such flag.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I hand-edit the generated "pkg/cmd/post/cmd.go" file
+    And I run gtb in the project with "generate add-flag --command post --name loud --type bool"
+    Then the project exit code is not zero
+    And the project manifest contains "name: loud"
+    And the project output does not contain "added flag to command"
+    And the generated "pkg/cmd/post/cmd.go" file does not contain "loud"
+    When I run gtb in the project with "generate add-flag --command post --name loud --type bool --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/post/cmd.go" file contains '"loud"'

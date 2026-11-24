@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -169,7 +170,7 @@ type Generator struct {
 	// end-of-run summary. Reset at the start of each regeneration.
 	conflicts conflictLog
 
-	// editingCommand is set while editManifestCommand re-renders a command.
+	// editingCommand is set while RegenerateEditedCommand re-renders a command.
 	editingCommand bool
 
 	// lintRetryDelay overrides the wait before the lint pass's one retry when
@@ -226,9 +227,9 @@ func (g *Generator) SetMCPEnabled(ctx context.Context, commandPath string, enabl
 		verb = "enable"
 	}
 
-	edit := commandEdit{
-		unchanged: "its MCP exposure",
-		apply:     fmt.Sprintf("gtb %s mcp %s --overwrite allow", verb, commandPath),
+	edit := CommandEdit{
+		Unchanged: "its MCP exposure",
+		Apply:     fmt.Sprintf("gtb %s mcp %s --overwrite allow", verb, commandPath),
 	}
 
 	return g.editManifestCommand(ctx, commandPath, edit, func(cmd *ManifestCommand) {
@@ -246,9 +247,9 @@ func (g *Generator) SetMCPHints(ctx context.Context, commandPath string, hints s
 		return err
 	}
 
-	edit := commandEdit{
-		unchanged: "its MCP annotations",
-		apply:     fmt.Sprintf("the same gtb annotate %s with --overwrite allow", commandPath),
+	edit := CommandEdit{
+		Unchanged: "its MCP annotations",
+		Apply:     fmt.Sprintf("the same gtb annotate %s with --overwrite allow", commandPath),
 	}
 
 	return g.editManifestCommand(ctx, commandPath, edit, func(cmd *ManifestCommand) {
@@ -267,10 +268,11 @@ func (g *Generator) SetMCPHints(ctx context.Context, commandPath string, hints s
 var ErrCommandFileKept = errors.NewSentinel("gtb.generator.command_file_kept",
 	"recorded in the manifest but not applied, because cmd.go was kept")
 
-// commandEdit words the warning for an edit whose cmd.go was kept.
-type commandEdit struct {
-	unchanged string
-	apply     string
+// CommandEdit words the warning for an edit whose cmd.go was kept: what of the
+// command did not change, and the command line that applies it.
+type CommandEdit struct {
+	Unchanged string
+	Apply     string
 }
 
 // editManifestCommand applies mutate to one manifest command and re-renders
@@ -282,7 +284,7 @@ type commandEdit struct {
 // re-writes it too, but that write is advisory, and writing first guarantees
 // the decision is durable before cmd.go changes, so a failure cannot leave the
 // two disagreeing.
-func (g *Generator) editManifestCommand(ctx context.Context, commandPath string, edit commandEdit, mutate func(*ManifestCommand)) error {
+func (g *Generator) editManifestCommand(ctx context.Context, commandPath string, edit CommandEdit, mutate func(*ManifestCommand)) error {
 	pathParts := strings.Split(commandPath, "/")
 	name := pathParts[len(pathParts)-1]
 	parentPath := pathParts[:len(pathParts)-1]
@@ -309,10 +311,17 @@ func (g *Generator) editManifestCommand(ctx context.Context, commandPath string,
 		return err
 	}
 
+	return g.RegenerateEditedCommand(ctx, *cmd, parentPath, edit)
+}
+
+// RegenerateEditedCommand re-renders the cmd.go of a command whose manifest
+// record has just been changed. A cmd.go that is kept is one warning and
+// ErrCommandFileKept.
+func (g *Generator) RegenerateEditedCommand(ctx context.Context, cmd ManifestCommand, parentPath []string, edit CommandEdit) error {
 	g.editingCommand = true
 	defer func() { g.editingCommand = false }()
 
-	data, err := g.regenerateCommand(ctx, *cmd, parentPath)
+	data, err := g.regenerateCommand(ctx, cmd, parentPath)
 	if err != nil {
 		return err
 	}
@@ -321,12 +330,13 @@ func (g *Generator) editManifestCommand(ctx context.Context, commandPath string,
 		return nil
 	}
 
+	commandPath := path.Join(append(slices.Clone(parentPath), cmd.Name)...)
 	g.warnEditKept(commandPath, edit)
 
 	return errors.Wrap(ErrCommandFileKept, commandPath)
 }
 
-func (g *Generator) warnEditKept(commandPath string, edit commandEdit) {
+func (g *Generator) warnEditKept(commandPath string, edit CommandEdit) {
 	relPath := path.Join("pkg/cmd", commandPath, "cmd.go")
 	reason, fix := g.conflicts.keptReason(relPath), "To apply it and lose the edits in that file, run "
 
@@ -335,7 +345,7 @@ func (g *Generator) warnEditKept(commandPath string, edit commandEdit) {
 	}
 
 	g.props.Logger.Warn(fmt.Sprintf("%s: kept %s (%s), so %s did not change. The manifest records the change. %s%s.",
-		commandPath, relPath, reason, edit.unchanged, fix, edit.apply))
+		commandPath, relPath, reason, edit.Unchanged, fix, edit.Apply))
 }
 
 // mergeMCPHints overlays the set fields of update onto base.

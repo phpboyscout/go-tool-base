@@ -164,6 +164,7 @@ func TestEditManifestCommand_KeptFile(t *testing.T) {
 			assert.Equal(t, edited, string(src))
 			require.Len(t, warnings(t, log), 1)
 			assert.Contains(t, warnings(t, log)[0], tt.want)
+			assert.False(t, g.editingCommand, "what follows the edit warns as usual")
 		})
 	}
 }

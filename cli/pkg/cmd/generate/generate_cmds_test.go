@@ -3,8 +3,11 @@ package generate
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -91,6 +94,71 @@ func TestNewCmdAddFlag_InvalidFlagsAreAUsageError(t *testing.T) {
 	err := cmd.ExecuteContext(context.Background())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, generator.ErrInvalidInput)
+}
+
+func TestNewCmdAddFlag_KeptFile(t *testing.T) {
+	t.Parallel()
+
+	p, fs := commandProjectWithDeploy(t)
+	p.IO = props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+	log := logger.NewBuffer()
+	p.Logger = log
+
+	file := filepath.Join(commandProjectRoot, "pkg/cmd/deploy/cmd.go")
+	source := func() string {
+		src, err := afero.ReadFile(fs, file)
+		require.NoError(t, err)
+
+		return string(src)
+	}
+	addFlag := func(args ...string) error {
+		cmd := NewCmdAddFlag(p)
+		cmd.SetArgs(append([]string{"-c", "deploy", "-n", "env", "--path", commandProjectRoot}, args...))
+
+		return cmd.ExecuteContext(context.Background())
+	}
+
+	edited := source() + "\n// edited by hand\n"
+	require.NoError(t, afero.WriteFile(fs, file, []byte(edited), 0o644))
+
+	require.ErrorIs(t, addFlag("--overwrite", "sometimes"), generator.ErrInvalidOverwriteMode)
+	assert.Empty(t, findManifestCommand(t, loadCommandManifest(t, p), "deploy").Flags)
+
+	for _, args := range [][]string{nil, {"--overwrite", "deny"}} {
+		log.Reset()
+
+		err := addFlag(args...)
+		require.ErrorIs(t, err, generator.ErrCommandFileKept)
+		assert.NotContains(t, err.Error(), "failed to regenerate")
+		assert.Equal(t, edited, source())
+		assert.False(t, log.Contains("added flag to command"), "a failed run does not also say it succeeded")
+		assert.True(t, log.Contains("so its flag env did not change"))
+		assert.True(t, log.Contains("run the same gtb generate add-flag with --overwrite allow."))
+
+		warnings := slices.DeleteFunc(log.Entries(), func(e logger.Entry) bool { return e.Level < logger.WarnLevel })
+		assert.Len(t, warnings, 1)
+		assert.Len(t, findManifestCommand(t, loadCommandManifest(t, p), "deploy").Flags, 1)
+	}
+
+	require.NoError(t, addFlag("--overwrite", "allow"))
+	assert.Contains(t, source(), `"env"`)
+	assert.True(t, log.Contains("added flag to command"))
+}
+
+func TestNewCmdAddFlag_KeptNestedFileIsNamedByItsPath(t *testing.T) {
+	t.Parallel()
+
+	p, fs := commandProjectWithDeploy(t)
+	p.IO = props.StdIO{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard}
+	log := logger.NewBuffer()
+	p.Logger = log
+
+	require.NoError(t, (&CommandOptions{Name: "now", Short: "Now", Parent: "deploy", Path: commandProjectRoot}).Run(context.Background(), p))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(commandProjectRoot, "pkg/cmd/deploy/now/cmd.go"), []byte("package now\n"), 0o644))
+
+	err := (&AddFlagOptions{CommandName: "deploy/now", FlagName: "env", FlagType: "string", Path: commandProjectRoot}).Run(context.Background(), p)
+	require.ErrorIs(t, err, generator.ErrCommandFileKept)
+	assert.True(t, log.Contains("deploy/now: kept pkg/cmd/deploy/now/cmd.go"))
 }
 
 func TestAddFlagRun_Failures(t *testing.T) {
