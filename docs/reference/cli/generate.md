@@ -28,8 +28,8 @@ gtb generate <subcommand> [flags]
 | `project` | Generate a new project skeleton. |
 | `command` | Generate a new command or subcommand. |
 | `add-flag` | Add a flag to an existing command. |
-| `protect <command-path>` | Mark a command as protected from regeneration overwrites. |
-| `unprotect <command-path>` | Allow a command to be overwritten again. |
+| `command protect <command-path>` | Mark a command as protected from regeneration overwrites. |
+| `command unprotect <command-path>` | Allow a command to be overwritten again. |
 | `docs` | Generate Markdown documentation for a command or package. |
 | `man` | Generate roff man pages for the command tree. |
 
@@ -284,6 +284,7 @@ Add a new flag to an existing command (see [Add Flags](../../how-to/framework-cl
 
 `--overwrite` (`ask` by default, or `allow` or `deny`) says what to do with a `cmd.go` that was edited by hand. A kept
 `cmd.go` records the flag in the manifest, does not get it, and fails the run. A protected command is refused.
+With `--dry-run` a kept `cmd.go` fails the preview too.
 
 ### `generate docs`
 
@@ -314,10 +315,11 @@ Generate roff man pages for the command tree.
 | `--manual` | *(`<Tool> Manual`)* | `TH` manual title. |
 | `--date` | *(none, reproducible)* | Stamp this date (`YYYY-MM-DD` or RFC3339) into the `.TH` header. Omit for reproducible output with no date trailer. |
 
-### `generate protect` / `generate unprotect`
+### `generate command protect` / `generate command unprotect`
 
-`gtb generate protect <command-path>` marks a command so regeneration won't
-overwrite it; `unprotect` reverses it. See
+`gtb generate command protect <command-path>` marks a command so regeneration
+won't overwrite it; `unprotect` reverses it. With `--dry-run` either prints what
+would change and writes nothing. See
 [Configure Generator Ignore](../../how-to/configure-generator-ignore.md).
 
 > Run any subcommand with `--help` for the complete, authoritative flag set.

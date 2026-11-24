@@ -131,6 +131,30 @@ func (g *Generator) withDryRunOverlay(ctx context.Context, projectPath string, f
 	return produceDryRunResult(baseFS, overlayFS, projectPath)
 }
 
+// Preview runs edit on an overlay of the project and prints what it would
+// change. edit must reach the project through the generator's Props.
+func (g *Generator) Preview(ctx context.Context, edit func() error) error {
+	var kept error
+
+	result, err := g.withDryRunOverlay(ctx, g.config.Path, func() error {
+		err := edit()
+		if errors.Is(err, ErrCommandFileKept) {
+			kept = err
+
+			return nil
+		}
+
+		return err
+	}, nil)
+	if err != nil {
+		return err
+	}
+
+	result.Print(g.props.GetIO().Out())
+
+	return kept
+}
+
 // materialiseAndDiff copies the overlay content to a temp directory on disk,
 // runs post-processing commands, then diffs the result against the original.
 func (g *Generator) materialiseAndDiff(ctx context.Context, overlayFS afero.Fs, projectPath string, pp *dryRunPostProcess) (*DryRunResult, error) {
