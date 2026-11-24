@@ -83,7 +83,7 @@ flag to an existing command, and "docs" writes command documentation.`,
 	generateCmd.Register(
 		setup.Wrap("", NewCmdSkeleton(p, shared)),
 		setup.Wrap("", NewCmdCommand(p, shared)),
-		setup.Wrap("", NewCmdAddFlag(p)),
+		setup.Wrap("", NewCmdAddFlag(p, shared)),
 		setup.Wrap("", NewCmdDocs(p, shared)),
 		setup.Wrap("", NewCmdMan(p, shared)),
 	)

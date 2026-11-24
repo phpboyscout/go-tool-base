@@ -45,6 +45,17 @@ Feature: add-flag preserves command metadata
     Then the project exit code is 0
     And the generated "pkg/cmd/post/cmd.go" file contains '"loud"'
 
+  Scenario: a dry run of add-flag writes nothing
+    # Issue #248: it wrote the manifest and cmd.go.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name post --short posts"
+    And I run gtb in the project with "generate add-flag --command post --name loud --type bool --dry-run"
+    Then the project exit code is 0
+    And the project output contains "pkg/cmd/post/cmd.go"
+    And the project output contains "loud"
+    And the project manifest does not contain "name: loud"
+    And the generated "pkg/cmd/post/cmd.go" file does not contain "loud"
+
   Scenario: add-flag refuses a protected command
     # Issue #239: the protected cmd.go was rewritten.
     Given a freshly generated gtb project

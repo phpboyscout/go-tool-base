@@ -109,7 +109,7 @@ func TestProtectAndUnprotect(t *testing.T) {
 	require.NoError(t, (&CommandOptions{Name: "deploy", Short: "Deploy", Parent: "root", Path: commandProjectRoot}).
 		Run(context.Background(), p))
 
-	protect := NewCmdProtect(p)
+	protect := NewCmdProtect(p, nil)
 	protect.SetArgs([]string{"deploy", "--path", commandProjectRoot})
 	require.NoError(t, protect.ExecuteContext(context.Background()))
 
@@ -117,7 +117,7 @@ func TestProtectAndUnprotect(t *testing.T) {
 	require.NotNil(t, got.Protected)
 	assert.True(t, *got.Protected)
 
-	unprotect := NewCmdUnprotect(p)
+	unprotect := NewCmdUnprotect(p, nil)
 	unprotect.SetArgs([]string{"deploy", "--path", commandProjectRoot})
 	require.NoError(t, unprotect.ExecuteContext(context.Background()))
 
@@ -131,11 +131,11 @@ func TestProtectAndUnprotect_UnknownCommandFails(t *testing.T) {
 
 	p, _ := commandProject(t)
 
-	protect := NewCmdProtect(p)
+	protect := NewCmdProtect(p, nil)
 	protect.SetArgs([]string{"missing", "--path", commandProjectRoot})
 	require.Error(t, protect.ExecuteContext(context.Background()))
 
-	unprotect := NewCmdUnprotect(p)
+	unprotect := NewCmdUnprotect(p, nil)
 	unprotect.SetArgs([]string{"missing", "--path", commandProjectRoot})
 	require.Error(t, unprotect.ExecuteContext(context.Background()))
 }

@@ -184,13 +184,13 @@ Examples:
 
 	cmd.MarkFlagsMutuallyExclusive("prompt", "script")
 
-	cmd.AddCommand(NewCmdProtect(p))
-	cmd.AddCommand(NewCmdUnprotect(p))
+	cmd.AddCommand(NewCmdProtect(p, shared))
+	cmd.AddCommand(NewCmdUnprotect(p, shared))
 
 	return cmd
 }
 
-func NewCmdProtect(p *props.Props) *cobra.Command {
+func NewCmdProtect(p *props.Props, shared *SharedFlags) *cobra.Command {
 	var path string
 
 	cmd := &cobra.Command{
@@ -203,9 +203,7 @@ passes, preserving hand-edited implementation files. Use this once a generated
 command has been customised and should not be regenerated from the manifest.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			gen := generator.New(p, &generator.Config{Path: path})
-
-			if err := gen.SetProtection(cmd.Context(), args[0], true); err != nil {
+			if err := setProtection(cmd.Context(), p, shared, path, args[0], true); err != nil || shared.dryRun() {
 				return err
 			}
 
@@ -219,7 +217,7 @@ command has been customised and should not be regenerated from the manifest.`,
 	return cmd
 }
 
-func NewCmdUnprotect(p *props.Props) *cobra.Command {
+func NewCmdUnprotect(p *props.Props, shared *SharedFlags) *cobra.Command {
 	var path string
 
 	cmd := &cobra.Command{
@@ -232,9 +230,7 @@ regeneration again. Removing protection only lifts the guard — an actual
 overwrite of existing files still requires --force on the generating command.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			gen := generator.New(p, &generator.Config{Path: path})
-
-			if err := gen.SetProtection(cmd.Context(), args[0], false); err != nil {
+			if err := setProtection(cmd.Context(), p, shared, path, args[0], false); err != nil || shared.dryRun() {
 				return err
 			}
 
@@ -246,6 +242,17 @@ overwrite of existing files still requires --force on the generating command.`,
 	cmd.Flags().StringVarP(&path, "path", "p", ".", "Path to project root")
 
 	return cmd
+}
+
+func setProtection(ctx context.Context, p *props.Props, shared *SharedFlags, path, command string, protected bool) error {
+	gen := generator.New(p, &generator.Config{Path: path, DryRun: shared.dryRun()})
+	write := func() error { return gen.SetProtection(ctx, command, protected) }
+
+	if shared.dryRun() {
+		return gen.Preview(ctx, write)
+	}
+
+	return write()
 }
 
 func (o *CommandOptions) ValidateOrPrompt(ctx context.Context, p *props.Props) error {

@@ -70,7 +70,7 @@ func TestNewCmdAddFlag_AddsTheFlagAndRegenerates(t *testing.T) {
 
 	p, fs := commandProjectWithDeploy(t)
 
-	cmd := NewCmdAddFlag(p)
+	cmd := NewCmdAddFlag(p, nil)
 	cmd.SetArgs([]string{"-c", "deploy", "-n", "env", "-t", "string", "-d", "Target environment", "-s", "e", "--path", commandProjectRoot})
 	require.NoError(t, cmd.ExecuteContext(context.Background()))
 
@@ -84,12 +84,124 @@ func TestNewCmdAddFlag_AddsTheFlagAndRegenerates(t *testing.T) {
 	assert.Contains(t, string(src), `"env"`)
 }
 
+func TestNewCmdAddFlag_DryRunWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range map[string]struct {
+		edit    string
+		args    []string
+		kept    bool
+		changes []string
+	}{
+		"a generated command": {changes: []string{"deploy/cmd.go", "manifest.yaml"}},
+		"one kept":            {edit: "\n// edited by hand\n", args: []string{"--overwrite", "deny"}, kept: true, changes: []string{"manifest.yaml"}},
+		"one replaced":        {edit: "\n// edited by hand\n", args: []string{"--overwrite", "allow"}, changes: []string{"deploy/cmd.go", "manifest.yaml"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p, fs := commandProjectWithDeploy(t)
+			log := logger.NewBuffer()
+			p.Logger = log
+
+			var out bytes.Buffer
+
+			p.IO = props.StdIO{Stdin: strings.NewReader(""), Stdout: &out, Stderr: io.Discard}
+
+			file := filepath.Join(commandProjectRoot, "pkg/cmd/deploy/cmd.go")
+			src, err := afero.ReadFile(fs, file)
+			require.NoError(t, err)
+			require.NoError(t, afero.WriteFile(fs, file, append(src, tt.edit...), 0o644))
+
+			before := treeContents(t, fs)
+
+			cmd := NewCmdGenerate(p)
+			cmd.SetArgs(append([]string{"add-flag", "--dry-run", "-c", "deploy", "-n", "env", "--path", commandProjectRoot}, tt.args...))
+
+			err = cmd.ExecuteContext(context.Background())
+			if tt.kept {
+				require.ErrorIs(t, err, generator.ErrCommandFileKept, "as the run it previews does")
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, before, treeContents(t, fs))
+			assert.Same(t, fs, p.FS)
+			assert.False(t, log.Contains("added flag to command"))
+
+			for _, change := range tt.changes {
+				assert.Contains(t, out.String(), change)
+			}
+
+			assert.Equal(t, !tt.kept, strings.Contains(out.String(), "deploy/cmd.go"))
+		})
+	}
+}
+
+func TestProtection_DryRunWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"protect", "unprotect"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p, fs := commandProjectWithDeploy(t)
+			require.NoError(t, generator.New(p, &generator.Config{Path: commandProjectRoot}).
+				SetProtection(context.Background(), "deploy", name == "unprotect"))
+
+			log := logger.NewBuffer()
+			p.Logger = log
+
+			var out bytes.Buffer
+
+			p.IO = props.StdIO{Stdin: strings.NewReader(""), Stdout: &out, Stderr: io.Discard}
+			before := treeContents(t, fs)
+
+			run := func(command string) error {
+				cmd := NewCmdGenerate(p)
+				cmd.SetArgs([]string{"command", name, command, "--dry-run", "--path", commandProjectRoot})
+
+				return cmd.ExecuteContext(context.Background())
+			}
+
+			require.NoError(t, run("deploy"))
+			assert.Equal(t, before, treeContents(t, fs))
+			assert.Contains(t, out.String(), "manifest.yaml")
+			assert.False(t, log.Contains("command is now"))
+
+			out.Reset()
+			require.Error(t, run("nope"), "as the run it previews does")
+			assert.Empty(t, out.String())
+			assert.Equal(t, before, treeContents(t, fs))
+		})
+	}
+}
+
+func treeContents(t *testing.T, fs afero.Fs) map[string]string {
+	t.Helper()
+
+	files := map[string]string{}
+
+	require.NoError(t, afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+
+		data, err := afero.ReadFile(fs, path)
+		files[path] = string(data)
+
+		return err
+	}))
+
+	return files
+}
+
 func TestNewCmdAddFlag_InvalidFlagsAreAUsageError(t *testing.T) {
 	t.Parallel()
 
 	p, _ := commandProjectWithDeploy(t)
 
-	cmd := NewCmdAddFlag(p)
+	cmd := NewCmdAddFlag(p, nil)
 	cmd.SetArgs([]string{"-c", "deploy", "-n", "env", "-t", "notatype", "--path", commandProjectRoot})
 	err := cmd.ExecuteContext(context.Background())
 	require.Error(t, err)
@@ -112,7 +224,7 @@ func TestNewCmdAddFlag_KeptFile(t *testing.T) {
 		return string(src)
 	}
 	addFlag := func(args ...string) error {
-		cmd := NewCmdAddFlag(p)
+		cmd := NewCmdAddFlag(p, nil)
 		cmd.SetArgs(append([]string{"-c", "deploy", "-n", "env", "--path", commandProjectRoot}, args...))
 
 		return cmd.ExecuteContext(context.Background())

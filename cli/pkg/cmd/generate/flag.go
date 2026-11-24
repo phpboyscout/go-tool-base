@@ -25,10 +25,12 @@ type AddFlagOptions struct {
 	Shorthand   string
 	Path        string
 	Overwrite   generator.OverwriteMode
+
+	shared *SharedFlags
 }
 
-func NewCmdAddFlag(p *props.Props) *cobra.Command {
-	opts := AddFlagOptions{}
+func NewCmdAddFlag(p *props.Props, shared *SharedFlags) *cobra.Command {
+	opts := AddFlagOptions{shared: shared}
 
 	var overwrite string
 
@@ -197,11 +199,21 @@ func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {
 
 	o.updateCommandFlag(cmd)
 
-	if err := o.saveManifest(p, m, pathParts, *cmd); err != nil {
-		return err
+	gen := generator.New(p, &generator.Config{Path: o.Path, Overwrite: o.Overwrite, DryRun: o.shared.dryRun()})
+
+	write := func() error {
+		if err := o.saveManifest(p, m, pathParts, *cmd); err != nil {
+			return err
+		}
+
+		return o.regenerateCommand(ctx, gen, cmd, parentPath)
 	}
 
-	if err := o.regenerateCommand(ctx, p, cmd, parentPath); err != nil {
+	if o.shared.dryRun() {
+		return gen.Preview(ctx, write)
+	}
+
+	if err := write(); err != nil {
 		return err
 	}
 
@@ -260,9 +272,7 @@ func (o *AddFlagOptions) saveManifest(p *props.Props, m *generator.Manifest, pat
 
 // regenerateCommand renders from the full manifest record, because a partial one
 // drops the command's aliases, other flags and hooks.
-func (o *AddFlagOptions) regenerateCommand(ctx context.Context, p *props.Props, cmd *generator.ManifestCommand, parentPath []string) error {
-	gen := generator.New(p, &generator.Config{Path: o.Path, Overwrite: o.Overwrite})
-
+func (o *AddFlagOptions) regenerateCommand(ctx context.Context, gen *generator.Generator, cmd *generator.ManifestCommand, parentPath []string) error {
 	edit := generator.CommandEdit{
 		Unchanged: "its flag " + o.FlagName,
 		Apply:     "the same gtb generate add-flag with --overwrite allow",
