@@ -3,7 +3,7 @@ module gitlab.com/phpboyscout/go-tool-base
 go 1.27.4
 
 require (
-	charm.land/bubbles/v2 v2.2.1
+	charm.land/bubbles/v2 v2.2.2
 	charm.land/bubbletea/v2 v2.1.2
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
@@ -63,13 +63,13 @@ require (
 	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.1
 	gitlab.com/phpboyscout/go/features v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.39.0
+	gitlab.com/phpboyscout/go/forge v0.40.0
 	gitlab.com/phpboyscout/go/gcpclient v0.1.6
 	gitlab.com/phpboyscout/go/httpclient v0.2.6
-	gitlab.com/phpboyscout/go/mcp v0.2.6
+	gitlab.com/phpboyscout/go/mcp v0.2.7
 	gitlab.com/phpboyscout/go/observability v0.6.1
 	gitlab.com/phpboyscout/go/output v0.2.6
-	gitlab.com/phpboyscout/go/redact v0.3.5
+	gitlab.com/phpboyscout/go/redact v0.3.6
 	gitlab.com/phpboyscout/go/regexutil v0.2.3
 	gitlab.com/phpboyscout/go/repo v0.9.3
 	gitlab.com/phpboyscout/go/signing v0.15.2
@@ -238,7 +238,7 @@ require (
 	github.com/magiconair/properties v1.18.12 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
-	github.com/mattn/go-runewidth v0.0.30 // indirect
+	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -265,7 +265,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rivo/uniseg v0.4.8-0.20261110175422-3a370411ca06 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect

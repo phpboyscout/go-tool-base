@@ -3,7 +3,7 @@ module gitlab.com/phpboyscout/go-tool-base/cli
 go 1.27.4
 
 require (
-	charm.land/bubbles/v2 v2.2.1
+	charm.land/bubbles/v2 v2.2.2
 	charm.land/bubbletea/v2 v2.1.2
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.1.1
@@ -19,9 +19,9 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.51.1
+	gitlab.com/phpboyscout/go-tool-base v0.53.0
 	gitlab.com/phpboyscout/go/chat v0.39.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.22.1
+	gitlab.com/phpboyscout/go/chat-anthropic v0.22.2
 	gitlab.com/phpboyscout/go/chat-bedrock v0.9.1
 	gitlab.com/phpboyscout/go/chat-gemini v0.21.1
 	gitlab.com/phpboyscout/go/chat-mcptools v0.3.2
@@ -33,12 +33,12 @@ require (
 	gitlab.com/phpboyscout/go/errorhandling v0.5.2
 	gitlab.com/phpboyscout/go/errors v0.4.1
 	gitlab.com/phpboyscout/go/features v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.39.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.19.2
-	gitlab.com/phpboyscout/go/forge-gitea v0.32.1
-	gitlab.com/phpboyscout/go/forge-github v0.31.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.32.2
-	gitlab.com/phpboyscout/go/redact v0.3.5
+	gitlab.com/phpboyscout/go/forge v0.40.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.20.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.33.0
+	gitlab.com/phpboyscout/go/forge-github v0.32.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.33.2
+	gitlab.com/phpboyscout/go/redact v0.3.6
 	gitlab.com/phpboyscout/go/repo v0.9.3
 	gitlab.com/phpboyscout/go/signing v0.15.2
 	gitlab.com/phpboyscout/go/transit v0.3.2
@@ -64,7 +64,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
-	github.com/anthropics/anthropic-sdk-go/v2 v2.9.0 // indirect
+	github.com/anthropics/anthropic-sdk-go/v2 v2.12.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.48.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.27 // indirect
@@ -149,7 +149,7 @@ require (
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/leodido/go-conventionalcommits v0.13.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
-	github.com/mattn/go-runewidth v0.0.30 // indirect
+	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
@@ -157,7 +157,7 @@ require (
 	github.com/openai/openai-go/v3 v3.99.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rivo/uniseg v0.4.8-0.20261110175422-3a370411ca06 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
@@ -178,7 +178,7 @@ require (
 	github.com/yuin/goldmark v1.8.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v3 v3.53.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v3 v3.53.1 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.4 // indirect
 	gitlab.com/phpboyscout/go/authn v0.3.1 // indirect
 	gitlab.com/phpboyscout/go/awsclient v0.1.5 // indirect
@@ -186,12 +186,10 @@ require (
 	gitlab.com/phpboyscout/go/changelog v0.6.2 // indirect
 	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/config-afero v0.1.15 // indirect
-	gitlab.com/phpboyscout/go/config-hcl v0.2.15 // indirect
-	gitlab.com/phpboyscout/go/config-json v0.2.15 // indirect
 	gitlab.com/phpboyscout/go/credentials v0.3.5 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.5 // indirect
 	gitlab.com/phpboyscout/go/httpclient v0.2.6 // indirect
-	gitlab.com/phpboyscout/go/mcp v0.2.6 // indirect
+	gitlab.com/phpboyscout/go/mcp v0.2.7 // indirect
 	gitlab.com/phpboyscout/go/observability v0.6.1 // indirect
 	gitlab.com/phpboyscout/go/output v0.2.6 // indirect
 	gitlab.com/phpboyscout/go/regexutil v0.2.3 // indirect
