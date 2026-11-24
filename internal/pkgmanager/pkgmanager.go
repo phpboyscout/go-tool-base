@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // Manager names a package manager that can own an installed binary.
@@ -26,8 +28,12 @@ const (
 )
 
 // queryTimeout bounds a dpkg or rpm ownership query; a slow package database
-// must not hold an update indefinitely.
+// must not hold an update indefinitely. outputDelay can add to it.
 const queryTimeout = 5 * time.Second
+
+// outputDelay bounds the wait for a query's output after it has exited or
+// timed out: a child it left behind can hold the pipe open.
+const outputDelay = time.Second
 
 // systemPrefixes are where dpkg and rpm install files. Anything else, such as
 // $HOME/.local/bin or /usr/local/bin, is never theirs, so no query is run.
@@ -168,8 +174,13 @@ func (d *Detector) query(ctx context.Context, tool string, args ...string) (stri
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	out, err := d.command(ctx, bin, args...).Output()
-	if err != nil {
+	cmd := d.command(ctx, bin, args...)
+	cmd.WaitDelay = outputDelay
+
+	// ErrWaitDelay means the query itself succeeded, so its answer counts:
+	// dropping it would let an owned binary be replaced.
+	out, err := cmd.Output()
+	if err != nil && !errors.Is(err, exec.ErrWaitDelay) {
 		return "", false
 	}
 

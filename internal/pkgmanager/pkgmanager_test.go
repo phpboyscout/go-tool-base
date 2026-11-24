@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -133,4 +134,48 @@ func TestDetect_FollowsSymlinks(t *testing.T) {
 	require.True(t, managed)
 	assert.Equal(t, pkgmanager.HomebrewCask, got.Manager)
 	assert.Equal(t, "mytool", got.Package)
+}
+
+// A wrapper script's child can outlive it with its output still open. The
+// answer it gave still counts, and a failed one still doesn't.
+func TestDetect_DoesNotWaitForAQuerysChild(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		env     []string
+		managed bool
+	}{
+		"answered": {env: []string{"ANSWER=mytool: /usr/bin/mytool", "CODE=0"}, managed: true},
+		"failed":   {env: []string{"ANSWER=mytool: /usr/bin/mytool", "CODE=1"}},
+		"silent":   {env: []string{"ANSWER=", "CODE=0"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			d := pkgmanager.New(
+				pkgmanager.WithLookPath(func(f string) (string, error) {
+					if f == "rpm" {
+						return "", exec.ErrNotFound
+					}
+
+					return "/usr/bin/" + f, nil
+				}),
+				pkgmanager.WithCommand(func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+					cmd := exec.CommandContext(ctx, "sh", "-c", `sleep 30 & echo "$ANSWER"; exit "$CODE"`)
+					cmd.Env = append(os.Environ(), tc.env...)
+
+					return cmd
+				}))
+
+			start := time.Now()
+			got, managed := d.Detect(t.Context(), "/usr/bin/mytool")
+
+			require.Equal(t, tc.managed, managed)
+			assert.Less(t, time.Since(start), 10*time.Second)
+
+			if managed {
+				assert.Equal(t, "mytool", got.Package)
+			}
+		})
+	}
 }
