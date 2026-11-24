@@ -24,7 +24,7 @@ The examples use `https://pkg.example.com/acme/mytool` as the **base URL**, whic
 
 `<tag>` is the release's tag as the tool reports it, `v1.2.0`, with the `v`. Everything for one release sits under its tag; nothing is shared between tags. The location needs no directory listing: a reader never lists, it fetches the pointer and follows what the documents say.
 
-A reader follows a redirect only to a URL under the base, and at most 10 of them for one request.
+A reader follows a redirect only to a URL under the base, and at most 10 of them for one request. Its `Location` is resolved first, which removes a plain `..`, and the URL it resolves to is what must be under the base.
 
 ## The pointer: `latest.json`
 
@@ -107,7 +107,7 @@ Downloads are ordered by `os` then `arch`, so the document is stable whatever or
 5. To list versions, follow `previous` from manifest to manifest. To pin a version, fetch `<base>/<tag>/release.json` directly, and refuse a manifest whose `tag` is another.
 6. Before installing, check that the version recorded in the binary is the one asked for ([version check](cli/update.md#version-check)).
 
-A reader trusts nothing in a document that would take it off the base: every URL must share the base URL's scheme and host and sit under its path. A URL that names `.` or `..` as a path segment after the base is refused, percent-encoded or not, with a backslash read as a slash. `https` cannot be walked down to `http`.
+A reader trusts nothing in a document that would take it off the base: every URL must share the base URL's scheme and host and sit under its path, compared as a request sends it, so the same path percent-encoded another way is outside. A URL that names `.` or `..` as a path segment after the base is refused, percent-encoded or not, with a backslash read as a slash and anything from a `;`, or trailing spaces, left off. `https` cannot be walked down to `http`.
 
 Every request a gtb tool makes to the channel, from `update` and from `doctor`, sends `User-Agent: <tool>/<version>`, for example `mytool/v1.4.2`. That lets the store's request analytics count update checks per release. Nothing else identifies the caller, and a build with no version stamped sends the tool name alone. Characters a header token can't carry are replaced with `-`.
 

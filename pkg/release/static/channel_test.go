@@ -429,6 +429,8 @@ func TestChannel_RefusesWhatItCannotTrust(t *testing.T) {
 			"host":          strings.Replace(srv.URL, "127.0.0.1", "localhost", 1) + path,
 			"port":          elsewhere.URL + path,
 			"a longer name": srv.URL + "/acme/tool2/hop",
+			"further in":    srv.URL + "/evil/acme/tool/hop",
+			"letter case":   srv.URL + "/Acme/tool/hop",
 		} {
 			target = to
 
