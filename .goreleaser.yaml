@@ -6,6 +6,12 @@ before:
     - go mod tidy
     - go generate ./... ./cli/...
 
+# Each release tags the nested CLI module on the same commit, and goreleaser
+# would take cli/vX.Y.Z as the release.
+git:
+  ignore_tags:
+    - cli/*
+
 builds:
   - id: gtb-darwin
     main: ./cli/cmd/gtb
