@@ -88,6 +88,51 @@ func TestManifest_Validate(t *testing.T) {
 		require.ErrorIs(t, m.Validate(base), static.ErrEscapesBase, "a scheme downgrade is an escape too")
 	})
 
+	t.Run("one difference from the base is enough", func(t *testing.T) {
+		t.Parallel()
+
+		for name, other := range map[string]string{
+			"scheme":         "http://pkg.example.internal/acme/fixtool",
+			"host":           "https://pkg.example.test/acme/fixtool",
+			"port":           "https://pkg.example.internal:8443/acme/fixtool",
+			"path":           "https://pkg.example.internal/other/fixtool",
+			"a longer name":  base + "2",
+			"a shorter path": "https://pkg.example.internal/acme",
+		} {
+			m := manifest()
+			m.Checksums = other + "/checksums.txt"
+			require.ErrorIs(t, m.Validate(base), static.ErrEscapesBase, name)
+		}
+	})
+
+	t.Run("a URL that climbs out of the base is refused", func(t *testing.T) {
+		t.Parallel()
+
+		for _, path := range []string{
+			"/../other/checksums.txt", "/v1.2.0/../../other/checksums.txt", "/v1.2.0/..", "/./checksums.txt",
+			"/%2e%2e/other/checksums.txt", "/.%2E/other/checksums.txt", "/%2e/checksums.txt",
+			"/v1.2.0%2f..%2f..%2fother", `/..\other`, "/..%5cother",
+		} {
+			m := manifest()
+			m.Checksums = base + path
+			require.ErrorIs(t, m.Validate(base), static.ErrEscapesBase, path)
+		}
+
+		for _, path := range []string{"/v1.2.0/a..b", "/.../checksums.txt", "/..v1/checksums.txt", "/v1.2.0/.hidden", "/v1.2.0/x?d=../.."} {
+			m := manifest()
+			m.Checksums = base + path
+			require.NoError(t, m.Validate(base), path)
+		}
+	})
+
+	t.Run("dot segments in the base are its own", func(t *testing.T) {
+		t.Parallel()
+
+		dotted := "https://pkg.example.internal/a/../acme"
+		p := static.Pointer{Schema: static.SchemaVersion, Tool: "fixtool", Tag: "v1.2.0", Manifest: dotted + "/v1.2.0/release.json"}
+		require.NoError(t, p.Validate(dotted))
+	})
+
 	t.Run("a previous that is not a tag is refused", func(t *testing.T) {
 		t.Parallel()
 

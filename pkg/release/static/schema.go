@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -37,8 +38,8 @@ const (
 var (
 	// ErrUnsupportedSchema is a document whose schema this reader does not know.
 	ErrUnsupportedSchema = errors.NewSentinel("gtb.release.static.unsupported_schema", "unsupported release manifest schema")
-	// ErrEscapesBase is a URL in a document that is not under the channel's
-	// base URL: a manifest cannot send the tool to a host the author did not name.
+	// ErrEscapesBase is a URL in a document, or a redirect, that is not under the
+	// channel's base URL or could climb out of it.
 	ErrEscapesBase = errors.NewSentinel("gtb.release.static.escapes_base", "release manifest names a URL outside the channel's base")
 	// ErrInvalidManifest is a document that parses but is not well formed.
 	ErrInvalidManifest = errors.NewSentinel("gtb.release.static.invalid_manifest", "release manifest is not well formed")
@@ -197,7 +198,8 @@ func (m Manifest) validateRotation(base string) error {
 }
 
 // underBase requires raw to share base's scheme and host and to sit under its
-// path. Scheme is compared too, so an https base cannot be walked down to http.
+// path, with no dot segment to climb back out of it. Scheme is compared too, so
+// an https base cannot be walked down to http.
 func underBase(base, raw, what string) error {
 	b, err := url.Parse(trimBase(base))
 	if err != nil {
@@ -209,11 +211,19 @@ func underBase(base, raw, what string) error {
 		return errors.Wrapf(ErrInvalidManifest, "%s URL %q: %v", what, raw, err)
 	}
 
-	if u.Scheme != b.Scheme || u.Host != b.Host || !strings.HasPrefix(u.Path, b.Path+"/") {
+	rest, under := strings.CutPrefix(u.Path, b.Path+"/")
+	if u.Scheme != b.Scheme || u.Host != b.Host || !under || hasDotSegment(rest) {
 		return errors.Wrapf(ErrEscapesBase, "%s %q is not under %q", what, raw, base)
 	}
 
 	return nil
+}
+
+// hasDotSegment splits a decoded path as a server may: an encoded slash has
+// become one, and a backslash is read as one.
+func hasDotSegment(path string) bool {
+	return slices.ContainsFunc(strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' }),
+		func(segment string) bool { return segment == "." || segment == ".." })
 }
 
 // DecodeManifest parses and validates a manifest fetched from under base.
