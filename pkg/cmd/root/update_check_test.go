@@ -94,12 +94,12 @@ func testWarnIfBehindCached(t *testing.T, style p.ConfigDir) {
 	}
 
 	// No cached version yet -> no warning.
-	warnIfBehindCached(props)
+	warnIfBehindCached(context.Background(), props, newRootState())
 	assert.False(t, log.Contains("a newer"))
 
 	// Record a newer cached version, then warn.
 	require.NoError(t, setup.SetCheckedVersion(fs, props.Tool, "v2.0.0"))
-	warnIfBehindCached(props)
+	warnIfBehindCached(context.Background(), props, newRootState())
 	assert.True(t, log.Contains("a newer"), "must warn when cached latest is newer than running binary")
 }
 
@@ -116,7 +116,7 @@ func TestWarnIfBehindCached_DevelopmentSkips(t *testing.T) {
 		Tool:    p.Tool{Name: "covdevtool"},
 	}
 
-	warnIfBehindCached(props)
+	warnIfBehindCached(context.Background(), props, newRootState())
 	assert.False(t, log.Contains("a newer"))
 }
 
@@ -131,7 +131,7 @@ func TestWarnIfBehindCached_NilVersion(t *testing.T) {
 		Tool:   p.Tool{Name: "covniltool"},
 	}
 
-	assert.NotPanics(t, func() { warnIfBehindCached(props) })
+	assert.NotPanics(t, func() { warnIfBehindCached(context.Background(), props, newRootState()) })
 }
 
 // TestRecordCheckedVersion_Outdated stores the latest version in the marker
