@@ -80,3 +80,19 @@ Feature: Attach external command trees to a generated project's root
     Then the project exit code is not zero
     And the project output contains "gtb disable update"
     And the project manifest does not contain "external_commands"
+
+  Scenario: A name an attached command declares is not taken later
+    # Issue #249: each of these put two commands of one name on the root.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "disable update"
+    And I run gtb in the project with "attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 --constructor NewCmdSign --arg logger --wrap --name update"
+    Then the project exit code is 0
+    When I run gtb in the project with "enable update"
+    Then the project exit code is not zero
+    And the project output contains "gtb detach command gitlab.com/phpboyscout/go/signing-cli"
+    When I run gtb in the project with "generate command --name update --short Update"
+    Then the project exit code is not zero
+    And the project output contains "NewCmdSign"
+    When I run gtb in the project with "attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 --constructor NewCmdKeys --arg logger --wrap --name update"
+    Then the project exit code is not zero
+    And the project manifest does not contain "NewCmdKeys"

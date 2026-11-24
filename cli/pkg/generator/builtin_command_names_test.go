@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -182,17 +183,176 @@ func TestCheckEnabledFeatureNames(t *testing.T) {
 	on := func(n string) []ManifestFeature { return []ManifestFeature{{Name: n, Enabled: true}} }
 	cmds := []ManifestCommand{{Name: "config"}, {Name: "update"}, {Name: "group", Commands: []ManifestCommand{{Name: "man", Aliases: []string{"changelog"}}}}, {Name: "apply", Aliases: []string{"ap", "docs"}}}
 
-	err := checkEnabledFeatureNames([]ManifestFeature{{Name: "docs"}}, on("docs"), cmds)
+	with := func(before []ManifestFeature, commands []ManifestCommand) *Manifest {
+		return &Manifest{Properties: ManifestProperties{Features: before}, Commands: commands}
+	}
+
+	err := checkEnabledFeatureNames(with([]ManifestFeature{{Name: "docs"}}, cmds), on("docs"))
 	require.ErrorIs(t, err, ErrBuiltinCommandName, "an alias holds its name on the root")
 	assert.Contains(t, errors.FlattenHints(err), "apply command has the alias docs")
-	require.NoError(t, checkEnabledFeatureNames([]ManifestFeature{{Name: "changelog"}}, on("changelog"), cmds), "a nested command's alias does not")
+	require.NoError(t, checkEnabledFeatureNames(with([]ManifestFeature{{Name: "changelog"}}, cmds), on("changelog")), "a nested command's alias does not")
 
-	require.ErrorIs(t, checkEnabledFeatureNames(nil, on("config"), cmds), ErrBuiltinCommandName)
-	require.NoError(t, checkEnabledFeatureNames(nil, on("man"), cmds), "a nested command holds no name on the root")
-	require.NoError(t, checkEnabledFeatureNames(nil, on("telemetry"), cmds))
-	require.NoError(t, checkEnabledFeatureNames(nil, on("ai"), []ManifestCommand{{Name: "ai"}}), "a feature with no command holds no name")
-	require.NoError(t, checkEnabledFeatureNames(on("config"), on("config"), cmds), "a feature already on is not turned on")
-	require.NoError(t, checkEnabledFeatureNames(on("config"), nil, cmds), "turning it off frees the name")
+	require.ErrorIs(t, checkEnabledFeatureNames(with(nil, cmds), on("config")), ErrBuiltinCommandName)
+	require.NoError(t, checkEnabledFeatureNames(with(nil, cmds), on("man")), "a nested command holds no name on the root")
+	require.NoError(t, checkEnabledFeatureNames(with(nil, cmds), on("telemetry")))
+	require.NoError(t, checkEnabledFeatureNames(with(nil, []ManifestCommand{{Name: "ai"}}), on("ai")), "a feature with no command holds no name")
+	require.NoError(t, checkEnabledFeatureNames(with(on("config"), cmds), on("config")), "a feature already on is not turned on")
+	require.NoError(t, checkEnabledFeatureNames(with(on("config"), cmds), nil), "turning it off frees the name")
+}
+
+// An attached command's declared name is not taken later (#249). The holder sits
+// in the middle of the modules and of its module's constructors, so every entry
+// has to be read.
+func TestAnAttachedNameIsNotTakenLater(t *testing.T) {
+	t.Parallel()
+
+	project := func(t *testing.T, cfg Config) *Generator {
+		t.Helper()
+
+		return builtinNamesProject(t, logger.NewNoop(), Manifest{
+			Properties: ManifestProperties{
+				Features: []ManifestFeature{{Name: "update"}},
+				ExternalCommands: []ManifestExternalCommand{{
+					Module: "example.com/notes", Version: "v2.0.0",
+					Attach: []ManifestExternalAttach{{Constructor: "NewCmdNotes", Name: "notes"}},
+				}, {
+					Module: "example.com/release-tools", Version: "v1.0.0",
+					Attach: []ManifestExternalAttach{{Constructor: "NewCmdOther"}, {Constructor: "NewCmdSelf", Name: "update"}, {Constructor: "NewCmdAfter", Name: "after"}},
+				}, {
+					Module: "example.com/tail", Version: "v1.0.0",
+					Attach: []ManifestExternalAttach{{Constructor: "NewCmdTail", Name: "tail"}},
+				}},
+			},
+			Commands: []ManifestCommand{{Name: "group"}, {Name: "both", Aliases: []string{"update"}}},
+		}, cfg)
+	}
+
+	for name, tc := range map[string]struct {
+		cfg     Config
+		refused bool
+	}{
+		"as a name":                {cfg: Config{Name: "update"}, refused: true},
+		"as an alias":              {cfg: Config{Name: "apply", Aliases: []string{"update"}}, refused: true},
+		"in a dry run":             {cfg: Config{Name: "update", DryRun: true}, refused: true},
+		"under a parent":           {cfg: Config{Name: "update", Parent: "group"}},
+		"an alias the command has": {cfg: Config{Name: "both"}},
+		"another name":             {cfg: Config{Name: "apply"}},
+	} {
+		t.Run("a command takes it "+name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := project(t, tc.cfg).prepareAndVerify()
+			if !tc.refused {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, ErrAttachedCommandName)
+			assert.Contains(t, errors.FlattenHints(err), "NewCmdSelf of example.com/release-tools")
+		})
+	}
+
+	t.Run("a feature takes it", func(t *testing.T) {
+		t.Parallel()
+
+		g := project(t, Config{})
+		before, err := afero.ReadFile(g.props.FS, "/work/.gtb/manifest.yaml")
+		require.NoError(t, err)
+
+		_, err = g.ApplyFeatures(context.Background(), map[string]bool{"update": true})
+		require.ErrorIs(t, err, ErrBuiltinCommandName)
+		assert.Contains(t, errors.FlattenHints(err), "NewCmdSelf")
+		assert.Contains(t, errors.FlattenHints(err), "gtb detach command example.com/release-tools")
+
+		m, err := g.LoadManifest()
+		require.NoError(t, err)
+
+		cfg := SkeletonConfigFromManifest(*m)
+		cfg.Features = []ManifestFeature{{Name: "update", Enabled: true}}
+		require.ErrorIs(t, g.ApplyAuthorSettings(context.Background(), cfg), ErrBuiltinCommandName)
+
+		after, err := afero.ReadFile(g.props.FS, "/work/.gtb/manifest.yaml")
+		require.NoError(t, err)
+		assert.Equal(t, string(before), string(after))
+	})
+
+	t.Run("another feature is turned on", func(t *testing.T) {
+		t.Parallel()
+
+		m, err := project(t, Config{}).LoadManifest()
+		require.NoError(t, err)
+		m.Commands = nil
+		require.NoError(t, checkEnabledFeatureNames(m, []ManifestFeature{{Name: "update"}, {Name: "config", Enabled: true}}))
+	})
+
+	for name, tc := range map[string]struct {
+		attach []ManifestExternalAttach
+		hint   string
+	}{
+		"another module's":     {attach: []ManifestExternalAttach{{Constructor: "NewCmdA", Name: "update"}}, hint: "NewCmdSelf of example.com/release-tools"},
+		"one beside it":        {attach: []ManifestExternalAttach{{Constructor: "NewCmdA", Name: "ship"}, {Constructor: "NewCmdB", Name: "ship"}}, hint: "NewCmdB"},
+		"several declare none": {attach: []ManifestExternalAttach{{Constructor: "NewCmdA"}, {Constructor: "NewCmdB"}}},
+	} {
+		t.Run("an attachment takes "+name, func(t *testing.T) {
+			t.Parallel()
+
+			m, err := project(t, Config{}).LoadManifest()
+			require.NoError(t, err)
+
+			err = checkAttachedNames(tc.attach, m)
+			if tc.hint == "" {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, ErrAttachedCommandName)
+			assert.Contains(t, errors.FlattenHints(err), tc.hint)
+		})
+	}
+}
+
+// Attaching a command again is reported as that, not as a clash with itself.
+func TestAttachingACommandAgainIsNotANameClash(t *testing.T) {
+	t.Parallel()
+
+	const module = "example.com/release-tools"
+
+	for name, tc := range map[string]struct {
+		spec ExternalCommandSpec
+		want string
+		ok   bool
+	}{
+		"at another version":  {spec: ExternalCommandSpec{Module: module, Version: "v1.1.0", Attach: []ManifestExternalAttach{{Constructor: "NewCmdSelf", Name: "self"}}}, want: "already attached at v1.0.0"},
+		"at the same version": {spec: ExternalCommandSpec{Module: module, Version: "v1.0.0", Attach: []ManifestExternalAttach{{Constructor: "NewCmdSelf", Name: "self"}}}, want: "duplicate"},
+		"another constructor": {spec: ExternalCommandSpec{Module: module, Version: "v1.0.0", Attach: []ManifestExternalAttach{{Constructor: "NewCmdB", Name: "self"}}}, want: "NewCmdSelf of " + module},
+		"another name":        {spec: ExternalCommandSpec{Module: module, Version: "v1.0.0", Attach: []ManifestExternalAttach{{Constructor: "NewCmdB", Name: "ship"}}}, ok: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, _ := newFeatureProject(t)
+			require.NoError(t, g.AttachExternalCommand(context.Background(), ExternalCommandSpec{
+				Module: module, Version: "v1.0.0", Attach: []ManifestExternalAttach{{Constructor: "NewCmdSelf", Name: "self"}},
+			}))
+
+			err := g.AttachExternalCommand(context.Background(), tc.spec)
+			if tc.ok {
+				require.NoError(t, err)
+
+				m, err := g.LoadManifest()
+				require.NoError(t, err)
+				require.Len(t, m.Properties.ExternalCommands, 1)
+				assert.Len(t, m.Properties.ExternalCommands[0].Attach, 2)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error()+" "+errors.FlattenHints(err), tc.want)
+		})
+	}
 }
 
 func TestWarnBuiltinCommandNames(t *testing.T) {
@@ -268,4 +428,37 @@ func TestBuiltinCommandNames_MatchTheRoot(t *testing.T) {
 	}
 
 	assert.Equal(t, want, got)
+}
+
+// Wherever the holder sits among the modules and their constructors, it is found.
+func TestAnAttachedNameIsFoundAtAnyPosition(t *testing.T) {
+	t.Parallel()
+
+	for module := range 3 {
+		for attach := range 3 {
+			m := &Manifest{Properties: ManifestProperties{Features: []ManifestFeature{{Name: "update"}}}}
+
+			for i := range 3 {
+				ec := ManifestExternalCommand{Module: fmt.Sprintf("example.com/m%d", i), Version: "v1.0.0"}
+
+				for j := range 3 {
+					a := ManifestExternalAttach{Constructor: fmt.Sprintf("NewCmd%d%d", i, j), Name: fmt.Sprintf("n%d%d", i, j)}
+					if i == module && j == attach {
+						a.Name = "update"
+					}
+
+					ec.Attach = append(ec.Attach, a)
+				}
+
+				m.Properties.ExternalCommands = append(m.Properties.ExternalCommands, ec)
+			}
+
+			holder, held := attachmentDeclaring(m, "update")
+			require.True(t, held, "module %d, constructor %d", module, attach)
+			assert.Equal(t, fmt.Sprintf("NewCmd%d%d", module, attach), holder.constructor)
+
+			err := checkEnabledFeatureNames(m, []ManifestFeature{{Name: "update", Enabled: true}})
+			require.ErrorIs(t, err, ErrBuiltinCommandName, "module %d, constructor %d", module, attach)
+		}
+	}
 }

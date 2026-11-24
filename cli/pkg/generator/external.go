@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -40,31 +41,23 @@ func (g *Generator) AttachExternalCommand(ctx context.Context, spec ExternalComm
 		return err
 	}
 
-	if err := checkAttachedNames(spec.Attach, m); err != nil {
+	merged, err := mergeExternalCommand(m.Properties.ExternalCommands, spec)
+	if err != nil {
 		return err
-	}
-
-	// Merge into an existing entry for the same module (so a second `attach
-	// command` for the same module appends another constructor) or append a new
-	// entry. A version mismatch is an error — detach first to change the pin.
-	if idx := indexOfExternalModule(m.Properties.ExternalCommands, spec.Module); idx >= 0 {
-		existing := &m.Properties.ExternalCommands[idx]
-		if existing.Version != spec.Version {
-			return errors.WithHintf(ErrInvalidInput,
-				"external module %q is already attached at %s; detach it first to change the version to %s",
-				spec.Module, existing.Version, spec.Version)
-		}
-
-		existing.Attach = append(existing.Attach, spec.Attach...)
-	} else {
-		m.Properties.ExternalCommands = append(m.Properties.ExternalCommands, spec)
 	}
 
 	// Re-validate the whole set so a cross-entry duplicate (module, constructor)
 	// is caught before anything is written.
-	if err := validateManifestExternalCommands(m.Properties.ExternalCommands); err != nil {
+	if err := validateManifestExternalCommands(merged); err != nil {
 		return err
 	}
+
+	// After the checks above: attaching a command again is not a name clash.
+	if err := checkAttachedNames(spec.Attach, m); err != nil {
+		return err
+	}
+
+	m.Properties.ExternalCommands = merged
 
 	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
@@ -77,6 +70,28 @@ func (g *Generator) AttachExternalCommand(ctx context.Context, spec ExternalComm
 	g.pinExternalRequire(ctx, spec.Module, spec.Version)
 
 	return nil
+}
+
+// mergeExternalCommand returns ecs with spec added to its module's entry, or as a
+// new one. A version mismatch is an error: detach first to change the pin.
+func mergeExternalCommand(ecs []ManifestExternalCommand, spec ExternalCommandSpec) ([]ManifestExternalCommand, error) {
+	merged := slices.Clone(ecs)
+
+	idx := indexOfExternalModule(merged, spec.Module)
+	if idx < 0 {
+		return append(merged, spec), nil
+	}
+
+	entry := &merged[idx]
+	if entry.Version != spec.Version {
+		return nil, errors.WithHintf(ErrInvalidInput,
+			"external module %q is already attached at %s; detach it first to change the version to %s",
+			spec.Module, entry.Version, spec.Version)
+	}
+
+	entry.Attach = slices.Concat(entry.Attach, spec.Attach)
+
+	return merged, nil
 }
 
 // indexOfExternalModule returns the index of the attachment entry for module,

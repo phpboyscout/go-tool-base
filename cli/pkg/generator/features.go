@@ -173,7 +173,7 @@ func (g *Generator) ApplyFeatures(ctx context.Context, desired map[string]bool) 
 		return changed, nil
 	}
 
-	if err := checkEnabledFeatureNames(m.Properties.Features, features, m.Commands); err != nil {
+	if err := checkEnabledFeatureNames(m, features); err != nil {
 		return nil, err
 	}
 

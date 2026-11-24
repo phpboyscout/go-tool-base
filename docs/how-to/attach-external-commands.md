@@ -86,7 +86,7 @@ always on (there is no feature gate, see [Gating](#gating-an-attachment)).
 |------|---------|
 | `--import-path` | Package to import when it differs from the module path. |
 | `--alias` | Import alias for the package in the generated root. One the root declares itself (`tool`, `p`) or another file beside it declares takes a `cmd` suffix there, so `tool` is imported as `toolcmd`. |
-| `--name` | The command's name, as its constructor sets it. The attach is refused when a built-in this project has on, or one of its own top-level commands, has that name or alias. It is not read from the module, and without it nothing is compared. To attach the command under another name, use [the adapter](#the-adapter-escape-hatch) and set its `Use` there. |
+| `--name` | The command's name, as its constructor sets it. The attach is refused when a built-in this project has on, or one of its own top-level commands, has that name or alias, or another attached command declares it. While it is attached, enabling a feature or generating a command that would take the name is refused. It is not read from the module, and without it nothing is compared. To attach the command under another name, use [the adapter](#the-adapter-escape-hatch) and set its `Use` there. |
 | `--path`, `-p` | Path to the project root (default `.`). |
 
 ## The adapter escape hatch
