@@ -91,6 +91,7 @@ func initRotationSteps(ctx *godog.ScenarioContext) {
 	})
 
 	ctx.Step(`^a (static|gitea|codeberg) release channel whose release key was compromised$`, aChannelWhoseReleaseKeyWasCompromised)
+	ctx.Step(`^the home directory is a git checkout$`, theHomeDirectoryIsAGitCheckout)
 	ctx.Step(`^the channel publishes "([^"]*)" signed by the (compromised|replacement) key( with the rotation manifest)?$`, theChannelPublishes)
 }
 
@@ -194,6 +195,11 @@ func (ch *rotationChannel) signCompromiseManifest() (string, error) {
 	})
 
 	return authority.Encode(), err
+}
+
+// theHomeDirectoryIsAGitCheckout relies on each run taking the config directory as HOME.
+func theHomeDirectoryIsAGitCheckout(ctx context.Context) error {
+	return os.Mkdir(filepath.Join(getCLIWorld(ctx).configDir, ".git"), 0o700)
 }
 
 // releaseFile is one file a release carries.

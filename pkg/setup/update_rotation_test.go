@@ -128,7 +128,14 @@ func newRotationFixture(t *testing.T) rotationFixture {
 func (f rotationFixture) updater(t *testing.T, p forge.Provider, enabled bool) *SelfUpdater {
 	t.Helper()
 
-	s := &SelfUpdater{
+	s := f.unresolvedUpdater(p, enabled)
+	require.NoError(t, s.buildDefaultKeyResolver())
+
+	return s
+}
+
+func (f rotationFixture) unresolvedUpdater(p forge.Provider, enabled bool) *SelfUpdater {
+	return &SelfUpdater{
 		Tool:                  props.Tool{Name: "testtool"},
 		logger:                logger.NewNoop(),
 		Fs:                    afero.NewMemMapFs(),
@@ -140,9 +147,6 @@ func (f rotationFixture) updater(t *testing.T, p forge.Provider, enabled bool) *
 		rotationEnabled:       enabled,
 		rotationStore:         f.store,
 	}
-	require.NoError(t, s.buildDefaultKeyResolver())
-
-	return s
 }
 
 // A release carrying a compromise manifest is applied before its signature is
@@ -362,6 +366,65 @@ func TestVerifyManifestSignature_RotationOffSkipsTheManifestAndSaysSo(t *testing
 	assert.Zero(t, rec.Epoch)
 }
 
+// A record that cannot be kept forgets a revoke, so the update says so whether
+// or not its release carries a manifest (spec 0221).
+func TestVerifyManifestSignature_WarnsWhenTheRecordCannotBeKept(t *testing.T) {
+	t.Parallel()
+
+	testutil.EachConfigDir(t, testVerifyManifestSignature_WarnsWhenTheRecordCannotBeKept)
+}
+
+func testVerifyManifestSignature_WarnsWhenTheRecordCannotBeKept(t *testing.T, style props.ConfigDir) {
+	t.Parallel()
+
+	f := newRotationFixture(t)
+	tool := props.Tool{Name: "testtool", Config: props.ConfigSpec{Dir: style}}
+	dir := ConfigDir(tool)
+	rotation, rotationSig := compromiseManifest(t, f.authority, 1, f.replacement, f.compromised)
+
+	for name, tc := range map[string]struct {
+		rotation, rotationSig []byte
+		signer                testSigningKey
+		checkout              string
+		enabled, authority    bool
+		want                  int
+	}{
+		"a checkout itself, with a manifest": {rotation, rotationSig, f.replacement, dir, true, true, 1},
+		"a checkout itself, without one":     {nil, nil, f.compromised, dir, true, true, 1},
+		"under a checkout":                   {nil, nil, f.compromised, filepath.Dir(dir), true, true, 1},
+		"a checkout, rotation off":           {nil, nil, f.compromised, dir, false, true, 0},
+		"a checkout, no authority keys":      {nil, nil, f.compromised, dir, true, false, 0},
+		"outside a checkout":                 {rotation, rotationSig, f.replacement, "", true, true, 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			if tc.checkout != "" {
+				require.NoError(t, fs.MkdirAll(filepath.Join(tc.checkout, ".git"), 0o700))
+			}
+
+			rel, provider, checksums := rotationRelease(t, tc.signer, tc.rotation, tc.rotationSig)
+			spy := &warnSpyLogger{Logger: logger.NewNoop()}
+			s := f.unresolvedUpdater(provider, tc.enabled)
+			s.Tool, s.Fs, s.logger, s.rotationStore = tool, fs, spy, nil
+
+			if !tc.authority {
+				s.rotationAuthorityKeys = nil
+			}
+
+			require.NoError(t, s.buildDefaultKeyResolver())
+			require.NoError(t, s.verifyManifestSignature(context.Background(), rel, checksums))
+			require.Len(t, spy.warns, tc.want)
+
+			if tc.want > 0 {
+				assert.Contains(t, spy.warns[0], "trusted again")
+				assert.Equal(t, []any{"reason", s.rotationNotKept}, spy.attrs[0])
+			}
+		})
+	}
+}
+
 // A tool with no authority keys has not taken up rotation: a manifest on its
 // release is not read.
 func TestVerifyManifestSignature_NoAuthorityKeysIgnoresAManifest(t *testing.T) {
@@ -443,10 +506,12 @@ func TestRotationFileNamesMatchGoSigning(t *testing.T) {
 type warnSpyLogger struct {
 	logger.Logger
 	warns []string
+	attrs [][]any
 }
 
-func (l *warnSpyLogger) Warn(msg string, _ ...any) {
+func (l *warnSpyLogger) Warn(msg string, attrs ...any) {
 	l.warns = append(l.warns, msg)
+	l.attrs = append(l.attrs, attrs)
 }
 
 // A resolver that cannot apply a rotation is refused when authority keys are

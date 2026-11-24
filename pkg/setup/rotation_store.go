@@ -26,16 +26,40 @@ const rotationStoreFilename = "rotation.json"
 var ErrRotationStoreCorrupt = errors.NewSentinel("gtb.setup.rotation_store_corrupt",
 	"the rotation record cannot be read, or holds a key that does not parse")
 
+// ErrRotationRecordNotKept is a config directory the applied rotation record
+// cannot be kept in, so a key a manifest revoked is trusted again when a release carries no manifest.
+var ErrRotationRecordNotKept = errors.NewSentinel("gtb.setup.rotation_record_not_kept",
+	"the rotation record is not kept")
+
 // rotationStoreMu serialises every file store's read-compare-write, since two
 // updaters in one process each build their own store over the same file.
 var rotationStoreMu sync.Mutex
 
-// newRotationStore is the record kept in dir. A directory that cannot be
-// resolved, or one inside a git checkout, gets a store held in memory: a
-// manifest still applies for the run, and nothing the repository could have
-// written is read (go-tool-base#179).
+// CanKeepRotationRecord reports why the updater cannot keep or read tool's
+// applied rotation record, or nil when it can.
+func CanKeepRotationRecord(fs afero.Fs, tool props.Tool) error {
+	return canKeepRotationRecordIn(fs, ConfigDir(tool))
+}
+
+func canKeepRotationRecordIn(fs afero.Fs, dir string) error {
+	if dir == "" {
+		return errors.WithHint(errors.Wrap(ErrRotationRecordNotKept, "the config directory cannot be resolved"),
+			"Set HOME to a directory that exists.")
+	}
+
+	if DirInCheckout(fs, dir) {
+		return errors.WithHint(errors.Wrapf(ErrRotationRecordNotKept, "%s is inside a git checkout", dir),
+			"A record there could have come from the repository. Keep the config directory outside any git checkout.")
+	}
+
+	return nil
+}
+
+// newRotationStore is the record kept in dir. A directory that cannot keep one
+// gets a store held in memory: a manifest still applies for the run, and
+// nothing a repository could have written is read (go-tool-base#179).
 func newRotationStore(fs afero.Fs, dir string) verify.RotationStore {
-	if dir == "" || DirInCheckout(fs, dir) {
+	if canKeepRotationRecordIn(fs, dir) != nil {
 		return verify.NewMemoryRotationStore()
 	}
 

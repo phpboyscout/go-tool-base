@@ -41,6 +41,18 @@ Feature: Self-update across a release key rotation
     And stderr contains "rotation manifest in force"
     And stderr contains "v1.2.0"
 
+  Scenario: A home directory that is a git checkout is warned that the rotation is not kept
+    Given a static release channel whose release key was compromised
+    And the home directory is a git checkout
+    And the channel publishes "v1.1.0" signed by the replacement key with the rotation manifest
+    When I run gtb with "update"
+    Then the exit code is 0
+    And stderr contains "is inside a git checkout"
+    Given the channel publishes "v1.2.0" signed by the replacement key
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "trusted again"
+
   # The forge channel's update side: the real provider reads the release a
   # Gitea or Forgejo server describes, with the manifest as its attachments.
   Scenario Outline: A <forge> forge release carrying the manifest moves the install to the replacement key

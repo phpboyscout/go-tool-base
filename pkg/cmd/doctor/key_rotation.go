@@ -50,6 +50,15 @@ func rotationPosture(ctx context.Context, props *p.Props, name string) CheckResu
 		if err := setup.CheckRotationRecord(ctx, props.FS, props.Tool); err != nil {
 			return CheckResult{Name: name, Status: CheckFail, Message: "update refuses to run: " + err.Error(), Details: errors.FlattenHints(err)}
 		}
+
+		if err := setup.CanKeepRotationRecord(props.FS, props.Tool); err != nil {
+			return CheckResult{
+				Name:    name,
+				Status:  CheckWarn,
+				Message: "a release key the maintainers revoke is trusted again after the update that revokes it: " + err.Error(),
+				Details: errors.FlattenHints(err),
+			}
+		}
 	}
 
 	return CheckResult{

@@ -283,9 +283,12 @@ Returns the tool's user directory, in the style it declares in `props.Tool.Confi
 - It is empty when the directory can't be resolved. Skip the read or write then, since joining a filename onto it
   would name a file in the working directory.
 - A tool that changes style after release moves its users' files itself: the framework does not migrate
-  `~/.<tool>` or warn that one was left behind.
+  `~/.<tool>` or warn that one was left behind. An applied key rotation left behind is forgotten, so a release key
+  revoked before the change is trusted again until a release carries a rotation manifest.
 - Trusted projects, a pin and an applied key rotation are neither kept nor read in a directory inside a git checkout.
-  With `props.ConfigDirXDG`, that includes a `~/.config` that is itself a git repository.
+  With `props.ConfigDirXDG`, that includes a `~/.config` that is itself a git repository. A release key revoked by a
+  rotation is trusted again there on the next update whose release carries no rotation manifest, and both `update` and
+  `doctor` warn.
 
 #### SSH Key Management
 ```go

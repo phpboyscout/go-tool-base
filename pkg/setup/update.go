@@ -154,6 +154,8 @@ type SelfUpdater struct {
 	// rotationStore holds the applied record; nil is the file under the
 	// tool's config directory.
 	rotationStore verify.RotationStore
+	// rotationNotKept is why rotationStore's default cannot keep the record.
+	rotationNotKept error
 	// rotationApplier is the resolver's rotation half, set only when the
 	// resolver was built with authority keys.
 	rotationApplier verify.RotationApplier
@@ -751,7 +753,9 @@ func (s *SelfUpdater) configureRotation(cfg *verify.KeyResolverConfig) {
 	cfg.RotationStore = s.rotationStore
 
 	if cfg.RotationStore == nil {
-		cfg.RotationStore = newRotationStore(s.Fs, ConfigDir(s.Tool))
+		dir := ConfigDir(s.Tool)
+		cfg.RotationStore = newRotationStore(s.Fs, dir)
+		s.rotationNotKept = canKeepRotationRecordIn(s.Fs, dir)
 	}
 }
 
