@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -37,13 +38,29 @@ type staticStore struct {
 	// rotation and rotationSig, when set, ride on every release published
 	// after, as a release pipeline carries the latest manifest forward.
 	rotation, rotationSig []byte
+	// redirects maps an object's path to where the store sends a reader of it.
+	redirects map[string]string
+	// statuses maps an object's path to an answer given instead of it.
+	statuses map[string]int
 }
 
 func newStaticStore(t *testing.T) *staticStore {
 	t.Helper()
 
-	s := &staticStore{objects: map[string][]byte{}}
+	s := &staticStore{objects: map[string][]byte{}, redirects: map[string]string{}, statuses: map[string]int{}}
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if to, ok := s.redirects[r.URL.Path]; ok {
+			http.Redirect(w, r, to, http.StatusFound)
+
+			return
+		}
+
+		if status, ok := s.statuses[r.URL.Path]; ok {
+			w.WriteHeader(status)
+
+			return
+		}
+
 		body, ok := s.objects[r.URL.Path]
 		if !ok {
 			http.NotFound(w, r)
@@ -280,6 +297,105 @@ func TestUpdate_OnTheStaticChannel_VerifiesTheSignature(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "old-binary", string(got))
 	})
+}
+
+// A redirect the channel refuses stops the update whatever is required and
+// whether or not a key is set, where a file that cannot be had only stops an
+// update that requires it (#242).
+func TestUpdate_OnTheStaticChannel_StopsAtARefusedRedirect(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	for _, file := range []string{static.ChecksumsFile, static.SignatureFile} {
+		for _, requires := range []struct{ checksum, signature bool }{{false, false}, {true, false}, {false, true}, {true, true}} {
+			for _, keyed := range []bool{true, false} {
+				// Nothing asks for a signature without a key to verify it.
+				if !keyed && (requires.signature || file == static.SignatureFile) {
+					continue
+				}
+
+				name := fmt.Sprintf("%s require_checksum=%t require_signature=%t keyed=%t",
+					file, requires.checksum, requires.signature, keyed)
+
+				needed := requires.signature || (requires.checksum && file == static.ChecksumsFile)
+
+				t.Run(name, func(t *testing.T) {
+					t.Parallel()
+					assertRefusedRedirectStops(t, file, needed, func(s *SelfUpdater) {
+						s.requireChecksum, s.requireSignature = requires.checksum, requires.signature
+
+						if !keyed {
+							s.embeddedKeys, s.keyResolver = nil, nil
+						}
+					})
+				})
+			}
+		}
+	}
+}
+
+// assertRefusedRedirectStops updates with file answered every way the store
+// can. needed is whether configure leaves the updater requiring it.
+func assertRefusedRedirectStops(t *testing.T, file string, needed bool, configure func(*SelfUpdater)) {
+	t.Helper()
+
+	newBinary := string(binversiontest.Binary(t, "v1.1.0", binversiontest.Tagged))
+	archive := forgetest.TarGzAsset(e2eToolName, e2eToolName, newBinary)
+	manifest := forgetest.Manifest(false, archive)
+	path := "/acme/" + e2eToolName + "/v1.1.0/" + file
+
+	for name, tt := range map[string]struct {
+		to      string
+		status  int
+		refused error
+		had     bool
+	}{
+		"off the base":          {to: "/elsewhere/" + file, refused: static.ErrEscapesBase},
+		"past the bound":        {to: path, refused: static.ErrTooManyRedirects},
+		"to nothing":            {to: path + ".gone"},
+		"a server error":        {status: http.StatusBadGateway},
+		"to a copy of the file": {to: path + ".copy", had: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			store := newStaticStore(t)
+			store.publish(t, "v1.1.0", archive, manifest, forgetest.SignatureAsset(testEd25519.entity, manifest, false).Body)
+			store.objects[path+".copy"] = store.objects[path]
+
+			if tt.to != "" {
+				store.redirects[path] = tt.to
+			}
+
+			if tt.status != 0 {
+				store.statuses[path] = tt.status
+			}
+
+			s, currentBin := signedStaticUpdater(t, store)
+			configure(s)
+
+			_, err := s.Update(context.Background())
+
+			installed := false
+
+			switch {
+			case tt.refused != nil:
+				require.ErrorIs(t, err, tt.refused)
+				assert.Contains(t, hintOf(t, err), "publisher")
+				assert.NotContains(t, err.Error(), "require_", "it stops whatever is required")
+			case needed && !tt.had:
+				require.Error(t, err)
+			default:
+				require.NoError(t, err)
+
+				installed = true
+			}
+
+			got, err := afero.ReadFile(s.Fs, currentBin)
+			require.NoError(t, err)
+			assert.Equal(t, installed, string(got) == newBinary, "installed")
+		})
+	}
 }
 
 func signedStaticUpdater(t *testing.T, store *staticStore) (*SelfUpdater, string) {

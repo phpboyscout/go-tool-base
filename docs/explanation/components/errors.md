@@ -218,7 +218,7 @@ URL that failed.
 | `ErrInvalidBaseURL` | release channel base URL must be an absolute http(s) URL | The configured channel base is not an absolute `http` or `https` URL. Fix `release_source.base_url`. |
 | `ErrUnreachable` | the release channel could not be reached | No answer came back from the channel's host. Usually the network; retry. |
 | `ErrUnexpectedStatus` | the channel answered with an unexpected HTTP status | A status that is neither success nor 404. The wrapped error carries the status. |
-| `ErrTooManyRedirects` | the channel redirected too many times | One request was redirected more than 10 times. The channel needs repairing on the publishing side. |
+| `ErrTooManyRedirects` | the channel redirected too many times | One request was redirected more than 10 times. `update` stops. The channel needs repairing on the publishing side. |
 | `ErrNoReleasesPublished` | no release has been published on this channel yet | The `latest.json` pointer does not exist yet. Nothing to update to. |
 | `ErrOtherRelease` | not the release asked for | The manifest stored under the tag asked for names another tag. `update` reports it as `setup.ErrVersionMismatch`. |
 | `ErrReleaseNotFound` | no release with that tag on this channel | No manifest exists for the tag asked for. Check the version. |
@@ -227,7 +227,7 @@ URL that failed.
 | `ErrTooLarge` | a channel document exceeded its size bound | A document exceeded its bound and was not read further. |
 | `ErrInvalidManifest` | release manifest is not well formed | A document parses but is not a well-formed manifest. |
 | `ErrUnsupportedSchema` | unsupported release manifest schema | A document's schema is newer than this binary knows. Install a newer release by hand. |
-| `ErrEscapesBase` | release manifest names a URL outside the channel's base | A manifest or a redirect named a URL outside the channel's base (the same path percent-encoded another way counts as outside), or one with a `.` or `..` segment after it, with or without a `;` parameter, so it was refused: the channel cannot send the tool anywhere the author did not name. Treat it as tampering until shown otherwise. |
+| `ErrEscapesBase` | release manifest names a URL outside the channel's base | A manifest or a redirect named a URL outside the channel's base (the same path percent-encoded another way counts as outside), or one with a `.` or `..` segment after it, with or without a `;` parameter, so it was refused and `update` stops: the channel cannot send the tool anywhere the author did not name. Treat it as tampering until shown otherwise. |
 
 ---
 

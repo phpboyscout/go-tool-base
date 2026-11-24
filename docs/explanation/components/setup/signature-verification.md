@@ -299,6 +299,7 @@ Failure handling is deliberately asymmetric:
 |-----------|---------|
 | Signature present but does not verify | **Always fatal** (`ErrSignatureInvalid`): a forged/corrupt signature is never accepted |
 | Trust anchors disagree (`ErrKeyResolverMismatch`) | **Always fatal**: active-tampering signal |
+| The static channel refuses a redirect on the way to the checksums or the signature (`static.ErrEscapesBase`, `static.ErrTooManyRedirects`) | **Always fatal**: the store sent the updater somewhere it will not follow |
 | Signature absent, resolver unreachable, or no resolver configured | Gated by `require_signature`: fail-closed aborts, fail-open logs a warning and proceeds |
 
 ## Key Rotation

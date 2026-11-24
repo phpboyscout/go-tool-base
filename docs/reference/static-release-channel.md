@@ -24,7 +24,7 @@ The examples use `https://pkg.example.com/acme/mytool` as the **base URL**, whic
 
 `<tag>` is the release's tag as the tool reports it, `v1.2.0`, with the `v`. Everything for one release sits under its tag; nothing is shared between tags. The location needs no directory listing: a reader never lists, it fetches the pointer and follows what the documents say.
 
-A reader follows a redirect only to a URL under the base, and at most 10 of them for one request. Its `Location` is resolved first, which removes a plain `..`, and the URL it resolves to is what must be under the base.
+A reader follows a redirect only to a URL under the base, and at most 10 of them for one request. Its `Location` is resolved first, which removes a plain `..`, and the URL it resolves to is what must be under the base. `update` stops before installing when it meets any other on the way to a file the release needs, whatever the tool requires.
 
 ## The pointer: `latest.json`
 

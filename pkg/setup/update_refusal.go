@@ -116,6 +116,13 @@ func (s *SelfUpdater) explainStaticRefusal(err error) (error, bool) {
 	return nil, false
 }
 
+// redirectRefused reports whether the static channel refused to follow where the
+// store sent it. That is stronger evidence of tampering than a missing file, so
+// it stops an update that requires nothing (#242).
+func redirectRefused(err error) bool {
+	return errors.Is(err, static.ErrEscapesBase) || errors.Is(err, static.ErrTooManyRedirects)
+}
+
 // endpointLabel names the forge in a message: its host where one is configured,
 // otherwise the source type. Enterprise installs are the case that matters —
 // "github.com is rate limiting you" is actively misleading on a GHE host.
