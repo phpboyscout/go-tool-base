@@ -1,0 +1,25 @@
+# Every part of an rpm the index carries that gtb's own do not use, for
+# TestAnRPMIsListedAsCreaterepoListsIt. generate.sh rebuilds it.
+name: rich
+arch: amd64
+platform: linux
+version: 2.0.0
+epoch: "3"
+release: "4"
+maintainer: "phpboyscout <release@example.test>"
+license: MIT
+description: rich
+mtime: 2026-01-01T00:00:00Z
+depends: ["git >= 2.0", "bash"]
+conflicts: ["older < 1:3.0-2"]
+provides: ["virtual = 9"]
+replaces: ["predecessor <= 1.0"]
+contents:
+  - {src: ./stub, dst: /usr/bin/rich, file_info: {mode: 0755, mtime: 2026-01-01T00:00:00Z}}
+  - {src: ./stub, dst: /usr/share/rich/data, file_info: {mtime: 2026-01-01T00:00:00Z}}
+  - {src: ./stub, dst: /etc/rich.conf, type: config, file_info: {mtime: 2026-01-01T00:00:00Z}}
+  - {dst: /var/lib/rich, type: dir, file_info: {mtime: 2026-01-01T00:00:00Z}}
+  - {dst: /var/log/rich.log, type: ghost, file_info: {mtime: 2026-01-01T00:00:00Z}}
+  - {src: rich, dst: /usr/bin/also-rich, type: symlink, file_info: {mtime: 2026-01-01T00:00:00Z}}
+rpm:
+  buildhost: build.example.test

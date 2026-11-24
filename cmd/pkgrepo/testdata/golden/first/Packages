@@ -1,0 +1,29 @@
+Package: gtb
+Version: 1.0.0
+Section: devel
+Priority: extra
+Architecture: amd64
+License: MIT
+Maintainer: phpboyscout <release@example.test>
+Installed-Size: 0
+Homepage: https://gitlab.com/phpboyscout/go-tool-base
+Description: A helper utility for gtb repos & resources
+ with a second line.
+Filename: ../v1.0.0/gtb_1.0.0_amd64.deb
+Size: 756
+SHA256: 20b221249c419319eab558b2a39758d447d392af2632abf4377bbf5aa1dac41b
+
+Package: gtb
+Version: 1.0.0
+Section: devel
+Priority: extra
+Architecture: arm64
+License: MIT
+Maintainer: phpboyscout <release@example.test>
+Installed-Size: 0
+Homepage: https://gitlab.com/phpboyscout/go-tool-base
+Description: A helper utility for gtb repos & resources
+ with a second line.
+Filename: ../v1.0.0/gtb_1.0.0_arm64.deb
+Size: 756
+SHA256: df060671a5cae03b41d6cd5b5524b7e339f0b76b0b6a9aa886456b7226a0e90d

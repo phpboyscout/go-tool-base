@@ -334,5 +334,6 @@ tool (
 	github.com/vektra/mockery/v3
 	gitlab.com/phpboyscout/go-tool-base/cmd/changelog
 	gitlab.com/phpboyscout/go-tool-base/cmd/docs
+	gitlab.com/phpboyscout/go-tool-base/cmd/pkgrepo
 	gitlab.com/phpboyscout/go-tool-base/cmd/releasemanifest
 )

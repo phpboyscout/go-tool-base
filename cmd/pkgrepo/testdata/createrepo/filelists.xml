@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<filelists xmlns="http://linux.duke.edu/metadata/filelists" packages="2">
+<package pkgid="620635e436c7a2ea2010edfc2217fdce947c1016cf469f33f316cf3828abfbee" name="gtb" arch="x86_64">
+  <version epoch="0" ver="1.0.0" rel="1"/>
+  <file>/usr/bin/gtb</file>
+</package>
+<package pkgid="d4df626e203a421cf5776ddfb9bb6537b324673358e19fb42c99cff83676ef8c" name="rich" arch="x86_64">
+  <version epoch="3" ver="2.0.0" rel="4"/>
+  <file>/etc/rich.conf</file>
+  <file>/usr/bin/also-rich</file>
+  <file>/usr/bin/rich</file>
+  <file>/usr/share/rich/data</file>
+  <file type="dir">/var/lib/rich</file>
+  <file type="ghost">/var/log/rich.log</file>
+</package>
+</filelists>

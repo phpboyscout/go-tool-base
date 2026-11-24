@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<otherdata xmlns="http://linux.duke.edu/metadata/other" packages="2">
+<package pkgid="620635e436c7a2ea2010edfc2217fdce947c1016cf469f33f316cf3828abfbee" name="gtb" arch="x86_64">
+  <version epoch="0" ver="1.0.0" rel="1"/>
+</package>
+<package pkgid="d4df626e203a421cf5776ddfb9bb6537b324673358e19fb42c99cff83676ef8c" name="rich" arch="x86_64">
+  <version epoch="3" ver="2.0.0" rel="4"/>
+</package>
+</otherdata>
