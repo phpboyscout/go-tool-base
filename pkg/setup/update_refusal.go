@@ -106,7 +106,8 @@ func (s *SelfUpdater) explainStaticRefusal(err error) (error, bool) {
 			"No answer came back from the release channel at %s. Check your internet connection. "+
 				"If it is working, the release host may be down for a while; try again later.", base), true
 
-	case errors.Is(err, static.ErrBrokenChain), errors.Is(err, static.ErrEscapesBase), errors.Is(err, static.ErrUnsupportedSchema):
+	case errors.Is(err, static.ErrBrokenChain), errors.Is(err, static.ErrEscapesBase), errors.Is(err, static.ErrUnsupportedSchema),
+		errors.Is(err, static.ErrTooManyRedirects):
 		return errors.WithHint(err,
 			"The release channel's documents do not resolve or are not trusted. This is the publisher's "+
 				"side to fix; the URLs above are the objects to check."), true

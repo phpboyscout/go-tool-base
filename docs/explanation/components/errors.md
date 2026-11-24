@@ -215,6 +215,7 @@ URL that failed.
 | `ErrInvalidBaseURL` | release channel base URL must be an absolute http(s) URL | The configured channel base is not an absolute `http` or `https` URL. Fix `release_source.base_url`. |
 | `ErrUnreachable` | the release channel could not be reached | No answer came back from the channel's host. Usually the network; retry. |
 | `ErrUnexpectedStatus` | the channel answered with an unexpected HTTP status | A status that is neither success nor 404. The wrapped error carries the status. |
+| `ErrTooManyRedirects` | the channel redirected too many times | One request was redirected more than 10 times. The channel needs repairing on the publishing side. |
 | `ErrNoReleasesPublished` | no release has been published on this channel yet | The `latest.json` pointer does not exist yet. Nothing to update to. |
 | `ErrReleaseNotFound` | no release with that tag on this channel | No manifest exists for the tag asked for. Check the version. |
 | `ErrNotFound` | the channel has no such object | An object a manifest names is not there: the release was published incompletely. |

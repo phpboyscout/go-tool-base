@@ -3,6 +3,7 @@ package static_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -377,6 +378,79 @@ func TestChannel_RefusesWhatItCannotTrust(t *testing.T) {
 		_, err = ch.Latest(context.Background())
 		require.ErrorIs(t, err, static.ErrEscapesBase)
 	})
+
+	t.Run("a redirect off the base after one under it is not followed", func(t *testing.T) {
+		t.Parallel()
+
+		var strayed atomic.Bool
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/acme/tool/latest.json":
+				http.Redirect(w, r, "/acme/tool/hop", http.StatusFound)
+			case "/acme/tool/hop":
+				http.Redirect(w, r, "/elsewhere/latest.json", http.StatusFound)
+			default:
+				strayed.Store(true)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		ch, err := static.New(srv.URL+"/acme/tool", srv.Client())
+		require.NoError(t, err)
+
+		_, err = ch.Latest(context.Background())
+		require.ErrorIs(t, err, static.ErrEscapesBase)
+		assert.False(t, strayed.Load())
+	})
+}
+
+func TestChannel_RedirectsAreBounded(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range map[string]struct {
+		redirects    int
+		wantRequests int
+		refused      bool
+	}{
+		"as many as the bound": {redirects: 10, wantRequests: 11},
+		"one more":             {redirects: 11, wantRequests: 11, refused: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var requests atomic.Int64
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				n := int(requests.Add(1))
+				if n <= tt.redirects {
+					http.Redirect(w, r, fmt.Sprintf("/acme/tool/hop%d", n), http.StatusFound)
+
+					return
+				}
+
+				_, _ = w.Write([]byte("sums"))
+			}))
+			t.Cleanup(srv.Close)
+
+			ch, err := static.New(srv.URL+"/acme/tool", srv.Client())
+			require.NoError(t, err)
+
+			got, err := ch.Fetch(context.Background(), srv.URL+"/acme/tool/v1.0.0/checksums.txt", 1<<10)
+			assert.EqualValues(t, tt.wantRequests, requests.Load())
+
+			if !tt.refused {
+				require.NoError(t, err)
+				assert.Equal(t, "sums", string(got))
+
+				return
+			}
+
+			require.ErrorIs(t, err, static.ErrTooManyRedirects)
+			require.NotErrorIs(t, err, static.ErrUnreachable)
+			assert.Contains(t, err.Error(), srv.URL+"/acme/tool/v1.0.0/checksums.txt")
+		})
+	}
 }
 
 func TestChannel_FetchAndOpenStayUnderTheBase(t *testing.T) {
