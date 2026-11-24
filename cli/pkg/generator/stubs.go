@@ -8,6 +8,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -231,54 +232,81 @@ func isUntouchedStub(f *dst.File, funcName string, sentinels ...string) bool {
 
 // withoutDeclared is data without the hooks and initialiser that another file of
 // the command's package declares, which a stub in main.go would redeclare (#235).
-// A file that cannot be read declares nothing, so that it stops no generation.
+// A file that cannot be read declares nothing, so that it stops no generation,
+// except that a new main.go leaves the initialiser to it (#240).
 func (g *Generator) withoutDeclared(cmdDir string, data templates.CommandData) templates.CommandData {
 	files, err := afero.ReadDir(g.props.FS, cmdDir)
 	if err != nil {
 		return data
 	}
 
+	var unread string
+
 	for _, file := range files {
-		f, ok := g.parseBesideMainFile(cmdDir, file.Name())
-		if !ok || f.Name.Name != data.Package {
-			continue
+		f, err := g.parseBesideMainFile(cmdDir, file)
+		if err != nil {
+			unread = filepath.Join(cmdDir, file.Name())
 		}
 
-		for prefix, enabled := range map[string]*bool{
-			"PersistentPreRun": &data.PersistentPreRun,
-			"PreRun":           &data.PreRun,
-			"Flags":            &data.FlagsHook,
-			"Init":             &data.WithInitializer,
-		} {
-			*enabled = *enabled && !declares(f, prefix+data.PascalName)
+		if f != nil && f.Name.Name == data.Package {
+			dropDeclared(f, &data)
 		}
+	}
+
+	if unread != "" && data.WithInitializer && !g.hasMainFile(cmdDir) {
+		g.props.Logger.Warn(fmt.Sprintf("%s: left Init%s out of main.go, because %s cannot be read and may declare it. "+
+			"Fix that file, then regenerate.", data.Name, data.PascalName, g.relProjectPath(unread)))
+
+		data.WithInitializer = false
 	}
 
 	return data
 }
 
-// parseBesideMainFile parses the named file when this system's build compiles it
-// along with main.go.
-func (g *Generator) parseBesideMainFile(cmdDir, name string) (*dst.File, bool) {
-	if name == "main.go" || strings.HasSuffix(name, "_test.go") {
-		return nil, false
+func dropDeclared(f *dst.File, data *templates.CommandData) {
+	for prefix, enabled := range map[string]*bool{
+		"PersistentPreRun": &data.PersistentPreRun,
+		"PreRun":           &data.PreRun,
+		"Flags":            &data.FlagsHook,
+		"Init":             &data.WithInitializer,
+	} {
+		*enabled = *enabled && !declares(f, prefix+data.PascalName)
+	}
+}
+
+func (g *Generator) hasMainFile(cmdDir string) bool {
+	exists, _ := afero.Exists(g.props.FS, filepath.Join(cmdDir, "main.go"))
+
+	return exists
+}
+
+// parseBesideMainFile parses a Go file that this system's build compiles along
+// with main.go, and is nil for any other.
+func (g *Generator) parseBesideMainFile(cmdDir string, file os.FileInfo) (*dst.File, error) {
+	name := file.Name()
+	if file.IsDir() || name == "main.go" || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") {
+		return nil, nil
 	}
 
 	gobuild := build.Default
 	gobuild.OpenFile = func(path string) (io.ReadCloser, error) { return g.props.FS.Open(path) }
 
 	if built, err := gobuild.MatchFile(cmdDir, name); err != nil || !built {
-		return nil, false
+		return nil, err
 	}
 
 	src, err := afero.ReadFile(g.props.FS, filepath.Join(cmdDir, name))
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 
 	f, err := decorator.Parse(src)
+	if err != nil {
+		// The file as far as it parsed comes with the error.
+		return nil, err
+	}
 
-	return f, err == nil
+	return f, nil
 }
 
 // declares reports whether f declares name at package level, as a function or

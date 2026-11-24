@@ -294,7 +294,12 @@ func TestPureGroup_MainFileLeavesWhatTheAuthorWrote(t *testing.T) {
 		"package documentation":    {"doc.go", "package documentation\n\nfunc InitLexicon() {}\n", false},
 		"assembly":                 {"init.s", "package lexicon\n", false},
 		"a method":                 {"other.go", "package lexicon\n\ntype t struct{}\n\nfunc (t) InitLexicon() {}\n", false},
-		"a file that won't parse":  {"other.go", "package lexicon\n\nfunc InitLexicon(\n", false},
+		"a file that won't parse":  {"other.go", "package lexicon\n\nfunc InitLexicon(\n", true},
+		"a merge conflict":         {"other.go", "<<<<<<< HEAD\n" + initialiser, true},
+		"a malformed build line":   {"other.go", "//go:build (\n\n" + initialiser, true},
+		"assembly with no build":   {"init.s", "//go:build (\n", false},
+		"a test that won't parse":  {"lexicon_test.go", "package lexicon\n\nfunc InitLexicon(\n", false},
+		"a tagged-out bad file":    {"other.go", "//go:build ignore\n\npackage lexicon\n\nfunc (\n", false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -418,6 +423,110 @@ func TestMainFile_AFileItCannotReadDeclaresNothing(t *testing.T) {
 			src, err := afero.ReadFile(g.props.FS, filepath.Join(cmdDir, "main.go"))
 			require.NoError(t, err)
 			assert.Contains(t, string(src), "func PreRunLexicon(")
+		})
+	}
+}
+
+// An unreadable file may declare Init<Name>, so a new main.go leaves it out and
+// says so. One that exists is given it, as before (#240).
+func TestMainFile_LeavesInitToAFileItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	const (
+		runOnly = "package lexicon\n\nfunc RunLexicon() {}\n"
+		// What the parser recovers before the conflict does not count.
+		conflicted = "package lexicon\n\nfunc InitLexicon() {}\n\nfunc PreRunLexicon() {}\n\n<<<<<<< HEAD\n"
+	)
+
+	for name, tt := range map[string]struct {
+		existing, beside string
+		readable         string
+		locked, force    bool
+		wantInit         bool
+		wantWarned       string
+	}{
+		"does not parse":           {beside: "func (", wantWarned: "pkg/cmd/lexicon/other.go"},
+		"declares it, then breaks": {beside: conflicted, wantWarned: "pkg/cmd/lexicon/other.go"},
+		"the same, main.go kept":   {existing: runOnly, beside: conflicted, wantInit: true},
+		"the same, main.go forced": {existing: runOnly, beside: conflicted, force: true, wantInit: true},
+		"cannot be opened":         {beside: "package lexicon\n", locked: true, wantWarned: "pkg/cmd/lexicon/other.go"},
+		"parses":                   {beside: "package lexicon\n", wantInit: true},
+		"main.go kept":             {existing: runOnly, beside: "func (", wantInit: true},
+		"main.go forced":           {existing: runOnly, beside: "func (", force: true, wantInit: true},
+		"another file declares it": {beside: "func (", readable: "package lexicon\n\nfunc InitLexicon() {}\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, cmdDir := emissionFixture(t, "", tt.existing)
+			log := logger.NewBuffer()
+			g.props.Logger = log
+			g.config.Force = tt.force
+
+			other := filepath.Join(cmdDir, "other.go")
+			require.NoError(t, afero.WriteFile(g.props.FS, other, []byte(tt.beside), DefaultFileMode))
+
+			if tt.readable != "" {
+				require.NoError(t, afero.WriteFile(g.props.FS, filepath.Join(cmdDir, "readable.go"), []byte(tt.readable), DefaultFileMode))
+			}
+
+			if tt.locked {
+				g.props.FS = openRefusedFs{Fs: g.props.FS, path: other}
+			}
+
+			data := templates.CommandData{Package: "lexicon", Name: "lexicon", PascalName: "Lexicon", PreRun: true, WithInitializer: true}
+			require.NoError(t, g.GenerateCommandFile(context.Background(), cmdDir, &data))
+			assert.True(t, data.WithInitializer, "init.go and the manifest still have it")
+
+			src, err := afero.ReadFile(g.props.FS, filepath.Join(cmdDir, "main.go"))
+			require.NoError(t, err)
+			assert.Contains(t, string(src), "func PreRunLexicon(")
+			assert.Equal(t, tt.wantInit, strings.Contains(string(src), "func InitLexicon("))
+
+			warned := warnings(t, log)
+			if tt.wantWarned == "" {
+				assert.Empty(t, warned)
+
+				return
+			}
+
+			require.Len(t, warned, 1)
+			assert.Contains(t, warned[0], "InitLexicon")
+			assert.Contains(t, warned[0], tt.wantWarned)
+		})
+	}
+}
+
+// Fixing the file and regenerating settles it: the function is written once.
+func TestMainFile_HoldsInitOnceTheFileIsReadable(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range map[string]struct {
+		fixed string
+		want  bool
+	}{
+		"declares it": {"package lexicon\n\nfunc InitLexicon() {}\n", false},
+		"does not":    {"package lexicon\n", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			g, cmdDir := emissionFixture(t, "", "")
+			g.config.Overwrite = "allow"
+			other, mainFile := filepath.Join(cmdDir, "other.go"), filepath.Join(cmdDir, "main.go")
+
+			for _, src := range []string{"func (", tt.fixed} {
+				require.NoError(t, afero.WriteFile(g.props.FS, other, []byte(src), DefaultFileMode))
+
+				data := templates.CommandData{
+					Package: "lexicon", Name: "lexicon", PascalName: "Lexicon", HasSubcommands: true, WithInitializer: true,
+				}
+				require.NoError(t, g.GenerateCommandFile(context.Background(), cmdDir, &data))
+			}
+
+			exists, err := afero.Exists(g.props.FS, mainFile)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, exists)
 		})
 	}
 }
