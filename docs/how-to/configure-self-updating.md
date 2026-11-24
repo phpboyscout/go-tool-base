@@ -316,7 +316,7 @@ update:
 
 ## Services and Other Unattended Runs
 
-The update check only runs for a person at a terminal. A service under systemd, a pod, a cron job or a script has no terminal on stdin, so it makes no check, is never blocked by the `enabled` policy and never self-updates. Under `enabled` it logs one warning that the policy was not enforced.
+The update check only runs for a person at a terminal. A service under systemd, a pod, a cron job or a script has no terminal on stdin, so it makes no check, is never blocked by the `enabled` policy and never self-updates. Under `enabled` it logs one warning that the policy was not enforced, unless the install is package-managed.
 
 Keep such an install current from the deployment instead:
 

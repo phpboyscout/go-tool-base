@@ -23,6 +23,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/features"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/pkgmanager"
 	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
 	cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/docs"
@@ -87,6 +88,45 @@ type rootState struct {
 	// watchOpts are passed to Store.Watch. Nil in production (the store picks
 	// its own defaults); a test seam for injecting a config.WithWatcher fake.
 	watchOpts []config.WatchOption
+	// detector finds the package manager that owns this binary. Nil in
+	// production (pkgmanager.New); a test seam.
+	detector packageDetector
+	packaged *bool
+}
+
+type packageDetector interface {
+	Detect(ctx context.Context, exe string) (pkgmanager.Install, bool)
+}
+
+// packageManaged reports whether a package manager owns the running binary. It
+// may run that manager's query, so ask it only before acting on the answer
+// (spec 0097 D7). One run asks once.
+func (s *rootState) packageManaged(ctx context.Context, props *p.Props) bool {
+	if s.packaged != nil {
+		return *s.packaged
+	}
+
+	detector := s.detector
+	if detector == nil {
+		detector = pkgmanager.New()
+	}
+
+	var (
+		install pkgmanager.Install
+		owned   bool
+	)
+
+	if exe, err := os.Executable(); err == nil {
+		install, owned = detector.Detect(ctx, exe)
+	}
+
+	if owned {
+		props.Logger.Debug("update check skipped: package manager", "manager", install.Manager, "package", install.Package)
+	}
+
+	s.packaged = &owned
+
+	return owned
 }
 
 func newRootState() *rootState {
@@ -695,6 +735,18 @@ func updatesLeftAlone(props *p.Props) (bool, error) {
 	return false, pinErr
 }
 
+func logUpdateCheck(props *p.Props, pinErr error) {
+	if pinErr != nil {
+		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", pinErr))
+	}
+
+	if age, ok := setup.TimeSinceLast(props.FS, props.Tool, setup.CheckedKey); ok {
+		props.Logger.Debug("time since last update check", "duration", age)
+	} else {
+		props.Logger.Debug("no update check recorded yet")
+	}
+}
+
 // checkForUpdates handles the version checking and update prompting logic.
 func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
@@ -716,26 +768,22 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	// being reminded. Suppressed when unattended (CI, or no terminal), where
 	// no check runs to keep the cached version current.
 	if unattendedReason(props, view) == "" {
-		warnIfBehindCached(props)
+		warnIfBehindCached(ctx, props, state)
 	}
 
 	if skip := updateCheckSkip(props, view, cmd, state); skip != updateCheckRuns {
 		if skip == updateSkippedNoTerminal {
-			warnPolicyNotEnforced(props, policy)
+			warnPolicyNotEnforced(ctx, props, state, policy)
 		}
 
 		return result
 	}
 
-	if pinErr != nil {
-		props.Logger.Warn(fmt.Sprintf("ignoring the update pin: %v", pinErr))
+	if state.packageManaged(ctx, props) {
+		return result
 	}
 
-	if age, ok := setup.TimeSinceLast(props.FS, props.Tool, setup.CheckedKey); ok {
-		props.Logger.Debug("time since last update check", "duration", age)
-	} else {
-		props.Logger.Debug("no update check recorded yet")
-	}
+	logUpdateCheck(props, pinErr)
 
 	selfUpdater, err := setup.NewUpdater(ctx, props, "", false)
 	if err != nil {
@@ -853,8 +901,8 @@ func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command
 
 // warnPolicyNotEnforced says that an enabled policy, which would block a person
 // at a terminal, did not block a run with nobody to update it (spec 0208 D7).
-func warnPolicyNotEnforced(props *p.Props, policy p.UpdatePolicy) {
-	if policy != p.UpdatePolicyEnabled {
+func warnPolicyNotEnforced(ctx context.Context, props *p.Props, state *rootState, policy p.UpdatePolicy) {
+	if policy != p.UpdatePolicyEnabled || state.packageManaged(ctx, props) {
 		return
 	}
 
@@ -959,8 +1007,9 @@ func performUpdate(ctx context.Context, props *p.Props, result *UpdateCheckResul
 // warnIfBehindCached emits a single out-of-date warning when the cached latest
 // version (from a prior check) is newer than the running binary. It is the
 // persistent reminder for users who declined an update or run a disabled-policy
-// tool — and costs no network call. Skipped for development builds.
-func warnIfBehindCached(props *p.Props) {
+// tool — and costs no network call. Skipped for development builds and for an
+// install a package manager owns.
+func warnIfBehindCached(ctx context.Context, props *p.Props, state *rootState) {
 	if props.Version.IsDevelopment() {
 		return
 	}
@@ -970,7 +1019,7 @@ func warnIfBehindCached(props *p.Props) {
 		return
 	}
 
-	if ver.CompareVersions(props.Version.GetVersion(), cached) < 0 {
+	if ver.CompareVersions(props.Version.GetVersion(), cached) < 0 && !state.packageManaged(ctx, props) {
 		props.Logger.Warn(fmt.Sprintf("a newer %s is available: %s — run '%s update' to upgrade",
 			props.Tool.Name, cached, props.Tool.Name))
 	}

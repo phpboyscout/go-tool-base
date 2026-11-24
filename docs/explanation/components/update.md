@@ -120,6 +120,17 @@ The variables are read with `os.Getenv` rather than through the config store,
 so no config layer can set them
 ([spec 0217](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0217-an-installer-can-tell-a-gtb-tool-its-install-is-managed)).
 
+The pre-run check leaves a package-managed install alone too, as it does one its
+environment names. It makes no probe, shows no reminder, does not block under
+the `enabled` policy, and does not say that policy was not enforced. The manager
+is that install's update channel, and a prompt to run `update`, or a block only
+`update` clears, is one the user cannot act on. dpkg and rpm have to be run to
+answer, so the check asks only when it is about to warn or probe, and at most
+once a run. No probe means no `last_checked` marker, so at a terminal a packaged
+install asks on every command the check covers. A run without a
+terminal under `enabled` asks as often, unless it is under CI
+([spec 0097](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0097-linux-package-signing) D7).
+
 ### Rollback and pin
 
 A rollback is a downgrade a person asked for, so it is verified exactly as any update is and confirmed first. Without
@@ -239,7 +250,8 @@ so the check is skipped altogether under every policy: no probe, no prompt, no
 block and no self-update, and stdin is never read
 ([spec 0208](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0208-an-unattended-run-starts-without-a-person)).
 Under `enabled` such a run logs one warning that the policy was not enforced, so
-whoever set it can see why. Keep a service current by redeploying it, or by
+whoever set it can see why, unless the install is
+[package-managed](#package-managed-guard). Keep a service current by redeploying it, or by
 running `update` from the deployment. The out-of-date reminder is suppressed
 too, as under CI. A service whose stdin is a terminal (`tty: true`,
 `docker run -t`) is treated as attended; pass `--ci` there.

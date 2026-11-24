@@ -67,7 +67,8 @@ unsolicited prompt on the start path must never read a piped stdin: under MCP
 stdio that stdin is the protocol. An unattended run:
 
 - makes no update check, so no policy blocks it and nothing self-updates. Under
-  the `enabled` policy it logs one warning that the policy was not enforced;
+  the `enabled` policy it logs one warning that the policy was not enforced,
+  unless a package manager owns the install;
 - shows no out-of-date reminder and no telemetry consent prompt;
 - needs no config file (see below).
 

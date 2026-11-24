@@ -47,6 +47,10 @@ replaced. It applies to every tool built on GTB, since they share the updater.
 A tool installed by the install script, into `$HOME/.local/bin`, updates
 itself as before.
 
+The pre-run check leaves such a binary alone: no check, no reminder that a newer
+version exists, and no block under the `enabled` update policy. The package
+manager says when there is something to upgrade to.
+
 ## Installs a manager declares
 
 A manager gtb cannot recognise by path, such as mise, asdf or aqua, says so

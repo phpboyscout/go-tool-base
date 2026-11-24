@@ -49,6 +49,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [Generated projects release on colophon](v0.x-generated-projects-release-on-colophon.md) |
 | v0.x | v0.x | [A signal-ended run dies by its signal](v0.x-signal-ended-runs-die-by-their-signal.md) |
 | v0.x | v0.x | [An unattended run starts without a person](v0.x-unattended-runs-start-without-a-person.md) |
+| v0.x | v0.x | [The pre-run check leaves a package-managed install alone](v0.x-packaged-installs-are-left-alone.md) |
 | v0.x | v0.x | [`chat.ProviderNames` removed](v0.x-chat-provider-names-removed.md) |
 | v0.x | v0.x | [Config keys that differ only in case are refused](v0.x-config-keys-that-collide-in-case.md) |
 | v0.x | v0.x | [features as a value, and a root that owns its registries](v0.x-features-as-a-value.md) |
