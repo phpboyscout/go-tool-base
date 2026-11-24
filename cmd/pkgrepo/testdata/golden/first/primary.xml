@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xmlns="http://linux.duke.edu/metadata/common" xmlns:rpm="http://linux.duke.edu/metadata/rpm" packages="2">
+<package type="rpm">
+  <name>gtb</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="1.0.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">92ce90a3732d344c20caa38ca07639dca9919908cd49ae3c9b17358e97d8b306</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1606" installed="20" archive="20"/>
+  <location href="../v1.0.0/gtb-1.0.0-1.aarch64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.0.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1496"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.0.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>gtb</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="1.0.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">620635e436c7a2ea2010edfc2217fdce947c1016cf469f33f316cf3828abfbee</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1602" installed="20" archive="20"/>
+  <location href="../v1.0.0/gtb-1.0.0-1.x86_64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.0.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1492"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.0.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+</metadata>

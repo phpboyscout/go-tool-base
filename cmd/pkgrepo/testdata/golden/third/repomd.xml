@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<repomd xmlns="http://linux.duke.edu/metadata/repo" xmlns:rpm="http://linux.duke.edu/metadata/rpm">
+  <revision>1769947200</revision>
+  <data type="primary">
+    <checksum type="sha256">ZIPPED</checksum>
+    <open-checksum type="sha256">50472e791525e0f6202057d7608a8e2999a02b0dbd57e26ffcc90b689bc57652</open-checksum>
+    <location href="repodata/ZIPPED-primary.xml.gz"/>
+    <timestamp>1769947200</timestamp>
+    <size>ZIPPED</size>
+    <open-size>6790</open-size>
+  </data>
+  <data type="filelists">
+    <checksum type="sha256">ZIPPED</checksum>
+    <open-checksum type="sha256">271d5c9c8e6490f71500f3c814738ec334236610686e5b036c418e0e2c2fabff</open-checksum>
+    <location href="repodata/ZIPPED-filelists.xml.gz"/>
+    <timestamp>1769947200</timestamp>
+    <size>ZIPPED</size>
+    <open-size>1271</open-size>
+  </data>
+  <data type="other">
+    <checksum type="sha256">ZIPPED</checksum>
+    <open-checksum type="sha256">a860e125c48c9d80a70f93a1659a36eb16b3db8c9a3fee9befdd713edce22adf</open-checksum>
+    <location href="repodata/ZIPPED-other.xml.gz"/>
+    <timestamp>1769947200</timestamp>
+    <size>ZIPPED</size>
+    <open-size>1099</open-size>
+  </data>
+</repomd>

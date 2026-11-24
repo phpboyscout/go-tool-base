@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xmlns="http://linux.duke.edu/metadata/common" xmlns:rpm="http://linux.duke.edu/metadata/rpm" packages="6">
+<package type="rpm">
+  <name>gtb</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="1.0.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">92ce90a3732d344c20caa38ca07639dca9919908cd49ae3c9b17358e97d8b306</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1606" installed="20" archive="20"/>
+  <location href="../v1.0.0/gtb-1.0.0-1.aarch64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.0.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1496"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.0.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>gtb</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="1.0.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">620635e436c7a2ea2010edfc2217fdce947c1016cf469f33f316cf3828abfbee</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1602" installed="20" archive="20"/>
+  <location href="../v1.0.0/gtb-1.0.0-1.x86_64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.0.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1492"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.0.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>gtb</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="1.1.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">530cdda4cb88b6bee52e1fd30700d169673b9944f3018eb58f6af5d3abe4c090</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1606" installed="20" archive="20"/>
+  <location href="../v1.1.0/gtb-1.1.0-1.aarch64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.1.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1496"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.1.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>gtb</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="1.1.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">88f60856c801a65ad2548d20c40fb822f053e372266c4ed7a65bdeaec9935b38</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1602" installed="20" archive="20"/>
+  <location href="../v1.1.0/gtb-1.1.0-1.x86_64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.1.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1492"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.1.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>gtb</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="1.10.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">8344b18145094aace8047dfb0bcaaad4621eaaa9d4f67a699cc2475cb145152f</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1610" installed="20" archive="20"/>
+  <location href="../v1.10.0/gtb-1.10.0-1.aarch64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.10.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1500"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.10.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>gtb</name>
+  <arch>x86_64</arch>
+  <version epoch="0" ver="1.10.0" rel="1"/>
+  <checksum type="sha256" pkgid="YES">be6b4d5cbc79e7b8635308c9a4c72fc66121560d53aba21e7326c6d6a0b4a9ec</checksum>
+  <summary>A helper utility for gtb repos &amp; resources</summary>
+  <description>A helper utility for gtb repos &amp; resources&#xA;with a second line.&#xA;</description>
+  <packager>phpboyscout &lt;release@example.test&gt;</packager>
+  <url>https://gitlab.com/phpboyscout/go-tool-base</url>
+  <time file="1767225600" build="1767225600"/>
+  <size package="1606" installed="20" archive="20"/>
+  <location href="../v1.10.0/gtb-1.10.0-1.x86_64.rpm"/>
+  <format>
+    <rpm:license>MIT</rpm:license>
+    <rpm:vendor>phpboyscout</rpm:vendor>
+    <rpm:group></rpm:group>
+    <rpm:buildhost>build.example.test</rpm:buildhost>
+    <rpm:sourcerpm>gtb-1.10.0-1.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="272" end="1496"/>
+    <rpm:provides>
+      <rpm:entry name="gtb" flags="EQ" epoch="0" ver="1.10.0" rel="1"/>
+    </rpm:provides>
+    <file>/usr/bin/gtb</file>
+  </format>
+</package>
+</metadata>

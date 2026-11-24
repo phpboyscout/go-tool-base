@@ -1,0 +1,24 @@
+# The fixture packages, built as gtb's are (.goreleaser.yaml, nfpms).
+# generate.sh rebuilds them.
+name: gtb
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: devel
+priority: extra
+vendor: phpboyscout
+maintainer: "phpboyscout <release@example.test>"
+homepage: https://gitlab.com/phpboyscout/go-tool-base
+license: MIT
+description: |
+  A helper utility for gtb repos & resources
+  with a second line.
+mtime: 2026-01-01T00:00:00Z
+contents:
+  - src: ./stub
+    dst: /usr/bin/gtb
+    file_info:
+      mode: 0755
+      mtime: 2026-01-01T00:00:00Z
+rpm:
+  buildhost: build.example.test

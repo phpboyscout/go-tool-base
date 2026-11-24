@@ -51,6 +51,7 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
 | `INT_TEST_DEPS=1` | Enables only tests tagged `"deps"`: dependency-footprint assertions that shell out to `go list -deps`. Gated because they need the build toolchain, not because they need credentials or a network |
+| `INT_TEST_PACKAGES=1` | Enables only tests tagged `"packages"`: `cmd/pkgrepo`'s, which install gtb with apt and dnf in containers, so they need docker and the network |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
