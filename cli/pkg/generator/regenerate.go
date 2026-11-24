@@ -287,7 +287,7 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 		g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
 	}
 
-	if err := g.refreshCommandFileHashes(g.config.Path); err != nil {
+	if err := g.refreshCommandFileHashes(g.config.Path, nil); err != nil {
 		g.props.Logger.Warn("Failed to refresh command file hashes after post-processing", "error", err)
 	}
 

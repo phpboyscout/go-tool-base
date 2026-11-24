@@ -146,3 +146,45 @@ func TestRunPostRegenerationProcessing_LeavesAKeptCommandFileAlone(t *testing.T)
 	assert.Equal(t, stored, recordedCommandHash(t, g),
 		"a kept file keeps its stored hash so the conflict is raised again next run")
 }
+
+// An edit made before the run is the developer's, not the lint's (#246).
+func TestRunSkeletonPostProcessing_LeavesAHandEditAlone(t *testing.T) {
+	t.Parallel()
+
+	g, cmdDir := commandHashFixture(t)
+	cmdGo := filepath.Join(cmdDir, "cmd.go")
+	stored := recordedCommandHash(t, g)
+
+	require.NoError(t, afero.WriteFile(g.props.FS, cmdGo, []byte("package pin // hand-edited\n"), DefaultFileMode))
+
+	g.runCommand = func(_ context.Context, _, name string, _ ...string) ([]byte, error) {
+		if name == "golangci-lint" {
+			require.NoError(t, afero.WriteFile(g.props.FS, cmdGo, []byte("package pin // hand-edited, linted\n"), DefaultFileMode))
+		}
+
+		return nil, nil
+	}
+
+	g.runSkeletonPostProcessing(context.Background(), g.config.Path)
+
+	assert.Equal(t, stored, recordedCommandHash(t, g))
+}
+
+func TestRunSkeletonPostProcessing_RecordsWhatTheLintWrote(t *testing.T) {
+	t.Parallel()
+
+	g, cmdDir := commandHashFixture(t)
+	cmdGo := filepath.Join(cmdDir, "cmd.go")
+
+	g.runCommand = func(_ context.Context, _, name string, _ ...string) ([]byte, error) {
+		if name == "golangci-lint" {
+			require.NoError(t, afero.WriteFile(g.props.FS, cmdGo, []byte(reformatted), DefaultFileMode))
+		}
+
+		return nil, nil
+	}
+
+	g.runSkeletonPostProcessing(context.Background(), g.config.Path)
+
+	assert.Equal(t, calculateHash([]byte(reformatted)), recordedCommandHash(t, g))
+}
