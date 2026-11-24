@@ -365,6 +365,28 @@ func TestChannel_RefusesWhatItCannotTrust(t *testing.T) {
 		assert.Contains(t, err.Error(), "503")
 	})
 
+	t.Run("a redirect that climbs out of the base is not followed", func(t *testing.T) {
+		t.Parallel()
+
+		var escaped atomic.Bool
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasSuffix(r.URL.Path, "/"+static.PointerFile) {
+				escaped.Store(true)
+			}
+
+			http.Redirect(w, r, "/acme/fixtool/%2e%2e/%2e%2e/other", http.StatusFound)
+		}))
+		t.Cleanup(srv.Close)
+
+		ch, err := static.New(srv.URL+"/acme/fixtool", srv.Client())
+		require.NoError(t, err)
+
+		_, err = ch.Latest(context.Background())
+		require.ErrorIs(t, err, static.ErrEscapesBase)
+		assert.False(t, escaped.Load(), "nothing outside the base was asked for")
+	})
+
 	t.Run("a redirect off the base is not followed", func(t *testing.T) {
 		t.Parallel()
 
@@ -383,6 +405,42 @@ func TestChannel_RefusesWhatItCannotTrust(t *testing.T) {
 
 		_, err = ch.Latest(context.Background())
 		require.ErrorIs(t, err, static.ErrEscapesBase)
+	})
+
+	t.Run("a redirect one difference off the base is not followed", func(t *testing.T) {
+		t.Parallel()
+
+		const path = "/acme/tool/hop"
+
+		var asked atomic.Int32
+
+		elsewhere := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { asked.Add(1) }))
+		t.Cleanup(elsewhere.Close)
+
+		var target string
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			asked.Add(1)
+			http.Redirect(w, r, target, http.StatusFound)
+		}))
+		t.Cleanup(srv.Close)
+
+		for name, to := range map[string]string{
+			"host":          strings.Replace(srv.URL, "127.0.0.1", "localhost", 1) + path,
+			"port":          elsewhere.URL + path,
+			"a longer name": srv.URL + "/acme/tool2/hop",
+		} {
+			target = to
+
+			asked.Store(0)
+
+			ch, err := static.New(srv.URL+"/acme/tool", srv.Client())
+			require.NoError(t, err)
+
+			_, err = ch.Latest(context.Background())
+			require.ErrorIs(t, err, static.ErrEscapesBase, name)
+			assert.EqualValues(t, 1, asked.Load(), name)
+		}
 	})
 
 	t.Run("a redirect off the base after one under it is not followed", func(t *testing.T) {
