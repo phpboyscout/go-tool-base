@@ -34,6 +34,14 @@ This command performs three key actions:
 !!! info "Full metadata is preserved"
     `add-flag` regenerates `cmd.go` from the command's **complete** manifest record, using the same mapping the `regenerate` command uses. Your command's aliases, persistent / required / shorthand flags, and pre-run hooks all survive the regeneration, and the refreshed `cmd.go` hash is written back to the manifest so the next `regenerate` does not flag the file as a manual customisation.
 
+## When `cmd.go` was edited by hand
+
+A `cmd.go` you keep does not get the flag. The manifest records it, one warning says so, and the run fails.
+
+- `--overwrite allow` replaces a file you edited by hand, and its edits are lost.
+- `--overwrite deny` keeps it. `ask`, the default, asks, and keeps it when there is no terminal.
+- A file `.gtb/ignore` covers is kept whatever the mode. Take it out of the file first.
+
 ## Supported Types
 
 You can use any of the following types for your flags:

@@ -294,6 +294,7 @@ Flags:
   -d, --description string   Flag description
   -h, --help                 help for add-flag
   -n, --name string          Flag name
+      --overwrite string     What to do with a cmd.go that was edited by hand: allow, deny, or ask (default "ask")
   -p, --path string          Filesystem project root directory (not a command path) (default ".")
       --persistent           Make the flag persistent
   -s, --shorthand string     Single-letter shorthand for the flag (e.g. v for -v)

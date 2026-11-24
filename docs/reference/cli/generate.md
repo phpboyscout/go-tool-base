@@ -282,6 +282,9 @@ A model is called when the run passes `--ai`, `--prompt` or `--script`, otherwis
 
 Add a new flag to an existing command (see [Add Flags](../../how-to/framework-cli/add-flags.md)).
 
+`--overwrite` (`ask` by default, or `allow` or `deny`) says what to do with a `cmd.go` that was edited by hand. A kept
+`cmd.go` records the flag in the manifest, does not get it, and fails the run.
+
 ### `generate docs`
 
 Generate Markdown docs for a command or package.

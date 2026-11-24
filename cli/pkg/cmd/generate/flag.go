@@ -24,10 +24,13 @@ type AddFlagOptions struct {
 	Persistent  bool
 	Shorthand   string
 	Path        string
+	Overwrite   generator.OverwriteMode
 }
 
 func NewCmdAddFlag(p *props.Props) *cobra.Command {
 	opts := AddFlagOptions{}
+
+	var overwrite string
 
 	cmd := &cobra.Command{
 		Use:   "add-flag",
@@ -46,6 +49,9 @@ NOT just the leaf name, and NOT a space- or dot-separated form:
 -p/--path is the filesystem project root (default "."), NOT a command path; it
 tells gtb which project's .gtb/manifest.yaml to edit.
 
+A cmd.go you keep (edited by hand, or covered by .gtb/ignore) records the flag
+without adding it, and the run fails: --overwrite allow replaces an edited one.
+
 Examples:
   # Add --verbose to the top-level 'deploy' command
   gtb generate add-flag -c deploy -n verbose -t bool -d "Verbose output"
@@ -57,6 +63,13 @@ Examples:
   gtb generate add-flag -c deploy -n output -t string -d "Output path" -s o
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			mode, err := generator.ParseOverwriteMode(overwrite)
+			if err != nil {
+				return usageError(err)
+			}
+
+			opts.Overwrite = mode
+
 			if err := opts.ValidateOrPrompt(cmd.Context(), p); err != nil {
 				return usageError(err)
 			}
@@ -72,6 +85,8 @@ Examples:
 	cmd.Flags().BoolVar(&opts.Persistent, "persistent", false, "Make the flag persistent")
 	cmd.Flags().StringVarP(&opts.Shorthand, "shorthand", "s", "", "Single-letter shorthand for the flag (e.g. v for -v)")
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Filesystem project root directory (not a command path)")
+
+	cmd.Flags().StringVar(&overwrite, "overwrite", "ask", icmd.OverwriteUsage)
 
 	return cmd
 }
@@ -238,21 +253,22 @@ func (o *AddFlagOptions) saveManifest(p *props.Props, m *generator.Manifest, pat
 	return generator.EncodeManifestFile(p.FS, generator.ManifestPathFor(o.Path), m)
 }
 
+// regenerateCommand renders from the full manifest record, because a partial one
+// drops the command's aliases, other flags and hooks.
 func (o *AddFlagOptions) regenerateCommand(ctx context.Context, p *props.Props, cmd *generator.ManifestCommand, parentPath []string) error {
-	// Regenerate through the same full-record mapping the `regenerate project`
-	// path uses. Building a partial CommandData here (as an earlier version did)
-	// silently dropped the command's aliases, persistent/required/shorthand
-	// flags, and pre-run hooks, and never wrote the refreshed cmd.go hash back
-	// to the manifest. RegenerateCommand populates CommandData from the full
-	// manifest command record and persists the new hash via the shared
-	// post-generation pipeline.
-	gen := generator.New(p, &generator.Config{Path: o.Path})
+	gen := generator.New(p, &generator.Config{Path: o.Path, Overwrite: o.Overwrite})
 
-	if err := gen.RegenerateCommand(ctx, *cmd, parentPath); err != nil {
-		return errors.Newf("failed to regenerate command files: %w", err)
+	edit := generator.CommandEdit{
+		Unchanged: "its flag " + o.FlagName,
+		Apply:     "the same gtb generate add-flag with --overwrite allow",
 	}
 
-	return nil
+	err := gen.RegenerateEditedCommand(ctx, *cmd, parentPath, edit)
+	if err == nil || errors.Is(err, generator.ErrCommandFileKept) {
+		return err
+	}
+
+	return errors.Newf("failed to regenerate command files: %w", err)
 }
 
 func findCommand(commands []generator.ManifestCommand, path []string, currentPath []string) (*generator.ManifestCommand, []string, error) {
