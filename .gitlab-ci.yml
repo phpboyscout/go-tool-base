@@ -397,7 +397,7 @@ go-work-sync:
 # #220). Widening go-test's `changes` would start e2e on every such edit.
 error-catalogue:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.12
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.5.13
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
