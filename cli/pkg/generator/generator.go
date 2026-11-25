@@ -56,7 +56,7 @@ const (
 	// SigillumVersion is the signer the scaffolded GitHub release workflow
 	// installs. On GitLab the goreleaser component's image carries it. Kept
 	// current by the Renovate customManager in renovate.json5.
-	SigillumVersion = "v0.6.0"
+	SigillumVersion = "v0.7.0"
 )
 
 type Config struct {
