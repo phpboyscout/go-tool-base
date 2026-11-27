@@ -24,6 +24,12 @@ var ErrNoCommandsDirectory = errors.NewSentinel("gtb.generator.no_commands_direc
 // because the manifest would lose the command and everything beneath it.
 var ErrCommandSourceUnreadable = errors.NewSentinel("gtb.generator.command_source_unreadable", "command source cannot be read")
 
+// ErrCommandOutsideParent is a manifest rebuild that met a registration the
+// manifest cannot record: one from outside the directory that holds the
+// registering command, or a second one, from another directory, of a command
+// the root already reaches. Nothing is written.
+var ErrCommandOutsideParent = errors.NewSentinel("gtb.generator.command_outside_parent", "command registration cannot be recorded in the manifest")
+
 func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -125,6 +131,7 @@ func (g *Generator) writeManifestFile(manifestPath string, m Manifest) error {
 }
 
 type commandEntry struct {
+	dir             string
 	cmd             *ManifestCommand
 	constructorName string
 	subcommandFuncs []string
@@ -188,6 +195,10 @@ func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
 	}
 
 	if err := g.checkUnread(unread, roots); err != nil {
+		return nil, err
+	}
+
+	if err := checkUnlinkedRegistrations(roots); err != nil {
 		return nil, err
 	}
 
@@ -299,6 +310,126 @@ func (g *Generator) checkUnread(unread []unreadDir, roots []*commandEntry) error
 	return nil
 }
 
+// checkUnlinkedRegistrations stops the scan at a command the root reaches that
+// registers a scanned command not linked beneath it: one outside the directory
+// that holds the registering command, or one another command already holds.
+// The manifest has nowhere to put that registration, and without the check it
+// vanished from the manifest and the next regenerate project dropped it from
+// the tool (#256).
+func checkUnlinkedRegistrations(roots []*commandEntry) error {
+	tree := indexScannedTree(roots)
+
+	for _, entry := range tree.reachable {
+		for _, constructor := range entry.subcommandFuncs {
+			child, ok := tree.scanned[constructor]
+			if !ok || child == entry || slices.Contains(entry.children, child) {
+				continue
+			}
+
+			if holder, ok := tree.placedUnder[child]; ok {
+				return registeredTwice(entry, child, holder)
+			}
+
+			// An orphan's claim only matters when it took a package already
+			// where this registration needs it, so the move hint would say
+			// to move it where it is.
+			if claimer, ok := tree.claimedBy[child]; ok && placedDir(entry, child.cmd.Name) == child.dir {
+				return registeredTwice(entry, child, claimer)
+			}
+
+			return registeredFromAnotherSubtree(entry, child)
+		}
+	}
+
+	return nil
+}
+
+type scannedTree struct {
+	scanned     map[string]*commandEntry
+	placedUnder map[*commandEntry]*commandEntry
+	claimedBy   map[*commandEntry]*commandEntry
+	reachable   []*commandEntry
+}
+
+func indexScannedTree(roots []*commandEntry) scannedTree {
+	tree := scannedTree{
+		scanned:     make(map[string]*commandEntry),
+		placedUnder: make(map[*commandEntry]*commandEntry),
+		claimedBy:   make(map[*commandEntry]*commandEntry),
+	}
+
+	var collect func(parent *commandEntry, entries []*commandEntry, fromRoot bool)
+
+	collect = func(parent *commandEntry, entries []*commandEntry, fromRoot bool) {
+		for _, entry := range entries {
+			if entry.constructorName != "" {
+				tree.scanned[entry.constructorName] = entry
+			}
+
+			if parent != nil {
+				tree.claimedBy[entry] = parent
+
+				if fromRoot {
+					tree.placedUnder[entry] = parent
+				}
+			}
+
+			if fromRoot {
+				tree.reachable = append(tree.reachable, entry)
+			}
+
+			collect(entry, entry.children, fromRoot)
+		}
+	}
+
+	for _, root := range roots {
+		collect(nil, []*commandEntry{root}, root.cmd.Name == "root")
+	}
+
+	return tree
+}
+
+// registeredTwice names the registration to keep: the one regenerate project
+// would scaffold the package beneath. It judges the two registrations the scan
+// met, and a third registrant shows on the next run. Keeping a registration
+// that matches neither walks into #262, so then it gives both move targets.
+func registeredTwice(parent, child, holder *commandEntry) error {
+	err := errors.Newf("%w: %s registers %s, which %s registers", ErrCommandOutsideParent, parent.dir, child.dir, holder.dir)
+
+	for _, pair := range [][2]*commandEntry{{holder, parent}, {parent, holder}} {
+		keep, drop := pair[0], pair[1]
+		if placedDir(keep, child.cmd.Name) == child.dir {
+			return errors.WithHintf(err,
+				"regenerate project puts %s beneath %s, so keep that registration and remove the one in %s. "+
+					"The manifest has not been changed.",
+				child.dir, keep.dir, drop.dir)
+		}
+	}
+
+	return errors.WithHintf(err,
+		"regenerate project puts each command at pkg/cmd/<parent commands>/<name>, and neither registration "+
+			"matches. Keep one and move the package to match it: to %s to keep %s's, or to %s to keep %s's. "+
+			"The manifest has not been changed.",
+		placedDir(holder, child.cmd.Name), holder.dir, placedDir(parent, child.cmd.Name), parent.dir)
+}
+
+func registeredFromAnotherSubtree(parent, child *commandEntry) error {
+	return errors.WithHintf(errors.Newf("%w: %s registers %s", ErrCommandOutsideParent, parent.dir, child.dir),
+		"regenerate project puts each command at pkg/cmd/<parent commands>/<name>. Move %s to %s, "+
+			"or register it from the command that directory belongs to. The manifest has not been changed.",
+		child.dir, placedDir(parent, child.cmd.Name))
+}
+
+// placedDir is where regenerate project scaffolds a command named name beneath
+// registrant. The root lives in pkg/cmd/root, but its commands sit in pkg/cmd.
+func placedDir(registrant *commandEntry, name string) string {
+	if registrant.cmd.Name == "root" {
+		return filepath.Join(filepath.Dir(registrant.dir), name)
+	}
+
+	return filepath.Join(registrant.dir, name)
+}
+
 // registers lists every constructor the command and those beneath it register.
 func (e *commandEntry) registers() []string {
 	constructors := slices.Clone(e.subcommandFuncs)
@@ -364,6 +495,7 @@ func (g *Generator) processFileEntry(dir string, entry os.FileInfo) ([]*commandE
 	}
 
 	return []*commandEntry{{
+		dir:             dir,
 		cmd:             cmd,
 		constructorName: cName,
 		subcommandFuncs: subFuncs,
