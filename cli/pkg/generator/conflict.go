@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -86,6 +87,13 @@ type conflictLog struct {
 	// behaviourChanges records a command whose regenerated cmd.go changed what
 	// the built tool does, not merely how it is written (spec 0190 D7).
 	behaviourChanges []behaviourChange
+	// replaced names framework files a run rewrote over different content. They
+	// carry no hash, so an edit and an older skeleton look the same (#259).
+	replaced []string
+	// noteRewrites is set by regenerate project, which the template commands
+	// also run. Other commands that rewrite these files, such as enable
+	// signing, report nothing, though their rewrite can be over an edit too.
+	noteRewrites bool
 	// adoptable names working groups that could take the new model but were left
 	// alone, so the run that changes one group can offer the choice for the rest.
 	adoptable []string
@@ -156,6 +164,12 @@ func (l *conflictLog) recordSealed(relPath string) {
 	l.sealed = append(l.sealed, relPath)
 }
 
+func (l *conflictLog) recordReplaced(relPath string) {
+	if l.noteRewrites && !slices.Contains(l.replaced, relPath) {
+		l.replaced = append(l.replaced, relPath)
+	}
+}
+
 func (l *conflictLog) recordIgnored(relPath string) {
 	for _, p := range l.ignored {
 		if p == relPath {
@@ -195,6 +209,8 @@ func (l *conflictLog) reset() {
 	l.kept = nil
 	l.ignored = nil
 	l.sealed = nil
+	l.replaced = nil
+	l.noteRewrites = false
 	l.pendingChecks = nil
 }
 
@@ -345,12 +361,20 @@ func (g *Generator) reportConflicts() {
 
 	changes := g.conflicts.behaviourChanges
 
-	if len(kept) == 0 && len(ignored) == 0 && len(g.conflicts.sealed) == 0 && len(changes) == 0 {
+	replaced := slices.Sorted(slices.Values(g.conflicts.replaced))
+
+	if len(kept) == 0 && len(ignored) == 0 && len(g.conflicts.sealed) == 0 && len(changes) == 0 && len(replaced) == 0 {
 		return
 	}
 
 	g.props.Logger.Info(pluraliseConflictSummary(
-		len(ignored), len(kept), len(g.conflicts.sealed), len(changes)))
+		len(ignored), len(kept), len(g.conflicts.sealed), len(changes), len(replaced)))
+
+	for _, path := range replaced {
+		g.props.Logger.Warn("rewrote a framework file whose content differed from the skeleton; if that was an edit of yours, it is gone",
+			"path", path,
+			"remedy", "gtb ignore add "+path)
+	}
 
 	g.reportBehaviourChanges()
 	g.reportReleasePair()
@@ -372,7 +396,7 @@ func (g *Generator) reportConflicts() {
 
 // pluraliseConflictSummary renders the one-line summary counts, e.g.
 // "3 files ignored, 1 file kept, 1 file sealed".
-func pluraliseConflictSummary(ignored, kept, sealed, changed int) string {
+func pluraliseConflictSummary(ignored, kept, sealed, changed, replaced int) string {
 	var parts []string
 
 	if ignored > 0 {
@@ -389,6 +413,10 @@ func pluraliseConflictSummary(ignored, kept, sealed, changed int) string {
 
 	if changed > 0 {
 		parts = append(parts, fmt.Sprintf("%s changed behaviour", plural(changed, "command")))
+	}
+
+	if replaced > 0 {
+		parts = append(parts, fmt.Sprintf("%s rewritten", plural(replaced, "framework file")))
 	}
 
 	return strings.Join(parts, ", ")

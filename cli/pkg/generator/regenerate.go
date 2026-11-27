@@ -70,6 +70,7 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 	}
 
 	g.conflicts.reset()
+	g.conflicts.noteRewrites = true
 
 	// Route the whole regeneration (docs migration, file writes and the
 	// manifest/hash persistence) through a staged overlay and commit it to the
@@ -484,22 +485,7 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 
 	g.props.Logger.Debug("writing root command", "path", rootCmdPath)
 
-	if err := g.props.FS.MkdirAll(filepath.Dir(rootCmdPath), DefaultDirMode); err != nil {
-		return errors.Newf("failed to create root command directory: %w", err)
-	}
-
-	out, err := g.props.FS.Create(rootCmdPath)
-	if err != nil {
-		return errors.Newf("failed to create root command file: %w", err)
-	}
-
-	defer func() { _ = out.Close() }()
-
-	if err := f.Render(out); err != nil {
-		return errors.Newf("failed to render root command file: %w", err)
-	}
-
-	return nil
+	return g.renderGeneratedGoFile("pkg/cmd/root/cmd.go", f)
 }
 
 // warnOnKeyCaseChange tells the author when the root about to be written

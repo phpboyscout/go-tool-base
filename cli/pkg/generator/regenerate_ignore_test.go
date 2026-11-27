@@ -28,8 +28,10 @@ func TestRegenerateProject_KeepsAnIgnoredFrameworkFile(t *testing.T) {
 	edited := editFile(t, fs, mcp)
 	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte("cmd/mytool/mcp.go\n"), 0o644))
 
-	regenerateAgain(t, g)
+	buf := regenerateAgain(t, g)
 	assertContent(t, fs, mcp, edited)
+	assert.False(t, buf.ContainsLevel(logger.WarnLevel, "rewrote a framework file"),
+		"a kept file is not reported as rewritten; got: %v", buf.Messages())
 
 	m, err := g.loadManifest()
 	require.NoError(t, err)
@@ -37,7 +39,7 @@ func TestRegenerateProject_KeepsAnIgnoredFrameworkFile(t *testing.T) {
 	m.Properties.Features = append(m.Properties.Features, ManifestFeature{Name: "mcp", Enabled: false})
 	require.NoError(t, g.writeManifest(m))
 
-	buf := regenerateAgain(t, g)
+	buf = regenerateAgain(t, g)
 	assertContent(t, fs, mcp, edited)
 	assert.True(t, buf.ContainsLevel(logger.WarnLevel, "so the feature stays on in the built tool"),
 		"the manifest says mcp is off, but the kept file still links it; got: %v", buf.Messages())

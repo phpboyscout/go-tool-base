@@ -135,7 +135,19 @@ None of the three modes applies to the framework's own files listed under
 [What it rewrites](#what-it-rewrites), the root command's `pkg/cmd/root/cmd.go`
 among them. They carry no hash, so a run cannot tell your edit from an older
 skeleton, and it rewrites them every time. To keep one as you wrote it, add a
-rule to [`.gtb/ignore`](../../how-to/configure-generator-ignore.md).
+rule to [`.gtb/ignore`](../../how-to/configure-generator-ignore.md). A run that
+replaces different content in one of them says so in its summary, and names
+the rule:
+
+```text
+WARN rewrote a framework file whose content differed from the skeleton; if that was an edit of yours, it is gone path=pkg/cmd/root/cmd.go remedy="gtb ignore add pkg/cmd/root/cmd.go"
+```
+
+It says the same when a gtb upgrade or a manifest change alters what the
+skeleton renders, because without a hash the run cannot tell that from an
+edit. Only a regenerate reports it: `regenerate project`, and the
+`gtb template` commands that run one. A command that rewrites the root to wire
+a feature, such as `gtb enable signing`, does not, even over an edit.
 
 Any other file the manifest has no hash for, but which exists with different
 content, was not created by gtb: a project scaffolded into an existing repository, or a

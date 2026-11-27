@@ -1,8 +1,10 @@
 package generator
 
 import (
+	"bytes"
 	"context"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -104,10 +106,32 @@ func (g *Generator) writeGeneratedGoFile(relPath string, f *jen.File) error {
 		return nil
 	}
 
+	return g.renderGeneratedGoFile(relPath, f)
+}
+
+// renderGeneratedGoFile is writeGeneratedGoFile for a caller that has already
+// consulted the rules.
+func (g *Generator) renderGeneratedGoFile(relPath string, f *jen.File) error {
 	fullPath := filepath.Join(g.config.Path, relPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), DefaultDirMode); err != nil {
 		return errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
+	}
+
+	var rendered bytes.Buffer
+	if err := f.Render(&rendered); err != nil {
+		return errors.Newf("failed to render %s: %w", relPath, err)
+	}
+
+	existing, err := afero.ReadFile(g.props.FS, fullPath)
+
+	switch {
+	case err == nil:
+		if !bytes.Equal(existing, rendered.Bytes()) {
+			g.conflicts.recordReplaced(relPath)
+		}
+	case !os.IsNotExist(err):
+		return errors.Newf("failed to read %s: %w", relPath, err)
 	}
 
 	out, err := g.props.FS.Create(fullPath)
@@ -117,8 +141,8 @@ func (g *Generator) writeGeneratedGoFile(relPath string, f *jen.File) error {
 
 	defer func() { _ = out.Close() }()
 
-	if err := f.Render(out); err != nil {
-		return errors.Newf("failed to render %s: %w", relPath, err)
+	if _, err := out.Write(rendered.Bytes()); err != nil {
+		return errors.Newf("failed to write %s: %w", relPath, err)
 	}
 
 	return nil

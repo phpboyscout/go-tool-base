@@ -179,8 +179,9 @@ func TestSummary_CountsBehaviourChangesAlongsideTheRest(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, "1 file kept, 1 command changed behaviour",
-		pluraliseConflictSummary(0, 1, 0, 1))
+		pluraliseConflictSummary(0, 1, 0, 1, 0))
 	assert.Equal(t, "2 files ignored, 3 commands changed behaviour",
-		pluraliseConflictSummary(2, 0, 0, 3))
-	assert.Equal(t, "1 file sealed", pluraliseConflictSummary(0, 0, 1, 0))
+		pluraliseConflictSummary(2, 0, 0, 3, 0))
+	assert.Equal(t, "1 file sealed", pluraliseConflictSummary(0, 0, 1, 0, 0))
+	assert.Equal(t, "1 file kept, 2 framework files rewritten", pluraliseConflictSummary(0, 1, 0, 0, 2))
 }
