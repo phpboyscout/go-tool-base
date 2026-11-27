@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.55.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.55.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.55.0...v0.55.1)
+
+### Notes
+
+- an update whose rotation manifest would leave out a revoke the applied rotation record holds now fails with `verify.ErrRotationRefused` and keeps the key revoked, where it used to replace the record and trust the revoked key again; two updates in one process can no longer lose a revoke either; until gtb moves to go/signing-trust, every rotation manifest after a compromise must be `reason: compromise` and repeat every earlier revoke, because go/signing v0.15.2 refuses a revoke in a `scheduled` manifest and the store refuses one that leaves a revoke out.
+
+### Bug Fixes
+
+- **setup**: refuse a rotation record that drops a stored revoke ([ef8ec77](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ef8ec777def2149cfb14d1f00c47f5f248624df8))
+
 ## [v0.55.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.55.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.54.0...v0.55.0)
