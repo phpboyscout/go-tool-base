@@ -257,6 +257,12 @@ Generate a new command or subcommand (optionally AI-converted from a script).
 | `--mcp-enabled` | `true` | Expose this command as an MCP tool (tri-state: `--mcp-enabled=false` withholds it from the MCP surface; it stays runnable on the CLI). |
 | `--path, -p` | `.` | Filesystem project root (not a command path). |
 
+A command with `--parent` is registered in the parent's `cmd.go` even when you
+have edited that file. The parent's recorded hash moves only when the file
+matched it, so the next `regenerate project` still reports an edit. A parent
+the manifest records no hash for (after `regenerate manifest`, say) stays
+unrecorded, and `regenerate project` keeps it.
+
 All `generate` subcommands also accept these persistent flags:
 
 | Flag | Default | Description |

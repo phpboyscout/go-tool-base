@@ -129,6 +129,9 @@ func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDi
 		case written == parentWrittenOverEdit:
 			p.g.props.Logger.Warn("registered the command in a parent that has been modified since it was generated; the parent's recorded hash is left as it was, so the next regenerate reports the conflict",
 				"parent", filepath.Join(p.g.getParentPathParts()...))
+		case written == parentWrittenUnrecorded:
+			p.g.props.Logger.Info("registered the command in a parent the manifest records no hash for; the parent stays unrecorded, so regenerate keeps it",
+				"parent", filepath.Join(p.g.getParentPathParts()...))
 		case written == parentWritten:
 			if err := p.g.updateParentCmdHash(); err != nil {
 				p.g.props.Logger.Warn("failed to update parent command hash", "error", err)

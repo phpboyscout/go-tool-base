@@ -66,6 +66,23 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     When I run gtb in the project with "regenerate project --overwrite deny"
     Then the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
 
+  Scenario: adding a command leaves a parent gtb has no hash for unrecorded
+    # Issue #255: adding a child recorded the edit, and a later last removal replaced it.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name serve --short serve-it"
+    And I run gtb in the project with "generate command --name status --parent serve --short status-it"
+    And I hand-edit the generated "pkg/cmd/serve/cmd.go" file
+    And I delete the generated ".gtb/manifest.yaml" file
+    And I run gtb in the project with "regenerate manifest"
+    And I run gtb in the project with "generate command --name extra --parent serve --short extra-it"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "extra.NewCmdExtra"
+    When I run gtb in the project with "remove command --name extra --parent serve"
+    And I run gtb in the project with "remove command --name status --parent serve --force"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/serve/cmd.go" file does not contain "status.NewCmdStatus"
+
   Scenario: remove refuses a protected command unless forced
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name guarded --short guarded-widget --protected"
