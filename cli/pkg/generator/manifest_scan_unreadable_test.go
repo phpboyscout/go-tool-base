@@ -364,9 +364,7 @@ func NewCmdRoot(p *props.Props) *setup.Command {
 	assert.Equal(t, unreadableManifest, raw)
 
 	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/_deep/cmd.go", []byte(registeringSource("_deep")), 0o644))
-	require.NoError(t, g.RegenerateManifest(context.Background()))
-
-	_, m := readRoundTripManifest(t, fs)
-	require.Len(t, m.Commands, 3)
-	assert.Equal(t, "hook", m.Commands[1].Name)
+	err = g.RegenerateManifest(context.Background())
+	require.ErrorIs(t, err, ErrCommandOutsideParent, "readable, _deep is still registered from another subtree")
+	require.ErrorContains(t, err, "/work/pkg/cmd/_deep")
 }

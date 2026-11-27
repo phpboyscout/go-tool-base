@@ -174,4 +174,28 @@ something imports it. One that cannot be read or parsed stops the run when a
 command in the tool registers it or a package beneath it, and is left out with a
 warning otherwise.
 
+`regenerate project` puts each command at `pkg/cmd/<parent commands>/<name>`,
+and the root's own commands at `pkg/cmd/<name>`, so keep each package there:
+`pkg/cmd/serve/api/cmd.go` registers `pkg/cmd/serve/api/status`. Two cases
+stop the run before the manifest is written, and the error names the
+directories involved:
+
+- a registration from outside the directory that holds the registering
+  command, such as `pkg/cmd/serve/api/cmd.go` registering
+  `pkg/cmd/lib/status`. The hint gives the directory to move the package to.
+- a second registration, from another directory, of a package a command the
+  root reaches already registers, such as the root and `pkg/cmd/serve` both
+  registering `pkg/cmd/serve/api`. The hint names the registration to keep,
+  here `serve`'s, because that is where `regenerate project` puts the package.
+  When neither matches, it gives the directory to move the package to for each.
+
+A package elsewhere in the directory that holds the registering command, such
+as `pkg/cmd/serve/api` registering `pkg/cmd/serve/status`, is recorded, and so
+is a package two commands in one directory both register. In both cases
+`regenerate project` then scaffolds a stub at the place it expects and the two
+disagree
+([#262](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/262)). A
+command that nothing reachable from the root registers is left out with an
+orphan warning.
+
 > Run any subcommand with `--help` for the complete, authoritative flag set.
