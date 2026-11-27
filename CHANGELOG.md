@@ -1,5 +1,102 @@
 # Changelog
 
+## [v0.55.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.55.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.54.0...v0.55.0)
+
+### Notes
+
+- `gtb regenerate manifest` stops, naming the directory to move it to and the constructor rename the move needs, at a command that is not at `pkg/cmd/<parent commands>/<name>`, and at a `NewCmd…` registration of another package under `pkg/cmd` that it did not read as a command (one moved without renaming its constructor, a second constructor beside a package's first, or one in `root.go`), where it used to write a manifest that a later `regenerate project` broke by stubbing the command, listing it twice or leaving it out; a project keeping a command elsewhere, a `_legacy` or `testdata` directory included, must move the package and rename its constructor, package clause, options type, run function and `setup.Wrap` name to match before rebuilding its manifest.
+
+- `gtb regenerate manifest` stops and names commands in one directory that register each other, or a command that registers its parent, where it crashed with a stack overflow or dropped them from the manifest without a warning; a longer loop stops as a second registration when the root reaches it, and is left out with an orphan warning otherwise.
+
+- `gtb regenerate manifest` stops and names a command registered from outside the directory that holds the registering command, or registered a second time from another directory, where the registration was lost from the manifest and a later `regenerate project` could drop the command; the hint names the registration to keep, or the directory to move the package to, so that `regenerate project` keeps the command.
+
+- A name given to `gtb attach command --name` is held: `gtb enable`, `gtb generate command` and a second attachment that would take it are refused.
+
+- `gtb generate add-flag`, `protect` and `unprotect` preview under `--dry-run` instead of writing. `generate.NewCmdAddFlag`, `NewCmdProtect` and `NewCmdUnprotect` take the shared flags.
+
+- update on a static release channel stops when the channel refuses to follow a redirect for checksums.txt or its signature, even where neither is required. A missing file still only warns.
+
+- gtb leaves Init<Name> out of a new main.go, with a warning, when another Go file of the command's package cannot be read.
+
+- `gtb generate add-flag` now refuses a protected command. Run `gtb generate command unprotect` first.
+
+- `gtb generate add-flag` now fails when it keeps a `cmd.go`, and takes `--overwrite allow` to replace one edited by hand.
+
+- `gtb regenerate manifest` exits 1 at a Go file under `pkg/cmd` it cannot read or parse, where it used to drop the command and exit 0.
+
+- `gtb enable mcp`, `gtb disable mcp` and `gtb annotate` exit non-zero when a kept cmd.go did not take the change; `--overwrite allow` replaces a hand-edited file, and `RunMCPCommand` takes the overwrite mode.
+
+- `gtb enable`, `gtb disable`, `gtb set` and an external attach no longer record a hand-edited command as gtb's own, so a later run asks before it replaces the file.
+
+- `gtb attach command --name` refuses a name that a built-in or one of the project's own commands has. Use `gtb attach adapter` to attach the command under another name.
+
+- `gtb wizard` keeps the signing rotation overlap and a `both` key source it does not ask about, where a revisit closed the overlap so releases stopped being signed with both keys; a signing change under a `.gtb/ignore` rule stops only when it would rewrite a file the rule keeps, so disabling signing that is already off, or a setting such as `signing.backend` that only the release pipeline reads, goes ahead; a signed project's first `module_path` or release source, which adds the trust keys to the root, now stops under a rule on `pkg/cmd/root/cmd.go` too, whichever command sets it.
+
+- `gtb regenerate project` names each framework file it rewrote over different content, such as an edited `pkg/cmd/root/cmd.go`, and the `gtb ignore add` rule that keeps it; those files are rewritten on every run whatever `--overwrite` says, and `pkg/cmd/root/provenance.go`, written with the manifest, is replaced without a note.
+
+- A `.gtb/ignore` rule now keeps the framework files beside the root that regenerate writes (the link files such as `mcp.go`, `chat.go`, `forge.go`, `config.go` and the signing files), though not `provenance.go`, which is written with the manifest; a signing change (`gtb enable signing`, `gtb disable signing`, `gtb set`/`gtb unset` on a `signing.*` key, or `gtb wizard`) stops and names the file when a rule covers the root or `signing.go`, or the trust keys when signing ends up on, where it recorded a signing posture the built tool did not have; `gtb regenerate project` warns, naming the file, when a kept `signing.go` or root lacks the manifest's signing settings.
+
+- `gtb generate command --parent ... --force` no longer overwrites a hand-edited parent when it gains its first child; `--force` applies only to the command being generated.
+
+- `gtb generate command --parent` leaves a parent with no recorded hash unrecorded, where it recorded a hand edit there as generated and a later `gtb remove command` of the last child replaced it.
+
+- `gtb generate`'s repair agent stops with an error when its input ends before an answer, where it took its first suggestion from empty input, and its questions are answered one line at a time under `--accessible`.
+
+- `gtb remove command` keeps a hand-edited parent's edit and recorded hash, and leaves a parent with no recorded hash unrecorded, where it recorded the edit as its own and replaced it when the last child was removed.
+
+- Under `--accessible`, a conflict prompt whose input ends keeps the file and says so, and View diff prints the diff. `setup.PrepareForm` is deprecated: use `setup.RunFormDetached`.
+
+- update refuses a static channel URL that spells the base URL's path with another percent-encoding, or that holds a . or .. segment followed by a ; or by trailing spaces.
+
+- update refuses a static channel URL that holds a . or .. path segment after the base URL, percent-encoded or not, where it used to follow one out of the base.
+
+- Releases carry a deb and an rpm of gtb for linux amd64 and arm64, listed in checksums.txt.
+
+- the check before a command no longer probes, reminds or blocks an install that Homebrew, dpkg or rpm owns, whatever the update policy. See docs/reference/migration/v0.x-packaged-installs-are-left-alone.md.
+
+- update and doctor warn when a tool's config directory is inside a git checkout (or cannot be resolved), since an applied key rotation is not kept there and a revoked release key is trusted again. Keep the directory outside any checkout.
+
+- A tool can keep its directory under XDG_CONFIG_HOME (Config.Dir, or gtb generate project --config-dir xdg). Breaking for library users: setup.GetDefaultConfigDir is removed for setup.ConfigDir(p.Tool), and fifteen setup functions take p.Tool where they took p.Tool.Name. Run gtb regenerate project if a generated init.go fails to compile. See docs/reference/migration/v0.x-config-dir-takes-the-tool.md.
+
+### Features
+
+- **pkgrepo**: write the apt and yum indexes for a release ([21b30cf](https://gitlab.com/phpboyscout/go-tool-base/-/commit/21b30cf9ac83128ad328b8137c55a616ad0a93a0))
+- **release**: build a deb and an rpm of gtb ([5f644c6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5f644c613bb2cc2dffd350c5ae9c186749bc685b))
+- **setup**: let a tool keep its directory under XDG_CONFIG_HOME ([085143a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/085143a8249b27287fe3218e63e87dfba43d70ab))
+
+### Bug Fixes
+
+- **generator**: stop a manifest rebuild at a misplaced command ([e42381a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e42381a1e0d5723f256a0b2066031a40229bfebe))
+- **generator**: stop a manifest rebuild at commands that register each other ([45affd6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/45affd66583593df2ffa6e1c227322580a452fe0))
+- **generator**: stop a manifest rebuild at a command registered from another subtree ([eed825e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/eed825ec4454420d55c223890f7d7f42537a9abc))
+- **generator**: keep a name an attached command declares from being taken later ([014900a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/014900a12f58ab2c2b940232946d09111311679f))
+- **generate**: write nothing on a dry run of add-flag, protect or unprotect ([7eaee40](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7eaee40705f5b9c66fe45dbcb520f28b00e315d9))
+- **update**: stop at a redirect the static channel refuses ([68c4996](https://gitlab.com/phpboyscout/go-tool-base/-/commit/68c49968f83327be832e7bcf9d5cc0b8b28f965a))
+- **generator**: leave Init out of a new main.go beside a file it cannot read ([cd99704](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cd997040238d2f73e6d0cc00d377382e8ca7ab65))
+- **generator**: refuse to add a flag to a protected command ([99b5dcf](https://gitlab.com/phpboyscout/go-tool-base/-/commit/99b5dcfc0571e50b1a06418b14da55d94a20abd5))
+- **generator**: fail add-flag when a kept cmd.go did not take the flag ([9ce1bb6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9ce1bb64b95a52cb81d2a49f71a703691b15aa35))
+- **generator**: stop regenerate manifest at a command it cannot read ([4322612](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4322612e81964aa868cc357e9c5507ec1f61e863))
+- **generator**: fail an MCP edit that a kept cmd.go did not take ([3f03b5a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3f03b5ae522758f16a63aa69ed446c1efd33e6df))
+- **generator**: leave a hand-edited command's recorded hash alone ([37fbd87](https://gitlab.com/phpboyscout/go-tool-base/-/commit/37fbd878b4aabea03b3a7ae1b1cbb7a6c27497a6))
+- **generator**: refuse an attached command whose declared name is taken ([8b25bb6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b25bb6938d062c7b186b31742b4f2b0bc90d809))
+- **generator**: refuse a signing change only when it rewrites a kept file ([0c70686](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0c706865f3771fb49b37d78441e4469c7130fdaf))
+- **generator**: say when regenerate rewrote a framework file over different content ([7877f00](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7877f00fa1ca0980a565d7e4353a11a6fd2cf233))
+- **generator**: keep a framework file a .gtb/ignore rule covers ([5b8a201](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5b8a20196d83f3699bafed6a6031c7347e735153))
+- **generator**: keep --force off the parent when its first child is added ([2a5a3df](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2a5a3df45180cc6af6d7d06b85df6cb42e021598))
+- **generator**: leave a parent gtb has no hash for unrecorded when a command is added ([79a8463](https://gitlab.com/phpboyscout/go-tool-base/-/commit/79a846356695cc12a578e1771af92f48b50fd914))
+- **config**: run the last unguarded forms through setup.RunForm ([830c260](https://gitlab.com/phpboyscout/go-tool-base/-/commit/830c260ab42bad204654317bcc8803ef79e2d1bd))
+- **generator**: leave a hand-edited parent alone when a command is removed ([7fd1298](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7fd129818d5cab65e85e3d91a0b08b37d854f3a8))
+- **generator**: keep the file when the conflict prompt's input ends ([499a13e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/499a13eff45f5540705c2ac49c21e3b4dc5fdcbc))
+- **deps**: update module github.com/azure/azure-sdk-for-go/sdk/data/azappconfig/v2 to v2.3.1 ([92f0038](https://gitlab.com/phpboyscout/go-tool-base/-/commit/92f003802208664d75da799408d325191a0e6681))
+- **deps**: update aws-sdk-go-v2 monorepo ([75b7863](https://gitlab.com/phpboyscout/go-tool-base/-/commit/75b7863e373fdd97ac9194933ba25b8fcb37286a))
+- **release**: compare a channel URL to its base as it is sent ([67482e4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/67482e40e1de2caf2a19381141119bfbbc47c544))
+- **release**: refuse a channel URL that climbs out of its base ([574f73a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/574f73abb7313812246b210cdff4dfa14644eb31))
+- **update**: leave a package-managed install to its manager before a command ([c53d60b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c53d60bbfee5972505203bc3c7ccfc7d042c26f5))
+- **update**: do not wait on a package query's child ([2cae427](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2cae42710441629ff7b4f3f6b35839f45010bdd2))
+- **update**: warn when a key rotation cannot be kept ([e0d1bad](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e0d1bad20f7a603f45d903429b7ed7cca63fe57b))
+
 ## [v0.54.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.54.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.53.0...v0.54.0)
