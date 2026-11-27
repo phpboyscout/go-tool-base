@@ -114,36 +114,33 @@ func (g *Generator) registerSubcommand() (parentRegistration, error) {
 }
 
 // registrationOver is what writing into a parent holding content does to it.
+// A parent the manifest records no hash for stays unrecorded, because
+// regenerate treats such a file as not created by gtb (#255). The root records
+// no hash and is always gtb's.
 func (g *Generator) registrationOver(content []byte) parentRegistration {
-	if g.parentMatchesRecordedHash(content) {
+	parentParts := g.getParentPathParts()
+	if len(parentParts) == 0 {
 		return parentWritten
 	}
 
-	return parentWrittenOverEdit
-}
-
-// deregistrationOver is registrationOver for a removal, which leaves a parent
-// with no recorded hash unrecorded: regenerate treats such a file as not created
-// by gtb, and the leaf reshape after the last child goes is a regenerate.
-func (g *Generator) deregistrationOver(content []byte) parentRegistration {
-	if len(g.getParentPathParts()) > 0 && !g.parentHashRecorded() {
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
+	if err != nil {
 		return parentWrittenUnrecorded
 	}
 
-	return g.registrationOver(content)
-}
-
-// parentHashRecorded reports whether the manifest records a hash for the
-// parent's cmd.go.
-func (g *Generator) parentHashRecorded() bool {
-	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
-	if err != nil {
-		return false
+	var recorded string
+	if cmd := walkCommandPath(m.Commands, parentParts); cmd != nil {
+		recorded = cmd.Hashes["cmd.go"]
 	}
 
-	cmd := walkCommandPath(m.Commands, g.getParentPathParts())
-
-	return cmd != nil && cmd.Hashes["cmd.go"] != ""
+	switch recorded {
+	case "":
+		return parentWrittenUnrecorded
+	case calculateHash(content):
+		return parentWritten
+	default:
+		return parentWrittenOverEdit
+	}
 }
 
 // parentImportAlias is the alias the parent file imports the command under. A
@@ -734,33 +731,6 @@ func insertIntoRootCall(call *dst.CallExpr, ctx *subcommandContext) {
 	call.Args = append(call.Args, newCmdCall)
 }
 
-// parentMatchesRecordedHash reports whether the parent file's content is the
-// one the manifest recorded for it. A root command records no hash and
-// counts as pristine, as does a parent with no recorded hash at all.
-func (g *Generator) parentMatchesRecordedHash(content []byte) bool {
-	parentParts := g.getParentPathParts()
-	if len(parentParts) == 0 {
-		return true
-	}
-
-	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
-	if err != nil {
-		return true
-	}
-
-	cmd := walkCommandPath(m.Commands, parentParts)
-	if cmd == nil {
-		return true
-	}
-
-	recorded, ok := cmd.Hashes["cmd.go"]
-	if !ok || recorded == "" {
-		return true
-	}
-
-	return recorded == calculateHash(content)
-}
-
 // rootCommandLiteral returns the composite literal holding the local commands
 // when the root call has the external adapter's shape,
 // NewCmdRoot(p, append([]*setup.Command{…}, external.Commands(p)...)...),
@@ -925,7 +895,7 @@ func (g *Generator) deregisterSubcommand() (parentRegistration, error) {
 		return parentUntouched, errors.Wrap(err, "failed to read parent command file")
 	}
 
-	written := g.deregistrationOver(fsrc)
+	written := g.registrationOver(fsrc)
 
 	f, err := decorator.Parse(fsrc)
 	if err != nil {

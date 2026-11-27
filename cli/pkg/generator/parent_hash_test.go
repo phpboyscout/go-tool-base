@@ -53,6 +53,30 @@ func TestAddChild_RefreshesAPristineParentsHash(t *testing.T) {
 		"the parent's recorded hash is the hash of what the registration wrote")
 }
 
+// A parent the manifest records no hash for, as after regenerate manifest, was
+// adopted with its edit, so removing its last child later replaced it (#255).
+func TestAddChild_LeavesAnUnrecordedParentUnrecorded(t *testing.T) {
+	t.Parallel()
+
+	for name, onDisk := range map[string]string{
+		"edited":   pristineHelloCmd + "\n// hand edit\n",
+		"unedited": pristineHelloCmd,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs, root := addChildToHelloRecording(t, onDisk, nil)
+
+			parent, err := afero.ReadFile(fs, root+"/pkg/cmd/hello/cmd.go")
+			require.NoError(t, err)
+			assert.Contains(t, string(parent), "sub.NewCmdSub(props)", "the child is registered in the parent")
+
+			after := readManifest(t, fs, root)
+			assert.Empty(t, after.Commands[0].Hashes["cmd.go"], "a file gtb has no hash for stays unrecorded")
+		})
+	}
+}
+
 const pristineHelloCmd = "package hello\n\nimport \"example.com/tool/pkg/props\"\n\nfunc NewCmdHello(props *props.Props) *setup.Command {\n\tcmd := &setup.Command{}\n\n\treturn cmd\n}\n"
 
 // addChildToHello runs generate command --parent hello over a hello cmd.go
@@ -60,10 +84,18 @@ const pristineHelloCmd = "package hello\n\nimport \"example.com/tool/pkg/props\"
 func addChildToHello(t *testing.T, parentOnDisk string) (afero.Fs, string) {
 	t.Helper()
 
+	return addChildToHelloRecording(t, parentOnDisk, map[string]string{"cmd.go": calculateHash([]byte(pristineHelloCmd))})
+}
+
+// addChildToHelloRecording is addChildToHello with the hashes the manifest
+// records for hello.
+func addChildToHelloRecording(t *testing.T, parentOnDisk string, hashes map[string]string) (afero.Fs, string) {
+	t.Helper()
+
 	fs := afero.NewMemMapFs()
 	root := "/work"
 
-	m := Manifest{Commands: []ManifestCommand{{Name: "hello", Hashes: map[string]string{"cmd.go": calculateHash([]byte(pristineHelloCmd))}}}}
+	m := Manifest{Commands: []ManifestCommand{{Name: "hello", Hashes: hashes}}}
 	m.Properties.Name = "tool"
 	m.Version.GoToolBase = "v1.0.0"
 	raw, err := yaml.Marshal(m)

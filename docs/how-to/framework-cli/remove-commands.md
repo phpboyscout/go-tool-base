@@ -16,7 +16,7 @@ The `remove command` utility cleanly excises a command from your project. It han
 
 1.  **Filesystem**: Deletes the command's directory (e.g., `pkg/cmd/my-command`).
 2.  **Manifest**: Removes the entry from `.gtb/manifest.yaml`.
-3.  **Registration**: Updates the parent command's `cmd.go` to remove the `AddCommand` call.
+3.  **Registration**: Updates the parent command's `cmd.go` to remove the `Register` call and its import.
 
 ```bash
 # formatting: off
