@@ -62,8 +62,11 @@ func TestSigningPosture_RefusesAFileARuleKeeps(t *testing.T) {
 		{"pkg/cmd/root/signing.go", false},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			g, fs, _ := newIssue13Project(t, "deny", "")
-			require.NoError(t, g.RegenerateProject(context.Background()))
+			g, fs := unsignedProject(t)
+			if !tc.enable {
+				g, fs = signingProject(t)
+			}
+
 			require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte(tc.path+"\n"), 0o644))
 
 			before := snapshotTree(t, fs)
@@ -88,12 +91,73 @@ func TestSigningPosture_RefusesAFileARuleKeeps(t *testing.T) {
 func TestDisableSigning_IgnoresARuleOnTheTrustKeys(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
-	g, fs, _ := newIssue13Project(t, "deny", "")
-	require.NoError(t, g.RegenerateProject(context.Background()))
+	g, fs := signingProject(t)
 	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte("internal/trustkeys/trustkeys.go\n"), 0o644))
 	g.rules = nil
 
 	require.NoError(t, g.DisableSigning(context.Background()))
+}
+
+// A signing change that leaves every protected file as it is writes nothing a
+// rule keeps, so the rule is no reason to refuse it (#263).
+func TestSigningChange_GoesAheadWhenNoKeptFileChanges(t *testing.T) {
+	t.Setenv("GTB_NON_INTERACTIVE", "true")
+
+	const rules = "pkg/cmd/root/cmd.go\npkg/cmd/root/signing.go\ninternal/trustkeys/trustkeys.go\n"
+
+	for name, tc := range map[string]struct {
+		signed bool
+		change func(*Generator) error
+		took   func(ManifestSigning) bool
+	}{
+		"disable signing that is already off": {false, func(g *Generator) error {
+			return g.DisableSigning(context.Background())
+		}, func(s ManifestSigning) bool { return !s.Enabled }},
+		"set a field no protected file renders": {true, func(g *Generator) error {
+			return g.SetSetting(context.Background(), "signing.backend", []string{"local"})
+		}, func(s ManifestSigning) bool { return s.Backend == "local" }},
+		"set require_signature while signing is off": {false, func(g *Generator) error {
+			return g.SetSetting(context.Background(), "signing.require_signature", []string{"true"})
+		}, func(s ManifestSigning) bool { return s.RequireSignature }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			g, fs := unsignedProject(t)
+			if tc.signed {
+				g, fs = signingProject(t)
+			}
+
+			require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte(rules), 0o644))
+			g.rules = nil
+
+			require.NoError(t, tc.change(g))
+
+			m, err := g.loadManifest()
+			require.NoError(t, err)
+			assert.True(t, tc.took(m.Properties.Signing), "the change is recorded: %+v", m.Properties.Signing)
+		})
+	}
+}
+
+// The wizard asks neither the rotation overlap nor the difference between an
+// empty key source and "both", so a revisit carries them rather than rewriting
+// signing.go or closing the overlap (#263).
+func TestCarrySigning_KeepsWhatTheWizardDoesNotAsk(t *testing.T) {
+	t.Parallel()
+
+	overlap := &ManifestSigningOverlap{KeyID: "new", PublicKey: "new.asc"}
+	current := ManifestSigning{Enabled: true, KeySource: "both", Overlap: overlap, Backend: "aws-kms"}
+
+	got := carrySigning(current, ManifestSigning{Enabled: true, Backend: "local"})
+	assert.Equal(t, ManifestSigning{Enabled: true, KeySource: "both", Overlap: overlap, Backend: "local"}, got)
+
+	assert.Equal(t, "embedded", carrySigning(current, ManifestSigning{Enabled: true, KeySource: "embedded"}).KeySource,
+		"a key source the wizard chose replaces the stored one")
+
+	off := ManifestSigning{RequireSignature: true, KeyID: "k"}
+	assert.Equal(t, off, carrySigning(off, ManifestSigning{}), "a block left off stays as it was")
+
+	assert.Equal(t, ManifestSigning{}, carrySigning(current, ManifestSigning{}),
+		"turning signing off through the wizard still clears it")
 }
 
 // gtb set, gtb unset and the wizard reach the signing files through
@@ -108,6 +172,15 @@ func TestSetSetting_RefusesASigningChangeARuleBlocks(t *testing.T) {
 	}{
 		"set require_signature over signing.go": {"pkg/cmd/root/signing.go", func(g *Generator) error {
 			return g.SetSetting(context.Background(), "signing.require_signature", []string{"true"})
+		}},
+		"set key_source over signing.go": {"pkg/cmd/root/signing.go", func(g *Generator) error {
+			return g.SetSetting(context.Background(), "signing.key_source", []string{"embedded"})
+		}},
+		"set external_key_email over signing.go": {"pkg/cmd/root/signing.go", func(g *Generator) error {
+			return g.SetSetting(context.Background(), "signing.external_key_email", []string{"release@test.invalid"})
+		}},
+		"set require_external_crosscheck over signing.go": {"pkg/cmd/root/signing.go", func(g *Generator) error {
+			return g.SetSetting(context.Background(), "signing.require_external_crosscheck", []string{"true"})
 		}},
 		"set require_checksum over the root": {"pkg/cmd/root/cmd.go", func(g *Generator) error {
 			return g.SetSetting(context.Background(), "signing.require_checksum", []string{"true"})
@@ -129,6 +202,24 @@ func TestSetSetting_RefusesASigningChangeARuleBlocks(t *testing.T) {
 			assert.Equal(t, before, snapshotTree(t, fs), "nothing was written")
 		})
 	}
+}
+
+// A signed project's root carries the trust keys only once it has a module
+// path, so giving it one rewrites the root, whichever command sets it.
+func TestSetSetting_RefusesAModulePathThatAddsTheTrustKeys(t *testing.T) {
+	t.Setenv("GTB_NON_INTERACTIVE", "true")
+
+	g, fs, _ := newIssue13Project(t, "deny", "")
+	require.NoError(t, g.RegenerateProject(context.Background()))
+	require.NoError(t, g.EnableSigning(context.Background(), ManifestSigning{}))
+	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/ignore", []byte("pkg/cmd/root/cmd.go\n"), 0o644))
+	g.rules = nil
+
+	before := snapshotTree(t, fs)
+
+	err := g.SetSetting(context.Background(), "module_path", []string{"test-mod"})
+	require.ErrorIs(t, err, ErrSigningFileProtected)
+	assert.Equal(t, before, snapshotTree(t, fs), "nothing was written")
 }
 
 // A setting outside the signing block does not touch the signing files, so a
@@ -209,9 +300,9 @@ func TestRegenerateProject_WarnsAKeptFileLacksTheSigningPosture(t *testing.T) {
 	}
 }
 
-// signingProject is a regenerated project with signing on and a module path,
-// so the root really carries the trust keys a signing change could strip.
-func signingProject(t *testing.T) (*Generator, afero.Fs) {
+// unsignedProject is a regenerated project with a module path and signing off,
+// so enabling signing really adds the trust keys to the root.
+func unsignedProject(t *testing.T) (*Generator, afero.Fs) {
 	t.Helper()
 
 	g, fs, _ := newIssue13Project(t, "deny", "")
@@ -221,6 +312,16 @@ func signingProject(t *testing.T) (*Generator, afero.Fs) {
 	require.NoError(t, err)
 	m.Properties.ModulePath = "test-mod"
 	require.NoError(t, g.writeManifest(m))
+
+	return g, fs
+}
+
+// signingProject is unsignedProject with signing on, so the root really
+// carries the trust keys a signing change could strip.
+func signingProject(t *testing.T) (*Generator, afero.Fs) {
+	t.Helper()
+
+	g, fs := unsignedProject(t)
 	require.NoError(t, g.EnableSigning(context.Background(), ManifestSigning{}))
 
 	root, err := afero.ReadFile(fs, "/work/pkg/cmd/root/cmd.go")

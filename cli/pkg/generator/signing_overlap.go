@@ -79,7 +79,8 @@ func validateOverlap(s ManifestSigning) error {
 
 	if s.KeyID == "" {
 		return errors.WithHint(ErrOverlapNeedsPrimary,
-			"record the current key with --key-id before opening an overlap")
+			"record the current key with --key-id (signing.key_id) before opening an overlap; "+
+				"when one is already open, close it first with gtb enable signing --promote-overlap or --end-overlap")
 	}
 
 	if o.KeyID == "" || o.PublicKey == "" {

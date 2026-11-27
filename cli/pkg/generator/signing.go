@@ -26,6 +26,9 @@ const signingTrustKeysTestPath = "internal/trustkeys/trustkeys_test.go"
 // the project root. It lives beside the templated root command.
 const signingGoPath = "pkg/cmd/root/signing.go"
 
+// signingRootPath is the root command, whose Tool literal carries the Signing field.
+const signingRootPath = "pkg/cmd/root/cmd.go"
+
 // ErrSigningFileProtected is a signing change refused because a .gtb/ignore
 // rule covers a file the change is written into. Carrying on would record a
 // posture the built tool does not have (#261).
@@ -304,16 +307,17 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 		return err
 	}
 
-	if err := g.refuseProtectedSigningFiles(signing.Enabled); err != nil {
-		return err
-	}
-
 	m, err := g.loadManifest()
 	if err != nil {
 		return err
 	}
 
+	before := *m
 	m.Properties.Signing = signing
+
+	if err := g.refuseProtectedSigningFiles(before, *m); err != nil {
+		return err
+	}
 
 	// The shared sync re-renders the root (the Signing: field is added or
 	// dropped) and the signing-owned files (spec 0197 D7).
@@ -350,17 +354,13 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 }
 
 // refuseProtectedSigningFiles stops a signing change before anything is
-// written when a rule covers the root, which carries the Signing field, or the
-// files that enabling writes and disabling removes. Every route that changes
-// the signing block calls it: enable and disable signing, and commitSetting
-// for gtb set, gtb unset and the wizard.
-func (g *Generator) refuseProtectedSigningFiles(enabling bool) error {
-	paths := []string{"pkg/cmd/root/cmd.go", signingGoPath}
-	if enabling {
-		paths = append(paths, signingTrustKeysPath)
-	}
-
-	for _, rel := range paths {
+// written when a rule covers a file the change would rewrite, add or remove:
+// the root, which carries the Signing field, signing.go, or the trust keys
+// enabling writes. A change that leaves those files as they are goes ahead.
+// Every route that changes the signing block calls it: enable and disable
+// signing, and commitSetting for gtb set, gtb unset and the wizard.
+func (g *Generator) refuseProtectedSigningFiles(before, after Manifest) error {
+	for _, rel := range signingFilesChanging(before, after) {
 		if g.ignoreRules().State(rel) == StateManaged {
 			continue
 		}
@@ -370,6 +370,58 @@ func (g *Generator) refuseProtectedSigningFiles(enabling bool) error {
 	}
 
 	return nil
+}
+
+func signingFilesChanging(before, after Manifest) []string {
+	var paths []string
+
+	if rootSigningPosture(before) != rootSigningPosture(after) {
+		paths = append(paths, signingRootPath)
+	}
+
+	beforeGo, beforeErr := signingGoContent(before)
+	afterGo, afterErr := signingGoContent(after)
+
+	if beforeErr != nil || afterErr != nil || beforeGo != afterGo {
+		paths = append(paths, signingGoPath)
+	}
+
+	if after.Properties.Signing.Enabled && !before.Properties.Signing.Enabled {
+		paths = append(paths, signingTrustKeysPath)
+	}
+
+	return paths
+}
+
+// rootSigning is the part of the signing block the root's Tool literal renders.
+type rootSigning struct {
+	keys, checksum bool
+}
+
+func rootSigningPosture(m Manifest) rootSigning {
+	return rootSigning{
+		keys:     m.Properties.Signing.Enabled && manifestModulePath(m) != "",
+		checksum: m.Properties.Signing.RequireChecksum,
+	}
+}
+
+// signingGoContent is what regenerate writes to signing.go, empty when signing
+// is off and the file is removed.
+func signingGoContent(m Manifest) (string, error) {
+	if !m.Properties.Signing.Enabled {
+		return "", nil
+	}
+
+	var content strings.Builder
+
+	err := templates.SkeletonSigning(templates.SkeletonSigningData{
+		ExternalKeyEmail:          m.Properties.Signing.ExternalKeyEmail,
+		RequireSignature:          m.Properties.Signing.RequireSignature,
+		KeySource:                 m.Properties.Signing.KeySource,
+		RequireExternalCrosscheck: m.Properties.Signing.RequireExternalCrosscheck,
+	}).Render(&content)
+
+	return content.String(), err
 }
 
 // applySigningCI re-renders the file that runs GoReleaser, so the release job
@@ -488,14 +540,12 @@ func (g *Generator) writeSigningKeyDirs(root string) error {
 // root without the signing posture the manifest asks for. Keeping the file is
 // what the rule asked for, so the run warns rather than refuses (W-558).
 func (g *Generator) warnKeptSigningPosture(m Manifest) {
-	const rootPath = "pkg/cmd/root/cmd.go"
-
 	if g.ignoreRules().State(signingGoPath) != StateManaged && !g.keptSigningGoMatches(m) {
 		g.warnSigningPostureNotShipped(signingGoPath)
 	}
 
-	if g.ignoreRules().State(rootPath) != StateManaged && !g.keptRootCarriesSigning(m, rootPath) {
-		g.warnSigningPostureNotShipped(rootPath)
+	if g.ignoreRules().State(signingRootPath) != StateManaged && !g.keptRootCarriesSigning(m) {
+		g.warnSigningPostureNotShipped(signingRootPath)
 	}
 }
 
@@ -510,27 +560,22 @@ func (g *Generator) keptSigningGoMatches(m Manifest) bool {
 		return err != nil
 	}
 
-	var want strings.Builder
-	if renderErr := templates.SkeletonSigning(templates.SkeletonSigningData{
-		ExternalKeyEmail:          m.Properties.Signing.ExternalKeyEmail,
-		RequireSignature:          m.Properties.Signing.RequireSignature,
-		KeySource:                 m.Properties.Signing.KeySource,
-		RequireExternalCrosscheck: m.Properties.Signing.RequireExternalCrosscheck,
-	}).Render(&want); renderErr != nil {
+	want, renderErr := signingGoContent(m)
+	if renderErr != nil {
 		return true
 	}
 
-	return err == nil && string(content) == want.String()
+	return err == nil && string(content) == want
 }
 
 // keptRootCarriesSigning reads the two parts of the posture the root's Tool
 // literal carries: the embedded trust keys and a required checksum.
-func (g *Generator) keptRootCarriesSigning(m Manifest, rel string) bool {
-	content, _ := afero.ReadFile(g.props.FS, filepath.Join(g.config.Path, rel))
+func (g *Generator) keptRootCarriesSigning(m Manifest) bool {
+	content, _ := afero.ReadFile(g.props.FS, filepath.Join(g.config.Path, signingRootPath))
 	root := string(content)
 
-	wantKeys := m.Properties.Signing.Enabled && manifestModulePath(m) != ""
-
-	return strings.Contains(root, "EmbeddedKeys") == wantKeys &&
-		strings.Contains(root, "RequireChecksum") == m.Properties.Signing.RequireChecksum
+	return rootSigningPosture(m) == rootSigning{
+		keys:     strings.Contains(root, "EmbeddedKeys"),
+		checksum: strings.Contains(root, "RequireChecksum"),
+	}
 }

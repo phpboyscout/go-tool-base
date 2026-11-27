@@ -278,14 +278,24 @@ changes don't become the new baseline, so the next regenerate still asks before
 overwriting it. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
 
 The signing posture itself is different, because it lives in the files these
-commands write. Any change to the signing settings stops before writing
-anything, and names the file, when a rule covers `pkg/cmd/root/cmd.go` or
-`pkg/cmd/root/signing.go`. Turning signing on, or changing it while it is on,
-also stops on the trust keys file `internal/trustkeys/trustkeys.go`. That holds
-for `gtb enable signing` and `gtb disable signing`, for `gtb set` and
-`gtb unset` on a `signing.*` key, and for `gtb wizard`. Carrying on would
-record a posture the built tool does not have. Remove the rule and run the
-command again.
+commands write. A change to the signing settings stops before writing
+anything, and names the file, when it would rewrite a file a rule covers:
+`pkg/cmd/root/cmd.go`, which carries the trust keys and a required checksum,
+`pkg/cmd/root/signing.go`, which carries the rest, or, when signing is turned
+on, the trust keys file `internal/trustkeys/trustkeys.go`. That holds for
+`gtb enable signing` and `gtb disable signing`, for `gtb set` and `gtb unset`
+on a `signing.*` key, and for `gtb wizard`. Carrying on would record a posture
+the built tool does not have. Remove the rule and run the command again.
+
+A change those files do not render goes ahead: disabling signing that is
+already off, a setting recorded while signing is off (other than
+`signing.require_checksum`, which the root carries either way), or one such as
+`signing.backend` that only the release pipeline reads. A change outside the
+signing block can stop too. While signing is on, the root's trust keys need the module path, so the first
+`module_path` or release source that gives a signed project one stops under a
+rule on the root, with whichever command set it. A `gtb wizard` revisit
+keeps the rotation overlap and a `both` key source it does not ask about, so
+revisiting to change something else leaves the signing files as they are.
 
 `gtb regenerate project` keeps those files when a rule covers them, because
 that is what the rule asks for. When a kept `signing.go`, or a kept root, does

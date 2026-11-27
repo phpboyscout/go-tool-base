@@ -85,7 +85,7 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) error {
 	m.Properties.UpdateCheckInterval = fresh.Properties.UpdateCheckInterval
 	m.Properties.Help = fresh.Properties.Help
 	m.Properties.Telemetry = fresh.Properties.Telemetry
-	m.Properties.Signing = fresh.Properties.Signing
+	m.Properties.Signing = carrySigning(m.Properties.Signing, fresh.Properties.Signing)
 	m.Properties.Chat = fresh.Properties.Chat
 	m.Properties.Bootstrap = fresh.Properties.Bootstrap
 	m.Properties.Generator = fresh.Properties.Generator
@@ -96,6 +96,27 @@ func applyAuthorSettings(m *Manifest, cfg SkeletonConfig) error {
 	m.Version.Go = fresh.Version.Go
 
 	return nil
+}
+
+// carrySigning is fresh with what the settings cannot express kept from
+// current: the rotation overlap, a key source of "both" the settings write as
+// the empty default, and the whole block while signing stays off.
+func carrySigning(current, fresh ManifestSigning) ManifestSigning {
+	if !fresh.Enabled {
+		if !current.Enabled {
+			return current
+		}
+
+		return fresh
+	}
+
+	fresh.Overlap = current.Overlap
+
+	if fresh.KeySource == "" && current.KeySource == "both" {
+		fresh.KeySource = current.KeySource
+	}
+
+	return fresh
 }
 
 // DiffAuthorSettings lists the author settings that differ between two
