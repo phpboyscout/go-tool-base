@@ -179,7 +179,19 @@ func (g *Generator) reshapeParentIfTransitioned(ctx context.Context) error {
 
 	g.moveCommandDocForShape(m, parentParts, true)
 
-	return g.RegenerateCommand(ctx, *parent, grandparent)
+	return g.reshapeParent(ctx, *parent, grandparent)
+}
+
+// reshapeParent re-renders a parent whose shape a child's arrival or removal
+// changed. --force on that run is about the child, so the parent's own edits
+// still get the conflict check (#258).
+func (g *Generator) reshapeParent(ctx context.Context, parent ManifestCommand, grandparent []string) error {
+	force := g.config.Force
+	g.config.Force = false
+
+	defer func() { g.config.Force = force }()
+
+	return g.RegenerateCommand(ctx, parent, grandparent)
 }
 
 // GenerateDryRun previews what Generate would do without writing to disk.
