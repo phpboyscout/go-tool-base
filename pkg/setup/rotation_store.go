@@ -6,6 +6,7 @@ import (
 	iofs "io/fs"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/spf13/afero"
@@ -32,7 +33,8 @@ var ErrRotationRecordNotKept = errors.NewSentinel("gtb.setup.rotation_record_not
 	"the rotation record is not kept")
 
 // rotationStoreMu serialises every file store's read-compare-write, since two
-// updaters in one process each build their own store over the same file.
+// updaters in one process each build their own store over the same file. It
+// does not reach another process.
 var rotationStoreMu sync.Mutex
 
 // CanKeepRotationRecord reports why the updater cannot keep or read tool's
@@ -86,9 +88,11 @@ func (s *fileRotationStore) Load(context.Context) (verify.RotationRecord, error)
 	return s.read()
 }
 
-// Save refuses a lower epoch, and other keys at the stored epoch, as the
-// RotationStore contract requires. The record is written to a temporary file
-// and renamed over the old one, so a crash leaves one record or the other.
+// Save refuses a lower epoch, other keys at the stored epoch, and a record
+// lacking a revoke it holds, because revocation is permanent (spec 0101 D20)
+// and ApplyRotation does not serialise Load and Save. The record is written to
+// a temporary file and renamed over the old one, so a crash leaves one record
+// or the other.
 func (s *fileRotationStore) Save(_ context.Context, rec verify.RotationRecord) error {
 	rotationStoreMu.Lock()
 	defer rotationStoreMu.Unlock()
@@ -104,6 +108,10 @@ func (s *fileRotationStore) Save(_ context.Context, rec verify.RotationRecord) e
 
 	if rec.Epoch == stored.Epoch && !sameRotationKeys(rec, stored) {
 		return errors.Wrapf(verify.ErrRotationRefused, "epoch %d is already stored with different keys", rec.Epoch)
+	}
+
+	if dropped := droppedRevokes(stored, rec); len(dropped) > 0 {
+		return errors.Wrapf(verify.ErrRotationRefused, "epoch %d drops the stored revoke of %s", rec.Epoch, strings.Join(dropped, ", "))
 	}
 
 	data, err := json.Marshal(rec)
@@ -153,6 +161,30 @@ func (s *fileRotationStore) corrupt(cause error) error {
 	return errors.WithHintf(errors.Wrapf(ErrRotationStoreCorrupt, "%s: %v", s.path, cause),
 		"Fix or delete %s and run update again. Until the next release that carries a rotation manifest, "+
 			"the keys it revoked are trusted again, so ask the tool's maintainers first.", s.path)
+}
+
+// droppedRevokes lists the stored revokes that rec leaves out.
+func droppedRevokes(stored, rec verify.RotationRecord) []string {
+	kept := make(map[string]bool, len(rec.Revoked))
+	for _, fp := range rec.Revoked {
+		kept[normalFingerprint(fp)] = true
+	}
+
+	var dropped []string
+
+	for _, fp := range stored.Revoked {
+		if !kept[normalFingerprint(fp)] {
+			dropped = append(dropped, fp)
+		}
+	}
+
+	return dropped
+}
+
+// normalFingerprint ignores case and spaces, as go/signing-trust's
+// RotationStore contract does.
+func normalFingerprint(fp string) string {
+	return strings.ToUpper(strings.ReplaceAll(fp, " ", ""))
 }
 
 func sameRotationKeys(a, b verify.RotationRecord) bool {

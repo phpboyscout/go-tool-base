@@ -2,9 +2,13 @@ package setup
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -72,6 +76,125 @@ func TestRotationStore_SaveRefusesARollback(t *testing.T) {
 	require.ErrorIs(t, store.Save(ctx, verify.RotationRecord{Epoch: 5, Added: []string{c}}), verify.ErrRotationRefused)
 	require.NoError(t, store.Save(ctx, verify.RotationRecord{Epoch: 5, Added: []string{a, b}}), "the same keys in another order are the same record")
 	require.NoError(t, store.Save(ctx, verify.RotationRecord{Epoch: 6}))
+}
+
+// Revocation is permanent (spec 0101 D20). ApplyRotation does not serialise
+// Load and Save, so a record built from an older load could drop a revoke
+// another apply stored, and Save is the last place to refuse it.
+func TestRotationStore_SaveRefusesARecordThatDropsARevoke(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	store := newRotationStore(fs, rotationTestDir)
+	ctx := context.Background()
+	require.NoError(t, store.Save(ctx, verify.RotationRecord{Epoch: 2, Revoked: []string{"ABCD", "EF01"}}))
+
+	err := store.Save(ctx, verify.RotationRecord{Epoch: 3, Revoked: []string{"EF01"}})
+	require.ErrorIs(t, err, verify.ErrRotationRefused)
+	require.ErrorContains(t, err, "ABCD")
+
+	got, err := store.Load(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, verify.RotationRecord{Epoch: 2, Revoked: []string{"ABCD", "EF01"}}, got, "nothing is written")
+
+	require.NoError(t, store.Save(ctx, verify.RotationRecord{Epoch: 3, Revoked: []string{"ef 01", "abcd", "1234"}}),
+		"a record keeping every stored revoke, in any case or spacing, may add one")
+	require.NoError(t, store.Save(ctx, verify.RotationRecord{Epoch: 4, Revoked: []string{"EF01", "ABCD", "1234"}}),
+		"a stored revoke in another case or spacing is still kept")
+}
+
+func TestRotationStore_SaveNamesEveryRevokeItWouldDrop(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		epoch   uint64
+		next    []string
+		dropped []string
+	}{
+		"the first":   {2, []string{"BBBB", "CCCC"}, []string{"AAAA"}},
+		"a later":     {2, []string{"AAAA", "CCCC"}, []string{"BBBB"}},
+		"the last":    {2, []string{"AAAA", "BBBB"}, []string{"CCCC"}},
+		"two of them": {2, []string{"BBBB"}, []string{"AAAA", "CCCC"}},
+		"all of them": {2, nil, []string{"AAAA", "BBBB", "CCCC"}},
+		// An install that skipped releases meets a manifest several epochs on
+		// (spec 0101 D12).
+		"several epochs on": {5, []string{"AAAA", "CCCC"}, []string{"BBBB"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			store := newRotationStore(afero.NewMemMapFs(), rotationTestDir)
+			require.NoError(t, store.Save(t.Context(), verify.RotationRecord{Epoch: 1, Revoked: []string{"AAAA", "BBBB", "CCCC"}}))
+
+			err := store.Save(t.Context(), verify.RotationRecord{Epoch: tc.epoch, Revoked: tc.next})
+			require.ErrorIs(t, err, verify.ErrRotationRefused)
+			require.ErrorContains(t, err, "drops the stored revoke of "+strings.Join(tc.dropped, ", "))
+		})
+	}
+}
+
+// slowReadFs pauses each open of the rotation record, so unserialised Saves
+// all read it before any of them writes it.
+type slowReadFs struct{ afero.Fs }
+
+func (f slowReadFs) Open(name string) (afero.File, error) {
+	if filepath.Base(name) == rotationStoreFilename {
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	return f.Fs.Open(name)
+}
+
+// Saves racing in one process each read the stored record, so without the
+// store's lock two of them could both succeed, the later one dropping the
+// earlier one's revoke. Exactly one of these records can follow the stored one.
+func TestRotationStore_RacingSavesKeepEveryRevoke(t *testing.T) {
+	t.Parallel()
+
+	fs, dir := slowReadFs{afero.NewOsFs()}, t.TempDir()
+	ctx := t.Context()
+	require.NoError(t, newRotationStore(fs, dir).Save(ctx, verify.RotationRecord{Epoch: 1, Revoked: []string{"BASE"}}))
+
+	const racers = 16
+
+	var (
+		wg    sync.WaitGroup
+		mu    sync.Mutex
+		wins  []verify.RotationRecord
+		start = make(chan struct{})
+	)
+
+	for i := range uint64(racers) {
+		store := newRotationStore(fs, dir)
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			<-start
+
+			rec := verify.RotationRecord{Epoch: i + 2, Revoked: []string{"BASE", fmt.Sprintf("R%02d", i)}}
+			if store.Save(ctx, rec) == nil {
+				mu.Lock()
+				wins = append(wins, rec)
+				mu.Unlock()
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+
+	got, err := newRotationStore(fs, dir).Load(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, wins)
+	assert.Contains(t, wins, got)
+
+	for _, won := range wins {
+		for _, fp := range won.Revoked {
+			assert.Contains(t, got.Revoked, fp, "a saved revoke was lost")
+		}
+	}
 }
 
 // A config directory inside a git checkout could have been supplied by the

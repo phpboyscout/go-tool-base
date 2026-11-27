@@ -185,6 +185,52 @@ func TestVerifyManifestSignature_StoredRotationHoldsWithoutAManifest(t *testing.
 	require.NoError(t, f.updater(t, laterProvider, true).verifyManifestSignature(context.Background(), later, laterChecksums))
 }
 
+// A later manifest that omits a stored revoke fails the update and leaves the
+// key revoked, because revocation is permanent (spec 0101 D20). go/signing
+// v0.15.2 builds the next record from the manifest alone, so the store refuses.
+func TestVerifyManifestSignature_AManifestDroppingARevokeFailsTheUpdate(t *testing.T) {
+	t.Parallel()
+
+	f := newRotationFixture(t)
+	fs := afero.NewMemMapFs()
+	store := newRotationStore(fs, rotationTestDir)
+	updater := func(p forge.Provider) *SelfUpdater {
+		s := f.unresolvedUpdater(p, true)
+		s.Fs, s.rotationStore = fs, store
+		require.NoError(t, s.buildDefaultKeyResolver())
+
+		return s
+	}
+
+	manifest, sig := compromiseManifest(t, f.authority, 1, f.replacement, f.compromised)
+	rel, provider, checksums := rotationRelease(t, f.replacement, manifest, sig)
+	require.NoError(t, updater(provider).verifyManifestSignature(context.Background(), rel, checksums))
+
+	now := time.Now()
+	dropping, droppingSig, err := verify.SignRotationManifest(f.authority.signer, verify.RotationManifest{
+		Schema:   verify.RotationSchema,
+		IssuedAt: now.Add(-time.Minute),
+		NotAfter: now.Add(24 * time.Hour),
+		Reason:   verify.RotationReasonScheduled,
+		Add:      []verify.RotationAdd{{Fingerprint: fingerprintOf(t, f.replacement), Armored: string(f.replacement.armoredPub)}},
+		Epoch:    2,
+	})
+	require.NoError(t, err)
+
+	later, laterProvider, laterChecksums := rotationRelease(t, f.compromised, dropping, droppingSig)
+	err = updater(laterProvider).verifyManifestSignature(context.Background(), later, laterChecksums)
+	require.ErrorIs(t, err, verify.ErrRotationRefused)
+
+	rec, err := store.Load(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), rec.Epoch)
+	assert.Equal(t, []string{fingerprintOf(t, f.compromised)}, rec.Revoked)
+
+	old, oldProvider, oldChecksums := rotationRelease(t, f.compromised, nil, nil)
+	err = updater(oldProvider).verifyManifestSignature(context.Background(), old, oldChecksums)
+	require.ErrorIs(t, err, verify.ErrSignatureInvalid, "the revoked key still verifies nothing")
+}
+
 // A release that lists a manifest which does not verify fails the update,
 // whatever require_signature says (spec 0101 D7).
 func TestVerifyManifestSignature_ARotationThatFailsFailsTheUpdate(t *testing.T) {

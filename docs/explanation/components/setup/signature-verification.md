@@ -321,17 +321,22 @@ With them, an update does this, before it checks the release's own signature:
 3. The applied record (epoch, added keys, revoked fingerprints) is saved as `rotation.json` in the tool's config directory, and re-applied on every later verification, offline ones included. A later release without a manifest keeps the replacement key trusted.
 4. The release signature is then checked against the rotated set, so a release signed by the replacement key installs on the same update.
 
+The table gives the rules as they stand on go/signing v0.15.2, which gtb uses until it moves to go/signing-trust. Three of them change with that move: a `scheduled` manifest may carry revokes, a manifest at the stored epoch that leaves out a stored revoke is a no-op rather than a refusal, and a manifest that leaves out a stored revoke at a later epoch keeps the revoke rather than failing the update. Until then, every manifest after a compromise must be `reason: compromise` and repeat every earlier revoke.
+
 | Condition | Outcome |
 |-----------|---------|
 | The release lists a manifest that cannot be fetched, has no signature, or does not verify | **Always fatal**, whatever `require_signature` says |
 | The manifest does not parse, or revokes without `reason: compromise` | **Always fatal** (`verify.ErrRotationManifestMalformed`); nothing changes |
 | The manifest is expired, future-dated, names an anchor-only key, or would leave no key that may sign | **Always fatal** (`verify.ErrRotationRefused`); nothing changes |
 | The manifest's epoch is below the stored one | **Always fatal** (`verify.ErrRotationReplayed`) |
+| The manifest would leave out a revoke `rotation.json` holds | **Always fatal** (`verify.ErrRotationRefused`), and the record keeps the revoke. Revocation is permanent, so each manifest repeats every earlier revoke. The same refusal stops two updates in one process from losing one. Updates in two processes at once are not serialised |
 | The manifest's epoch equals the stored one, with the same keys | A no-op, so a manifest every later release carries applies once |
 | The manifest's epoch equals the stored one, with different keys | **Always fatal** (`verify.ErrRotationRefused`); an epoch is never reissued with new keys |
 | The release lists no manifest | The stored record stays in force |
 | `rotation.json` cannot be read, is not JSON, or holds a key that does not parse | **Always fatal** (`ErrRotationStoreCorrupt`), whatever `require_signature` says, and never treated as empty, because the empty record forgets every revoke |
 | `rotation.json` would leave no key that may sign | **Always fatal** (`verify.ErrRotationRefused`), whatever `require_signature` says |
+
+**Until gtb moves to go/signing-trust, every manifest after a compromise must be `reason: compromise` and repeat every earlier revoke.** The go/signing release gtb uses refuses a revoke in a `scheduled` manifest, and the store refuses a manifest that leaves one out. A `scheduled` manifest after a compromise fails every update that meets it, either way. [Spec 0101](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0101-signing-key-rotation) lets a `scheduled` manifest carry revokes, and that takes effect when gtb is on go/signing-trust.
 
 Two details protect the record. A config directory inside a git checkout could have been supplied by the repository, so there the record is neither read nor written: a manifest still applies for that run, from memory, the same treatment the trust store and the update pin get. **A key that manifest revoked is trusted again** on the next update whose release carries no manifest, so every update there warns, and `doctor`'s **Key rotation** check warns too. A tool with `props.ConfigDirXDG` meets this wherever `~/.config` is itself a git repository. And `update.rotation.enabled: false` turns rotation off for a locked-down deployment that pins its trust set. The cost is that a key the maintainers revoke stays trusted, so the updater warns on every manifest it skips and `doctor`'s **Key rotation** check warns while it is off. A project-local config cannot set that key until the folder is trusted.
 
