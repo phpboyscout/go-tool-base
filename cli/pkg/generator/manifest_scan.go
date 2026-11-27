@@ -24,6 +24,11 @@ var ErrNoCommandsDirectory = errors.NewSentinel("gtb.generator.no_commands_direc
 // because the manifest would lose the command and everything beneath it.
 var ErrCommandSourceUnreadable = errors.NewSentinel("gtb.generator.command_source_unreadable", "command source cannot be read")
 
+// ErrCommandCycle is a manifest rebuild that met commands registering each
+// other. A cobra tree cannot hold a cycle, and every later walk over the tree
+// would recurse until the stack overflowed (#260), so nothing is written.
+var ErrCommandCycle = errors.NewSentinel("gtb.generator.command_cycle", "commands register each other")
+
 // ErrCommandOutsideParent is a manifest rebuild that met a registration the
 // manifest cannot record: one from outside the directory that holds the
 // registering command, or a second one, from another directory, of a command
@@ -249,6 +254,12 @@ func (g *Generator) scanRecursive(dir string, unread *[]unreadDir) ([]*commandEn
 
 	childSet := g.linkParentChild(allCommands)
 
+	// Every command here is walked, not only the roots, because commands that
+	// register each other across levels leave this directory with no root.
+	if err := checkCycles(allCommands); err != nil {
+		return nil, err
+	}
+
 	return g.findRoots(allCommands, childSet), nil
 }
 
@@ -411,6 +422,58 @@ func registeredTwice(parent, child, holder *commandEntry) error {
 			"matches. Keep one and move the package to match it: to %s to keep %s's, or to %s to keep %s's. "+
 			"The manifest has not been changed.",
 		placedDir(holder, child.cmd.Name), holder.dir, placedDir(parent, child.cmd.Name), parent.dir)
+}
+
+// checkCycles stops the scan at a command that registers one of its own
+// ancestors, naming the loop from the first command in it. It runs on each
+// directory's scan, before anything else walks the tree.
+func checkCycles(entries []*commandEntry) error {
+	done := make(map[*commandEntry]bool)
+
+	var path []*commandEntry
+
+	var visit func(*commandEntry) error
+
+	visit = func(entry *commandEntry) error {
+		if done[entry] {
+			return nil
+		}
+
+		if at := slices.Index(path, entry); at >= 0 {
+			return commandCycle(append(path[at:], entry))
+		}
+
+		path = append(path, entry)
+
+		for _, child := range entry.children {
+			if err := visit(child); err != nil {
+				return err
+			}
+		}
+
+		path = path[:len(path)-1]
+		done[entry] = true
+
+		return nil
+	}
+
+	for _, entry := range entries {
+		if err := visit(entry); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func commandCycle(loop []*commandEntry) error {
+	dirs := make([]string, len(loop))
+	for i, entry := range loop {
+		dirs[i] = entry.dir
+	}
+
+	return errors.WithHint(errors.Newf("%w: %s", ErrCommandCycle, strings.Join(dirs, " registers ")),
+		"A command cannot register one of its own ancestors. Remove one of these registrations. The manifest has not been changed.")
 }
 
 func registeredFromAnotherSubtree(parent, child *commandEntry) error {

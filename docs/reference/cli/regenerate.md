@@ -217,4 +217,13 @@ disagree
 command that nothing reachable from the root registers is left out with an
 orphan warning.
 
+A loop that one directory's scan sees also stops the run before the manifest is
+written, even when nothing else registers it, and the error names every
+directory in it. That covers commands in one directory registering each other,
+such as `pkg/cmd/ring` and `pkg/cmd/loop`, and a command registering its
+parent, such as `pkg/cmd/serve/api` registering `pkg/cmd/serve`. A longer loop,
+such as `pkg/cmd/serve/api/v1` registering `pkg/cmd/serve`, stops the run as a
+second registration when the root reaches it, naming two of its directories,
+and is left out with an orphan warning when it does not.
+
 > Run any subcommand with `--help` for the complete, authoritative flag set.
