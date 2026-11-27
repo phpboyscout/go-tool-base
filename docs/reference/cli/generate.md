@@ -261,7 +261,8 @@ A command with `--parent` is registered in the parent's `cmd.go` even when you
 have edited that file. The parent's recorded hash moves only when the file
 matched it, so the next `regenerate project` still reports an edit. A parent
 the manifest records no hash for (after `regenerate manifest`, say) stays
-unrecorded, and `regenerate project` keeps it.
+unrecorded, so `regenerate project` treats it as not created by gtb and
+handles it as its [conflict rules](regenerate.md#conflicts) say.
 
 All `generate` subcommands also accept these persistent flags:
 
