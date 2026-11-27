@@ -34,7 +34,7 @@ gtb regenerate project
 ### Flags
 
 - `--path`, `-p`: Path to the project root (default: current directory).
-- `--overwrite`: How to handle a generated file you have modified: `ask` (default, prompts per file), `deny` (keeps every diverged file) or `allow` (re-emits the generator's version).
+- `--overwrite`: How to handle a generated file you have modified: `ask` (default, prompts per file), `deny` (keeps every diverged file) or `allow` (re-emits the generator's version). The root command's `cmd.go` and the other framework files beside it are rewritten whatever this says; keep one with a [`.gtb/ignore`](../configure-generator-ignore.md) rule. The exception is `pkg/cmd/root/provenance.go`, which is written with the manifest and is not kept by a rule.
 - `--force`: **Danger Zone!** Overwrites existing `main.go` implementation files. Use this only if you want to reset a command's logic to the default starter code. On a project still using the legacy flat docs layout, `--force` also **migrates the docs to the Diátaxis layout** (see below).
 - `--no-verify`: Skip `go mod tidy` and `golangci-lint` afterwards; the run exits 0 unverified. Without it a failed step exits 3.
 - `--update-docs`: Rewrite the existing command documentation with a model. It is an explicit ask, so it calls a model under `--ci` too. Without it (or `--ai`) a regenerate calls no model: a missing page gets boilerplate and an existing one is left alone.
@@ -49,7 +49,7 @@ gtb regenerate project
 - **Injects Imports**: Ensures all subcommands are correctly imported and registered in parent commands.
 - **Manages Lifecycle Files**: Creates or removes `init.go` based on the `with_initializer` value in the manifest for each command. If `with_initializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
 - **Runs Linting**: Automatically executes `go mod tidy` and `golangci-lint run --fix` to ensure the generated code is squeaky clean.
-- **Conflict Detection**: Checks whether a generated file (a `cmd.go`, or a skeleton file such as `.goreleaser.yaml`) has been modified since it was written and, under the default `--overwrite ask`, prompts per file before overwriting; `deny` keeps every diverged file and `allow` re-emits the skeleton's version wholesale.
+- **Conflict Detection**: Checks whether a generated file (a `cmd.go`, or a skeleton file such as `.goreleaser.yaml`) has been modified since it was written and, under the default `--overwrite ask`, prompts per file before overwriting; `deny` keeps every diverged file and `allow` re-emits the skeleton's version wholesale. The root command's `cmd.go` and the framework files beside it carry no hash and are rewritten on every run, whatever `--overwrite` says, unless a `.gtb/ignore` rule covers them. `pkg/cmd/root/provenance.go` is written with the manifest, so a rule does not keep it.
 - **Leaves your files alone**: `README.md`, `docs/index.md`, `justfile` and the init seed config are scaffolded once and never overwritten, whatever `--overwrite` says. Any other file you take over goes in [`.gtb/ignore`](../configure-generator-ignore.md).
 
 ### When a skeleton fix reaches a file you have customised

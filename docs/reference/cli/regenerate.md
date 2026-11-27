@@ -54,7 +54,8 @@ the generate directives (`pkg/cmd/root/generate.go`), the adapter and link
 files beside the entry point, the signing files, and each command's `cmd.go`.
 The files beside the root carry no hash, so they never raise a conflict; a rule
 in [`.gtb/ignore`](../../how-to/configure-generator-ignore.md) is what keeps one
-as it is. The per-command `main.go` implementation files are yours and are
+as it is. The exception is `pkg/cmd/root/provenance.go`, which is written with
+the manifest whatever the rules say. The per-command `main.go` implementation files are yours and are
 rewritten only with `--force`.
 
 `go.mod` is edited in place, never re-rendered (spec 0200). On every run the
@@ -130,8 +131,14 @@ Left alone, the next release is created empty or refused. See the
   the deterministic mode for a pipeline that regenerates.
 - `--overwrite deny` keeps every diverged file without asking.
 
-A file the manifest has no hash for, but which exists with different content,
-was not created by gtb: a project scaffolded into an existing repository, or a
+None of the three modes applies to the framework's own files listed under
+[What it rewrites](#what-it-rewrites), the root command's `pkg/cmd/root/cmd.go`
+among them. They carry no hash, so a run cannot tell your edit from an older
+skeleton, and it rewrites them every time. To keep one as you wrote it, add a
+rule to [`.gtb/ignore`](../../how-to/configure-generator-ignore.md).
+
+Any other file the manifest has no hash for, but which exists with different
+content, was not created by gtb: a project scaffolded into an existing repository, or a
 file a newer gtb adds that the project already had. It is treated as a conflict
 in the same way, reported with the reason `not created by gtb`, and stays
 unrecorded, so it is protected on every later run too. Likewise, a project
