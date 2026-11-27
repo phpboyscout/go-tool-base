@@ -162,7 +162,9 @@ func legacyProject(t *testing.T, dir, source string) (afero.Fs, *Generator) {
 	return fs, g
 }
 
-// The go command leaves these out of patterns too, and builds one that is imported.
+// The go command leaves these out of patterns too, and builds one that is
+// imported, so the scan reads it. regenerate project would scaffold it at
+// pkg/cmd/approve, so the rebuild then refuses it there (#262).
 func TestRegenerateManifest_ACommandInADirectoryOutsidePatterns(t *testing.T) {
 	t.Parallel()
 
@@ -181,18 +183,19 @@ func NewCmdNow(props *props.Props) *setup.Command {
 	parent = strings.Replace(parent, "\t})\n}", "\t})\n\tcmd.AddCommand(now.NewCmdNow(props))\n\treturn cmd\n}", 1)
 
 	for _, dir := range []string{"_legacy", ".legacy/deploy", "testdata", "hook/_legacy", "hook/testdata", "_legacy/nested"} {
-		t.Run(dir+" is read with its child", func(t *testing.T) {
+		t.Run(dir+" is read and refused where it is", func(t *testing.T) {
 			t.Parallel()
 
 			fs, g := legacyProject(t, dir, strings.Replace(parent, "DIR", dir, 1))
 			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/"+dir+"/now/cmd.go", []byte(child), 0o644))
-			require.NoError(t, g.RegenerateManifest(context.Background()))
 
-			_, m := readRoundTripManifest(t, fs)
-			require.Len(t, m.Commands, 1)
-			assert.Equal(t, "approve", m.Commands[0].Name)
-			require.Len(t, m.Commands[0].Commands, 1)
-			assert.Equal(t, "now", m.Commands[0].Commands[0].Name)
+			err := g.RegenerateManifest(context.Background())
+			require.ErrorIs(t, err, ErrCommandMisplaced)
+			assert.Contains(t, gterrors.FlattenHints(err), "at /work/pkg/cmd/approve. Move /work/pkg/cmd/"+dir+" there with its constructor renamed from NewCmd")
+			assert.NotContains(t, gterrors.FlattenHints(err), "Use back", "a directory go leaves out is no place to keep a command")
+
+			raw, _ := readRoundTripManifest(t, fs)
+			assert.Equal(t, unreadableManifest, raw)
 		})
 
 		t.Run(dir+" that does not parse stops the run", func(t *testing.T) {
@@ -230,6 +233,9 @@ func NewCmdNow(props *props.Props) *setup.Command {
 	})
 }
 
+// The scan reads no command from a file Go never builds, so a registration of
+// the package holding only that file finds nothing, and the rebuild stops
+// rather than drop the command.
 func TestRegenerateManifest_AFileGoNeverBuildsIsNoCommand(t *testing.T) {
 	t.Parallel()
 
@@ -237,10 +243,12 @@ func TestRegenerateManifest_AFileGoNeverBuildsIsNoCommand(t *testing.T) {
 		fs, g := roundTripProject(t, "approve", approveSource, unreadableManifest)
 		require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/approve/"+name, []byte(approveSource), 0o644))
 		require.NoError(t, fs.Remove("/work/pkg/cmd/approve/cmd.go"))
-		require.NoError(t, g.RegenerateManifest(context.Background()))
+		before, _ := readRoundTripManifest(t, fs)
 
-		_, m := readRoundTripManifest(t, fs)
-		assert.Empty(t, m.Commands)
+		require.ErrorIs(t, g.RegenerateManifest(context.Background()), ErrCommandNotFound)
+
+		after, _ := readRoundTripManifest(t, fs)
+		assert.Equal(t, before, after, "nothing is written")
 	}
 }
 
