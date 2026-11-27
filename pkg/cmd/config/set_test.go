@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -14,6 +15,7 @@ import (
 	configafero "gitlab.com/phpboyscout/go/config-afero"
 	configtoml "gitlab.com/phpboyscout/go/config-toml"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/formtest"
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -151,19 +153,19 @@ func projectLocalConfig(t *testing.T, contents string) (*props.Props, afero.Fs, 
 }
 
 // TestCmdSet_SensitiveProjectLocalWrite_WarnsAndProceeds covers the credential
-// guard on a committable file. Under `go test` stdin is not a terminal, so the
+// guard on a committable file. Its stdin is not a terminal, so the
 // non-interactive branch runs: a warning is emitted to stderr and the write
 // proceeds (a project-local secret can be legitimate — it is never blocked).
 func TestCmdSet_SensitiveProjectLocalWrite_WarnsAndProceeds(t *testing.T) {
 	t.Parallel()
 
 	p, fs, path := projectLocalConfig(t, "log:\n  level: info\n")
+	p.IO = props.StdIO{Stdin: &bytes.Buffer{}}
 
 	cmd := config.NewCmdSet(p)
 	var out, errBuf bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&errBuf)
-	cmd.SetIn(&bytes.Buffer{}) // force the non-interactive branch
 	cmd.SetArgs([]string{"github.auth.value", "ghp_committed_secret"})
 
 	require.NoError(t, cmd.Execute())
@@ -191,13 +193,12 @@ func TestCmdSet_SensitiveProjectLocalWrite_WarnsInEveryFormat(t *testing.T) {
 	store, err := cfg.NewStore(t.Context(), cfg.WithBackend(cfg.NewCodecBackend(configafero.Wrap(fs), path, configtoml.Codec{})))
 	require.NoError(t, err)
 
-	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}, Logger: logger.NewNoop()}
+	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}, Logger: logger.NewNoop(), IO: props.StdIO{Stdin: &bytes.Buffer{}}}
 
 	cmd := config.NewCmdSet(p)
 	var errBuf bytes.Buffer
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&errBuf)
-	cmd.SetIn(&bytes.Buffer{})
 	cmd.SetArgs([]string{"github.auth.value", "ghp_committed_secret"})
 
 	require.NoError(t, cmd.Execute())
@@ -215,7 +216,6 @@ func TestCmdSet_NonSensitiveProjectLocalWrite_NoWarning(t *testing.T) {
 	cmd := config.NewCmdSet(p)
 	var errBuf bytes.Buffer
 	cmd.SetErr(&errBuf)
-	cmd.SetIn(&bytes.Buffer{})
 	cmd.SetArgs([]string{"log.level", "debug"})
 
 	require.NoError(t, cmd.Execute())
@@ -233,11 +233,50 @@ func TestCmdSet_SensitiveGlobalWrite_NoWarning(t *testing.T) {
 	cmd := config.NewCmdSet(p)
 	var errBuf bytes.Buffer
 	cmd.SetErr(&errBuf)
-	cmd.SetIn(&bytes.Buffer{})
 	cmd.SetArgs([]string{"github.auth.value", "ghp_private_ok"})
 
 	require.NoError(t, cmd.Execute())
 	assert.NotContains(t, errBuf.String(), "Warning")
+}
+
+// At a terminal the confirmation decides, and input that ends before an answer
+// writes nothing (#254).
+func TestCmdSet_SensitiveProjectLocalWrite_AsksAtATerminal(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		answers []string
+		written bool
+		failed  bool
+	}{
+		"yes":            {answers: []string{"y"}, written: true},
+		"no":             {answers: []string{"n"}},
+		"no answer":      {failed: true},
+		"one not listed": {answers: []string{"maybe"}, failed: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p, fs, path := projectLocalConfig(t, "log:\n  level: info\n")
+			p.IO = formtest.AccessibleTTY(formtest.Answers(tc.answers...))
+
+			cmd := config.NewCmdSet(p)
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+			cmd.SetArgs([]string{"github.auth.value", "ghp_committed_secret"})
+
+			err := cmd.Execute()
+			if tc.failed {
+				require.ErrorIs(t, err, setup.ErrInputEnded)
+			} else {
+				require.NoError(t, err)
+			}
+
+			data, err := afero.ReadFile(fs, path)
+			require.NoError(t, err)
+			assert.Equal(t, tc.written, strings.Contains(string(data), "ghp_committed_secret"))
+		})
+	}
 }
 
 func TestCmdSet_CoerceBool(t *testing.T) {

@@ -40,12 +40,12 @@ func NewAgentVerifier(p *props.Props, allowQuery bool) *AgentVerifier {
 	}
 }
 
-// huhUserPrompt asks the user the model's question via charm's huh, offering
-// the suggested answers plus an "other" free-text option, and returns the
-// reply. It backs the query_user tool for interactive runs.
-func huhUserPrompt(_ context.Context, question string, suggestions []string) (string, error) {
+// askUser asks the user the model's question, offering the suggested answers
+// plus an "other" free-text option, and returns the reply. It backs the
+// query_user tool for interactive runs.
+func (v *AgentVerifier) askUser(ctx context.Context, question string, suggestions []string) (string, error) {
 	if len(suggestions) == 0 {
-		return huhFreeText(question)
+		return v.askFreeText(ctx, question)
 	}
 
 	options := make([]huh.Option[string], 0, len(suggestions)+1)
@@ -64,7 +64,7 @@ func huhUserPrompt(_ context.Context, question string, suggestions []string) (st
 			Options(options...).
 			Value(&choice),
 	)).WithTheme(setup.FormTheme())
-	if err := form.Run(); err != nil {
+	if err := setup.RunForm(ctx, v.props, form); err != nil {
 		return "", errors.Wrap(err, "query_user prompt failed")
 	}
 
@@ -72,10 +72,10 @@ func huhUserPrompt(_ context.Context, question string, suggestions []string) (st
 		return choice, nil
 	}
 
-	return huhFreeText(question)
+	return v.askFreeText(ctx, question)
 }
 
-func huhFreeText(question string) (string, error) {
+func (v *AgentVerifier) askFreeText(ctx context.Context, question string) (string, error) {
 	var answer string
 
 	form := huh.NewForm(huh.NewGroup(
@@ -84,7 +84,7 @@ func huhFreeText(question string) (string, error) {
 			Description("Type your answer for the generator agent.").
 			Value(&answer),
 	)).WithTheme(setup.FormTheme())
-	if err := form.Run(); err != nil {
+	if err := setup.RunForm(ctx, v.props, form); err != nil {
 		return "", errors.Wrap(err, "query_user prompt failed")
 	}
 
@@ -112,7 +112,7 @@ func (v *AgentVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir st
 	// The query_user tool is only available in interactive runs; in CI or with
 	// --non-interactive the agent must proceed without asking.
 	if v.allowQuery {
-		tools = append(tools, agent.QueryUserTool(huhUserPrompt))
+		tools = append(tools, agent.QueryUserTool(v.askUser))
 	}
 
 	if err := aiClient.SetTools(tools); err != nil {

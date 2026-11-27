@@ -91,7 +91,8 @@ mytool config set feature.enabled true
 project-local `.<tool>.yaml`, the repo-root config layer, which the store
 writes to ahead of your private config when one is present, `set` warns that
 the file may be committed to version control. In an interactive terminal it
-asks you to confirm; declining aborts and leaves the file untouched. In a
+asks you to confirm, one line at a time under `--accessible`; declining, or
+input that ends before an answer, aborts and leaves the file untouched. In a
 non-interactive session (CI, a pipe) it warns and proceeds. The write is never
 blocked outright (a project-local secret can be deliberate) but prefer
 env-var or OS-keychain storage (see the tool's `init`) for anything sensitive.

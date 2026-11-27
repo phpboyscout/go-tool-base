@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -150,7 +149,7 @@ func confirmSensitiveProjectLocalWrite(cmd *cobra.Command, props *p.Props, key, 
 	_, _ = fmt.Fprintln(w, "your private config with an explicit --config path.")
 	_, _ = fmt.Fprintln(w)
 
-	if !isInteractiveInput(cmd) {
+	if !props.GetIO().Interactive() {
 		_, _ = fmt.Fprintln(w, "Proceeding (non-interactive); re-run in a terminal to be asked to confirm.")
 
 		return true, nil
@@ -158,7 +157,7 @@ func confirmSensitiveProjectLocalWrite(cmd *cobra.Command, props *p.Props, key, 
 
 	var confirmed bool
 
-	if err := huh.NewForm(
+	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Write this credential to the project-local config file?").
@@ -166,7 +165,8 @@ func confirmSensitiveProjectLocalWrite(cmd *cobra.Command, props *p.Props, key, 
 				Negative("No, cancel").
 				Value(&confirmed),
 		),
-	).WithTheme(setup.FormTheme()).Run(); err != nil {
+	).WithTheme(setup.FormTheme())
+	if err := setup.RunForm(cmd.Context(), props, form); err != nil {
 		return false, errors.Wrap(err, "confirmation cancelled")
 	}
 
@@ -223,24 +223,6 @@ func isKnownCredentialKey(key string) bool {
 	_, ok := knownCredential(strings.ToLower(key))
 
 	return ok
-}
-
-// isInteractiveInput reports whether the command's input is an interactive
-// terminal. It reads the command's own input stream — os.Stdin by default, so
-// production behaviour is unchanged — which lets tests force the
-// non-interactive path with cmd.SetIn.
-func isInteractiveInput(cmd *cobra.Command) bool {
-	f, ok := cmd.InOrStdin().(*os.File)
-	if !ok {
-		return false
-	}
-
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-
-	return info.Mode()&os.ModeCharDevice != 0
 }
 
 // resolveWritableConfigPath returns the file a config write would land in, or
