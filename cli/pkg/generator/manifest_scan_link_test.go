@@ -301,3 +301,51 @@ func commandNames(cmds []ManifestCommand) []string {
 
 	return names
 }
+
+// ring and loop register each other, and the top-level scan links each under
+// the other, so the walk over the tree recursed until the stack overflowed
+// (#260). A cobra tree cannot hold a cycle, so the run stops and names it.
+//
+// A loop across levels, hook/kid registering hook, left hook's directory with
+// no root, so both vanished from the manifest with no warning. A loop nothing
+// registers stops the run too, since it cannot compile either.
+func TestRegenerateManifest_StopsAtACycle(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		sources map[string]string
+		loop    string
+	}{
+		"in one directory": {map[string]string{
+			"hook": registeringSource("hook", "hook/kid", "ring"),
+			"ring": registeringSource("ring", "loop"),
+			"loop": registeringSource("loop", "ring"),
+		}, "ring registers /work/pkg/cmd/loop registers /work/pkg/cmd/ring"},
+		"past a finished sibling": {map[string]string{
+			"hook": registeringSource("hook", "hook/kid", "ring"),
+			"ring": registeringSource("ring", "zzz", "loop"),
+			"zzz":  registeringSource("zzz"),
+			"loop": registeringSource("loop", "ring"),
+		}, "ring registers /work/pkg/cmd/loop registers /work/pkg/cmd/ring"},
+		"across levels": {map[string]string{
+			"hook/kid": registeringSource("hook/kid", "hook/kid/before", "hook"),
+		}, "hook registers /work/pkg/cmd/hook/kid registers /work/pkg/cmd/hook"},
+		"that nothing registers": {map[string]string{
+			"ring": registeringSource("ring", "loop"),
+			"loop": registeringSource("loop", "ring"),
+		}, "loop registers /work/pkg/cmd/ring registers /work/pkg/cmd/loop"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs, g := subtreeProject(t, tc.sources)
+
+			err := g.RegenerateManifest(context.Background())
+			require.ErrorIs(t, err, ErrCommandCycle)
+			require.ErrorContains(t, err, ": /work/pkg/cmd/"+tc.loop)
+
+			raw, _ := readRoundTripManifest(t, fs)
+			assert.Equal(t, unreadableManifest, raw, "the manifest has not been changed")
+		})
+	}
+}
