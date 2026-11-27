@@ -31,6 +31,8 @@ func (g *Generator) syncDerivedFromManifest(m *Manifest) error {
 		return err
 	}
 
+	g.warnKeptSigningPosture(*m)
+
 	if err := g.syncAdapterFiles(m); err != nil {
 		return err
 	}

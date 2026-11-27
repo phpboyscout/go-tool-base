@@ -277,6 +277,32 @@ manifest. They follow the hashing rule above as well: the recorded hash of
 changes don't become the new baseline, so the next regenerate still asks before
 overwriting it. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
 
+The signing posture itself is different, because it lives in the files these
+commands write. Any change to the signing settings stops before writing
+anything, and names the file, when a rule covers `pkg/cmd/root/cmd.go` or
+`pkg/cmd/root/signing.go`. Turning signing on, or changing it while it is on,
+also stops on the trust keys file `internal/trustkeys/trustkeys.go`. That holds
+for `gtb enable signing` and `gtb disable signing`, for `gtb set` and
+`gtb unset` on a `signing.*` key, and for `gtb wizard`. Carrying on would
+record a posture the built tool does not have. Remove the rule and run the
+command again.
+
+`gtb regenerate project` keeps those files when a rule covers them, because
+that is what the rule asks for. When a kept `signing.go`, or a kept root, does
+not carry the signing settings the manifest records, the run warns and names
+the file, since the built tool does not have them. A kept `signing.go` is
+compared with what the manifest's settings render, byte for byte, so a
+comment-only edit also warns:
+
+```text
+WARN a .gtb/ignore rule keeps this file without the manifest's signing settings, so the built tool does not have them path=pkg/cmd/root/signing.go remedy="gtb ignore remove pkg/cmd/root/signing.go"
+```
+
+A link file such as `cmd/<name>/mcp.go` or `keychain.go` is the switch for its
+feature. When a rule keeps one that the manifest says should be gone, or keeps
+one away that it says should be there, the run warns that the feature stays as
+the file has it.
+
 ## The Generated Commands Index
 
 The CLI commands index, `docs/reference/cli/index.md` (Diátaxis layout) or

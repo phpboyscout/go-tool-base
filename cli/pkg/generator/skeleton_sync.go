@@ -14,7 +14,8 @@ import (
 // package and the generate directives. They carry no hash, so they cannot
 // conflict, and until #84 nothing after generation rewrote them, so a project
 // scaffolded by an older gtb kept an entry point the current root no longer
-// compiled against. A rule outranks the write, as it does the root's.
+// compiled against. A rule outranks the write, as it does the root's, and
+// writeGeneratedGoFile consults it.
 func (g *Generator) syncSkeletonGoFiles(m Manifest) error {
 	modulePath, err := g.getModuleName()
 	if err != nil {
@@ -35,10 +36,6 @@ func (g *Generator) syncSkeletonGoFiles(m Manifest) error {
 	sort.Strings(paths)
 
 	for _, rel := range paths {
-		if !g.managedGeneratedFile(rel) {
-			continue
-		}
-
 		if err := g.writeGeneratedGoFile(rel, files[rel]); err != nil {
 			return err
 		}

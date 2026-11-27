@@ -3,7 +3,6 @@ package generator
 import (
 	"context"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -24,6 +23,12 @@ const signingTrustKeysTestPath = "internal/trustkeys/trustkeys_test.go"
 // signingGoPath is the generated enforcement-defaults file, relative to
 // the project root. It lives beside the templated root command.
 const signingGoPath = "pkg/cmd/root/signing.go"
+
+// ErrSigningFileProtected is a signing change refused because a .gtb/ignore
+// rule covers a file the change is written into. Carrying on would record a
+// posture the built tool does not have (#261).
+var ErrSigningFileProtected = errors.NewSentinel("gtb.generator.signing_file_protected",
+	"a .gtb/ignore rule covers a file the signing posture is written into")
 
 // signingKeysDir is the author-owned key directory, relative to the
 // project root. The generator writes only its .gitkeep; the author drops
@@ -92,9 +97,13 @@ func ApplySigningDefaults(s ManifestSigning) ManifestSigning {
 }
 
 // writeGeneratedGoFile renders a jen file to path under the project root,
-// creating parent directories as needed. Used for the signing-related Go
-// files that are emitted outside the main skeleton/regenerate map.
+// creating parent directories as needed, unless a .gtb/ignore rule covers it.
+// It writes every hashless framework file beside the root.
 func (g *Generator) writeGeneratedGoFile(relPath string, f *jen.File) error {
+	if !g.managedGeneratedFile(relPath) {
+		return nil
+	}
+
 	fullPath := filepath.Join(g.config.Path, relPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), DefaultDirMode); err != nil {
@@ -205,11 +214,7 @@ func (g *Generator) removeGeneratedSigningGo() error {
 		return nil
 	}
 
-	if err := g.props.FS.Remove(fullPath); err != nil && !os.IsNotExist(err) {
-		return errors.Newf("failed to remove %s: %w", signingGoPath, err)
-	}
-
-	return nil
+	return g.removeGeneratedFile(signingGoPath)
 }
 
 // CurrentSigning returns the project's current manifest signing block, so a
@@ -275,6 +280,10 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 		return err
 	}
 
+	if err := g.refuseProtectedSigningFiles(signing.Enabled); err != nil {
+		return err
+	}
+
 	m, err := g.loadManifest()
 	if err != nil {
 		return err
@@ -311,6 +320,29 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 	// dropped signing.go (disable) leaves a building, lint-clean tree.
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
 		g.runSkeletonPostProcessing(ctx, g.config.Path)
+	}
+
+	return nil
+}
+
+// refuseProtectedSigningFiles stops a signing change before anything is
+// written when a rule covers the root, which carries the Signing field, or the
+// files that enabling writes and disabling removes. Every route that changes
+// the signing block calls it: enable and disable signing, and commitSetting
+// for gtb set, gtb unset and the wizard.
+func (g *Generator) refuseProtectedSigningFiles(enabling bool) error {
+	paths := []string{"pkg/cmd/root/cmd.go", signingGoPath}
+	if enabling {
+		paths = append(paths, signingTrustKeysPath)
+	}
+
+	for _, rel := range paths {
+		if g.ignoreRules().State(rel) == StateManaged {
+			continue
+		}
+
+		return errors.WithHintf(errors.Newf("%w: %s", ErrSigningFileProtected, rel),
+			"Nothing was changed. Remove the rule with `gtb ignore remove %s` and run the command again.", rel)
 	}
 
 	return nil
@@ -426,4 +458,55 @@ func (g *Generator) writeSigningKeyDirs(root string) error {
 	}
 
 	return nil
+}
+
+// warnKeptSigningPosture says when a .gtb/ignore rule keeps signing.go or the
+// root without the signing posture the manifest asks for. Keeping the file is
+// what the rule asked for, so the run warns rather than refuses (W-558).
+func (g *Generator) warnKeptSigningPosture(m Manifest) {
+	const rootPath = "pkg/cmd/root/cmd.go"
+
+	if g.ignoreRules().State(signingGoPath) != StateManaged && !g.keptSigningGoMatches(m) {
+		g.warnSigningPostureNotShipped(signingGoPath)
+	}
+
+	if g.ignoreRules().State(rootPath) != StateManaged && !g.keptRootCarriesSigning(m, rootPath) {
+		g.warnSigningPostureNotShipped(rootPath)
+	}
+}
+
+func (g *Generator) warnSigningPostureNotShipped(rel string) {
+	g.props.Logger.Warn("a .gtb/ignore rule keeps this file without the manifest's signing settings, so the built tool does not have them",
+		"path", rel, "remedy", "gtb ignore remove "+rel)
+}
+
+func (g *Generator) keptSigningGoMatches(m Manifest) bool {
+	content, err := afero.ReadFile(g.props.FS, filepath.Join(g.config.Path, signingGoPath))
+	if !m.Properties.Signing.Enabled {
+		return err != nil
+	}
+
+	var want strings.Builder
+	if renderErr := templates.SkeletonSigning(templates.SkeletonSigningData{
+		ExternalKeyEmail:          m.Properties.Signing.ExternalKeyEmail,
+		RequireSignature:          m.Properties.Signing.RequireSignature,
+		KeySource:                 m.Properties.Signing.KeySource,
+		RequireExternalCrosscheck: m.Properties.Signing.RequireExternalCrosscheck,
+	}).Render(&want); renderErr != nil {
+		return true
+	}
+
+	return err == nil && string(content) == want.String()
+}
+
+// keptRootCarriesSigning reads the two parts of the posture the root's Tool
+// literal carries: the embedded trust keys and a required checksum.
+func (g *Generator) keptRootCarriesSigning(m Manifest, rel string) bool {
+	content, _ := afero.ReadFile(g.props.FS, filepath.Join(g.config.Path, rel))
+	root := string(content)
+
+	wantKeys := m.Properties.Signing.Enabled && manifestModulePath(m) != ""
+
+	return strings.Contains(root, "EmbeddedKeys") == wantKeys &&
+		strings.Contains(root, "RequireChecksum") == m.Properties.Signing.RequireChecksum
 }

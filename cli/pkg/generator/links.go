@@ -1,12 +1,9 @@
 package generator
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/afero"
-
-	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/cli/pkg/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -41,10 +38,11 @@ func (g *Generator) syncLinkFiles(name string, features []ManifestFeature) error
 	for _, d := range templates.FrameworkLinks() {
 		rel := linkFile(name, d)
 
+		g.warnIgnoredLink(rel, d, featureEnabledIn(features, string(d.ID)))
+
 		if !featureEnabledIn(features, string(d.ID)) {
-			path := filepath.Join(g.config.Path, rel)
-			if err := g.props.FS.Remove(path); err != nil && !os.IsNotExist(err) {
-				return errors.Newf("failed to remove %s: %w", path, err)
+			if err := g.removeGeneratedFile(rel); err != nil {
+				return err
 			}
 
 			continue
@@ -78,4 +76,25 @@ func (g *Generator) linkArtefactExists(d props.FeatureDescriptor) bool {
 	matches, err := afero.Glob(g.props.FS, filepath.Join(g.config.Path, "cmd", "*", string(d.ID)+".go"))
 
 	return err == nil && len(matches) > 0
+}
+
+// warnIgnoredLink says when a rule keeps a link file in a state the manifest
+// does not want. The file is the switch, so the feature follows the file.
+func (g *Generator) warnIgnoredLink(rel string, d props.FeatureDescriptor, wanted bool) {
+	if g.ignoreRules().State(rel) == StateManaged {
+		return
+	}
+
+	present, _ := afero.Exists(g.props.FS, filepath.Join(g.config.Path, rel))
+	if present == wanted {
+		return
+	}
+
+	state := "off"
+	if present {
+		state = "on"
+	}
+
+	g.props.Logger.Warn("a .gtb/ignore rule keeps this link file, so the feature stays "+state+" in the built tool",
+		"feature", string(d.ID), "path", rel, "remedy", "gtb ignore remove "+rel)
 }

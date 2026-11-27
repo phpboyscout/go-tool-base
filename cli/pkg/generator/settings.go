@@ -136,6 +136,12 @@ func (g *Generator) commitSetting(ctx context.Context, m *Manifest) error {
 		return err
 	}
 
+	if !reflect.DeepEqual(before.Properties.Signing, m.Properties.Signing) {
+		if err := g.refuseProtectedSigningFiles(m.Properties.Signing.Enabled); err != nil {
+			return err
+		}
+	}
+
 	if err := g.syncDerivedFromManifest(m); err != nil {
 		return err
 	}

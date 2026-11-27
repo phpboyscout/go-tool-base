@@ -323,8 +323,12 @@ func (g *Generator) syncAdapterFiles(m *Manifest) error {
 }
 
 // removeGeneratedFile deletes a generated file the manifest no longer calls
-// for; absence is not an error.
+// for; absence is not an error, and a .gtb/ignore rule keeps it.
 func (g *Generator) removeGeneratedFile(relPath string) error {
+	if !g.managedGeneratedFile(relPath) {
+		return nil
+	}
+
 	fullPath := filepath.Join(g.config.Path, relPath)
 
 	if err := g.props.FS.Remove(fullPath); err != nil && !os.IsNotExist(err) {
