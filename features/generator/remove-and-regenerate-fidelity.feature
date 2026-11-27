@@ -46,6 +46,16 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     When I run gtb in the project with "regenerate project --overwrite deny"
     Then the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
 
+  Scenario: adding a first child with --force leaves a hand-edited parent's edit
+    # Issue #258: the reshape to a group took --force as leave to overwrite the parent.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name serve --short serve-it"
+    And I hand-edit the generated "pkg/cmd/serve/cmd.go" file
+    And I run gtb in the project with "generate command --name status --parent serve --short status-it --force"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/serve/cmd.go" file contains "hand-edited, do not clobber"
+    And the generated "pkg/cmd/serve/cmd.go" file contains "status.NewCmdStatus"
+
   Scenario: removing a command leaves a parent gtb has no hash for
     # A rebuilt manifest records no hashes, and regenerate keeps a file it has none for.
     Given a freshly generated gtb project

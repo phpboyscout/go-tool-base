@@ -182,11 +182,5 @@ func (g *Generator) reshapeParentIfLeafAgain(ctx context.Context) error {
 
 	g.moveCommandDocForShape(m, parentParts, false)
 
-	// --force is for the removed command's protection, not the parent's edits.
-	force := g.config.Force
-	g.config.Force = false
-	err = g.RegenerateCommand(ctx, *parent, grandparent)
-	g.config.Force = force
-
-	return err
+	return g.reshapeParent(ctx, *parent, grandparent)
 }

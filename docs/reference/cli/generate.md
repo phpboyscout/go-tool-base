@@ -252,7 +252,7 @@ Generate a new command or subcommand (optionally AI-converted from a script).
 | `--flags-hook` | `false` | Generate a `Flags<Name>` hook, called while the command is built, that can add flags to it ([Add flags from your own code](../../how-to/framework-cli/generate-commands.md#4c-add-flags-from-your-own-code)). |
 | `--with-initializer` | `false` | Generate an Initializer for this command. |
 | `--with-config-validation` | `false` | Generate a config-validation stub for this command. |
-| `--force` | `false` | Overwrite existing files. |
+| `--force` | `false` | Overwrite the command's existing files. A parent that gains its first child is still checked for your edits. |
 | `--protected` | `false` | Mark the command as protected from regeneration (tri-state: `--protected`, `--protected=false`, or omitted for nil). |
 | `--mcp-enabled` | `true` | Expose this command as an MCP tool (tri-state: `--mcp-enabled=false` withholds it from the MCP surface; it stays runnable on the CLI). |
 | `--path, -p` | `.` | Filesystem project root (not a command path). |
