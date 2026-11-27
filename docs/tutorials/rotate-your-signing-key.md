@@ -392,12 +392,10 @@ rotation authority as `--anchor-only`), and `keys rotate` checks the result as
 those copies' updater would before you publish it.
 Commit the two files it writes to `release/rotation/`, as
 [Generate the rotation-authority key](../how-to/generate-rotation-key.md#what-happens-when-you-need-to-use-it)
-describes. A compromised key is the runbook's compromise case instead. Once a key
-has been revoked, every later manifest has to repeat the revoke, and for now it
-has to say `--reason compromise` too, even for a scheduled change, because the
-updater in today's copies refuses a revoke in a scheduled manifest. See
-[the rotation outcomes](../explanation/components/setup/signature-verification.md).
-Otherwise, tell your users to reinstall once from the release page.
+describes. A compromised key is the runbook's compromise case instead.
+
+Copies that can't take a manifest need a reinstall, so tell those users to
+reinstall once from the release page.
 The new binary trusts the new key, and self-update works again from there. That's the
 cost of losing a key early, and it's why the overlap matters: never retire v1
 before it has closed.
@@ -405,6 +403,11 @@ before it has closed.
 Don't sign a release with the rotation authority to bridge the gap. It's
 there to vouch for a new key set, not to sign releases, and your tool refuses a
 release signed by it.
+
+Once any key has been revoked, every later manifest has to repeat the revoke.
+For now it has to say `--reason compromise` too, even for a scheduled change,
+because the updater in today's copies refuses a revoke in a scheduled manifest.
+See [the rotation outcomes](../explanation/components/setup/signature-verification.md#key-rotation).
 
 Keep the rotation authority's private half offline: an encrypted USB stick
 and a printed copy, kept apart, with the printed copy typed back in once to
