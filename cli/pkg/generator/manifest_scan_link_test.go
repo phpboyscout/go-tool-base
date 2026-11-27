@@ -2,6 +2,9 @@ package generator
 
 import (
 	"context"
+	"path"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -110,6 +113,7 @@ func subtreeProject(t *testing.T, sources map[string]string) (afero.Fs, *Generat
 
 	all := map[string]string{
 		"hook":            registeringSource("hook", "hook/kid"),
+		"hook/kid":        registeringSource("hook/kid"),
 		"hook/kid/before": registeringSource("hook/kid/before"),
 		"hook/kid/after":  registeringSource("hook/kid/after"),
 		"lib/one":         registeringSource("lib/one", "lib/two"),
@@ -139,41 +143,114 @@ func NewCmdRoot(p *props.Props) *setup.Command {
 	return fs, g
 }
 
-// A command directly in pkg/cmd meets every other package in the top-level
-// scan, so the manifest records its registration from another subtree. That
-// regenerate project then expects the package elsewhere is #262.
-func TestRegenerateManifest_PlacesATopLevelRegistrationFromAnotherSubtree(t *testing.T) {
+// regenerate project scaffolds each command at pkg/cmd/<parent commands>/<name>,
+// so a manifest recording one anywhere else is one that run breaks (#262).
+func TestRegenerateManifest_RefusesACommandOutsideItsPlace(t *testing.T) {
 	t.Parallel()
 
-	fs, g := subtreeProject(t, map[string]string{
-		"hook":     registeringSource("hook", "hook/kid", "lib/one"),
-		"hook/kid": registeringSource("hook/kid", "hook/kid/before"),
-	})
+	for name, tc := range map[string]struct {
+		sources map[string]string
+		hint    string
+	}{
+		"a top-level command registering another subtree": {map[string]string{
+			"hook":     registeringSource("hook", "hook/kid", "lib/one"),
+			"hook/kid": registeringSource("hook/kid", "hook/kid/before"),
+		}, "stub this one at /work/pkg/cmd/hook/one. Move /work/pkg/cmd/lib/one there, and update the registration in /work/pkg/cmd/hook."},
+		"a sibling under the directory holding the registrant": {map[string]string{
+			"hook/kid":      registeringSource("hook/kid", "hook/kid/before", "hook/side/one"),
+			"hook/side/one": registeringSource("hook/side/one"),
+		}, "stub this one at /work/pkg/cmd/hook/kid/one. Move /work/pkg/cmd/hook/side/one there, and update the registration in /work/pkg/cmd/hook/kid."},
+		"the root registering a nested package": {map[string]string{
+			"hook": registeringSource("hook", "hook/kid", "hook/kid/after"),
+		}, "stub this one at /work/pkg/cmd/hook/after."},
+		"a command under another name than its directory": {map[string]string{
+			"hook/kid": strings.Replace(registeringSource("hook/kid", "hook/kid/before"), `Use: "kid"`, `Use: "child"`, 1),
+		}, "stub this one at /work/pkg/cmd/hook/child. Move /work/pkg/cmd/hook/kid there with its constructor renamed " +
+			`from NewCmdKid to NewCmdChild, and update the registration in /work/pkg/cmd/hook. In /work/pkg/cmd/hook/kid, also rename ` +
+			`whichever of these it has to match "child": the package clause to package child, the options type to ChildOptions, ` +
+			`the run function to RunChild, and the setup.Wrap name. Or set the name in its Use back to "kid"`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	require.NoError(t, g.RegenerateManifest(context.Background()))
+			fs, g := subtreeProject(t, tc.sources)
+			before, _ := readRoundTripManifest(t, fs)
 
-	_, m := readRoundTripManifest(t, fs)
-	require.Len(t, m.Commands, 1)
-	assert.Equal(t, []string{"kid", "one"}, commandNames(m.Commands[0].Commands))
+			err := g.RegenerateManifest(context.Background())
+			require.ErrorIs(t, err, ErrCommandMisplaced)
+			assert.Contains(t, errors.FlattenHints(err), tc.hint)
+
+			if !strings.Contains(tc.hint, "Use back") {
+				assert.NotContains(t, errors.FlattenHints(err), "Use back", "a Use that names its own directory does not keep it in place")
+			}
+
+			after, _ := readRoundTripManifest(t, fs)
+			assert.Equal(t, before, after, "nothing is written")
+		})
+	}
 }
 
-// A directory's scan links every command it holds, so the manifest records a
-// registration of any package under the directory that holds the registrant, a
-// sibling's included. That regenerate project then expects it elsewhere is #262.
-func TestRegenerateManifest_PlacesARegistrationUnderTheDirectoryHoldingIt(t *testing.T) {
+// Two commands in one directory registering one package is one registration
+// too many, and the one the parent already places right is the one to keep:
+// moving the package for the other would break the first (#262).
+func TestRegenerateManifest_NamesBothRegistrationsOfOnePackage(t *testing.T) {
 	t.Parallel()
 
 	fs, g := subtreeProject(t, map[string]string{
-		"hook/kid":      registeringSource("hook/kid", "hook/kid/before", "hook/side/one"),
-		"hook/side/one": registeringSource("hook/side/one"),
+		"hook":     registeringSource("hook", "hook/kid", "hook/one"),
+		"hook/kid": registeringSource("hook/kid", "hook/kid/before", "hook/one"),
+		"hook/one": registeringSource("hook/one"),
 	})
+	before, _ := readRoundTripManifest(t, fs)
 
-	require.NoError(t, g.RegenerateManifest(context.Background()))
+	err := g.RegenerateManifest(context.Background())
+	require.ErrorIs(t, err, ErrCommandOutsideParent)
+	assert.Contains(t, errors.FlattenHints(err),
+		"regenerate project puts /work/pkg/cmd/hook/one beneath /work/pkg/cmd/hook, so keep that registration and remove the one in /work/pkg/cmd/hook/kid.")
 
-	_, m := readRoundTripManifest(t, fs)
-	require.Len(t, m.Commands, 1)
-	require.Len(t, m.Commands[0].Commands, 1)
-	assert.Equal(t, []string{"before", "one"}, commandNames(m.Commands[0].Commands[0].Commands))
+	after, _ := readRoundTripManifest(t, fs)
+	assert.Equal(t, before, after, "nothing is written")
+}
+
+// Two commands of one name beneath one parent both want the same directory, so
+// moving either there is no answer. The hint asks for a rename instead.
+func TestRegenerateManifest_RefusesTwoCommandsOfOneName(t *testing.T) {
+	t.Parallel()
+
+	const otherKid = `package kid
+import "github.com/spf13/cobra"
+func NewCmdOther() *cobra.Command {
+	return &cobra.Command{Use: "kid"}
+}`
+
+	for name, tc := range map[string]struct {
+		sources map[string]string
+		other   bool
+	}{
+		"in two directories": {map[string]string{
+			"hook":      registeringSource("hook", "hook/kid2", "hook/kid"),
+			"hook/kid":  registeringSource("hook/kid"),
+			"hook/kid2": strings.Replace(registeringSource("hook/kid2"), `Use: "kid2"`, `Use: "kid"`, 1),
+		}, false},
+		"in one directory": {map[string]string{
+			"hook":     strings.Replace(registeringSource("hook", "hook/kid", "hook/kid"), "cb.NewCmdKid(props)", "cb.NewCmdOther()", 1),
+			"hook/kid": registeringSource("hook/kid"),
+		}, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs, g := subtreeProject(t, tc.sources)
+			if tc.other {
+				require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/kid/other.go", []byte(otherKid), 0o644))
+			}
+
+			err := g.RegenerateManifest(context.Background())
+			require.ErrorIs(t, err, ErrCommandMisplaced)
+			assert.Contains(t, errors.FlattenHints(err),
+				`regenerate project puts it at /work/pkg/cmd/hook/kid, which already holds another command named "kid". Rename one of them`)
+		})
+	}
 }
 
 // The hint sends the package to where regenerate project puts it, beneath the
@@ -293,15 +370,6 @@ func TestRegenerateManifest_KeepsTheReachableRegistrationOverAnOrphanClaim(t *te
 		"beneath /work/pkg/cmd/hook, so keep that registration and remove the one in /work/pkg/cmd/hook/one/aside.")
 }
 
-func commandNames(cmds []ManifestCommand) []string {
-	names := make([]string, 0, len(cmds))
-	for _, c := range cmds {
-		names = append(names, c.Name)
-	}
-
-	return names
-}
-
 // ring and loop register each other, and the top-level scan links each under
 // the other, so the walk over the tree recursed until the stack overflowed
 // (#260). A cobra tree cannot hold a cycle, so the run stops and names it.
@@ -348,4 +416,328 @@ func TestRegenerateManifest_StopsAtACycle(t *testing.T) {
 			assert.Equal(t, unreadableManifest, raw, "the manifest has not been changed")
 		})
 	}
+}
+
+// Following a refusal's hint has to leave a manifest that keeps the command:
+// the scan finds a generated constructor only by its directory's name, so a
+// hint that moves a package without renaming its constructor would lose it.
+func TestRegenerateManifest_FollowingTheHintKeepsTheCommand(t *testing.T) {
+	t.Parallel()
+
+	withUse := func(dir, use string, children ...string) string {
+		return strings.Replace(registeringSource(dir, children...), `Use: "`+path.Base(dir)+`"`, `Use: "`+use+`"`, 1)
+	}
+
+	for name, tc := range map[string]struct {
+		sources map[string]string
+		hint    string
+		follow  func(t *testing.T, fs afero.Fs)
+		want    []string
+	}{
+		"move a command named apart from its directory": {
+			map[string]string{"hook/kid": withUse("hook/kid", "child")},
+			"Move /work/pkg/cmd/hook/kid there with its constructor renamed from NewCmdKid to NewCmdChild",
+			func(t *testing.T, fs afero.Fs) {
+				t.Helper()
+				moveCommand(t, fs, "hook", "hook/kid", "hook/child")
+			},
+			[]string{"hook", "hook child"},
+		},
+		"set its Use back instead": {
+			map[string]string{"hook/kid": withUse("hook/kid", "child")},
+			`Or set the name in its Use back to "kid"`,
+			func(t *testing.T, fs afero.Fs) {
+				t.Helper()
+				require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/kid/cmd.go", []byte(registeringSource("hook/kid")), 0o644))
+			},
+			[]string{"hook", "hook kid"},
+		},
+		"move the occupant out first": {
+			map[string]string{
+				"hook":        registeringSource("hook", "hook/kid", "hook/status"),
+				"hook/kid":    withUse("hook/kid", "status"),
+				"hook/status": withUse("hook/status", "health"),
+			},
+			"Move /work/pkg/cmd/hook/status to /work/pkg/cmd/hook/health with its constructor renamed from NewCmdStatus to NewCmdHealth first, " +
+				"then /work/pkg/cmd/hook/kid to /work/pkg/cmd/hook/status with its constructor renamed from NewCmdKid to NewCmdStatus",
+			func(t *testing.T, fs afero.Fs) {
+				t.Helper()
+				moveCommand(t, fs, "hook", "hook/status", "hook/health")
+				moveCommand(t, fs, "hook", "hook/kid", "hook/status")
+			},
+			[]string{"hook", "hook health", "hook status"},
+		},
+		"swap two commands in each other's places": {
+			map[string]string{
+				"hook":     registeringSource("hook", "hook/kid", "hook/one"),
+				"hook/kid": withUse("hook/kid", "one"),
+				"hook/one": withUse("hook/one", "kid"),
+			},
+			"Swap the two directories, so that /work/pkg/cmd/hook/", // completed below, as either may be met first
+
+			func(t *testing.T, fs afero.Fs) {
+				t.Helper()
+				moveCommand(t, fs, "hook", "hook/kid", "hook/tmp")
+				moveCommand(t, fs, "hook", "hook/one", "hook/kid")
+				moveCommand(t, fs, "hook", "hook/tmp", "hook/one")
+			},
+			[]string{"hook", "hook kid", "hook one"},
+		},
+		"rename one of two commands of one name": {
+			map[string]string{
+				"hook":      registeringSource("hook", "hook/kid2", "hook/kid"),
+				"hook/kid":  registeringSource("hook/kid"),
+				"hook/kid2": withUse("hook/kid2", "kid"),
+			},
+			"Rename one of them, then move each package to the directory its name gives, name its constructor NewCmd<Directory>",
+			func(t *testing.T, fs afero.Fs) {
+				t.Helper()
+				require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/kid2/cmd.go", []byte(withUse("hook/kid2", "eins")), 0o644))
+				moveCommand(t, fs, "hook", "hook/kid2", "hook/eins")
+			},
+			[]string{"hook", "hook eins", "hook kid"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs, g := subtreeProject(t, tc.sources)
+
+			err := g.RegenerateManifest(context.Background())
+			require.ErrorIs(t, err, ErrCommandMisplaced)
+			assert.Contains(t, errors.FlattenHints(err), tc.hint)
+
+			if strings.HasPrefix(tc.hint, "Swap") {
+				assert.Regexp(t, `moves to /work/pkg/cmd/hook/(one|kid) with its constructor renamed from NewCmd(Kid|One) to NewCmd(One|Kid) `+
+					`and /work/pkg/cmd/hook/(one|kid) moves to /work/pkg/cmd/hook/(one|kid) with its constructor renamed`, errors.FlattenHints(err))
+			}
+
+			tc.follow(t, fs)
+			require.NoError(t, g.RegenerateManifest(context.Background()))
+
+			_, m := readRoundTripManifest(t, fs)
+			assert.Equal(t, tc.want, commandPaths(m.Commands, ""))
+		})
+	}
+}
+
+// Moving a package without renaming its constructor leaves a registration the
+// scan cannot follow, and the rebuild stops rather than drop the command.
+func TestRegenerateManifest_RefusesARegistrationItCannotFollow(t *testing.T) {
+	t.Parallel()
+
+	fs, g := subtreeProject(t, nil)
+	moved := strings.Replace(registeringSource("hook", "hook/kid"), `"test-tool/pkg/cmd/hook/kid"`, `"test-tool/pkg/cmd/hook/child"`, 1)
+	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/cmd.go", []byte(moved), 0o644))
+	require.NoError(t, fs.Rename("/work/pkg/cmd/hook/kid", "/work/pkg/cmd/hook/child"))
+	before, _ := readRoundTripManifest(t, fs)
+
+	err := g.RegenerateManifest(context.Background())
+	require.ErrorIs(t, err, ErrCommandNotFound)
+	require.ErrorContains(t, err, "/work/pkg/cmd/hook registers NewCmdKid from /work/pkg/cmd/hook/child")
+	assert.Contains(t, errors.FlattenHints(err), "each file in /work/pkg/cmd/hook/child other than main.go, root.go and tests: NewCmdChild")
+
+	after, _ := readRoundTripManifest(t, fs)
+	assert.Equal(t, before, after, "nothing is written")
+}
+
+// The scan reads no command from root.go, so a constructor kept there is
+// refused like a moved one, and the hint names the file rather than a rename
+// that would change nothing.
+func TestRegenerateManifest_RefusesAConstructorInRootGo(t *testing.T) {
+	t.Parallel()
+
+	fs, g := subtreeProject(t, nil)
+	require.NoError(t, fs.Rename("/work/pkg/cmd/hook/kid/cmd.go", "/work/pkg/cmd/hook/kid/root.go"))
+
+	err := g.RegenerateManifest(context.Background())
+	require.ErrorIs(t, err, ErrCommandNotFound)
+	assert.Contains(t, errors.FlattenHints(err), "other than main.go, root.go and tests")
+	assert.Contains(t, errors.FlattenHints(err), "Move it out of root.go")
+}
+
+// A package the scan read one command from can still hold a registered
+// constructor it did not read, and that one would drop out of the manifest.
+func TestRegenerateManifest_RefusesAConstructorBesideAnotherCommand(t *testing.T) {
+	t.Parallel()
+
+	const util = `package child
+import "github.com/spf13/cobra"
+func helper() *cobra.Command { return &cobra.Command{Use: "helper"} }`
+
+	const other = `package kid
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+func NewCmdOther(props *props.Props) *setup.Command {
+	return setup.Wrap("other", &cobra.Command{Use: "other"})
+}`
+
+	for name, tc := range map[string]struct {
+		prepare func(t *testing.T, fs afero.Fs)
+		fn, dir string
+	}{
+		"two constructors in one package": {func(t *testing.T, fs afero.Fs) {
+			t.Helper()
+			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/kid/other.go", []byte(other), 0o644))
+			src := strings.Replace(registeringSource("hook", "hook/kid"), "\treturn cmd", "\tcmd.AddCommand(ca.NewCmdOther(props))\n\treturn cmd", 1)
+			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/cmd.go", []byte(src), 0o644))
+		}, "NewCmdOther", "/work/pkg/cmd/hook/kid"},
+		"a move half followed beside a cobra helper": {func(t *testing.T, fs afero.Fs) {
+			t.Helper()
+			src := strings.Replace(registeringSource("hook", "hook/kid"), `"test-tool/pkg/cmd/hook/kid"`, `"test-tool/pkg/cmd/hook/child"`, 1)
+			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/cmd.go", []byte(src), 0o644))
+			require.NoError(t, fs.Rename("/work/pkg/cmd/hook/kid", "/work/pkg/cmd/hook/child"))
+			require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/hook/child/util.go", []byte(util), 0o644))
+		}, "NewCmdKid", "/work/pkg/cmd/hook/child"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs, g := subtreeProject(t, nil)
+			tc.prepare(t, fs)
+			before, _ := readRoundTripManifest(t, fs)
+
+			err := g.RegenerateManifest(context.Background())
+			require.ErrorIs(t, err, ErrCommandNotFound)
+			require.ErrorContains(t, err, "/work/pkg/cmd/hook registers "+tc.fn+" from "+tc.dir)
+			assert.Contains(t, errors.FlattenHints(err), "Give "+tc.fn+" its own package at the directory its name gives")
+
+			after, _ := readRoundTripManifest(t, fs)
+			assert.Equal(t, before, after, "nothing is written")
+		})
+	}
+}
+
+// The package clause is the command's name as Go spells a package, so a
+// hyphenated name is not written as one.
+func TestNamesToFollow_SpellsThePackageAsGoDoes(t *testing.T) {
+	t.Parallel()
+
+	got := namesToFollow(&commandEntry{dir: "/work/pkg/cmd/hook/kid"}, "/work/pkg/cmd/hook/dry-run")
+	assert.Contains(t, got, "the package clause to package dry_run, the options type to DryRunOptions, the run function to RunDryRun")
+}
+
+// A registration the scan cannot follow into a package it did read, or one of a
+// function not named as a constructor, or one from outside pkg/cmd, is not a
+// package a move left behind, so the rebuild goes ahead as it always has.
+func TestRegenerateManifest_GoesAheadPastARegistrationNoMoveLeft(t *testing.T) {
+	t.Parallel()
+
+	const helper = `package hook
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	ca "test-tool/pkg/cmd/hook/kid"
+	REGISTRANT
+)
+func NewCmdHook(props *props.Props) *setup.Command {
+	cmd := setup.Wrap("hook", &cobra.Command{Use: "hook", Short: "hook"})
+	cmd.AddCommand(ca.NewCmdKid(props))
+	cmd.AddCommand(CALL)
+	return cmd
+}
+func newExtraCmd() *setup.Command {
+	return setup.Wrap("extra", &cobra.Command{Use: "extra"})
+}
+func NewCmdBeside() *setup.Command {
+	return setup.Wrap("beside", &cobra.Command{Use: "beside"})
+}`
+
+	for name, tc := range map[string]struct{ imp, call string }{
+		"a helper beside its parent":    {"", "newExtraCmd()"},
+		"a NewCmd beside its parent":    {"", "NewCmdBeside()"},
+		"a wrapper around a command":    {`shared "test-tool/pkg/cmd/shared"`, "shared.Hidden(ca.NewCmdKid(props))"},
+		"a constructor outside pkg/cmd": {`lib "test-tool/pkg/lib/extra"`, "lib.NewCmdExtra(props)"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs, g := subtreeProject(t, map[string]string{
+				"hook": strings.NewReplacer("REGISTRANT", tc.imp, "CALL", tc.call).Replace(helper),
+			})
+			require.NoError(t, g.RegenerateManifest(context.Background()))
+
+			_, m := readRoundTripManifest(t, fs)
+			assert.Equal(t, []string{"hook", "hook kid"}, commandPaths(m.Commands, ""))
+		})
+	}
+}
+
+// The check compares registrations against the module path, so a go.mod it
+// cannot read stops the rebuild rather than switch the check off.
+func TestRegenerateManifest_RefusesWithoutAModulePath(t *testing.T) {
+	t.Parallel()
+
+	fs, g := subtreeProject(t, nil)
+	require.NoError(t, fs.Remove("/work/go.mod"))
+
+	err := g.RegenerateManifest(context.Background())
+	require.ErrorIs(t, err, ErrCommandSourceUnreadable)
+	assert.Contains(t, errors.FlattenHints(err), "reads the module path from go.mod. Restore it")
+}
+
+// The scan reads no commands from internal, external or assets, so a
+// registration from one of them is not a command it lost.
+func TestRegenerateManifest_IgnoresARegistrationFromADirectoryItSkips(t *testing.T) {
+	t.Parallel()
+
+	for _, dir := range []string{"internal/extra", "external", "hook/assets"} {
+		fs, g := subtreeProject(t, map[string]string{"hook": registeringSource("hook", "hook/kid", dir)})
+		require.NoError(t, g.RegenerateManifest(context.Background()), dir)
+
+		_, m := readRoundTripManifest(t, fs)
+		assert.Equal(t, []string{"hook", "hook kid"}, commandPaths(m.Commands, ""), dir)
+	}
+}
+
+// A constructor registered twice by one command is one command, so the
+// manifest lists it once.
+func TestRegenerateManifest_RecordsARepeatedRegistrationOnce(t *testing.T) {
+	t.Parallel()
+
+	fs, g := subtreeProject(t, map[string]string{"hook": registeringSource("hook", "hook/kid", "hook/kid")})
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	_, m := readRoundTripManifest(t, fs)
+	assert.Equal(t, []string{"hook", "hook kid"}, commandPaths(m.Commands, ""))
+}
+
+// moveCommand moves the package at pkg/cmd/from to pkg/cmd/to, renames its
+// constructor after the new directory, and repoints the registrant at it.
+func moveCommand(t *testing.T, fs afero.Fs, registrant, from, to string) {
+	t.Helper()
+
+	oldFn, newFn := "NewCmd"+PascalCase(path.Base(from)), "NewCmd"+PascalCase(path.Base(to))
+
+	src, err := afero.ReadFile(fs, "/work/pkg/cmd/"+from+"/cmd.go")
+	require.NoError(t, err)
+	require.NoError(t, fs.RemoveAll("/work/pkg/cmd/"+from))
+	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/"+to+"/cmd.go",
+		[]byte(strings.Replace(string(src), "func "+oldFn+"(", "func "+newFn+"(", 1)), 0o644))
+
+	reg, err := afero.ReadFile(fs, "/work/pkg/cmd/"+registrant+"/cmd.go")
+	require.NoError(t, err)
+
+	alias := regexp.MustCompile(`(\w+) "test-tool/pkg/cmd/` + regexp.QuoteMeta(from) + `"`).FindStringSubmatch(string(reg))
+	require.NotNil(t, alias, "the registrant imports %s", from)
+
+	out := strings.Replace(string(reg), `"test-tool/pkg/cmd/`+from+`"`, `"test-tool/pkg/cmd/`+to+`"`, 1)
+	out = strings.Replace(out, alias[1]+"."+oldFn+"(", alias[1]+"."+newFn+"(", 1)
+	require.NoError(t, afero.WriteFile(fs, "/work/pkg/cmd/"+registrant+"/cmd.go", []byte(out), 0o644))
+}
+
+func commandPaths(cmds []ManifestCommand, prefix string) []string {
+	var out []string
+
+	for _, c := range cmds {
+		p := strings.TrimSpace(prefix + " " + c.Name)
+		out = append(out, p)
+		out = append(out, commandPaths(c.Commands, p)...)
+	}
+
+	return out
 }

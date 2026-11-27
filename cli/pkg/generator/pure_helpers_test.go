@@ -144,7 +144,7 @@ func TestMultilineString_MarshalYAML(t *testing.T) {
 func TestManifestCommand_MarshalYAML_DeprecatedHashMigration(t *testing.T) {
 	t.Parallel()
 
-	cmd := ManifestCommand{Name: "c", Hash: "deadbeef", Warning: "renamed"}
+	cmd := ManifestCommand{Name: "c", Hash: "deadbeef"}
 
 	out, err := yaml.Marshal(cmd)
 	require.NoError(t, err)
@@ -153,8 +153,6 @@ func TestManifestCommand_MarshalYAML_DeprecatedHashMigration(t *testing.T) {
 	// The deprecated single hash migrates into hashes[cmd.go] and clears `hash`.
 	assert.Contains(t, s, "cmd.go: deadbeef")
 	assert.NotRegexp(t, `(?m)^hash:`, s)
-	// Warning becomes a comment.
-	assert.Contains(t, s, "renamed")
 }
 
 func TestManifestFlag_MarshalYAML_Warning(t *testing.T) {

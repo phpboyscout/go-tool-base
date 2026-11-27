@@ -63,17 +63,6 @@ func TestVerifyProjectVersion(t *testing.T) {
 func TestManifest_MarshalYAML(t *testing.T) {
 	t.Parallel()
 
-	t.Run("ManifestCommand with warning", func(t *testing.T) {
-		cmd := ManifestCommand{
-			Name:    "warn-cmd",
-			Warning: "Careful here",
-		}
-		data, err := yaml.Marshal(cmd)
-		require.NoError(t, err)
-		assert.Contains(t, string(data), "name: warn-cmd")
-		assert.Contains(t, string(data), "Careful here")
-	})
-
 	t.Run("ManifestFlag with warning", func(t *testing.T) {
 		flag := ManifestFlag{
 			Name:    "warn-flag",

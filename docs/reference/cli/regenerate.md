@@ -195,26 +195,61 @@ warning otherwise.
 
 `regenerate project` puts each command at `pkg/cmd/<parent commands>/<name>`,
 and the root's own commands at `pkg/cmd/<name>`, so keep each package there:
-`pkg/cmd/serve/api/cmd.go` registers `pkg/cmd/serve/api/status`. Two cases
-stop the run before the manifest is written, and the error names the
-directories involved:
+`pkg/cmd/serve/api/cmd.go` registers `pkg/cmd/serve/api/status`. A manifest
+recording a command anywhere else is one `regenerate project` would break, by
+scaffolding a stub where it expects the command, so four cases stop the run
+before the manifest is written, and the error names the directories involved:
 
 - a registration from outside the directory that holds the registering
   command, such as `pkg/cmd/serve/api/cmd.go` registering
   `pkg/cmd/lib/status`. The hint gives the directory to move the package to.
-- a second registration, from another directory, of a package a command the
-  root reaches already registers, such as the root and `pkg/cmd/serve` both
-  registering `pkg/cmd/serve/api`. The hint names the registration to keep,
+- a second registration of a package a command the root reaches already
+  registers, such as the root and `pkg/cmd/serve` both registering
+  `pkg/cmd/serve/api`, or `pkg/cmd/serve` and `pkg/cmd/serve/api` both
+  registering `pkg/cmd/serve/status`. The hint names the registration to keep,
   here `serve`'s, because that is where `regenerate project` puts the package.
   When neither matches, it gives the directory to move the package to for each.
+- any other command the root reaches that is not at the directory its name and
+  its parents give, such as `pkg/cmd/serve/api` registering
+  `pkg/cmd/serve/status`, a command whose `Use` names it apart from its
+  directory, or a command in a `_legacy` or `testdata` directory. The hint
+  gives the directory to move the package to. When that directory holds
+  another command out of place, it says which to move first, or to swap the
+  two. When two commands beneath one parent share a name, and so want the same
+  directory, it asks for one to be renamed instead.
+- a registration of a `NewCmd…` constructor from another package under
+  `pkg/cmd` that the scan did not read as a command. That covers a package
+  moved without renaming its constructor, a second constructor in a package
+  beside its first, and a constructor in `root.go`. The manifest would drop
+  the command and everything beneath it.
 
-A package elsewhere in the directory that holds the registering command, such
-as `pkg/cmd/serve/api` registering `pkg/cmd/serve/status`, is recorded, and so
-is a package two commands in one directory both register. In both cases
-`regenerate project` then scaffolds a stub at the place it expects and the two
-disagree
-([#262](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/262)). A
-command that nothing reachable from the root registers is left out with an
+The scan finds a command's constructor as `NewCmd<Directory>`, such as
+`NewCmdStatus` in `pkg/cmd/serve/api/status`, or as a function returning
+`*cobra.Command`, in any file but `main.go`, `root.go` and tests. A generated
+constructor returns `*setup.Command`, so a package moved to a directory of
+another name needs its constructor renamed to match. `regenerate project` also
+names the package clause, the `<Name>Options` type, `Run<Name>` and the
+`setup.Wrap` feature after the command, and the hint lists those too. A
+command whose `Use` names it apart from its directory can instead have its
+`Use` set back to the directory's name. A constructor one command registers
+twice is recorded once.
+
+The scan follows a registration written as `cmd.AddCommand(pkg.NewCmdX(props))`,
+or through a short variable (`k := pkg.NewCmdX(props)`), at the top level of the
+constructor. It does not yet follow one made through a `var` declaration,
+inside an `if` block, or through a dot import, and such a command is left out
+of the manifest without a warning
+([#264](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/264)).
+
+The scan reads one command from each file. The manifest records only
+commands with a package of their own. A command built in its parent's own
+package, such as `cmd.AddCommand(newExtraCmd())` in `pkg/cmd/hook/cmd.go`, or
+by a call wrapped around a constructor, such as `shared.Hidden(...)`, is left
+out of the manifest without stopping the run, as it always has been. To have
+it recorded, give it its own package at the directory its name gives, with a
+`NewCmd<Directory>` constructor.
+
+A command that nothing reachable from the root registers is left out with an
 orphan warning.
 
 A loop that one directory's scan sees also stops the run before the manifest is

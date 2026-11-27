@@ -35,6 +35,16 @@ var ErrCommandCycle = errors.NewSentinel("gtb.generator.command_cycle", "command
 // the root already reaches. Nothing is written.
 var ErrCommandOutsideParent = errors.NewSentinel("gtb.generator.command_outside_parent", "command registration cannot be recorded in the manifest")
 
+// ErrCommandMisplaced is a manifest rebuild that met a command the root reaches
+// outside the directory regenerate project would put it in. Nothing is written.
+var ErrCommandMisplaced = errors.NewSentinel("gtb.generator.command_misplaced", "command is not where regenerate project puts it")
+
+// ErrCommandNotFound is a manifest rebuild that met a registration of a package
+// under pkg/cmd in which the scan finds no constructor of that name. The
+// manifest would drop the command and everything beneath it, so nothing is
+// written.
+var ErrCommandNotFound = errors.NewSentinel("gtb.generator.command_not_found", "registered command not found")
+
 func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -203,7 +213,15 @@ func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
 		return nil, err
 	}
 
+	if err := g.checkUnfoundRegistrations(roots); err != nil {
+		return nil, err
+	}
+
 	if err := checkUnlinkedRegistrations(roots); err != nil {
+		return nil, err
+	}
+
+	if err := checkPlacement(roots); err != nil {
 		return nil, err
 	}
 
@@ -212,19 +230,12 @@ func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
 	})
 
 	commands := make([]ManifestCommand, 0, len(roots))
-	seen := make(map[string]int)
-
-	appendCmd := func(c ManifestCommand) {
-		g.dedupeCommandName(&c, seen)
-
-		commands = append(commands, c)
-	}
 
 	for _, root := range roots {
 		if root.cmd.Name == "root" {
 			// If we found the root command, add its children as top-level commands
 			for _, child := range root.children {
-				appendCmd(g.buildCmdTree(child))
+				commands = append(commands, g.buildCmdTree(child))
 			}
 
 			continue
@@ -483,6 +494,204 @@ func registeredFromAnotherSubtree(parent, child *commandEntry) error {
 		child.dir, placedDir(parent, child.cmd.Name))
 }
 
+// checkPlacement stops the scan at a command the root reaches that is not
+// where regenerate project would scaffold it beneath each command registering
+// it, since that run would stub the command or list it twice (#262).
+func checkPlacement(roots []*commandEntry) error {
+	tree := indexScannedTree(roots)
+
+	if err := checkRegisteredTwice(tree); err != nil {
+		return err
+	}
+
+	placed := make(map[string]*commandEntry)
+
+	held := make(map[string]*commandEntry)
+	for _, entry := range tree.reachable {
+		held[entry.dir] = entry
+	}
+
+	for _, parent := range tree.reachable {
+		for _, child := range parent.children {
+			want := placedDir(parent, child.cmd.Name)
+
+			if child.dir != want {
+				if occupant := held[want]; occupant != nil && occupant.cmd.Name != child.cmd.Name {
+					return occupiedByAnother(parent, child, want, occupant, tree.placedUnder[occupant])
+				}
+
+				return misplaced(parent, child, want, held[want])
+			}
+
+			if other, ok := placed[want]; ok && other != child {
+				return misplaced(parent, child, want, other)
+			}
+
+			placed[want] = child
+		}
+	}
+
+	return nil
+}
+
+// checkRegisteredTwice stops at a command two commands the root reaches both
+// register, before either registration is judged on its own, so the hint can
+// name the one to keep rather than move a package one parent already had right.
+func checkRegisteredTwice(tree scannedTree) error {
+	first := make(map[*commandEntry]*commandEntry)
+
+	for _, parent := range tree.reachable {
+		for _, child := range parent.children {
+			if holder, seen := first[child]; seen {
+				return registeredTwice(parent, child, holder)
+			}
+
+			first[child] = parent
+		}
+	}
+
+	return nil
+}
+
+func misplaced(parent, child *commandEntry, want string, occupant *commandEntry) error {
+	err := errors.Newf("%w: %s registers %s as %q", ErrCommandMisplaced, parent.dir, child.dir, child.cmd.Name)
+
+	if occupant != nil {
+		return errors.WithHintf(err,
+			"regenerate project puts it at %s, which already holds another command named %q. "+
+				"Rename one of them, then move each package to the directory its name gives, "+
+				"name its constructor NewCmd<Directory>, and update the registration in %s. "+
+				"The manifest has not been changed.",
+			want, occupant.cmd.Name, parent.dir)
+	}
+
+	hint := fmt.Sprintf("regenerate project puts each command at pkg/cmd/<parent commands>/<name>, so it would stub "+
+		"this one at %s. Move %s there%s, and update the registration in %s.%s",
+		want, child.dir, constructorRename(child, want), parent.dir, namesToFollow(child, want))
+
+	if base := filepath.Base(child.dir); placedDir(parent, base) == child.dir && !outsidePatterns(base) {
+		hint += fmt.Sprintf(" Or set the name in its Use back to %q, which keeps it where it is.", base)
+	}
+
+	return errors.WithHint(err, hint+" The manifest has not been changed.")
+}
+
+// occupiedByAnother is a command whose place holds a command of another name,
+// itself out of place, so that one has to move first.
+func occupiedByAnother(parent, child *commandEntry, want string, occupant, occupantParent *commandEntry) error {
+	err := errors.Newf("%w: %s registers %s as %q", ErrCommandMisplaced, parent.dir, child.dir, child.cmd.Name)
+
+	occupantWant := placedDir(occupantParent, occupant.cmd.Name)
+
+	if occupantWant == child.dir {
+		return errors.WithHintf(err,
+			"regenerate project puts it at %s, which holds %q, a command it puts here. "+
+				"Swap the two directories, so that %s moves to %s%s and %s moves to %s%s, "+
+				"and update both registrations.%s%s The manifest has not been changed.",
+			want, occupant.cmd.Name,
+			child.dir, want, constructorRename(child, want),
+			occupant.dir, child.dir, constructorRename(occupant, child.dir),
+			namesToFollow(child, want), namesToFollow(occupant, child.dir))
+	}
+
+	return errors.WithHintf(err,
+		"regenerate project puts it at %s, which holds %q, a command it puts at %s. "+
+			"Move %s to %s%s first, then %s to %s%s, and update both registrations.%s%s "+
+			"The manifest has not been changed.",
+		want, occupant.cmd.Name, occupantWant,
+		occupant.dir, occupantWant, constructorRename(occupant, occupantWant),
+		child.dir, want, constructorRename(child, want),
+		namesToFollow(occupant, occupantWant), namesToFollow(child, want))
+}
+
+// namesToFollow lists what else regenerate project names after a command, for
+// a package moving to a directory of another name: the package clause, the
+// options type, the run function and the setup.Wrap feature. Without them the
+// next regenerate stubs a second run function beside the first.
+func namesToFollow(entry *commandEntry, dir string) string {
+	name := filepath.Base(dir)
+	if filepath.Base(entry.dir) == name {
+		return ""
+	}
+
+	pascal := PascalCase(name)
+
+	return fmt.Sprintf(" In %s, also rename whichever of these it has to match %q: the package clause "+
+		"to package %s, the options type to %sOptions, the run function to Run%s, and the setup.Wrap name.",
+		entry.dir, name, commandPackageName(name), pascal, pascal)
+}
+
+// constructorRename says how to rename a command's constructor for the scan to
+// find it at dir, which reads it as NewCmd<Directory>, or nothing when its
+// name already matches.
+func constructorRename(entry *commandEntry, dir string) string {
+	want := "NewCmd" + PascalCase(filepath.Base(dir))
+
+	have := entry.constructorName[strings.LastIndex(entry.constructorName, ".")+1:]
+	if have == want {
+		return ""
+	}
+
+	return fmt.Sprintf(" with its constructor renamed from %s to %s", have, want)
+}
+
+// checkUnfoundRegistrations stops at a command the root reaches that registers
+// a NewCmd constructor from another package under pkg/cmd that the scan did not
+// read as a command, such as a package moved without renaming its constructor,
+// which would otherwise drop out of the manifest unannounced. A helper in the
+// registrant's own package, such as newExtraCmd, is left out as before.
+func (g *Generator) checkUnfoundRegistrations(roots []*commandEntry) error {
+	tree := indexScannedTree(roots)
+
+	moduleName, err := g.getModuleName()
+	if err != nil {
+		return errors.WithHintf(errors.Newf("%w: %s: %w", ErrCommandSourceUnreadable, filepath.Join(g.config.Path, "go.mod"), err),
+			"regenerate manifest reads the module path from go.mod. Restore it and run it again. "+
+				"The manifest has not been changed.")
+	}
+
+	cmdPkg := moduleName + "/pkg/cmd/"
+
+	for _, parent := range tree.reachable {
+		ownPkg, _ := splitConstructor(parent.constructorName)
+
+		for _, constructor := range parent.subcommandFuncs {
+			pkgPath, fn := splitConstructor(constructor)
+
+			if !strings.HasPrefix(fn, "NewCmd") || !strings.HasPrefix(pkgPath, cmdPkg) ||
+				pkgPath == ownPkg || tree.scanned[constructor] != nil ||
+				slices.ContainsFunc(strings.Split(strings.TrimPrefix(pkgPath, cmdPkg), "/"), notScanned) {
+				continue
+			}
+
+			return commandNotFound(parent, fn, filepath.Join(g.config.Path, strings.TrimPrefix(pkgPath, moduleName)))
+		}
+	}
+
+	return nil
+}
+
+// splitConstructor parts a scanned constructor name, <package path>.<func>.
+func splitConstructor(constructor string) (pkgPath, fn string) {
+	at := strings.LastIndex(constructor, ".")
+	if at < 0 {
+		return "", constructor
+	}
+
+	return constructor[:at], constructor[at+1:]
+}
+
+func commandNotFound(parent *commandEntry, fn, dir string) error {
+	return errors.WithHintf(
+		errors.Newf("%w: %s registers %s from %s", ErrCommandNotFound, parent.dir, fn, dir),
+		"The scan reads one command from each file in %s other than main.go, root.go and tests: "+
+			"%s, or else the first function returning *cobra.Command. Give %s its own package at the directory "+
+			"its name gives, or, when it is the package's only command, rename it to match its directory. "+
+			"Move it out of root.go, or fix the registration. "+
+			"The manifest has not been changed.",
+		dir, "NewCmd"+PascalCase(filepath.Base(dir)), fn)
+}
+
 // placedDir is where regenerate project scaffolds a command named name beneath
 // registrant. The root lives in pkg/cmd/root, but its commands sit in pkg/cmd.
 func placedDir(registrant *commandEntry, name string) string {
@@ -508,6 +717,12 @@ func hiddenFromGo(name string) bool {
 	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
 }
 
+// notScanned names the directories under pkg/cmd that hold no commands: the
+// embedded assets, helpers, and the author-owned external adapter.
+func notScanned(name string) bool {
+	return name == "assets" || name == "internal" || name == "external"
+}
+
 // outsidePatterns reports whether the go command leaves the directory out of
 // patterns. A build still takes a package there that another imports.
 func outsidePatterns(name string) bool {
@@ -520,7 +735,7 @@ func unreadableSource(path string, err error) error {
 }
 
 func (g *Generator) processDirectoryEntry(dir string, entry os.FileInfo, unread *[]unreadDir) ([]*commandEntry, error) {
-	if entry.Name() == "assets" || entry.Name() == "internal" || entry.Name() == "external" {
+	if notScanned(entry.Name()) {
 		return nil, nil
 	}
 
@@ -579,8 +794,8 @@ func (g *Generator) linkParentChild(allCommands []*commandEntry) map[*commandEnt
 	for _, parent := range allCommands {
 		for _, subFunc := range parent.subcommandFuncs {
 			if child, ok := cmdMap[subFunc]; ok {
-				// Avoid self-nesting or cycles
-				if child != parent {
+				// A constructor registered twice is one command, recorded once.
+				if child != parent && !slices.Contains(parent.children, child) {
 					parent.children = append(parent.children, child)
 					// Mark child as handled (not a root for this level)
 					childSet[child] = true
@@ -614,35 +829,9 @@ func (g *Generator) buildCmdTree(entry *commandEntry) ManifestCommand {
 		return entry.children[i].cmd.Name < entry.children[j].cmd.Name
 	})
 
-	seen := make(map[string]int)
-
 	for _, child := range entry.children {
-		childCmd := g.buildCmdTree(child)
-
-		g.dedupeCommandName(&childCmd, seen)
-
-		cmd.Commands = append(cmd.Commands, childCmd)
+		cmd.Commands = append(cmd.Commands, g.buildCmdTree(child))
 	}
 
 	return cmd
-}
-
-// dedupeCommandName renames c in place to "<name>-<n>" when its name has already
-// been seen at this level, recording the collision warning on the command and
-// logging it. seen maps each base name to how many times it has appeared.
-func (g *Generator) dedupeCommandName(c *ManifestCommand, seen map[string]int) {
-	count, ok := seen[c.Name]
-	if !ok {
-		seen[c.Name] = 1
-
-		return
-	}
-
-	count++
-	seen[c.Name] = count
-
-	oldName := c.Name
-	c.Name = fmt.Sprintf("%s-%d", oldName, count)
-	c.Warning = fmt.Sprintf("Duplicate command name detected: %s. Renamed to %s to avoid collision.", oldName, c.Name)
-	g.props.Logger.Warn(c.Warning)
 }

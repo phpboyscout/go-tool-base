@@ -217,7 +217,6 @@ type ManifestCommand struct {
 	RequiredTogether  [][]string        `yaml:"required_together,omitempty"`
 	Flags             []ManifestFlag    `yaml:"flags,omitempty"`
 	Commands          []ManifestCommand `yaml:"commands,omitempty"`
-	Warning           string            `yaml:"-"` // Used for comments
 }
 
 // ManifestMCPHints is the manifest spelling of [setup.MCPHints]: the display
@@ -284,20 +283,6 @@ func (c ManifestCommand) MarshalYAML() (any, error) {
 	node := &yaml.Node{}
 	if err := node.Encode(alias); err != nil {
 		return nil, errors.Wrap(err, "failed to encode manifest command")
-	}
-
-	if c.Warning != "" {
-		// Set comment on the name value
-		for i := 0; i < len(node.Content); i += 2 {
-			key := node.Content[i]
-			if key.Value == "name" {
-				node.Content[i+1].LineComment = c.Warning
-
-				break
-			}
-		}
-		// Also set on the node itself just in case
-		node.HeadComment = "# " + c.Warning
 	}
 
 	return node, nil
