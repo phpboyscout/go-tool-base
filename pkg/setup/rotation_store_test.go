@@ -133,6 +133,71 @@ func TestRotationStore_SaveNamesEveryRevokeItWouldDrop(t *testing.T) {
 	}
 }
 
+// failingFs fails the write of the temporary record, or the rename over the
+// stored one.
+type failingFs struct {
+	afero.Fs
+	failWrite, failRename bool
+}
+
+var errInjected = errors.New("injected failure")
+
+func (f failingFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
+	if f.failWrite && strings.HasSuffix(name, ".tmp") {
+		return nil, errInjected
+	}
+
+	return f.Fs.OpenFile(name, flag, perm)
+}
+
+func (f failingFs) Rename(oldname, newname string) error {
+	if f.failRename {
+		return errInjected
+	}
+
+	return f.Fs.Rename(oldname, newname)
+}
+
+// A Save that could not write or replace the record reports it, so the updater
+// never believes a revoke is stored when it is not.
+func TestRotationStore_SaveReportsAFailedWrite(t *testing.T) {
+	t.Parallel()
+
+	stored := verify.RotationRecord{Epoch: 1, Revoked: []string{"AAAA"}}
+
+	for name, fs := range map[string]failingFs{
+		"the temporary write": {failWrite: true},
+		"the rename":          {failRename: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fs.Fs = afero.NewMemMapFs()
+			require.NoError(t, newRotationStore(fs.Fs, rotationTestDir).Save(t.Context(), stored))
+
+			err := newRotationStore(fs, rotationTestDir).Save(t.Context(), verify.RotationRecord{Epoch: 2, Revoked: []string{"AAAA", "BBBB"}})
+			require.ErrorIs(t, err, errInjected)
+
+			got, err := newRotationStore(fs.Fs, rotationTestDir).Load(t.Context())
+			require.NoError(t, err)
+			assert.Equal(t, stored, got, "the stored record is unchanged")
+		})
+	}
+}
+
+// An epoch is never reissued, so a record at the stored epoch with another
+// revoke is refused, as one with another added key is.
+func TestRotationStore_SaveRefusesOtherRevokesAtTheStoredEpoch(t *testing.T) {
+	t.Parallel()
+
+	store := newRotationStore(afero.NewMemMapFs(), rotationTestDir)
+	require.NoError(t, store.Save(t.Context(), verify.RotationRecord{Epoch: 2, Revoked: []string{"AAAA"}}))
+
+	err := store.Save(t.Context(), verify.RotationRecord{Epoch: 2, Revoked: []string{"AAAA", "BBBB"}})
+	require.ErrorIs(t, err, verify.ErrRotationRefused)
+	require.ErrorContains(t, err, "epoch 2 is already stored with different keys")
+}
+
 // slowReadFs pauses each open of the rotation record, so unserialised Saves
 // all read it before any of them writes it.
 type slowReadFs struct{ afero.Fs }
