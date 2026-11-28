@@ -19,13 +19,13 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
-	gitlab.com/phpboyscout/go-tool-base v0.54.0
-	gitlab.com/phpboyscout/go/chat v0.39.0
+	gitlab.com/phpboyscout/go-tool-base v0.55.1
+	gitlab.com/phpboyscout/go/chat v0.41.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.22.2
 	gitlab.com/phpboyscout/go/chat-bedrock v0.9.1
 	gitlab.com/phpboyscout/go/chat-gemini v0.21.1
 	gitlab.com/phpboyscout/go/chat-mcptools v0.3.2
-	gitlab.com/phpboyscout/go/chat-openai v0.22.1
+	gitlab.com/phpboyscout/go/chat-openai v0.22.3
 	gitlab.com/phpboyscout/go/chat-openai-azure v0.3.5
 	gitlab.com/phpboyscout/go/config v0.21.4
 	gitlab.com/phpboyscout/go/config-toml v0.3.14
@@ -154,7 +154,7 @@ require (
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/openai/openai-go/v3 v3.99.0 // indirect
+	github.com/openai/openai-go/v3 v3.105.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/rivo/uniseg v0.4.8-0.20261110175422-3a370411ca06 // indirect
@@ -221,10 +221,10 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.52.1-0.20261106145633-d407941a339a // indirect
-	google.golang.org/api v0.316.0 // indirect
+	google.golang.org/api v0.317.0 // indirect
 	google.golang.org/genai v1.77.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261110000943-09e21b237f2c // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261118221215-c8830f628b3f // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
