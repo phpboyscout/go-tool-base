@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.55.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.55.2)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.55.1...v0.55.2)
+
+### Bug Fixes
+
+- **deps**: update go modules ([d1cfa39](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1cfa394ff294cd1c9f4f7a5952ca03f5c5ec05e))
+
 ## [v0.55.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.55.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.55.0...v0.55.1)
